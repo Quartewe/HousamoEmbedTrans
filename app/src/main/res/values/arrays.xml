@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Housamo (Tokyo Afterschool Summoners) 包名 -->
+    <string-array name="xposed_scope">
+        <item>com.lifewonders.tokyoafterschoolsummoners</item>
+    </string-array>
+</resources>

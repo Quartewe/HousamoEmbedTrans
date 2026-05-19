@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- LSPosed 模块标记 -->
+    <application>
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Housamo AI real-time translation — intercepts IL2CPP PageTextChange to replace Japanese text with translated output." />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="82" />
+        <!-- 模块作用域：限定目标游戏 -->
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+    </application>
+
+    <!-- 资源：作用域列表 -->
+    <!-- 使用通配符资源以防后期变更 -->
+</manifest>
