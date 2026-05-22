@@ -13,10 +13,11 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
 // ═══════════ Il2CppDumper 导出 RVA (arm64-v8a) ═══════════
-#define RVA_PAGE_TEXT_CHANGE 0x216CE80
-#define RVA_DO_COMMAND       0x2128D00
-#define RVA_ADD_SELECTION    0x216F7B8
-#define RVA_SELECTION_SHOW   0x216FBE0
+#define RVA_InitBase         0x211FCD8  // AdvCommand.InitFromPageData 基类
+#define RVA_InitText         0x2128B8C  // AdvCommandText.InitFromPageData 覆盖版
+#define RVA_PageTextChange   0x216CE80  // AdvMessageWindow.PageTextChange
+#define RVA_AddSelection     0x216F7B8  // AdvSelectionManager.AddSelection
+#define RVA_ShowSelection    0x216FBE0  // AdvSelectionManager.Show
 
 // ═══════════ IL2CPP API 类型 ═══════════
 struct Il2CppObject { void* klass; void* monitor; };

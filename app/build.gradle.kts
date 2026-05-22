@@ -1,20 +1,20 @@
 plugins {
-    id("com.android.application")
+    alias(libs.plugins.android.application)
 }
 
 android {
-    namespace = "com.housamo.lsposed"
-    compileSdk = 34
+    namespace = "com.quarty.housamoembedtrans"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.housamo.lsposed"
-        minSdk = 26
-        targetSdk = 34
+        applicationId = "com.quarty.housamoembedtrans"
+        minSdk = 28
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a")
         }
 
         externalNativeBuild {
@@ -22,12 +22,18 @@ android {
                 arguments += listOf(
                     "-DANDROID_STL=c++_static"
                 )
-                cppFlags += listOf("-std=c++17", "-fno-exceptions", "-fno-rtti", "-fvisibility=hidden", "-fvisibility-inlines-hidden")
+                cppFlags += listOf(
+                    "-std=c++17",
+                    "-fno-exceptions",
+                    "-fno-rtti",
+                    "-fvisibility=hidden",
+                    "-fvisibility-inlines-hidden"
+                )
             }
         }
     }
 
-    // No activity needed — LSPosed module has no UI
+    // LSPosed 模块无需 Activity（纯后台 Hook）
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -48,12 +54,13 @@ android {
 }
 
 dependencies {
-    // LSPosed API (compileOnly — not bundled into APK, provided by framework)
-    compileOnly("de.robv.android.xposed:api:82")
+    // LSPosed API — compileOnly: 由框架运行时提供，不打包进 APK
+    compileOnly(libs.xposed.api)
+    // AndroidX AppCompat — 设置界面需要
+    implementation(libs.androidx.appcompat)
 }
 
-// ═══════ LSPosed 模块发布时不能包含 xposed API jar ═══════
-// compileOnly 已确保不会打包进 APK，下方做二次保险
+// ═══════ 确保 xposed API jar 不会被打包 ═══════
 afterEvaluate {
     tasks.findByName("mergeReleaseJavaResource")?.enabled = false
 }

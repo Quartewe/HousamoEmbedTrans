@@ -1,14 +1,5 @@
-// Top-level build file
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.1.0")
-    }
-}
-
-tasks.register("clean", Delete::class) {
-    delete(rootProject.layout.buildDirectory)
+// Top-level build file — 使用 Version Catalog 管理依赖版本
+// 参考: https://developer.android.com/build
+plugins {
+    alias(libs.plugins.android.application) apply false
 }
