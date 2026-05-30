@@ -1,29 +1,36 @@
-cmake_minimum_required(VERSION 3.22.1)
+﻿cmake_minimum_required(VERSION 3.22.1)
 project("housamo_trans")
 
-# ═══════ 源文件 ═══════
+# Configure Dobby sub-project
+# Disable unnecessary Dobby build options and logs
+set(Plugin_Platform "Android" CACHE STRING "")
+set(DOBBY_GENERATE_SHARED OFF CACHE BOOL "")
+add_subdirectory(src/main/jni/Dobby)
+
+# Source files
 add_library(housamo_trans SHARED
     src/main/jni/init.cpp
-    src/main/jni/il2cpp_hooks.cpp
-    src/main/jni/translation.cpp
-    src/main/jni/dobby.cpp
+    src/main/jni/hook.cpp
+    src/main/jni/ilcpp_reader.cpp
 )
 
-# ═══════ 头文件路径 ═══════
+# Header file paths
 target_include_directories(housamo_trans PRIVATE
     src/main/jni
+    src/main/jni/Dobby/include
 )
 
-# ═══════ 链接库 ═══════
+# Link libraries
 find_library(log-lib log)
 find_library(dl-lib dl)
 
 target_link_libraries(housamo_trans
     ${log-lib}
     ${dl-lib}
+    dobby
 )
 
-# ═══════ 编译选项 ═══════
+# Compile options
 target_compile_options(housamo_trans PRIVATE
     -std=c++17
     -fno-exceptions
@@ -34,7 +41,7 @@ target_compile_options(housamo_trans PRIVATE
     -ffunction-sections
 )
 
-# ═══════ 去除未使用的符号 ═══════
+# Strip unused symbols
 target_link_options(housamo_trans PRIVATE
     -Wl,--gc-sections
     -Wl,--strip-all

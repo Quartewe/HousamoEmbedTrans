@@ -1,0 +1,235 @@
+{
+    // Guilds
+    "バーサーカーズ":{
+        "en": "Berserkers",
+        "zh-tw": "狂戰士",
+        "zh-cn": "狂暴战士"
+    },
+    "ワイズメン":{
+        "en": "The Wisemen",
+        "zh-tw": "賢者",
+        "zh-cn": "贤者"
+    },
+    "ミッショネルズ":{
+        "en": "Missionaries",
+        "zh-tw": "傳道師",
+        "zh-cn": "传教士"
+    },
+    "タイクーンズ":{
+        "en": "Tycoons",
+        "zh-tw": "大君",
+        "zh-cn": "大君"
+    },
+    "エンタティナーズ":{
+        "en": "Entertainers",
+        "zh-tw": "演藝家",
+        "zh-cn": "演艺家"
+    },
+    "サモナーズ":{
+        "en": "Summoners",
+        "zh-tw": "召喚師",
+        "zh-cn": "召唤师"
+    },
+    "アウトローズ":{
+        "en": "Outlaws",
+        "zh-tw": "亡命之徒",
+        "zh-cn": "法外者"
+    },
+    "エージェンツ":{
+        "en": "Agents",
+        "zh-tw": "特務",
+        "zh-cn": "特工"
+    },
+    "ゲームマスターズ":{
+        "en": "Game Masters",
+        "zh-tw": "GameMasters",
+        "zh-cn": "游戏管理员"
+    },
+    "ジェノサイダーズ":{
+        "en": "Genociders",
+        "zh-tw": "屠殺者",
+        "zh-cn": "屠戮者"
+    },
+    "ビーストテイマーズ":{
+        "en": "Beast Tamers",
+        "zh-tw": "馴獸師",
+        "zh-cn": "驯兽师"
+    },
+    "クラフターズ":{
+        "en": "Crafters",
+        "zh-tw": "技師",
+        "zh-cn": "技师"
+    },
+    "ルールメイカーズ":{
+        "en": "Rule Makers",
+        "zh-tw": "立法者",
+        "zh-cn": "立法者"
+    },
+    "ウォーモンガーズ":{
+        "en": "Warmongers",
+        "zh-tw": "好戰者",
+        "zh-cn": "好战者"
+    },
+    "インベイダーズ":{
+        "en": "Invaders",
+        "zh-tw": "入侵者",
+        "zh-cn": "入侵者"
+    },
+    "タオシーズ":{
+        "en": "Gurus",
+        "zh-tw": "道士",
+        "zh-cn": "道士"
+    },
+    "クリエイターズ":{
+        "en": "Creators",
+        "zh-tw": "創作家",
+        "zh-cn": "创作者"
+    },
+    "ワンダラーズ":{
+        "en": "Wanderers",
+        "zh-tw": "流浪者",
+        "zh-cn": "流浪者"
+    },
+    "エクスターズ":{
+        "en": "Exters",
+        "zh-tw": "外部之星",
+        "zh-cn": "外部之星"
+    },
+    // Worlds
+    "タカマガハラ":{
+        "en": "Takamagahara",
+        "zh-tw": "高天原",
+        "zh-cn": "高天原"
+    },
+    "ワノクニ":{
+        "en": "Land of Wa",
+        "zh-tw": "和國",
+        "zh-cn": "和国"
+    },
+    "カムイコタン":{
+        "en": "Kamuy Kotan",
+        "zh-tw": "神居之所",
+        "zh-cn": "神居古潭"
+    },
+    "ホウライ":{
+        "en": "Hourai",
+        "zh-tw": "蓬萊",
+        "zh-cn": "蓬莱"
+    },
+    "ガローデマーン":{
+        "en": "Midearth",
+        "zh-tw": "加洛德滿",
+        "zh-cn": "光明天"
+    },
+    "デーヴァローカ":{
+        "en": "Devaloka",
+        "zh-tw": "提婆",
+        "zh-cn": "天界"
+    },
+    "ニライカナイ":{
+        "en": "Nirai Kanai",
+        "zh-tw": "理想鄉",
+        "zh-cn": "龙宫"
+    },
+    "海内世界":{
+        "en": "Oceanic Realm",
+        "zh-tw": "海內世界",
+        "zh-cn": "海内世界"
+    },
+    "ザナドゥ":{
+        "en": "Xanadu",
+        "zh-tw": "上都",
+        "zh-cn": "上都"
+    },
+    "シャングリラ":{
+        "en": "Shangri-La",
+        "zh-tw": "香格里拉",
+        "zh-cn": "香格里拉"
+    },
+    "ユグドラシル":{
+        "en": "Yggdrasil",
+        "zh-tw": "尤克特拉希爾",
+        "zh-cn": "世界树"
+    },
+    "キーテジ":{
+        "en": "Kitezh",
+        "zh-tw": "奇鐵茲",
+        "zh-cn": "奇铁兹"
+    },
+    "アァル":{
+        "en": "Aaru",
+        "zh-tw": "雅盧",
+        "zh-cn": "雅卢"
+    },
+    "エデン":{
+        "en": "Eden",
+        "zh-tw": "伊甸",
+        "zh-cn": "伊甸"
+    },
+    "エルドラド":{
+        "en": "El Dorado",
+        "zh-tw": "艾爾多拉德",
+        "zh-cn": "黄金国"
+    },
+    "オールドワンズ":{
+        "en": "Old Ones",
+        "zh-tw": "舊日支配者",
+        "zh-cn": "旧支配者"
+    },
+    "オリュンポス":{
+        "en": "Olympus",
+        "zh-tw": "奧林帕斯",
+        "zh-cn": "奥林匹斯"
+    },
+    "グレイトスピリット":{
+        "en": "Great Spirit",
+        "zh-tw": "偉大之靈",
+        "zh-cn": "伟大奥秘"
+    },
+    "ゲヘナ":{
+        "en": "Gehenna",
+        "zh-tw": "欣嫩谷",
+        "zh-cn": "欣嫩子谷"
+    },
+    "ティルナノグ":{
+        "en": "Tir Na Nog",
+        "zh-tw": "提爾納諾",
+        "zh-cn": "提尔纳诺"
+    },
+    "バブイル":{
+        "en": "Babilim",
+        "zh-tw": "巴別",
+        "zh-cn": "巴比伦"
+    },
+    "ユートピア":{
+        "en": "Utopia",
+        "zh-tw": "烏托邦",
+        "zh-cn": "乌托邦"
+    },
+    "アギシュムバ":{
+        "en": "Agisymba",
+        "zh-tw": "阿吉辛巴",
+        "zh-cn": "阿吉辛巴"
+    },
+    // Other terms
+    "例外処理":{
+        "en": "Exception",
+        "zh-tw": "例外處理",
+        "zh-cn": "例外处理"
+    },
+    "転光生":{
+        "en": "Transient",
+        "zh-tw": "轉光生",
+        "zh-cn": "转光生"
+    },
+    "世界代行者":{
+        "en": "World Representative",
+        "zh-tw": "世界代理人",
+        "zh-cn": "世界代理人"
+    },
+    "世界柱":{
+        "en": "Pillar",
+        "zh-tw": "世界柱",
+        "zh-cn": "世界柱"
+    }
+}

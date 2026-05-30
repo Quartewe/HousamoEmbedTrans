@@ -2,6 +2,6 @@
 <resources>
     <!-- Housamo (Tokyo Afterschool Summoners) 包名 -->
     <string-array name="xposed_scope">
-        <item>com.lifewonders.tokyoafterschoolsummoners</item>
+        <item>jp.co.lifewonders.housamo</item>
     </string-array>
 </resources>

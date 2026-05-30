@@ -14,3 +14,7 @@
 *.jks
 *.keystore
 /.github
+/.codex
+/.vscode
+AGENTS.md
+PLAN.md
