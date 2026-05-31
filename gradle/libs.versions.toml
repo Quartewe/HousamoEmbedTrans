@@ -3,6 +3,8 @@
 agp = "9.2.1"
 # Xposed API (compileOnly — 由 LSPosed 框架运行时提供)
 xposed-api = "82"
+# ShadowHook — Android inline hook 库
+shadowhook = "2.0.0"
 # AndroidX & UI 库（备用，LSPosed 模块通常不需要）
 coreKtx = "1.10.1"
 junit = "4.13.2"
@@ -15,6 +17,8 @@ constraintlayout = "2.1.4"
 [libraries]
 # Xposed API — compileOnly，不打包进 APK
 xposed-api = { group = "de.robv.android.xposed", name = "api", version.ref = "xposed-api" }
+# ShadowHook — Maven Central + Prefab 接入
+shadowhook = { group = "com.bytedance.android", name = "shadowhook", version.ref = "shadowhook" }
 
 # AndroidX & UI 库
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

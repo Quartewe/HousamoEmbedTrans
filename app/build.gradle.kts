@@ -33,10 +33,23 @@ android {
         }
     }
 
+    buildFeatures {
+        prefab = true
+    }
+
     // LSPosed 模块无需 Activity（纯后台 Hook）
     buildTypes {
         release {
             isMinifyEnabled = false
+        }
+    }
+
+    packaging {
+        jniLibs {
+            pickFirsts += listOf(
+                "**/libshadowhook.so",
+                "**/libshadowhook_nothing.so"
+            )
         }
     }
 
@@ -56,6 +69,8 @@ android {
 dependencies {
     // LSPosed API — compileOnly: 由框架运行时提供，不打包进 APK
     compileOnly(libs.xposed.api)
+    // ShadowHook — Android inline hook
+    implementation(libs.shadowhook)
     // AndroidX AppCompat — 设置界面需要
     implementation(libs.androidx.appcompat)
 }

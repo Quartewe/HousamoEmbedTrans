@@ -1,6 +1,6 @@
 #include <cstdint>
 #include "housamo.hpp"
-#include "dobby.h"
+#include "shadowhook.h"
 
 #define Offset_InitBase 0x211FCD8
 #define Offset_InitText 0x2128B8C
@@ -10,6 +10,10 @@ using RawFuncPtr = void (*)(void* self, void* pageData);
 // 原函数指针
 static RawFuncPtr RawInitBase = nullptr; // 所有内容
 static RawFuncPtr RawInitText = nullptr; // Text专用
+
+// ShadowHook stub 指针（用于 unhook）
+static void* StubInitBase = nullptr;
+static void* StubInitText = nullptr;
 
 static void HookInitBase(void* self, void* pageData) {
 
@@ -48,12 +52,24 @@ bool install_hook(uintptr_t il2cpp_base) {
     void* targetBase = (void*)(il2cpp_base + Offset_InitBase);
     void* targetText = (void*)(il2cpp_base + Offset_InitText);
 
-    // 安装钩子
-    if (DobbyHook(targetBase, (void*)HookInitBase, (void**)&RawInitBase) != 0) {
-        LOGE("Failed to hook InitBase");
+    // 使用 ShadowHook 安装钩子
+    StubInitBase = shadowhook_hook_func_addr(
+        targetBase,
+        (void*)HookInitBase,
+        (void**)&RawInitBase
+    );
+    if (StubInitBase == nullptr) {
+        int err = shadowhook_get_errno();
+        LOGE("shadowhook InitBase failed: %d %s", err, shadowhook_to_errmsg(err));
         return false;
     }
-    // DobbyHook(targetText, (void*)HookInitText, (void**)&RawInitText);
+    LOGI("shadowhook InitBase success stub=%p", StubInitBase);
+
+    // StubInitText = shadowhook_hook_func_addr(
+    //     targetText,
+    //     (void*)HookInitText,
+    //     (void**)&RawInitText
+    // );
 
     return true;
 }
