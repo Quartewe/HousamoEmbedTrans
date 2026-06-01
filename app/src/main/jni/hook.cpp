@@ -2,9 +2,6 @@
 #include "housamo.hpp"
 #include "shadowhook.h"
 
-#define Offset_InitBase 0x211FCD8
-#define Offset_InitText 0x2128B8C
-
 using RawFuncPtr = void (*)(void* self, void* pageData);
 
 // 原函数指针
@@ -16,11 +13,11 @@ static void* StubInitBase = nullptr;
 static void* StubInitText = nullptr;
 
 static void HookInitBase(void* self, void* pageData) {
-
     if (pageData == nullptr) {
         LOGE("pageData is nullptr!"); 
         if (RawInitBase) {
             RawInitBase(self, pageData);
+            return;
         }
     };
 
@@ -44,13 +41,30 @@ static void HookInitBase(void* self, void* pageData) {
     if (RawInitBase) {
         // 调用原函数
         RawInitBase(self, pageData);
+        return;
     }
 }
 
-bool install_hook(uintptr_t il2cpp_base) {
+// static void HookInitText(void* self, void* pageData) {
+//     if (pageData == nullptr) {
+//         LOGE("pageData is nullptr!"); 
+//         if (RawInitText) {
+//             RawInitText(self, pageData);
+//             return;
+//         }
+//     };
+
+//     if (RawInitText) {
+//         // 调用原函数
+//         RawInitText(self, pageData);
+//         return;
+//     }
+// }
+
+bool install_hook(uintptr_t il2cpp_base, RvaConfig config) {
     // 计算目标函数地址
-    void* targetBase = (void*)(il2cpp_base + Offset_InitBase);
-    void* targetText = (void*)(il2cpp_base + Offset_InitText);
+    void* targetBase = (void*)(il2cpp_base + config.init_base);
+    void* targetText = (void*)(il2cpp_base + config.init_text);
 
     // 使用 ShadowHook 安装钩子
     StubInitBase = shadowhook_hook_func_addr(

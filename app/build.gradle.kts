@@ -71,6 +71,8 @@ dependencies {
     compileOnly(libs.xposed.api)
     // ShadowHook — Android inline hook
     implementation(libs.shadowhook)
+    // Material Components — 主题样式需要
+    implementation(libs.material)
     // AndroidX AppCompat — 设置界面需要
     implementation(libs.androidx.appcompat)
 }

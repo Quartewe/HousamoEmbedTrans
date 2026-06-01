@@ -7,9 +7,6 @@
 #include <android/log.h>
 #include <cstdint>
 #include <cstddef>
-// #include <nlohmann/json.hpp>
-
-// using json = nlohmann::json;
 
 // 日志宏
 #define LOG_TAG "HousamoTrans"
@@ -18,8 +15,14 @@
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN,  LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
+// RVA结构体
+struct RvaConfig {
+    uintptr_t init_base = 0;
+    uintptr_t init_text = 0;
+};
+
 //函数声明
-bool install_hook(uintptr_t il2cpp_base);
+bool install_hook(uintptr_t il2cpp_base, RvaConfig config);
 bool valid_ptr(void* ptr);
 void* read_ptr(void* base, size_t offset);
 int read_int(void* base, size_t offset);

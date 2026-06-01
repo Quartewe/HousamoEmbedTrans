@@ -37,7 +37,7 @@ static uintptr_t CatchIl2CppBase() {
     return 0;
 }
 
-static void InitThread(){
+static void InitThread(RvaConfig config) {
     LOGI("Initialization thread started");
 
     uintptr_t il2cpp_base = CatchIl2CppBase();
@@ -46,16 +46,32 @@ static void InitThread(){
         return;
     }
 
-    if (!install_hook(il2cpp_base)) {
+    if (!install_hook(il2cpp_base, config)) {
         LOGE("Initialization failed: Could not install hook");
         return;
     }
     LOGI("Initialization completed successfully");
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
+    JNIEnv* env,
+    jclass clazz,
+    jlong initBase,
+    jlong initText
+) {
+    RvaConfig config;
+    config.init_base = static_cast<uintptr_t>(initBase);
+    config.init_text = static_cast<uintptr_t>(initText);
+
+    LOGI("Received RVA config from Java: InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR, config.init_base, config.init_text);
+    LOGI("Starting initialization thread...");
+    std::thread(InitThread, config).detach();// 启动一个新的线程来执行初始化逻辑，避免阻塞JNI_OnLoad函数
+}
+
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) { // JNI_OnLoad函数是JNI库被加载时调用的函数，返回JNI版本号
-    LOGI("JNI_OnLoad called, starting initialization thread...");
-    std::thread(InitThread).detach(); // 启动一个新的线程来执行初始化逻辑，避免阻塞JNI_OnLoad函数
+    LOGI("JNI_OnLoad called");
+    // std::thread(InitThread).detach(); (已移交给Java层调用nativeStart函数来启动线程)
     return JNI_VERSION_1_6;
 }
 
