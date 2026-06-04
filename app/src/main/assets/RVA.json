@@ -1,5 +1,8 @@
 {
-    "GameVersion": "1.0.0",
+    "GameVersion": "5.16.1",
     "RVA_InitBase": "0x213E37C",
-    "RVA_InitText": "0x2147230"
+    "RVA_InitText": "0x2147230",
+    "RVA_PageTextChange": "0x218B524",
+    "RVA_AddSelection": "0x218DE5C",
+    "RVA_ShowSelection": "0x218E284"
 }

@@ -31,6 +31,25 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static String sModulePath = null;
     private static boolean s_loaded = false;
 
+    private static final class RVAConfig {
+        long initBase = 0;
+        long initText = 0;
+        long pageTextChange = 0;
+        long addSelection = 0;
+        long showSelection = 0;
+    }
+
+    // Tools
+    private static long parseRVA(String value) {
+        value = value.trim();
+
+        if (value.startsWith("0x") || value.startsWith("0X")) {
+            return Long.parseUnsignedLong(value.substring(2), 16);
+        }
+
+        return Long.parseUnsignedLong(value, 10);
+    }
+
     private static String readModuleAsset(String name) throws Exception {
         // 获取模块 APK 路径并读取 assets 目录下的指定文件内容
         try (ZipFile zip = new ZipFile(sModulePath)) {
@@ -54,17 +73,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private static long parseRVA(String value) {
-        value = value.trim();
-
-        if (value.startsWith("0x") || value.startsWith("0X")) {
-            return Long.parseUnsignedLong(value.substring(2), 16);
-        }
-
-        return Long.parseUnsignedLong(value, 10);
-    }
-
-    private static native void nativeStart(long initBase, long initText);
+    private static native void nativeStart(RVAConfig config);
 
     @Override
     public void initZygote(StartupParam startupParam) {
@@ -74,12 +83,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) {
-        long initBase = 0;
-        long initText = 0;
+        RVAConfig config = new RVAConfig();
 
         if (!TARGET_PACKAGE.equals(lpparam.packageName)) return;
         if (s_loaded) return; // 防止重复加载（某些情况下 handleLoadPackage 会多调）
-        s_loaded = true;
         XposedBridge.log("[HousamoTrans] Target package detected, initializing ShadowHook...");
 
         try {
@@ -87,25 +94,34 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             String jsonText = readModuleAsset("RVA.json");
             JSONObject json = new JSONObject(jsonText);
             // 解析 RVA 配置
-            initBase = parseRVA(json.getString("RVA_InitBase"));
-            initText = parseRVA(json.getString("RVA_InitText"));
-
+            config.initBase = parseRVA(json.getString("RVA_InitBase"));
+            config.initText = parseRVA(json.getString("RVA_InitText"));
+            config.pageTextChange = parseRVA(json.getString("RVA_PageTextChange"));
+            config.addSelection = parseRVA(json.getString("RVA_AddSelection"));
+            config.showSelection = parseRVA(json.getString("RVA_ShowSelection"));
         } catch (Exception e) {
             XposedBridge.log("[HousamoTrans] FATAL: Failed to read RVA.json from assets: " + e.getMessage());
             return;
         }
 
+        try {
         // 初始化 ShadowHook（必须在 loadLibrary 之前）
         ShadowHook.init(new ShadowHook.ConfigBuilder()
                 .setMode(ShadowHook.Mode.UNIQUE)
                 .build());
         XposedBridge.log("[HousamoTrans] ShadowHook init ok");
+        } catch (Throwable t) {
+            XposedBridge.log("[HousamoTrans] FATAL: ShadowHook initialization failed: " + t.getMessage());
+            return;
+        }
 
         try {
+            // 加载 native 库，触发 JNI_OnLoad → 在 native 层设置 hook
             System.loadLibrary("housamo_trans");
             XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
-            nativeStart(initBase, initText);
+            nativeStart(config);
             XposedBridge.log("[HousamoTrans] Native hook RVA setup complete.");
+            s_loaded = true;
         } catch (UnsatisfiedLinkError e) {
             XposedBridge.log("[HousamoTrans] FATAL: Failed to load housamo_trans.so: " + e.getMessage());
         }

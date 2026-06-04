@@ -6,6 +6,25 @@
 #include <inttypes.h>
 #include "housamo.hpp"
 
+static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
+    // 反射获取RVA配置
+    RvaConfig out;
+    jclass cls = env->GetObjectClass(rvaConfigObj);
+
+    jfieldID fidInitBase = env->GetFieldID(cls, "initBase", "J");
+    out.init_base = static_cast<long>(env->GetLongField(rvaConfigObj, fidInitBase));
+    jfieldID fidInitText = env->GetFieldID(cls, "initText", "J");
+    out.init_text = static_cast<long>(env->GetLongField(rvaConfigObj, fidInitText));
+    jfieldID fidPageTextChange = env->GetFieldID(cls, "pageTextChange", "J");
+    out.page_text_change = static_cast<long>(env->GetLongField(rvaConfigObj, fidPageTextChange));
+    jfieldID fidAddSelection = env->GetFieldID(cls, "addSelection", "J");
+    out.add_selection = static_cast<long>(env->GetLongField(rvaConfigObj, fidAddSelection));
+    jfieldID fidShowSelection = env->GetFieldID(cls, "showSelection", "J");
+    out.show_selection = static_cast<long>(env->GetLongField(rvaConfigObj, fidShowSelection));
+
+    return out;
+}
+
 // 捕获il2cpp基址的函数
 static uintptr_t CatchIl2CppBase() {
     LOGI("Starting to search for il2cpp base address...");
@@ -57,12 +76,14 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     JNIEnv* env,
     jclass clazz,
-    jlong initBase,
-    jlong initText
+    jobject rvaConfigObj
 ) {
+    RvaConfig javaconfig = jcls_to_rvaconfig(env, rvaConfigObj);
     RvaConfig config;
-    config.init_base = static_cast<uintptr_t>(initBase);
-    config.init_text = static_cast<uintptr_t>(initText);
+
+    if (!make_rva_config(javaconfig, &config)) {
+        return;
+    }
 
     LOGI("Received RVA config from Java: InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR, config.init_base, config.init_text);
     LOGI("Starting initialization thread...");

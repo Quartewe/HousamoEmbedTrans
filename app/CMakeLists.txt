@@ -9,6 +9,8 @@ add_library(housamo_trans SHARED
     src/main/jni/init.cpp
     src/main/jni/hook.cpp
     src/main/jni/ilcpp_reader.cpp
+    src/main/jni/rva_config.cpp
+    src/main/jni/page_rec.cpp
 )
 
 # Header file paths

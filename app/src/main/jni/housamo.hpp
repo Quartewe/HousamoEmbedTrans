@@ -19,14 +19,10 @@
 struct RvaConfig {
     uintptr_t init_base = 0;
     uintptr_t init_text = 0;
+    uintptr_t page_text_change = 0;
+    uintptr_t add_selection = 0;
+    uintptr_t show_selection = 0;
 };
-
-//函数声明
-bool install_hook(uintptr_t il2cpp_base, RvaConfig config);
-bool valid_ptr(void* ptr);
-void* read_ptr(void* base, size_t offset);
-int read_int(void* base, size_t offset);
-std::string read_il2cpp_string(void* strptr);
 
 // 预处理文本结构体
 struct CharacterInfo {
@@ -35,7 +31,7 @@ struct CharacterInfo {
 };
 
 struct TextItem {
-    int page_no;
+    uint64_t seq;
     std::string speaker;
     std::string type;
     std::vector<std::string> text;
@@ -58,3 +54,13 @@ struct Scene {
     std::unordered_map<std::string, CharacterInfo> character_info;
     std::vector<SceneItem> scene_items;
 };
+
+//函数声明
+bool CommandExamine(void* pageData, const std::string& source);
+bool make_rva_config(const RvaConfig javaconfig, RvaConfig* out);
+bool valid_rva_config(const RvaConfig& config);
+bool install_hook(uintptr_t il2cpp_base, RvaConfig config);
+bool valid_ptr(void* ptr);
+void* read_ptr(void* base, size_t offset);
+int read_int(void* base, size_t offset);
+std::string read_il2cpp_string(void* strptr);
