@@ -61,13 +61,15 @@ std::string read_il2cpp_string(void* strptr) {
         return "";
     }
 
-    int length = *(int*)((uint8_t*)strptr + 0x10);
+    const auto& il2cppstring = g_runtime_config.layout.il2cpp_string;
+
+    int length = *(int*)((uint8_t*)strptr + il2cppstring.length);
     if (length <= 0 || length > 8192) {
         return "";
     }
 
     auto chars = reinterpret_cast<const uint16_t*>(
-    reinterpret_cast<uint8_t*>(strptr) + 0x14
+    reinterpret_cast<uint8_t*>(strptr) + il2cppstring.chars
     );
 
     return utf16to8(chars, static_cast<size_t>(length));

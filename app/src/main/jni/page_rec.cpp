@@ -1,7 +1,6 @@
 #include <condition_variable>
 #include <unordered_set>
 #include "housamo.hpp"
-#include <cinttypes>
 #include <atomic>
 #include <string>
 #include <deque>
@@ -45,6 +44,7 @@ struct PageJob {
     std::string source;
 };
 
+std::atomic<bool> stop_catch{false};
 static std::once_flag page_recorder_once;
 
 static std::mutex event_mutex;
@@ -59,21 +59,101 @@ static std::condition_variable page_cv;
 static std::atomic<uint64_t> next_seq{0};
 static std::unordered_set<PageKey, PageKeyHash> seen_pages;
 
-static bool ParsePageJob(const PageJob job) {
-    int list_size = read_int(job.command_list, 0x18);
-    if (list_size <= 0 || list_size > 4096) {
-        LOGE("[ParsePageJob] Invalid command list size: %d", list_size);
+void SetStopCatch(bool stop) {
+    stop_catch.store(stop);
+
+    event_cv.notify_all();
+    page_cv.notify_all();
+}
+
+static std::string GetTextItem(void* cmd_item) {
+    const auto& layout = g_runtime_config.layout;
+    const auto& cmd = layout.adv_command;
+    const auto& row = layout.string_grid_row;
+    const auto& array = layout.il2cpp_array;
+    const auto& column = layout.text_columns;
+
+    void* rowData = read_ptr(cmd_item, cmd.row_data);
+    void* stringsPtr = read_ptr(rowData, row.strings);
+
+    int text_len = read_int(stringsPtr, array.length);
+
+    if (text_len <= column.raw || text_len > 4096) {
+        return "";
+    }
+    
+    void* zhTextPtr = read_ptr(stringsPtr, array.first_element + column.zh_cn * array.pointer_size);
+    std::string zh_text = read_il2cpp_string(zhTextPtr);
+
+    void* rawTextPtr = read_ptr(stringsPtr, array.first_element + column.raw * array.pointer_size);
+    if (!valid_ptr(rawTextPtr)) {
+        return "";
+    }
+    std::string raw_text = read_il2cpp_string(rawTextPtr);
+    
+    if (!zh_text.empty() && !raw_text.empty()) {
+        SetStopCatch(true);
+        LOGI("[PageTextCandidate] Already have translation");
+        return "";
+    }
+
+    return raw_text;
+}
+
+static std::string GetNameItem(void* cmd_item) {
+    const auto& layout = g_runtime_config.layout;
+    const auto& character = layout.adv_command_character;
+
+    void* charInfo = read_ptr(cmd_item, character.character_info);
+    if (!valid_ptr(charInfo)) {
+        return "";
+    }
+    void* nameText = read_ptr(charInfo, character.name_text);
+    if (!valid_ptr(nameText)) {
+        return "";
+    }
+    return read_il2cpp_string(nameText);
+}
+
+static bool ProcessPageJob(const PageJob& job) {
+    if (!valid_ptr(job.command_list)) {
         return false;
     }
-    void* cmd_array = read_ptr(job.command_list, 0x10);
-    if (!valid_ptr(cmd_array)) { return false; }
-    LOGI("[ParsePageJob] ---- Page No: %d ---- \n[ParsePageJob] - Command List Size: %d", job.page_no, list_size);
-    for (int i = 0; i < list_size; i++) {
-        void* cmd_item = read_ptr(cmd_array,0x20 + i * 0x8);
-        void* cmd_type = read_ptr(cmd_item, 0x20);
-        std::string type_str = read_il2cpp_string(cmd_type);
-        LOGI("[ParsePageJob] Command %d: Type = %s", i, type_str.c_str());
+
+    const auto& layout = g_runtime_config.layout;
+    const auto& list = layout.il2cpp_list;
+    const auto& array = layout.il2cpp_array;
+    const auto& cmd = layout.adv_command;
+
+    int list_size = read_int(job.command_list, list.size);
+    if (list_size <= 0 || list_size > 4096) {
+        return false;
     }
+
+    void* cmd_array = read_ptr(job.command_list, list.items);
+    if (!valid_ptr(cmd_array)) {
+        return false;
+    }
+
+    bool have_text = false;
+
+    for (int i = 0; i < list_size; i++) {
+        void* cmd_item = read_ptr(cmd_array,array.first_element + i * array.pointer_size);
+        if (!valid_ptr(cmd_item)) continue;
+        void* cmd_type_ptr = read_ptr(cmd_item, cmd.type);
+        std::string cmd_type = read_il2cpp_string(cmd_type_ptr);
+        
+        if (cmd_type == "Text") {
+            continue;
+        } else if (cmd_type == "Selection") {
+            continue;
+        } else if (cmd_type == "Jump") {
+            continue;
+        } else if (cmd_type == "Character") {
+            continue;
+        }
+    }
+
     return true;
 }
 
@@ -93,7 +173,17 @@ static void PageEventWorker() {
         {
             std::unique_lock<std::mutex> lock(event_mutex);
 
-            event_cv.wait(lock, [] {return !event_queue.empty(); });
+            event_cv.wait(lock, [] {
+                return stop_catch.load() || !event_queue.empty();
+            });
+
+            if (stop_catch.load()) {
+                event_queue.clear();
+                event_cv.wait(lock, [] {
+                    return !stop_catch.load();
+                });
+                continue;
+            }
 
             event = event_queue.front();
             event_queue.pop_front();
@@ -104,13 +194,7 @@ static void PageEventWorker() {
         {
             std::lock_guard<std::mutex> lock(page_mutex);
             auto res = seen_pages.insert(key);
-            if (!res.second) {
-                LOGD(
-                    "[PageEventWorker] duplicated page pageNo=%d",
-                    event.page_no
-                );
-                continue;
-            }
+            if (!res.second) continue;
 
             job.seq = next_seq.fetch_add(1);
             job.key = key;
@@ -121,7 +205,6 @@ static void PageEventWorker() {
 
             page_queue.push_back(job);
         }
-        LOGI("[PageEventWorker] enqueue seq=%llu pageNo=%d source=%s", static_cast<unsigned long long>(job.seq), job.page_no, job.source.c_str());
 
         // 通知PageWorker有新任务
         page_cv.notify_one();
@@ -136,24 +219,23 @@ static void PageWorker() {
             std::unique_lock<std::mutex> lock(page_mutex);
 
             page_cv.wait(lock, [] {
-                return !page_queue.empty();
+                return stop_catch.load() || !page_queue.empty();
             });
+
+            if (stop_catch.load()) {
+                page_queue.clear();
+                page_cv.wait(lock, [] {
+                    return !stop_catch.load();
+                });
+                continue;
+            }
 
             job = page_queue.front();
             page_queue.pop_front();
         }
 
-        LOGI(
-            "[PageWorker] processing seq=%llu pageNo=%d source=%s",
-            static_cast<unsigned long long>(job.seq),
-            job.page_no,
-            job.source.c_str()
-        );
-
-        if (!ParsePageJob(job)) {
+        if (!ProcessPageJob(job)) {
             LOGE("[PageWorker] failed to parse page job seq=%llu pageNo=%d", static_cast<unsigned long long>(job.seq), job.page_no);
-        } else {
-            LOGI("[PageWorker] successfully parsed page job seq=%llu pageNo=%d", static_cast<unsigned long long>(job.seq), job.page_no);
         }
     }
 };
@@ -168,6 +250,10 @@ static void StartPageRecorder() {
 }
 
 bool CommandExamine(void* pageData, const std::string& source) {
+    if (stop_catch.load()) {
+        return false;
+    }
+
     // 这个函数由Hook调用，每次页面事件发生时被调用
     StartPageRecorder();
 
@@ -176,8 +262,11 @@ bool CommandExamine(void* pageData, const std::string& source) {
         return false;
     };
 
-    int page_no = read_int(pageData, 0x38);
-    void* command_list = read_ptr(pageData, 0x10);
+    const auto& layout = g_runtime_config.layout;
+    const auto& page_data = layout.adv_scenario_page_data;
+
+    void* command_list = read_ptr(pageData, page_data.command_list);
+    int page_no = read_int(pageData, page_data.page_no);
 
     if (!valid_ptr(command_list)) {
         LOGE("[CommandExamine] command_list is nullptr!");

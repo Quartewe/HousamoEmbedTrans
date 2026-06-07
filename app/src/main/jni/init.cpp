@@ -6,21 +6,146 @@
 #include <inttypes.h>
 #include "housamo.hpp"
 
-static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
-    // 反射获取RVA配置
-    RvaConfig out;
-    jclass cls = env->GetObjectClass(rvaConfigObj);
+static jfieldID get_field_id(JNIEnv* env, jobject obj, const char* name, const char* signature) {
+    if (obj == nullptr) {
+        LOGE("get_field_id failed: object is nullptr for field %s", name);
+        return nullptr;
+    }
 
-    jfieldID fidInitBase = env->GetFieldID(cls, "initBase", "J");
-    out.init_base = static_cast<long>(env->GetLongField(rvaConfigObj, fidInitBase));
-    jfieldID fidInitText = env->GetFieldID(cls, "initText", "J");
-    out.init_text = static_cast<long>(env->GetLongField(rvaConfigObj, fidInitText));
-    jfieldID fidPageTextChange = env->GetFieldID(cls, "pageTextChange", "J");
-    out.page_text_change = static_cast<long>(env->GetLongField(rvaConfigObj, fidPageTextChange));
-    jfieldID fidAddSelection = env->GetFieldID(cls, "addSelection", "J");
-    out.add_selection = static_cast<long>(env->GetLongField(rvaConfigObj, fidAddSelection));
-    jfieldID fidShowSelection = env->GetFieldID(cls, "showSelection", "J");
-    out.show_selection = static_cast<long>(env->GetLongField(rvaConfigObj, fidShowSelection));
+    jclass cls = env->GetObjectClass(obj);
+    if (cls == nullptr) {
+        LOGE("get_field_id failed: class is nullptr for field %s", name);
+        return nullptr;
+    }
+
+    jfieldID field_id = env->GetFieldID(cls, name, signature);
+    env->DeleteLocalRef(cls);
+
+    if (field_id == nullptr) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        LOGE("get_field_id failed: %s %s", name, signature);
+    }
+
+    return field_id;
+}
+
+static uintptr_t get_uintptr_field(JNIEnv* env, jobject obj, const char* name) {
+    jfieldID field_id = get_field_id(env, obj, name, "J");
+    if (field_id == nullptr) {
+        return 0;
+    }
+
+    return static_cast<uintptr_t>(env->GetLongField(obj, field_id));
+}
+
+static size_t get_size_field(JNIEnv* env, jobject obj, const char* name) {
+    return static_cast<size_t>(get_uintptr_field(env, obj, name));
+}
+
+static int get_int_field(JNIEnv* env, jobject obj, const char* name) {
+    jfieldID field_id = get_field_id(env, obj, name, "I");
+    if (field_id == nullptr) {
+        return 0;
+    }
+
+    return env->GetIntField(obj, field_id);
+}
+
+static jobject get_object_field(JNIEnv* env, jobject obj, const char* name, const char* signature) {
+    jfieldID field_id = get_field_id(env, obj, name, signature);
+    if (field_id == nullptr) {
+        return nullptr;
+    }
+
+    jobject child = env->GetObjectField(obj, field_id);
+    if (child == nullptr) {
+        LOGE("get_object_field failed: %s is nullptr", name);
+    }
+
+    return child;
+}
+
+static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
+    RvaConfig out;
+    out.init_base = get_uintptr_field(env, rvaConfigObj, "initBase");
+    out.init_text = get_uintptr_field(env, rvaConfigObj, "initText");
+    out.page_text_change = get_uintptr_field(env, rvaConfigObj, "pageTextChange");
+    out.add_selection = get_uintptr_field(env, rvaConfigObj, "addSelection");
+    out.show_selection = get_uintptr_field(env, rvaConfigObj, "showSelection");
+    return out;
+}
+
+static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
+    static constexpr const char* kIl2CppStringSig = "Lcom/quarty/housamoembedtrans/MainHook$Il2CppStringLayout;";
+    static constexpr const char* kIl2CppArraySig = "Lcom/quarty/housamoembedtrans/MainHook$Il2CppArrayLayout;";
+    static constexpr const char* kIl2CppListSig = "Lcom/quarty/housamoembedtrans/MainHook$Il2CppListLayout;";
+    static constexpr const char* kPageDataSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvScenarioPageDataLayout;";
+    static constexpr const char* kAdvCommandSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandLayout;";
+    static constexpr const char* kStringGridRowSig = "Lcom/quarty/housamoembedtrans/MainHook$StringGridRowLayout;";
+    static constexpr const char* kCharacterSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandCharacterLayout;";
+    static constexpr const char* kSelectionSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandSelectionLayout;";
+    static constexpr const char* kJumpSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandJumpLayout;";
+    static constexpr const char* kTextColumnsSig = "Lcom/quarty/housamoembedtrans/MainHook$TextColumnsLayout;";
+
+    LayoutConfig out;
+
+    jobject il2cpp_string = get_object_field(env, layoutObj, "il2CppString", kIl2CppStringSig);
+    out.il2cpp_string.length = get_size_field(env, il2cpp_string, "length");
+    out.il2cpp_string.chars = get_size_field(env, il2cpp_string, "chars");
+    if (il2cpp_string != nullptr) env->DeleteLocalRef(il2cpp_string);
+
+    jobject il2cpp_array = get_object_field(env, layoutObj, "il2CppArray", kIl2CppArraySig);
+    out.il2cpp_array.length = get_size_field(env, il2cpp_array, "length");
+    out.il2cpp_array.first_element = get_size_field(env, il2cpp_array, "firstElement");
+    out.il2cpp_array.pointer_size = get_int_field(env, il2cpp_array, "pointerSize");
+    if (il2cpp_array != nullptr) env->DeleteLocalRef(il2cpp_array);
+
+    jobject il2cpp_list = get_object_field(env, layoutObj, "il2CppList", kIl2CppListSig);
+    out.il2cpp_list.items = get_size_field(env, il2cpp_list, "items");
+    out.il2cpp_list.size = get_size_field(env, il2cpp_list, "size");
+    if (il2cpp_list != nullptr) env->DeleteLocalRef(il2cpp_list);
+
+    jobject page_data = get_object_field(env, layoutObj, "advScenarioPageData", kPageDataSig);
+    out.adv_scenario_page_data.command_list = get_size_field(env, page_data, "commandList");
+    out.adv_scenario_page_data.text_data_list = get_size_field(env, page_data, "textDataList");
+    out.adv_scenario_page_data.scenario_label_data = get_size_field(env, page_data, "scenarioLabelData");
+    out.adv_scenario_page_data.page_no = get_size_field(env, page_data, "pageNo");
+    out.adv_scenario_page_data.message_window_name = get_size_field(env, page_data, "messageWindowName");
+    if (page_data != nullptr) env->DeleteLocalRef(page_data);
+
+    jobject adv_command = get_object_field(env, layoutObj, "advCommand", kAdvCommandSig);
+    out.adv_command.row_data = get_size_field(env, adv_command, "rowData");
+    out.adv_command.type = get_size_field(env, adv_command, "type");
+    if (adv_command != nullptr) env->DeleteLocalRef(adv_command);
+
+    jobject string_grid_row = get_object_field(env, layoutObj, "stringGridRow", kStringGridRowSig);
+    out.string_grid_row.row_index = get_size_field(env, string_grid_row, "rowIndex");
+    out.string_grid_row.strings = get_size_field(env, string_grid_row, "strings");
+    if (string_grid_row != nullptr) env->DeleteLocalRef(string_grid_row);
+
+    jobject character = get_object_field(env, layoutObj, "advCommandCharacter", kCharacterSig);
+    out.adv_command_character.character_info = get_size_field(env, character, "characterInfo");
+    out.adv_command_character.name_text = get_size_field(env, character, "nameText");
+    if (character != nullptr) env->DeleteLocalRef(character);
+
+    jobject selection = get_object_field(env, layoutObj, "advCommandSelection", kSelectionSig);
+    out.adv_command_selection.jump_label = get_size_field(env, selection, "jumpLabel");
+    if (selection != nullptr) env->DeleteLocalRef(selection);
+
+    jobject jump = get_object_field(env, layoutObj, "advCommandJump", kJumpSig);
+    out.adv_command_jump.jump_label = get_size_field(env, jump, "jumpLabel");
+    out.adv_command_jump.expression_parser = get_size_field(env, jump, "expressionParser");
+    out.adv_command_jump.condition_column = get_int_field(env, jump, "conditionColumn");
+    if (jump != nullptr) env->DeleteLocalRef(jump);
+
+    jobject text_columns = get_object_field(env, layoutObj, "textColumns", kTextColumnsSig);
+    out.text_columns.raw = get_int_field(env, text_columns, "raw");
+    out.text_columns.en = get_int_field(env, text_columns, "en");
+    out.text_columns.zh_tw = get_int_field(env, text_columns, "zhTw");
+    out.text_columns.zh_cn = get_int_field(env, text_columns, "zhCn");
+    if (text_columns != nullptr) env->DeleteLocalRef(text_columns);
 
     return out;
 }
@@ -56,7 +181,7 @@ static uintptr_t CatchIl2CppBase() {
     return 0;
 }
 
-static void InitThread(RvaConfig config) {
+static void InitThread(RuntimeConfig config) {
     LOGI("Initialization thread started");
 
     uintptr_t il2cpp_base = CatchIl2CppBase();
@@ -65,7 +190,7 @@ static void InitThread(RvaConfig config) {
         return;
     }
 
-    if (!install_hook(il2cpp_base, config)) {
+    if (!install_hook(il2cpp_base, config.rva)) {
         LOGE("Initialization failed: Could not install hook");
         return;
     }
@@ -76,16 +201,27 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     JNIEnv* env,
     jclass clazz,
-    jobject rvaConfigObj
+    jobject rvaConfigObj,
+    jobject layOutObj
 ) {
-    RvaConfig javaconfig = jcls_to_rvaconfig(env, rvaConfigObj);
-    RvaConfig config;
+    RvaConfig java_rva = jcls_to_rvaconfig(env, rvaConfigObj);
+    LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
+    RuntimeConfig config;
 
-    if (!make_rva_config(javaconfig, &config)) {
+    if (!make_runtime_config(java_rva, java_layout, &config)) {
         return;
     }
 
-    LOGI("Received RVA config from Java: InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR, config.init_base, config.init_text);
+    g_runtime_config = config;
+
+    LOGI("Received RVA config from Java: InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR,
+         config.rva.init_base,
+         config.rva.init_text);
+    LOGI("Received layout config from Java: raw=%d en=%d zh_tw=%d zh_cn=%d",
+         config.layout.text_columns.raw,
+         config.layout.text_columns.en,
+         config.layout.text_columns.zh_tw,
+         config.layout.text_columns.zh_cn);
     LOGI("Starting initialization thread...");
     std::thread(InitThread, config).detach();// 启动一个新的线程来执行初始化逻辑，避免阻塞JNI_OnLoad函数
 }

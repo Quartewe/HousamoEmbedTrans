@@ -20,11 +20,11 @@ static void HookInitBase(void* self, void* pageData, void* method) {
         }
         return;
     };
-    CommandExamine(pageData, "base");
     if (RawInitBase) {
         // 调用原函数
         RawInitBase(self, pageData, method);
     }
+    CommandExamine(pageData, "base");
     return;
 }
 
@@ -36,12 +36,12 @@ static void HookInitText(void* self, void* pageData, void* method) {
             return;
         }
     };
-    CommandExamine(pageData, "text");
     if (RawInitText) {
         // 调用原函数
-        RawInitText(self, pageData, method);
-        return;
+        RawInitText(self, pageData, method);  
     }
+    CommandExamine(pageData, "text");  
+    return;
 }
 
 bool install_hook(uintptr_t il2cpp_base, RvaConfig config) {
