@@ -44,6 +44,14 @@ struct AdvScenarioPageDataLayoutConfig {
     size_t message_window_name = 0;
 };
 
+struct ScenarioLabelDataLayoutConfig {
+    size_t page_data_list = 0;
+    size_t scenario_label = 0;
+    size_t next = 0;
+    size_t command_list = 0;
+    size_t scenario_label_command = 0;
+};
+
 struct AdvCommandLayoutConfig {
     size_t row_data = 0;
     size_t type = 0;
@@ -90,6 +98,7 @@ struct LayoutConfig {
     Il2CppArrayLayoutConfig il2cpp_array;
     Il2CppListLayoutConfig il2cpp_list;
     AdvScenarioPageDataLayoutConfig adv_scenario_page_data;
+    ScenarioLabelDataLayoutConfig scenario_label_data;
     AdvCommandLayoutConfig adv_command;
     StringGridRowLayoutConfig string_grid_row;
     AdvCommandCharacterLayoutConfig adv_command_character;
@@ -114,18 +123,26 @@ struct CharacterInfo {
 struct TextItem {
     uint64_t seq;
     std::string speaker;
-    std::string type;
     std::vector<std::string> text;
-    // 所有文本对象
 };
 
-struct JumpData{
-    TextItem option;
-    TextItem following_text;
-    // 选项和选项对应后续的文本
+struct OptionItem {
+    uint64_t seq;
+    std::string text;
+    std::string jump_label;
 };
 
-using SceneItem = std::variant<TextItem, JumpData>;
+struct BrenchItem {
+    OptionItem option;
+    std::vector<TextItem> following_text;
+};
+
+struct ChoiceBlock {
+    std::vector<uint64_t> options_seq;
+    std::vector<BrenchItem> brenches;
+};
+
+using SceneItem = std::variant<TextItem, ChoiceBlock>;
 
 struct Scene {
     std::string scene;

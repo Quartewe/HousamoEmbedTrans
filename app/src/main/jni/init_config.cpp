@@ -73,6 +73,11 @@ bool valid_layout_config(const LayoutConfig& config) {
         {"adv_command_selection.jump_label", config.adv_command_selection.jump_label},
         {"adv_command_jump.jump_label", config.adv_command_jump.jump_label},
         {"adv_command_jump.expression_parser", config.adv_command_jump.expression_parser},
+        {"scenario_label_data.page_data_list", config.scenario_label_data.page_data_list},
+        {"scenario_label_data.scenario_label", config.scenario_label_data.scenario_label},
+        {"scenario_label_data.next", config.scenario_label_data.next},
+        {"scenario_label_data.command_list", config.scenario_label_data.command_list},
+        {"scenario_label_data.scenario_label_command", config.scenario_label_data.scenario_label_command},
     };
     for (const OffsetField& field : offsets) {
         if (!valid_offset(field.value)) {

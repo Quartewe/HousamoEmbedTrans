@@ -44,6 +44,11 @@ struct PageJob {
     std::string source;
 };
 
+struct SelectionItem {
+    std::string text;
+    std::string jump_label;
+};
+
 std::atomic<bool> stop_catch{false};
 static std::once_flag page_recorder_once;
 
@@ -57,6 +62,7 @@ static std::condition_variable event_cv;
 static std::condition_variable page_cv;
 
 static std::atomic<uint64_t> next_seq{0};
+static std::atomic<uint64_t> text_seq{0};
 static std::unordered_set<PageKey, PageKeyHash> seen_pages;
 
 void SetStopCatch(bool stop) {
@@ -66,7 +72,7 @@ void SetStopCatch(bool stop) {
     page_cv.notify_all();
 }
 
-static std::string GetTextItem(void* cmd_item) {
+static std::string ReadRowStringColumn(void* cmd_item) {
     const auto& layout = g_runtime_config.layout;
     const auto& cmd = layout.adv_command;
     const auto& row = layout.string_grid_row;
@@ -115,6 +121,19 @@ static std::string GetNameItem(void* cmd_item) {
     return read_il2cpp_string(nameText);
 }
 
+static SelectionItem GetSelectItem(void* cmd_item) {
+    const auto& layout = g_runtime_config.layout;
+    const auto& selection = layout.adv_command_selection;
+    SelectionItem item;
+
+    void* jumpLabelPtr = read_ptr(cmd_item, selection.jump_label);
+
+    item.text = ReadRowStringColumn(cmd_item);
+    item.jump_label = read_il2cpp_string(jumpLabelPtr);
+
+    return item;
+}
+
 static bool ProcessPageJob(const PageJob& job) {
     if (!valid_ptr(job.command_list)) {
         return false;
@@ -136,17 +155,26 @@ static bool ProcessPageJob(const PageJob& job) {
     }
 
     bool have_text = false;
+    TextItem text_item;
 
     for (int i = 0; i < list_size; i++) {
         void* cmd_item = read_ptr(cmd_array,array.first_element + i * array.pointer_size);
         if (!valid_ptr(cmd_item)) continue;
         void* cmd_type_ptr = read_ptr(cmd_item, cmd.type);
         std::string cmd_type = read_il2cpp_string(cmd_type_ptr);
-        
+
         if (cmd_type == "Text") {
-            continue;
+            std::string get_text = ReadRowStringColumn(cmd_item);
+            if (!get_text.empty()) { 
+                text_item.text.push_back(get_text); 
+                have_text = true; 
+            } else LOGE("[ProcessPageJob] Text command with empty text at seq=%llu pageNo=%d", static_cast<unsigned long long>(job.seq), job.page_no);
         } else if (cmd_type == "Selection") {
-            continue;
+            OptionItem option;
+            SelectionItem item = GetSelectItem(cmd_item);
+            option.text = item.text;
+            option.jump_label = item.jump_label;
+            
         } else if (cmd_type == "Jump") {
             continue;
         } else if (cmd_type == "Character") {

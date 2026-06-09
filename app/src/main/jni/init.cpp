@@ -82,6 +82,7 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
     static constexpr const char* kIl2CppArraySig = "Lcom/quarty/housamoembedtrans/MainHook$Il2CppArrayLayout;";
     static constexpr const char* kIl2CppListSig = "Lcom/quarty/housamoembedtrans/MainHook$Il2CppListLayout;";
     static constexpr const char* kPageDataSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvScenarioPageDataLayout;";
+    static constexpr const char* kScenarioLabelDataSig = "Lcom/quarty/housamoembedtrans/MainHook$ScenarioLabelDataLayout;";
     static constexpr const char* kAdvCommandSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandLayout;";
     static constexpr const char* kStringGridRowSig = "Lcom/quarty/housamoembedtrans/MainHook$StringGridRowLayout;";
     static constexpr const char* kCharacterSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandCharacterLayout;";
@@ -114,6 +115,14 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
     out.adv_scenario_page_data.page_no = get_size_field(env, page_data, "pageNo");
     out.adv_scenario_page_data.message_window_name = get_size_field(env, page_data, "messageWindowName");
     if (page_data != nullptr) env->DeleteLocalRef(page_data);
+
+    jobject scenario_label_data = get_object_field(env, layoutObj, "scenarioLabelData", kScenarioLabelDataSig);
+    out.scenario_label_data.page_data_list = get_size_field(env, scenario_label_data, "pageDataList");
+    out.scenario_label_data.scenario_label = get_size_field(env, scenario_label_data, "scenarioLabel");
+    out.scenario_label_data.next = get_size_field(env, scenario_label_data, "next");
+    out.scenario_label_data.command_list = get_size_field(env, scenario_label_data, "commandList");
+    out.scenario_label_data.scenario_label_command = get_size_field(env, scenario_label_data, "scenarioLabelCommand");
+    if (scenario_label_data != nullptr) env->DeleteLocalRef(scenario_label_data);
 
     jobject adv_command = get_object_field(env, layoutObj, "advCommand", kAdvCommandSig);
     out.adv_command.row_data = get_size_field(env, adv_command, "rowData");

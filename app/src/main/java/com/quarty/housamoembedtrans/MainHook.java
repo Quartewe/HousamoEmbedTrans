@@ -44,6 +44,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Il2CppArrayLayout il2CppArray = new Il2CppArrayLayout();
         Il2CppListLayout il2CppList = new Il2CppListLayout();
         AdvScenarioPageDataLayout advScenarioPageData = new AdvScenarioPageDataLayout();
+        ScenarioLabelDataLayout scenarioLabelData = new ScenarioLabelDataLayout();
         AdvCommandLayout advCommand = new AdvCommandLayout();
         StringGridRowLayout stringGridRow = new StringGridRowLayout();
         AdvCommandCharacterLayout advCommandCharacter = new AdvCommandCharacterLayout();
@@ -74,6 +75,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         long scenarioLabelData = 0;
         long pageNo = 0;
         long messageWindowName = 0;
+    }
+
+    private static final class ScenarioLabelDataLayout {
+        long pageDataList = 0;
+        long scenarioLabel = 0;
+        long next = 0;
+        long commandList = 0;
+        long scenarioLabelCommand = 0;
     }
 
     private static final class AdvCommandLayout {
@@ -197,6 +206,13 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         layout.advScenarioPageData.scenarioLabelData = getConfigLong(pageData, "ScenarioLabelData");
         layout.advScenarioPageData.pageNo = getConfigLong(pageData, "PageNo");
         layout.advScenarioPageData.messageWindowName = getConfigLong(pageData, "MessageWindowName");
+
+        JSONObject scenarioLabelData = layoutConfig.getJSONObject("ScenarioLabelData");
+        layout.scenarioLabelData.pageDataList = getConfigLong(scenarioLabelData, "PageDataList");
+        layout.scenarioLabelData.scenarioLabel = getConfigLong(scenarioLabelData, "ScenarioLabel");
+        layout.scenarioLabelData.next = getConfigLong(scenarioLabelData, "Next");
+        layout.scenarioLabelData.commandList = getConfigLong(scenarioLabelData, "CommandList");
+        layout.scenarioLabelData.scenarioLabelCommand = getConfigLong(scenarioLabelData, "ScenarioLabelCommand");
 
         JSONObject advCommand = layoutConfig.getJSONObject("AdvCommand");
         layout.advCommand.rowData = getConfigLong(advCommand, "RowData");
