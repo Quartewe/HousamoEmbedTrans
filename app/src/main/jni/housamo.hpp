@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <condition_variable>
 #include <unordered_map>
 #include <variant>
 #include <android/log.h>
@@ -18,6 +19,24 @@
 
 // 全局变量和结构体定义
 extern std::atomic<bool> stop_catch;
+
+// AC机
+enum class MatchKind {
+    character,
+    term
+};
+
+struct ACInit {
+    std::vector<std::string> char_list;
+    std::vector<std::string> term_list;
+};
+
+struct AcHit {
+    size_t begin = 0;
+    size_t end = 0;
+    std::string text;
+    MatchKind kind;
+};
 
 // 子结构体
 struct Il2CppStringLayoutConfig {
@@ -115,34 +134,73 @@ struct RuntimeConfig {
 extern RuntimeConfig g_runtime_config;
 
 // 预处理文本结构体
+struct ProtectedToken {
+    std::string label;      // __HET__PH_0__
+    std::string origin;   // <param=teamLeaderCharaName>
+};
+
+struct OrderKey {
+    uint64_t page_seq = 0;  // PageJob 的顺序
+    int page_no = -1;      // 游戏里的 pageNo，主要用于调试
+    int cmd_index = -1;    // CommandList 里的真实下标
+    int sub_index = 0;     // 同一个命令内的子项，普通 Text 用 0，选项可用 0/1/2
+};
+
+struct TextItem {
+    OrderKey order;
+    std::string speaker;
+    std::string text;
+};
+
+struct JumpItem {
+    std::string target;
+    std::string condition;
+};
+
+struct BrenchItem {
+    TextItem option;
+    std::vector<TextItem> following_text;
+};
+
+struct SelectionParseItem {
+    TextItem option;          // 给翻译用
+    std::string target_label;      // page_rec 内部用，不传给翻译层
+};
+
+using TextGroup = std::vector<TextItem>;
+using SelectionGroup = std::vector<SelectionParseItem>;
+
+struct ProcessPageResult {
+    OrderKey order;
+    std::string current_label;
+    std::vector<JumpItem> exit_labels;
+    std::vector<std::string> characters;
+    std::vector<ProtectedToken> protect;
+
+    using PageItem = std::variant<
+        std::monostate,
+        TextGroup,
+        SelectionGroup
+    >;
+    PageItem items;
+};
+
 struct CharacterInfo {
     std::string name;
     std::string description;
 };
 
-struct TextItem {
-    uint64_t seq;
-    std::string speaker;
-    std::vector<std::string> text;
-};
-
-struct OptionItem {
-    uint64_t seq;
-    std::string text;
-    std::string jump_label;
-};
-
-struct BrenchItem {
-    OptionItem option;
-    std::vector<TextItem> following_text;
+struct IfBlock {
+    std::string condition;
+    std::vector<TextItem> branch_text;
 };
 
 struct ChoiceBlock {
-    std::vector<uint64_t> options_seq;
+    std::string options_seq;
     std::vector<BrenchItem> brenches;
 };
 
-using SceneItem = std::variant<TextItem, ChoiceBlock>;
+using SceneItem = std::variant<TextItem, ChoiceBlock, IfBlock>;
 
 struct Scene {
     std::string scene;
@@ -154,6 +212,11 @@ struct Scene {
 };
 
 //函数声明
+std::vector<AcHit> AcScan(const std::string& text);
+bool IsAcReady();
+void StartAcInit(ACInit ac_init);
+void StartSceneBuilder();
+void SubmitPageResult(ProcessPageResult result);
 void SetStopCatch(bool stop);
 bool CommandExamine(void* pageData, const std::string& source);
 bool make_runtime_config(const RvaConfig& java_rva, const LayoutConfig& java_layout, RuntimeConfig* out);

@@ -1,5 +1,4 @@
 #include <fstream>
-#include <string>
 #include <thread>
 #include <chrono>
 #include <jni.h>
@@ -78,17 +77,17 @@ static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
 }
 
 static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
-    static constexpr const char* kIl2CppStringSig = "Lcom/quarty/housamoembedtrans/MainHook$Il2CppStringLayout;";
-    static constexpr const char* kIl2CppArraySig = "Lcom/quarty/housamoembedtrans/MainHook$Il2CppArrayLayout;";
-    static constexpr const char* kIl2CppListSig = "Lcom/quarty/housamoembedtrans/MainHook$Il2CppListLayout;";
-    static constexpr const char* kPageDataSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvScenarioPageDataLayout;";
-    static constexpr const char* kScenarioLabelDataSig = "Lcom/quarty/housamoembedtrans/MainHook$ScenarioLabelDataLayout;";
-    static constexpr const char* kAdvCommandSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandLayout;";
-    static constexpr const char* kStringGridRowSig = "Lcom/quarty/housamoembedtrans/MainHook$StringGridRowLayout;";
-    static constexpr const char* kCharacterSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandCharacterLayout;";
-    static constexpr const char* kSelectionSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandSelectionLayout;";
-    static constexpr const char* kJumpSig = "Lcom/quarty/housamoembedtrans/MainHook$AdvCommandJumpLayout;";
-    static constexpr const char* kTextColumnsSig = "Lcom/quarty/housamoembedtrans/MainHook$TextColumnsLayout;";
+    static constexpr const char* kIl2CppStringSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppStringLayout;";
+    static constexpr const char* kIl2CppArraySig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppArrayLayout;";
+    static constexpr const char* kIl2CppListSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppListLayout;";
+    static constexpr const char* kPageDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvScenarioPageDataLayout;";
+    static constexpr const char* kScenarioLabelDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$ScenarioLabelDataLayout;";
+    static constexpr const char* kAdvCommandSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvCommandLayout;";
+    static constexpr const char* kStringGridRowSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$StringGridRowLayout;";
+    static constexpr const char* kCharacterSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvCommandCharacterLayout;";
+    static constexpr const char* kSelectionSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvCommandSelectionLayout;";
+    static constexpr const char* kJumpSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvCommandJumpLayout;";
+    static constexpr const char* kTextColumnsSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$TextColumnsLayout;";
 
     LayoutConfig out;
 
@@ -159,6 +158,47 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
     return out;
 }
 
+static std::string jstring_to_string(JNIEnv* env, jstring value) {
+    if (value == nullptr) {
+        return {};
+    }
+
+    const char* chars = env->GetStringUTFChars(value, nullptr);
+    if (chars == nullptr) {
+        return {};
+    }
+
+    std::string out(chars);
+    env->ReleaseStringUTFChars(value, chars);
+    return out;
+}
+
+static std::vector<std::string> jobjarray_to_vector(JNIEnv* env, jobjectArray array) {
+    std::vector<std::string> out;
+
+    if (array == nullptr) {
+        LOGW("jobjarray_to_vector: input array is nullptr");
+        return out;
+    }
+
+    jsize length = env->GetArrayLength(array);
+    out.reserve(static_cast<size_t>(length));
+
+    for (jsize i =0; i < length; ++i) {
+        auto item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
+
+        std::string text = jstring_to_string(env, item);
+        if (!text.empty()) {
+            out.push_back(std::move(text));
+        }
+        if (item != nullptr) {
+            env->DeleteLocalRef(item);
+        }
+    }
+
+    return out;
+}
+
 // 捕获il2cpp基址的函数
 static uintptr_t CatchIl2CppBase() {
     LOGI("Starting to search for il2cpp base address...");
@@ -211,10 +251,17 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     JNIEnv* env,
     jclass clazz,
     jobject rvaConfigObj,
-    jobject layOutObj
+    jobject layOutObj,
+    jobjectArray charList,
+    jobjectArray termList
 ) {
     RvaConfig java_rva = jcls_to_rvaconfig(env, rvaConfigObj);
     LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
+
+    ACInit ac_init;
+    ac_init.char_list = std::move(jobjarray_to_vector(env, charList));
+    ac_init.term_list = std::move(jobjarray_to_vector(env, termList));
+
     RuntimeConfig config;
 
     if (!make_runtime_config(java_rva, java_layout, &config)) {
@@ -226,12 +273,9 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     LOGI("Received RVA config from Java: InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR,
          config.rva.init_base,
          config.rva.init_text);
-    LOGI("Received layout config from Java: raw=%d en=%d zh_tw=%d zh_cn=%d",
-         config.layout.text_columns.raw,
-         config.layout.text_columns.en,
-         config.layout.text_columns.zh_tw,
-         config.layout.text_columns.zh_cn);
     LOGI("Starting initialization thread...");
+
+    StartAcInit(std::move(ac_init));
     std::thread(InitThread, config).detach();// 启动一个新的线程来执行初始化逻辑，避免阻塞JNI_OnLoad函数
 }
 

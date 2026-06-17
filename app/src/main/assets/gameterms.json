@@ -1,5 +1,4 @@
 {
-    // Guilds
     "バーサーカーズ":{
         "en": "Berserkers",
         "zh-tw": "狂戰士",
@@ -95,7 +94,6 @@
         "zh-tw": "外部之星",
         "zh-cn": "外部之星"
     },
-    // Worlds
     "タカマガハラ":{
         "en": "Takamagahara",
         "zh-tw": "高天原",
@@ -211,7 +209,6 @@
         "zh-tw": "阿吉辛巴",
         "zh-cn": "阿吉辛巴"
     },
-    // Other terms
     "例外処理":{
         "en": "Exception",
         "zh-tw": "例外處理",

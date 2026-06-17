@@ -14,6 +14,8 @@ import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipEntry;
+import java.util.ArrayList;
+import java.util.Iterator;
 
 /**
  * LSPosed 模块入口 — Housamo AI 实时翻译。
@@ -51,70 +53,70 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         AdvCommandSelectionLayout advCommandSelection = new AdvCommandSelectionLayout();
         AdvCommandJumpLayout advCommandJump = new AdvCommandJumpLayout();
         TextColumnsLayout textColumns = new TextColumnsLayout();
-    }
 
-    private static final class Il2CppStringLayout {
-        long length = 0;
-        long chars = 0;
-    }
+        private static final class Il2CppStringLayout {
+            long length = 0;
+            long chars = 0;
+        }
 
-    private static final class Il2CppArrayLayout {
-        long length = 0;
-        long firstElement = 0;
-        int pointerSize = 0;
-    }
+        private static final class Il2CppArrayLayout {
+            long length = 0;
+            long firstElement = 0;
+            int pointerSize = 0;
+        }
 
-    private static final class Il2CppListLayout {
-        long items = 0;
-        long size = 0;
-    }
+        private static final class Il2CppListLayout {
+            long items = 0;
+            long size = 0;
+        }
 
-    private static final class AdvScenarioPageDataLayout {
-        long commandList = 0;
-        long textDataList = 0;
-        long scenarioLabelData = 0;
-        long pageNo = 0;
-        long messageWindowName = 0;
-    }
+        private static final class AdvScenarioPageDataLayout {
+            long commandList = 0;
+            long textDataList = 0;
+            long scenarioLabelData = 0;
+            long pageNo = 0;
+            long messageWindowName = 0;
+        }
 
-    private static final class ScenarioLabelDataLayout {
-        long pageDataList = 0;
-        long scenarioLabel = 0;
-        long next = 0;
-        long commandList = 0;
-        long scenarioLabelCommand = 0;
-    }
+        private static final class ScenarioLabelDataLayout {
+            long pageDataList = 0;
+            long scenarioLabel = 0;
+            long next = 0;
+            long commandList = 0;
+            long scenarioLabelCommand = 0;
+        }
 
-    private static final class AdvCommandLayout {
-        long rowData = 0;
-        long type = 0;
-    }
+        private static final class AdvCommandLayout {
+            long rowData = 0;
+            long type = 0;
+        }
 
-    private static final class StringGridRowLayout {
-        long rowIndex = 0;
-        long strings = 0;
-    }
+        private static final class StringGridRowLayout {
+            long rowIndex = 0;
+            long strings = 0;
+        }
 
-    private static final class AdvCommandCharacterLayout {
-        long characterInfo = 0;
-        long nameText = 0;
-    }
+        private static final class AdvCommandCharacterLayout {
+            long characterInfo = 0;
+            long nameText = 0;
+        }
 
-    private static final class AdvCommandSelectionLayout {
-        long jumpLabel = 0;
-    }
+        private static final class AdvCommandSelectionLayout {
+            long jumpLabel = 0;
+        }
 
-    private static final class AdvCommandJumpLayout {
-        long jumpLabel = 0;
-        long expressionParser = 0;
-        int conditionColumn = 0;
-    }
+        private static final class AdvCommandJumpLayout {
+            long jumpLabel = 0;
+            long expressionParser = 0;
+            int conditionColumn = 0;
+        }
 
-    private static final class TextColumnsLayout {
-        int raw = 0;
-        int en = 0;
-        int zhTw = 0;
-        int zhCn = 0;
+        private static final class TextColumnsLayout {
+            int raw = 0;
+            int en = 0;
+            int zhTw = 0;
+            int zhCn = 0;
+        }
     }
 
     // Tools
@@ -147,6 +149,23 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
 
         return (int) value;
+    }
+
+    private static String[] readJsonKey(String name) throws Exception {
+        String jsonText = readModuleAsset(name);
+        JSONObject json = new JSONObject(jsonText);
+        ArrayList<String> result = new ArrayList<>();
+        Iterator<String> keys = json.keys();
+
+        while (keys.hasNext()) {
+            String key = keys.next();
+
+            if (key != null && !key.isEmpty()) {
+                result.add(key);
+            }
+        }
+
+        return result.toArray(new String[0]);
     }
 
     private static String readModuleAsset(String name) throws Exception {
@@ -243,7 +262,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return layout;
     }
 
-    private static native void nativeStart(RVA rva, Layout layout);
+    private static native void nativeStart(
+        RVA rva, 
+        Layout layout,
+        String[] charList,
+        String[] termList
+    );
 
     @Override
     public void initZygote(StartupParam startupParam) {
@@ -255,6 +279,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     public void handleLoadPackage(LoadPackageParam lpparam) {
         RVA rva = new RVA();
         Layout layout = new Layout();
+        String[] charList = null;
+        String[] termList = null;
 
         if (!TARGET_PACKAGE.equals(lpparam.packageName)) return;
         if (s_loaded) return; // 防止重复加载（某些情况下 handleLoadPackage 会多调）
@@ -267,6 +293,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // 解析 RVA 配置
             rva = Init_RVA(json);
             layout = Init_Layout(json);
+
+            charList = readJsonKey("chardict.json");
+            termList = readJsonKey("gameterms.json");
         } catch (Exception e) {
             XposedBridge.log("[HousamoTrans] FATAL: Failed to read config.json from assets: " + e.getMessage());
             return;
@@ -287,7 +316,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // 加载 native 库，触发 JNI_OnLoad → 在 native 层设置 hook
             System.loadLibrary("housamo_trans");
             XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
-            nativeStart(rva, layout);
+            nativeStart(rva, layout, charList, termList);
             XposedBridge.log("[HousamoTrans] Native hook RVA setup complete.");
             s_loaded = true;
         } catch (UnsatisfiedLinkError e) {
