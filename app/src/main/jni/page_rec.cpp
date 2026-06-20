@@ -1,10 +1,8 @@
-#include <condition_variable>
-#include <unordered_set>
 #include "housamo.hpp"
-#include <atomic>
-#include <string>
 #include <deque>
 #include <thread>
+#include <unordered_set>
+#include <utility>
 #include <mutex>
 
 struct PageKey {
@@ -44,12 +42,8 @@ struct PageJob {
     std::string source;
 };
 
-struct SelectionItem {
-    std::string text;
-    std::string jump_label;
-};
-
 std::atomic<bool> stop_catch{false};
+static constexpr int kPageWorkerCount = 2;
 static std::once_flag page_recorder_once;
 
 static std::mutex event_mutex;
@@ -62,7 +56,7 @@ static std::condition_variable event_cv;
 static std::condition_variable page_cv;
 
 static std::atomic<uint64_t> next_seq{0};
-static std::atomic<uint64_t> text_seq{0};
+static std::atomic<int> protect_label{0}; 
 static std::unordered_set<PageKey, PageKeyHash> seen_pages;
 
 void SetStopCatch(bool stop) {
@@ -70,119 +64,299 @@ void SetStopCatch(bool stop) {
 
     event_cv.notify_all();
     page_cv.notify_all();
+    NotifySceneBuilderStopChanged();
 }
 
-static std::string ReadRowStringColumn(void* cmd_item) {
-    const auto& layout = g_runtime_config.layout;
-    const auto& cmd = layout.adv_command;
-    const auto& row = layout.string_grid_row;
-    const auto& array = layout.il2cpp_array;
-    const auto& column = layout.text_columns;
+class PageParser {
+public:
+    explicit PageParser(ProcessPageResult& result) : result_(result) {}
 
-    void* rowData = read_ptr(cmd_item, cmd.row_data);
-    void* stringsPtr = read_ptr(rowData, row.strings);
-
-    int text_len = read_int(stringsPtr, array.length);
-
-    if (text_len <= column.raw || text_len > 4096) {
-        return "";
-    }
-    
-    void* zhTextPtr = read_ptr(stringsPtr, array.first_element + column.zh_cn * array.pointer_size);
-    std::string zh_text = read_il2cpp_string(zhTextPtr);
-
-    void* rawTextPtr = read_ptr(stringsPtr, array.first_element + column.raw * array.pointer_size);
-    if (!valid_ptr(rawTextPtr)) {
-        return "";
-    }
-    std::string raw_text = read_il2cpp_string(rawTextPtr);
-    
-    if (!zh_text.empty() && !raw_text.empty()) {
-        SetStopCatch(true);
-        LOGI("[PageTextCandidate] Already have translation");
-        return "";
-    }
-
-    return raw_text;
-}
-
-static std::string GetNameItem(void* cmd_item) {
-    const auto& layout = g_runtime_config.layout;
-    const auto& character = layout.adv_command_character;
-
-    void* charInfo = read_ptr(cmd_item, character.character_info);
-    if (!valid_ptr(charInfo)) {
-        return "";
-    }
-    void* nameText = read_ptr(charInfo, character.name_text);
-    if (!valid_ptr(nameText)) {
-        return "";
-    }
-    return read_il2cpp_string(nameText);
-}
-
-static SelectionItem GetSelectItem(void* cmd_item) {
-    const auto& layout = g_runtime_config.layout;
-    const auto& selection = layout.adv_command_selection;
-    SelectionItem item;
-
-    void* jumpLabelPtr = read_ptr(cmd_item, selection.jump_label);
-
-    item.text = ReadRowStringColumn(cmd_item);
-    item.jump_label = read_il2cpp_string(jumpLabelPtr);
-
-    return item;
-}
-
-static bool ProcessPageJob(const PageJob& job) {
-    if (!valid_ptr(job.command_list)) {
-        return false;
-    }
-
-    const auto& layout = g_runtime_config.layout;
-    const auto& list = layout.il2cpp_list;
-    const auto& array = layout.il2cpp_array;
-    const auto& cmd = layout.adv_command;
-
-    int list_size = read_int(job.command_list, list.size);
-    if (list_size <= 0 || list_size > 4096) {
-        return false;
-    }
-
-    void* cmd_array = read_ptr(job.command_list, list.items);
-    if (!valid_ptr(cmd_array)) {
-        return false;
-    }
-
-    bool have_text = false;
-    TextItem text_item;
-
-    for (int i = 0; i < list_size; i++) {
-        void* cmd_item = read_ptr(cmd_array,array.first_element + i * array.pointer_size);
-        if (!valid_ptr(cmd_item)) continue;
-        void* cmd_type_ptr = read_ptr(cmd_item, cmd.type);
-        std::string cmd_type = read_il2cpp_string(cmd_type_ptr);
-
-        if (cmd_type == "Text") {
-            std::string get_text = ReadRowStringColumn(cmd_item);
-            if (!get_text.empty()) { 
-                text_item.text.push_back(get_text); 
-                have_text = true; 
-            } else LOGE("[ProcessPageJob] Text command with empty text at seq=%llu pageNo=%d", static_cast<unsigned long long>(job.seq), job.page_no);
-        } else if (cmd_type == "Selection") {
-            OptionItem option;
-            SelectionItem item = GetSelectItem(cmd_item);
-            option.text = item.text;
-            option.jump_label = item.jump_label;
-            
-        } else if (cmd_type == "Jump") {
-            continue;
-        } else if (cmd_type == "Character") {
-            continue;
+    bool Parse(const PageJob& job) {
+        if (!valid_ptr(job.command_list)) {
+            return false;
         }
+
+        int select_seq = 0; // 用于同一个Selection内的选项区分
+
+        const auto& layout = g_runtime_config.layout;
+        const auto& list = layout.il2cpp_list;
+        const auto& array = layout.il2cpp_array;
+        const auto& cmd = layout.adv_command;
+        const auto& page = layout.adv_scenario_page_data;
+        const auto& scenario = layout.scenario_label_data;
+
+        result_.order.page_seq = job.seq;
+        result_.order.page_no = job.page_no;
+
+        void* label_data = read_ptr(job.page_data, page.scenario_label_data);
+        void* label_ptr = read_ptr(label_data, scenario.scenario_label);
+        result_.current_label = read_il2cpp_string(label_ptr);
+
+        int list_size = read_int(job.command_list, list.size);
+        if (list_size <= 0 || list_size > 4096) {
+            return false;
+        }
+
+        void* cmd_array = read_ptr(job.command_list, list.items);
+        if (!valid_ptr(cmd_array)) {
+            return false;
+        }
+
+        TextGroup texts;
+        SelectionGroup selections;
+        std::string current_speaker;
+
+        for (int i = 0; i < list_size; i++) {
+            void* cmd_item = read_ptr(cmd_array, array.first_element + i * array.pointer_size);
+            if (!valid_ptr(cmd_item)) continue;
+
+            void* cmd_type_ptr = read_ptr(cmd_item, cmd.type);
+            std::string cmd_type = read_il2cpp_string(cmd_type_ptr);
+
+            if (cmd_type == "Character") {
+                current_speaker = GetNameItem(cmd_item);
+                continue;
+            } else if (cmd_type == "CharacterOff") { // characteroff 控制当前说话角色
+                current_speaker.clear();
+                continue;
+            } else if (cmd_type == "Text") {
+                TextItem text_item;
+                std::string raw_text = GetTextItem(cmd_item);
+                if (raw_text.empty()) continue;
+
+                text_item.order.page_seq = job.seq;
+                text_item.order.page_no = job.page_no;
+                text_item.order.cmd_index = i;
+                text_item.order.sub_index = 0;
+
+                text_item.speaker = current_speaker;
+                AddUniqueName(current_speaker);
+                text_item.text = std::move(raw_text);
+
+                texts.push_back(std::move(text_item));
+                continue;
+            } else if (cmd_type == "Selection") {
+                SelectionParseItem item = GetSelectItem(cmd_item);
+                if (item.option.text.empty() || item.target_label.empty()) continue;
+
+                item.option.order.page_seq = job.seq;
+                item.option.order.page_no = job.page_no;
+                item.option.order.cmd_index = i;
+                item.option.order.sub_index = ++select_seq;
+
+                selections.push_back(std::move(item));
+                continue;
+            } else if (cmd_type == "Jump") {
+                JumpItem item = GetJumpItem(cmd_item);
+                result_.exit_labels.push_back(std::move(item));
+                continue;
+            }
+        }
+
+        if (!selections.empty()) {
+            result_.items = std::move(selections);
+        } else if (!texts.empty()) {
+            result_.items = std::move(texts);
+        } else {
+            result_.items = std::monostate{};
+        }
+
+        return true;
     }
 
-    return true;
+private:
+    static bool IsTag(const std::string& raw, size_t i) {
+        if (raw[i] != '<') return false;
+        if (i + 1 >= raw.size()) return false;
+
+        unsigned char next = static_cast<unsigned char>(raw[i + 1]);
+
+        return next == '/'
+            || (next >= 'A' && next <= 'Z')
+            || (next >= 'a' && next <= 'z');
+    }
+
+    std::string CatchTextLabel(const std::string& raw, bool replace_mode) {
+        if (raw.empty()) {
+            return "";
+        }
+
+        std::string out;
+        out.reserve(raw.size());
+
+        bool have_start = false;
+        size_t label_start = 0;
+
+        for(size_t i = 0; i < raw.size(); ++i) {
+            char c = raw[i];
+
+            if (!have_start) {
+                if (IsTag(raw, i)) {
+                    have_start = true;
+                    label_start = i;
+                } else {
+                    out.push_back(c);
+                }
+                continue;
+            }
+
+            if (c == '>' && have_start) {
+                std::string tag = raw.substr(label_start, i - label_start + 1);
+
+                if (replace_mode) {
+                    ProtectedToken token;
+                    token.label = "__HET__PT_" + std::to_string(protect_label.fetch_add(1)) + "__";
+                    token.origin = std::move(tag);
+
+                    out += token.label;
+                    result_.protect.push_back(std::move(token));
+                }
+
+                have_start = false;
+            }
+        }
+
+        if (have_start) {
+            // 处理不完整标签的情况，直接把剩余部分加入输出
+            out += raw.substr(label_start);
+        }
+
+        return out;
+    }
+
+    void AddUniqueName(const std::string& name) {
+        if (name.empty()) return;
+        if (name == "mc") return;
+
+        for (const auto& existing : result_.characters) {
+            if (existing == name) return;
+        }
+
+        result_.characters.push_back(name);
+    }
+
+    std::string ReadRowStringColumn(void* cmd_item, const int& column_index = -1) {
+        if (column_index < 0) {
+            return "";
+        }
+
+        const auto& layout = g_runtime_config.layout;
+        const auto& cmd = layout.adv_command;
+        const auto& row = layout.string_grid_row;
+        const auto& array = layout.il2cpp_array;
+
+        void* rowData = read_ptr(cmd_item, cmd.row_data);
+        void* stringsPtr = read_ptr(rowData, row.strings);
+
+        int text_len = read_int(stringsPtr, array.length);
+
+        if (text_len <= column_index || text_len > 4096) {
+            return "";
+        }
+
+        void* rawTextPtr = read_ptr(stringsPtr, array.first_element + column_index * array.pointer_size);
+        if (!valid_ptr(rawTextPtr)) {
+            return "";
+        }
+
+        std::string raw_text = read_il2cpp_string(rawTextPtr);
+        if (raw_text.empty()) {
+            return "";
+        }
+
+        return raw_text;
+    }
+
+    JumpItem GetJumpItem(void* cmd_item) {
+        const auto& layout = g_runtime_config.layout;
+        const auto& jump = layout.adv_command_jump;
+
+        JumpItem item;
+        void* jumpLabelPtr = read_ptr(cmd_item, jump.jump_label);
+        if (!valid_ptr(jumpLabelPtr)) {
+            return item;
+        }
+
+        item.target = read_il2cpp_string(jumpLabelPtr);
+        item.condition = ReadRowStringColumn(cmd_item, jump.condition_column);
+
+        return item;
+    }
+
+    std::string GetTextItem(void* cmd_item) {
+        const auto& column = g_runtime_config.layout.text_columns;
+
+        std::string cn_text = ReadRowStringColumn(cmd_item, column.zh_cn);
+        if (!cn_text.empty()) {
+            LOGW("[ProcessPageJob] Already has translation");
+            SetStopCatch(true);
+            return "";
+        }
+
+        std::string raw_text = ReadRowStringColumn(cmd_item, column.raw);
+        std::string out = CatchTextLabel(raw_text, true);
+
+        auto ac_hits = AcScan(CatchTextLabel(raw_text, false));
+        result_.ac_hits.insert(result_.ac_hits.end(), ac_hits.begin(), ac_hits.end());
+
+        return out;
+    }
+
+    std::string GetNameItem(void* cmd_item) {
+        const auto& layout = g_runtime_config.layout;
+        const auto& character = layout.adv_command_character;
+
+        void* charInfo = read_ptr(cmd_item, character.character_info);
+        if (!valid_ptr(charInfo)) {
+            return "";
+        }
+
+        void* nameText = read_ptr(charInfo, character.name_text);
+        if (!valid_ptr(nameText)) {
+            return "";
+        }
+
+        return read_il2cpp_string(nameText);
+    }
+
+    SelectionParseItem GetSelectItem(void* cmd_item) {
+        const auto& layout = g_runtime_config.layout;
+        const auto& selection = layout.adv_command_selection;
+        const auto& column = layout.text_columns;
+        SelectionParseItem item;
+
+        void* jumpLabelPtr = read_ptr(cmd_item, selection.jump_label);
+
+        std::string cn_text = ReadRowStringColumn(cmd_item, column.zh_cn);
+        if (!cn_text.empty()) {
+            LOGW("[ProcessPageJob] Already has translation");
+            SetStopCatch(true);
+            return item;
+        }
+
+        std::string raw_text = ReadRowStringColumn(cmd_item, column.raw);
+        std::string out = CatchTextLabel(raw_text, true);
+
+        auto ac_hits = AcScan(std::move(CatchTextLabel(raw_text, false)));
+        result_.ac_hits.insert(result_.ac_hits.end(), ac_hits.begin(), ac_hits.end());
+
+        item.option.text = out;
+        item.option.speaker = "mc"; // 选项通常没有说话人，这里用一个固定值占位
+        item.target_label = read_il2cpp_string(jumpLabelPtr);
+
+        return item;
+    }
+
+private:
+    ProcessPageResult& result_;
+};
+
+static bool ProcessPageJob(const PageJob& job, ProcessPageResult* out = nullptr) {
+    if (out == nullptr) {
+        return false;
+    }
+    PageParser parser(*out);
+    return parser.Parse(job);
 }
 
 static PageKey MakePageKey(void* pageData, void* commandList, int pageNo) {
@@ -243,6 +417,8 @@ static void PageWorker() {
     // 这个线程专门处理PageJob，进行文本提取和翻译等后续工作
     while (true) {
         PageJob job;
+        ProcessPageResult out;
+
         {
             std::unique_lock<std::mutex> lock(page_mutex);
 
@@ -262,7 +438,9 @@ static void PageWorker() {
             page_queue.pop_front();
         }
 
-        if (!ProcessPageJob(job)) {
+        if (ProcessPageJob(job, &out)) {
+            SubmitPageResult(std::move(out));
+        } else {
             LOGE("[PageWorker] failed to parse page job seq=%llu pageNo=%d", static_cast<unsigned long long>(job.seq), job.page_no);
         }
     }
@@ -272,8 +450,11 @@ static void StartPageRecorder() {
     // 确保PageEventWorker只启动一次
     std::call_once(page_recorder_once, [] {
         std::thread(PageEventWorker).detach();
-        std::thread(PageWorker).detach();
-        LOGI("[PageRec] worker started");
+        for (int i = 0; i < kPageWorkerCount; ++i) {
+            std::thread(PageWorker).detach();
+        }
+        StartSceneBuilder();
+        LOGI("[PageRec] worker started page_workers=%d", kPageWorkerCount);
     });
 }
 
