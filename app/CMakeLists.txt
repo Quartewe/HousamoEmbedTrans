@@ -12,6 +12,7 @@ add_library(housamo_trans SHARED
     src/main/jni/init_config.cpp
     src/main/jni/page_rec.cpp
     src/main/jni/text_ac.cpp
+    src/main/jni/scene_builder.cpp
 )
 
 # Header file paths

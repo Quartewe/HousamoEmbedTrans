@@ -32,10 +32,9 @@ struct ACInit {
 };
 
 struct AcHit {
-    size_t begin = 0;
-    size_t end = 0;
     std::string text;
     MatchKind kind;
+    float score = 0.0f;
 };
 
 // 子结构体
@@ -139,6 +138,7 @@ struct ProtectedToken {
     std::string origin;   // <param=teamLeaderCharaName>
 };
 
+
 struct OrderKey {
     uint64_t page_seq = 0;  // PageJob 的顺序
     int page_no = -1;      // 游戏里的 pageNo，主要用于调试
@@ -176,6 +176,7 @@ struct ProcessPageResult {
     std::vector<JumpItem> exit_labels;
     std::vector<std::string> characters;
     std::vector<ProtectedToken> protect;
+    std::vector<AcHit> ac_hits;
 
     using PageItem = std::variant<
         std::monostate,
@@ -207,11 +208,13 @@ struct Scene {
     std::string raw_lang = "ja";
     std::string target_lang;
     std::vector<std::string> character;
+    std::vector<std::string> mentioned_character;
     std::unordered_map<std::string, CharacterInfo> character_info;
     std::vector<SceneItem> scene_items;
 };
 
 //函数声明
+void NotifySceneBuilderStopChanged();
 std::vector<AcHit> AcScan(const std::string& text);
 bool IsAcReady();
 void StartAcInit(ACInit ac_init);
