@@ -1,11 +1,11 @@
 {
-    "GameVersion": "5.17.0",
+    "GameVersion": "5.18.0",
     "RVA": {
-        "RVA_InitBase": "0x213E72C",
-        "RVA_InitText": "0x21475E0",
-        "RVA_PageTextChange": "0x218B8D4",
-        "RVA_AddSelection": "0x218E20C",
-        "RVA_ShowSelection": "0x218E634"
+        "RVA_InitBase": "0x213FAD4",
+        "RVA_InitText": "0x2148988",
+        "RVA_PageTextChange": "0x218CC7C",
+        "RVA_AddSelection": "0x218F5B4",
+        "RVA_ShowSelection": "0x218F9DC"
     },
     "Layout": {
         "Il2CppString": {
