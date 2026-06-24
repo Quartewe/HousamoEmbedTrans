@@ -34,6 +34,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static boolean s_loaded = false;
 
     private static final class RVA {
+        long findScenarioData = 0;
         long initBase = 0;
         long initText = 0;
         long pageTextChange = 0;
@@ -47,6 +48,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Il2CppListLayout il2CppList = new Il2CppListLayout();
         AdvScenarioPageDataLayout advScenarioPageData = new AdvScenarioPageDataLayout();
         ScenarioLabelDataLayout scenarioLabelData = new ScenarioLabelDataLayout();
+        AdvScenarioDataLayout advScenarioData = new AdvScenarioDataLayout();
+        Il2CppDictionaryLayout il2CppDictionary = new Il2CppDictionaryLayout();
+        DictionaryEntryLayout dictionaryEntry = new DictionaryEntryLayout();
         AdvCommandLayout advCommand = new AdvCommandLayout();
         StringGridRowLayout stringGridRow = new StringGridRowLayout();
         AdvCommandCharacterLayout advCommandCharacter = new AdvCommandCharacterLayout();
@@ -84,6 +88,24 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             long next = 0;
             long commandList = 0;
             long scenarioLabelCommand = 0;
+        }
+
+        private static final class AdvScenarioDataLayout {
+            long name = 0;
+            long jumpDataList = 0;
+            long scenarioLabels = 0;
+        }
+
+        private static final class Il2CppDictionaryLayout {
+            long entries = 0;
+            long count = 0;
+        }
+
+        private static final class DictionaryEntryLayout {
+            long hashCode = 0;
+            long key = 0;
+            long value = 0;
+            long size = 0;
         }
 
         private static final class AdvCommandLayout {
@@ -194,6 +216,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static RVA Init_RVA(JSONObject json) throws Exception {
         RVA rva = new RVA();
         JSONObject rva_config = json.getJSONObject("RVA");
+        rva.findScenarioData = parseRVA(rva_config.getString("RVA_FindScenarioData"));
         rva.initBase = parseRVA(rva_config.getString("RVA_InitBase"));
         rva.initText = parseRVA(rva_config.getString("RVA_InitText"));
         rva.pageTextChange = parseRVA(rva_config.getString("RVA_PageTextChange"));
@@ -233,6 +256,21 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         layout.scenarioLabelData.commandList = getConfigLong(scenarioLabelData, "CommandList");
         layout.scenarioLabelData.scenarioLabelCommand = getConfigLong(scenarioLabelData, "ScenarioLabelCommand");
 
+        JSONObject scenarioData = layoutConfig.getJSONObject("AdvScenarioData");
+        layout.advScenarioData.name = getConfigLong(scenarioData, "Name");
+        layout.advScenarioData.jumpDataList = getConfigLong(scenarioData, "JumpDataList");
+        layout.advScenarioData.scenarioLabels = getConfigLong(scenarioData, "ScenarioLabels");
+
+        JSONObject il2CppDictionary = layoutConfig.getJSONObject("Il2CppDictionary");
+        layout.il2CppDictionary.entries = getConfigLong(il2CppDictionary, "Entries");
+        layout.il2CppDictionary.count = getConfigLong(il2CppDictionary, "Count");
+
+        JSONObject dictionaryEntry = layoutConfig.getJSONObject("DictionaryEntry");
+        layout.dictionaryEntry.hashCode = getConfigLong(dictionaryEntry, "HashCode");
+        layout.dictionaryEntry.key = getConfigLong(dictionaryEntry, "Key");
+        layout.dictionaryEntry.value = getConfigLong(dictionaryEntry, "Value");
+        layout.dictionaryEntry.size = getConfigLong(dictionaryEntry, "Size");
+
         JSONObject advCommand = layoutConfig.getJSONObject("AdvCommand");
         layout.advCommand.rowData = getConfigLong(advCommand, "RowData");
         layout.advCommand.type = getConfigLong(advCommand, "Type");
@@ -262,9 +300,19 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return layout;
     }
 
+    private static boolean Init_EnablePageRecDebug(JSONObject json) throws Exception {
+        if (!json.has("Features")) {
+            return false;
+        }
+
+        JSONObject features = json.getJSONObject("Features");
+        return features.optBoolean("EnablePageRecDebug", false);
+    }
+
     private static native void nativeStart(
         RVA rva, 
         Layout layout,
+        boolean enablePageRecDebug,
         String[] charList,
         String[] termList
     );
@@ -279,6 +327,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     public void handleLoadPackage(LoadPackageParam lpparam) {
         RVA rva = new RVA();
         Layout layout = new Layout();
+        boolean enablePageRecDebug = false;
         String[] charList = null;
         String[] termList = null;
 
@@ -293,6 +342,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // 解析 RVA 配置
             rva = Init_RVA(json);
             layout = Init_Layout(json);
+            enablePageRecDebug = Init_EnablePageRecDebug(json);
 
             charList = readJsonKey("chardict.json");
             termList = readJsonKey("gameterms.json");
@@ -316,7 +366,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // 加载 native 库，触发 JNI_OnLoad → 在 native 层设置 hook
             System.loadLibrary("housamo_trans");
             XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
-            nativeStart(rva, layout, charList, termList);
+            nativeStart(rva, layout, enablePageRecDebug, charList, termList);
             XposedBridge.log("[HousamoTrans] Native hook RVA setup complete.");
             s_loaded = true;
         } catch (UnsatisfiedLinkError e) {

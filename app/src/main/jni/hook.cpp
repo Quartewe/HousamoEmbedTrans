@@ -3,14 +3,39 @@
 #include "shadowhook.h"
 
 using RawFuncPtr = void (*)(void* self, void* pageData, void* method);
+using RawFindScenarioDataPtr = void* (*)(void* self, void* label, void* method);
 
 // 原函数指针
 static RawFuncPtr RawInitBase = nullptr; // 所有内容
 static RawFuncPtr RawInitText = nullptr; // Text专用
+static RawFindScenarioDataPtr RawFindScenarioData = nullptr;
 
 // ShadowHook stub 指针（用于 unhook）
 static void* StubInitBase = nullptr;
 static void* StubInitText = nullptr;
+static void* StubFindScenarioData = nullptr;
+
+static void* HookFindScenarioData(void* self, void* label, void* method) {
+    std::string entry_label = read_il2cpp_string(label);
+
+    void* scenario_data = nullptr;
+    if (RawFindScenarioData) {
+        scenario_data = RawFindScenarioData(self, label, method);
+    }
+
+    if (!valid_ptr(scenario_data)) {
+        LOGW("[FindScenarioData] scenarioData invalid entry=%s", entry_label.c_str());
+        return scenario_data;
+    }
+
+    if (entry_label.empty()) {
+        LOGW("[FindScenarioData] entry label is empty scenarioData=%p", scenario_data);
+        return scenario_data;
+    }
+
+    CatchScenario(scenario_data, entry_label);
+    return scenario_data;
+}
 
 static void HookInitBase(void* self, void* pageData, void* method) {
     if (pageData == nullptr) {
@@ -44,16 +69,37 @@ static void HookInitText(void* self, void* pageData, void* method) {
     return;
 }
 
-bool install_hook(uintptr_t il2cpp_base, RvaConfig config) {
-    // 计算目标函数地址
-    void* targetBase = (void*)(il2cpp_base + config.init_base);
-    void* targetText = (void*)(il2cpp_base + config.init_text);
+bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config) {
+    // 主链路：FindScenarioData 返回完整 AdvScenarioData 后做静态解析。
+    void* targetFindScenarioData = reinterpret_cast<void*>(
+        il2cpp_base + config.rva.find_scenario_data);
+
+    StubFindScenarioData = shadowhook_hook_func_addr(
+        targetFindScenarioData,
+        reinterpret_cast<void*>(HookFindScenarioData),
+        reinterpret_cast<void**>(&RawFindScenarioData)
+    );
+    if (StubFindScenarioData == nullptr) {
+        int err = shadowhook_get_errno();
+        LOGE("shadowhook FindScenarioData failed: %d %s", err, shadowhook_to_errmsg(err));
+        return false;
+    }
+    LOGI("shadowhook FindScenarioData success stub=%p", StubFindScenarioData);
+
+    if (!config.enable_page_rec_debug) {
+        LOGI("[PageRec] debug hook disabled");
+        return true;
+    }
+
+    // 调试链路：只在配置显式开启时安装 InitBase/InitText 对照 hook。
+    void* targetBase = reinterpret_cast<void*>(il2cpp_base + config.rva.init_base);
+    void* targetText = reinterpret_cast<void*>(il2cpp_base + config.rva.init_text);
 
     // 使用 ShadowHook 安装钩子
     StubInitBase = shadowhook_hook_func_addr(
         targetBase,
-        (void*)HookInitBase,
-        (void**)&RawInitBase
+        reinterpret_cast<void*>(HookInitBase),
+        reinterpret_cast<void**>(&RawInitBase)
     );
     if (StubInitBase == nullptr) {
         int err = shadowhook_get_errno();
@@ -64,8 +110,8 @@ bool install_hook(uintptr_t il2cpp_base, RvaConfig config) {
 
     StubInitText = shadowhook_hook_func_addr(
         targetText,
-        (void*)HookInitText,
-        (void**)&RawInitText
+        reinterpret_cast<void*>(HookInitText),
+        reinterpret_cast<void**>(&RawInitText)
     );
     if (StubInitText == nullptr) {
         int err = shadowhook_get_errno();

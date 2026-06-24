@@ -42,7 +42,31 @@ struct PageJob {
     std::string source;
 };
 
-std::atomic<bool> stop_catch{false};
+struct SelectionParseItem {
+    TextItem option;
+    std::string target_label;
+};
+
+using TextGroup = std::vector<TextItem>;
+using SelectionGroup = std::vector<SelectionParseItem>;
+
+struct ProcessPageResult {
+    uint64_t page_seq = 0;
+    OrderKey order;
+    std::string current_label;
+    std::vector<JumpItem> exit_labels;
+    std::vector<std::string> characters;
+    std::vector<ProtectedToken> protect;
+    std::vector<AcHit> ac_hits;
+
+    using PageItem = std::variant<
+        std::monostate,
+        TextGroup,
+        SelectionGroup
+    >;
+    PageItem items;
+};
+
 static constexpr int kPageWorkerCount = 2;
 static std::once_flag page_recorder_once;
 
@@ -58,14 +82,6 @@ static std::condition_variable page_cv;
 static std::atomic<uint64_t> next_seq{0};
 static std::atomic<int> protect_label{0}; 
 static std::unordered_set<PageKey, PageKeyHash> seen_pages;
-
-void SetStopCatch(bool stop) {
-    stop_catch.store(stop);
-
-    event_cv.notify_all();
-    page_cv.notify_all();
-    NotifySceneBuilderStopChanged();
-}
 
 class PageParser {
 public:
@@ -85,7 +101,8 @@ public:
         const auto& page = layout.adv_scenario_page_data;
         const auto& scenario = layout.scenario_label_data;
 
-        result_.order.page_seq = job.seq;
+        result_.page_seq = job.seq;
+        result_.order.label_index = -1;
         result_.order.page_no = job.page_no;
 
         void* label_data = read_ptr(job.page_data, page.scenario_label_data);
@@ -124,7 +141,7 @@ public:
                 std::string raw_text = GetTextItem(cmd_item);
                 if (raw_text.empty()) continue;
 
-                text_item.order.page_seq = job.seq;
+                text_item.order.label_index = -1;
                 text_item.order.page_no = job.page_no;
                 text_item.order.cmd_index = i;
                 text_item.order.sub_index = 0;
@@ -139,7 +156,7 @@ public:
                 SelectionParseItem item = GetSelectItem(cmd_item);
                 if (item.option.text.empty() || item.target_label.empty()) continue;
 
-                item.option.order.page_seq = job.seq;
+                item.option.order.label_index = -1;
                 item.option.order.page_no = job.page_no;
                 item.option.order.cmd_index = i;
                 item.option.order.sub_index = ++select_seq;
@@ -351,6 +368,11 @@ private:
     ProcessPageResult& result_;
 };
 
+void NotifyPageRecStopChanged() {
+    event_cv.notify_all();
+    page_cv.notify_all();
+}
+
 static bool ProcessPageJob(const PageJob& job, ProcessPageResult* out = nullptr) {
     if (out == nullptr) {
         return false;
@@ -439,7 +461,11 @@ static void PageWorker() {
         }
 
         if (ProcessPageJob(job, &out)) {
-            SubmitPageResult(std::move(out));
+            LOGI("[PageRecDebug] parsed seq=%llu label=%s pageNo=%d source=%s",
+                 static_cast<unsigned long long>(out.page_seq),
+                 out.current_label.c_str(),
+                 out.order.page_no,
+                 job.source.c_str());
         } else {
             LOGE("[PageWorker] failed to parse page job seq=%llu pageNo=%d", static_cast<unsigned long long>(job.seq), job.page_no);
         }
@@ -453,7 +479,6 @@ static void StartPageRecorder() {
         for (int i = 0; i < kPageWorkerCount; ++i) {
             std::thread(PageWorker).detach();
         }
-        StartSceneBuilder();
         LOGI("[PageRec] worker started page_workers=%d", kPageWorkerCount);
     });
 }

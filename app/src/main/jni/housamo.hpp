@@ -70,6 +70,24 @@ struct ScenarioLabelDataLayoutConfig {
     size_t scenario_label_command = 0;
 };
 
+struct AdvScenarioDataLayoutConfig {
+    size_t name = 0;
+    size_t jump_data_list = 0;
+    size_t scenario_labels = 0;
+};
+
+struct Il2CppDictionaryLayoutConfig {
+    size_t entries = 0;
+    size_t count = 0;
+};
+
+struct DictionaryEntryLayoutConfig {
+    size_t hash_code = 0;
+    size_t key = 0;
+    size_t value = 0;
+    size_t size = 0;
+};
+
 struct AdvCommandLayoutConfig {
     size_t row_data = 0;
     size_t type = 0;
@@ -104,6 +122,7 @@ struct TextColumnsConfig {
 
 // Java层传入的配置结构体
 struct RvaConfig {
+    uintptr_t find_scenario_data = 0;
     uintptr_t init_base = 0;
     uintptr_t init_text = 0;
     uintptr_t page_text_change = 0;
@@ -117,6 +136,9 @@ struct LayoutConfig {
     Il2CppListLayoutConfig il2cpp_list;
     AdvScenarioPageDataLayoutConfig adv_scenario_page_data;
     ScenarioLabelDataLayoutConfig scenario_label_data;
+    AdvScenarioDataLayoutConfig adv_scenario_data;
+    Il2CppDictionaryLayoutConfig il2cpp_dictionary;
+    DictionaryEntryLayoutConfig dictionary_entry;
     AdvCommandLayoutConfig adv_command;
     StringGridRowLayoutConfig string_grid_row;
     AdvCommandCharacterLayoutConfig adv_command_character;
@@ -128,6 +150,7 @@ struct LayoutConfig {
 struct RuntimeConfig {
     RvaConfig rva;
     LayoutConfig layout;
+    bool enable_page_rec_debug = false;
 };
 
 extern RuntimeConfig g_runtime_config;
@@ -138,9 +161,8 @@ struct ProtectedToken {
     std::string origin;   // <param=teamLeaderCharaName>
 };
 
-
 struct OrderKey {
-    uint64_t page_seq = 0;  // PageJob 的顺序
+    int label_index = -1;   // ScenarioLabelData.Next 排序后的 label 序号
     int page_no = -1;      // 游戏里的 pageNo，主要用于调试
     int cmd_index = -1;    // CommandList 里的真实下标
     int sub_index = 0;     // 同一个命令内的子项，普通 Text 用 0，选项可用 0/1/2
@@ -159,36 +181,22 @@ struct JumpItem {
 
 struct BrenchItem {
     TextItem option;
+    std::string target_label;
     std::vector<TextItem> following_text;
 };
 
-struct SelectionParseItem {
-    TextItem option;          // 给翻译用
-    std::string target_label;      // page_rec 内部用，不传给翻译层
+struct ScenarioLabelNode {
+    std::string label;
+    std::string next_label;
+    int page_count = 0;
 };
 
-using TextGroup = std::vector<TextItem>;
-using SelectionGroup = std::vector<SelectionParseItem>;
+struct ScenarioResult {
+    std::string scene;
+    std::string entry_label;
 
-struct ProcessPageResult {
-    OrderKey order;
-    std::string current_label;
-    std::vector<JumpItem> exit_labels;
-    std::vector<std::string> characters;
-    std::vector<ProtectedToken> protect;
-    std::vector<AcHit> ac_hits;
-
-    using PageItem = std::variant<
-        std::monostate,
-        TextGroup,
-        SelectionGroup
-    >;
-    PageItem items;
-};
-
-struct CharacterInfo {
-    std::string name;
-    std::string description;
+    std::unordered_map<std::string, ScenarioLabelNode> labels;
+    std::vector<std::string> label_order;
 };
 
 struct IfBlock {
@@ -203,29 +211,82 @@ struct ChoiceBlock {
 
 using SceneItem = std::variant<TextItem, ChoiceBlock, IfBlock>;
 
+struct Relationship {
+    std::string target;
+    std::string type;
+    bool direction;
+};
+
+struct HighWeightItem {
+    std::string name;
+    std::string school;
+    std::string community;
+    std::string speech_style;
+    std::vector<Relationship> relationships;
+    std::string description;
+};
+
+struct LowWeightItem {
+    std::string name;
+    std::string school;
+    std::string community;
+    std::vector<Relationship> relationships;
+    std::string description;
+};
+
+struct Character {
+    std::vector<HighWeightItem> high_weight;
+    std::vector<LowWeightItem> low_weight;
+};
+
+struct ItemScore {
+    std::string item;
+    float score = 0.0f;
+};
+
+struct ScenarioParseResult {
+    std::string scene;        // scenarioData.name
+    std::string entry_label;  // FindScenarioData(label) 的参数
+    std::vector<ItemScore> speaker_character;
+    std::vector<ItemScore> show_character;
+    std::vector<ItemScore> text_character;
+    std::vector<ItemScore> game_terms;
+
+    std::vector<ProtectedToken> protect;
+    std::vector<SceneItem> scene_items;
+};
+
 struct Scene {
     std::string scene;
     std::string raw_lang = "ja";
     std::string target_lang;
-    std::vector<std::string> character;
+    Character character;
     std::vector<std::string> mentioned_character;
-    std::unordered_map<std::string, CharacterInfo> character_info;
+    std::vector<std::string> game_terms;
+    std::vector<ProtectedToken> protect;
     std::vector<SceneItem> scene_items;
 };
 
 //函数声明
+void NotifyPageRecStopChanged();
+void NotifySceneBuilderStopChanged();
+void SubmitScenarioParseResult(ScenarioParseResult result);
+bool CatchScenario(void* scenario_data, const std::string& entry_label);
 void NotifySceneBuilderStopChanged();
 std::vector<AcHit> AcScan(const std::string& text);
 bool IsAcReady();
 void StartAcInit(ACInit ac_init);
 void StartSceneBuilder();
-void SubmitPageResult(ProcessPageResult result);
 void SetStopCatch(bool stop);
 bool CommandExamine(void* pageData, const std::string& source);
-bool make_runtime_config(const RvaConfig& java_rva, const LayoutConfig& java_layout, RuntimeConfig* out);
+bool make_runtime_config(
+    const RvaConfig& java_rva,
+    const LayoutConfig& java_layout,
+    bool enable_page_rec_debug,
+    RuntimeConfig* out);
 bool valid_rva_config(const RvaConfig& config);
 bool valid_layout_config(const LayoutConfig& config);
-bool install_hook(uintptr_t il2cpp_base, RvaConfig config);
+bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config);
 bool valid_ptr(void* ptr);
 void* read_ptr(void* base, size_t offset);
 int read_int(void* base, size_t offset);

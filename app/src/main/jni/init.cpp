@@ -68,6 +68,7 @@ static jobject get_object_field(JNIEnv* env, jobject obj, const char* name, cons
 
 static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
     RvaConfig out;
+    out.find_scenario_data = get_uintptr_field(env, rvaConfigObj, "findScenarioData");
     out.init_base = get_uintptr_field(env, rvaConfigObj, "initBase");
     out.init_text = get_uintptr_field(env, rvaConfigObj, "initText");
     out.page_text_change = get_uintptr_field(env, rvaConfigObj, "pageTextChange");
@@ -82,6 +83,9 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
     static constexpr const char* kIl2CppListSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppListLayout;";
     static constexpr const char* kPageDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvScenarioPageDataLayout;";
     static constexpr const char* kScenarioLabelDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$ScenarioLabelDataLayout;";
+    static constexpr const char* kScenarioDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvScenarioDataLayout;";
+    static constexpr const char* kIl2CppDictionarySig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppDictionaryLayout;";
+    static constexpr const char* kDictionaryEntrySig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$DictionaryEntryLayout;";
     static constexpr const char* kAdvCommandSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvCommandLayout;";
     static constexpr const char* kStringGridRowSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$StringGridRowLayout;";
     static constexpr const char* kCharacterSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvCommandCharacterLayout;";
@@ -122,6 +126,24 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
     out.scenario_label_data.command_list = get_size_field(env, scenario_label_data, "commandList");
     out.scenario_label_data.scenario_label_command = get_size_field(env, scenario_label_data, "scenarioLabelCommand");
     if (scenario_label_data != nullptr) env->DeleteLocalRef(scenario_label_data);
+
+    jobject scenario_data = get_object_field(env, layoutObj, "advScenarioData", kScenarioDataSig);
+    out.adv_scenario_data.name = get_size_field(env, scenario_data, "name");
+    out.adv_scenario_data.jump_data_list = get_size_field(env, scenario_data, "jumpDataList");
+    out.adv_scenario_data.scenario_labels = get_size_field(env, scenario_data, "scenarioLabels");
+    if (scenario_data != nullptr) env->DeleteLocalRef(scenario_data);
+
+    jobject il2cpp_dictionary = get_object_field(env, layoutObj, "il2CppDictionary", kIl2CppDictionarySig);
+    out.il2cpp_dictionary.entries = get_size_field(env, il2cpp_dictionary, "entries");
+    out.il2cpp_dictionary.count = get_size_field(env, il2cpp_dictionary, "count");
+    if (il2cpp_dictionary != nullptr) env->DeleteLocalRef(il2cpp_dictionary);
+
+    jobject dictionary_entry = get_object_field(env, layoutObj, "dictionaryEntry", kDictionaryEntrySig);
+    out.dictionary_entry.hash_code = get_size_field(env, dictionary_entry, "hashCode");
+    out.dictionary_entry.key = get_size_field(env, dictionary_entry, "key");
+    out.dictionary_entry.value = get_size_field(env, dictionary_entry, "value");
+    out.dictionary_entry.size = get_size_field(env, dictionary_entry, "size");
+    if (dictionary_entry != nullptr) env->DeleteLocalRef(dictionary_entry);
 
     jobject adv_command = get_object_field(env, layoutObj, "advCommand", kAdvCommandSig);
     out.adv_command.row_data = get_size_field(env, adv_command, "rowData");
@@ -239,7 +261,7 @@ static void InitThread(RuntimeConfig config) {
         return;
     }
 
-    if (!install_hook(il2cpp_base, config.rva)) {
+    if (!install_hook(il2cpp_base, config)) {
         LOGE("Initialization failed: Could not install hook");
         return;
     }
@@ -252,6 +274,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jclass clazz,
     jobject rvaConfigObj,
     jobject layOutObj,
+    jboolean enablePageRecDebug,
     jobjectArray charList,
     jobjectArray termList
 ) {
@@ -264,15 +287,23 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
 
     RuntimeConfig config;
 
-    if (!make_runtime_config(java_rva, java_layout, &config)) {
+    if (!make_runtime_config(
+            java_rva,
+            java_layout,
+            enablePageRecDebug == JNI_TRUE,
+            &config)) {
         return;
     }
 
     g_runtime_config = config;
 
-    LOGI("Received RVA config from Java: InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR,
+    LOGI("Received RVA config from Java: FindScenarioData=0x%" PRIxPTR
+         ", InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR
+         ", PageRecDebug=%d",
+         config.rva.find_scenario_data,
          config.rva.init_base,
-         config.rva.init_text);
+         config.rva.init_text,
+         config.enable_page_rec_debug ? 1 : 0);
     LOGI("Starting initialization thread...");
 
     StartAcInit(std::move(ac_init));
@@ -284,4 +315,3 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) { // JNI_OnLoad�
     // std::thread(InitThread).detach(); (已移交给Java层调用nativeStart函数来启动线程)
     return JNI_VERSION_1_6;
 }
-

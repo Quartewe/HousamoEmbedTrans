@@ -26,6 +26,10 @@ static bool valid_offset(size_t offset) {
     return offset > 0 && offset < 0x1000;
 }
 
+static bool valid_nullable_offset(size_t offset) {
+    return offset < 0x1000;
+}
+
 static bool valid_column(int column) {
     return column >= 0 && column < 128;
 }
@@ -33,6 +37,7 @@ static bool valid_column(int column) {
 bool valid_rva_config(const RvaConfig& config) {
     bool all_valid = true;
     const RvaField fields[] = {
+        {"find_scenario_data", config.find_scenario_data},
         {"init_base", config.init_base},
         {"init_text", config.init_text},
         {"page_text_change", config.page_text_change},
@@ -78,6 +83,14 @@ bool valid_layout_config(const LayoutConfig& config) {
         {"scenario_label_data.next", config.scenario_label_data.next},
         {"scenario_label_data.command_list", config.scenario_label_data.command_list},
         {"scenario_label_data.scenario_label_command", config.scenario_label_data.scenario_label_command},
+        {"adv_scenario_data.name", config.adv_scenario_data.name},
+        {"adv_scenario_data.jump_data_list", config.adv_scenario_data.jump_data_list},
+        {"adv_scenario_data.scenario_labels", config.adv_scenario_data.scenario_labels},
+        {"il2cpp_dictionary.entries", config.il2cpp_dictionary.entries},
+        {"il2cpp_dictionary.count", config.il2cpp_dictionary.count},
+        {"dictionary_entry.key", config.dictionary_entry.key},
+        {"dictionary_entry.value", config.dictionary_entry.value},
+        {"dictionary_entry.size", config.dictionary_entry.size},
     };
     for (const OffsetField& field : offsets) {
         if (!valid_offset(field.value)) {
@@ -86,6 +99,15 @@ bool valid_layout_config(const LayoutConfig& config) {
         } else {
             LOGI("valid layout offset: %s = 0x%zx", field.name, field.value);
         }
+    }
+
+    if (!valid_nullable_offset(config.dictionary_entry.hash_code)) {
+        LOGE("invalid layout offset: dictionary_entry.hash_code = 0x%zx",
+             config.dictionary_entry.hash_code);
+        all_valid = false;
+    } else {
+        LOGI("valid layout offset: dictionary_entry.hash_code = 0x%zx",
+             config.dictionary_entry.hash_code);
     }
 
     if (config.il2cpp_array.pointer_size != 8) {
@@ -126,7 +148,11 @@ bool valid_layout_config(const LayoutConfig& config) {
     return all_valid;
 }
 
-bool make_runtime_config(const RvaConfig& java_rva, const LayoutConfig& java_layout, RuntimeConfig* out) {
+bool make_runtime_config(
+    const RvaConfig& java_rva,
+    const LayoutConfig& java_layout,
+    bool enable_page_rec_debug,
+    RuntimeConfig* out) {
     if (out == nullptr) {
         LOGE("make_runtime_config failed: out is nullptr");
         return false;
@@ -137,5 +163,6 @@ bool make_runtime_config(const RvaConfig& java_rva, const LayoutConfig& java_lay
 
     out->rva = java_rva;
     out->layout = java_layout;
+    out->enable_page_rec_debug = enable_page_rec_debug;
     return true;
 }
