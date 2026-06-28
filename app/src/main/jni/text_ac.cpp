@@ -13,7 +13,9 @@
 namespace {
 
 struct MatchPattern {
-    std::string canonical; 
+    std::string pattern;
+    std::string canonical;
+    std::string called;
     MatchKind kind;
 };
 
@@ -40,7 +42,7 @@ public:
         patterns_.push_back(std::move(pattern));
 
         int state = 0;
-        for (unsigned char ch : patterns_[pattern_id].canonical) {
+        for (unsigned char ch : patterns_[pattern_id].pattern) {
             int& next_state = nodes_[state].next[ch];
             if (next_state == -1) {
                 next_state = static_cast<int>(nodes_.size());
@@ -105,7 +107,7 @@ public:
 
             for (int pattern_id : nodes_[state].out) {
                 const auto& pattern = patterns_[pattern_id];
-                size_t len = pattern.canonical.size();
+                size_t len = pattern.pattern.size();
 
                 MatchHit hit;
                 hit.begin = i + 1 - len;
@@ -223,11 +225,27 @@ void StartAcInit(ACInit ac_init) {
     std::thread([init = std::move(ac_init)]() mutable {
     auto ac = std::make_shared<AhoCorasick>();
 
-    for (const auto& name : init.char_list) {
-        if (name.empty()) {continue;}
+    size_t char_count = std::min(
+        init.char_patterns.size(),
+        std::min(init.char_canonicals.size(), init.char_called.size()));
+    if (init.char_patterns.size() != init.char_canonicals.size()
+        || init.char_patterns.size() != init.char_called.size()) {
+        LOGW("[TextAC] character pattern/canonical/called size mismatch pattern=%zu canonical=%zu called=%zu",
+            init.char_patterns.size(),
+            init.char_canonicals.size(),
+            init.char_called.size());
+    }
+
+    for (size_t i = 0; i < char_count; ++i) {
+        const auto& pattern_text = init.char_patterns[i];
+        const auto& canonical = init.char_canonicals[i];
+        const auto& called = init.char_called[i];
+        if (pattern_text.empty() || canonical.empty()) {continue;}
 
         MatchPattern pattern;
-        pattern.canonical = name;
+        pattern.pattern = pattern_text;
+        pattern.canonical = canonical;
+        pattern.called = called;
         pattern.kind = MatchKind::character;
 
         ac->AddPattern(std::move(pattern));
@@ -237,7 +255,9 @@ void StartAcInit(ACInit ac_init) {
         if (term.empty()) {continue;}
 
         MatchPattern pattern;
+        pattern.pattern = term;
         pattern.canonical = term;
+        pattern.called = "";
         pattern.kind = MatchKind::term;
 
         ac->AddPattern(std::move(pattern));
@@ -251,8 +271,8 @@ void StartAcInit(ACInit ac_init) {
     g_text_ac_ready.store(true, std::memory_order_release);
     }
 
-    LOGI("[TextAC] ready char=%zu term=%zu",
-     init.char_list.size(),
+    LOGI("[TextAC] ready char_patterns=%zu term=%zu",
+     char_count,
      init.term_list.size());
     }).detach();
 }
@@ -274,17 +294,39 @@ std::vector<AcHit> AcScan(const std::string& text) {
     auto hits = ac->Scan(text);
 
     std::vector<AcHit> out;
-    out.reserve(hits.size());
+    out.reserve(hits.size() * 2);
 
     for (const auto& hit : hits) {
         const auto& pattern = ac->Pattern(hit.pattern_id);
 
         AcHit ac_hit;
-        ac_hit.text = pattern.canonical;
+        ac_hit.matched_text = pattern.pattern;
+        ac_hit.canonical = pattern.canonical;
         ac_hit.kind = pattern.kind;
         if (pattern.kind == MatchKind::character) {
-            ac_hit.score = TouchesKatakanaBoundary(text, hit.begin, hit.end) ? 0.1f : 1.0f;
-        } 
+            bool touches_katakana_boundary = TouchesKatakanaBoundary(text, hit.begin, hit.end);
+            ac_hit.source = pattern.pattern == pattern.canonical
+                ? AcHitSource::direct
+                : AcHitSource::alias_canonical;
+            ac_hit.score = touches_katakana_boundary ? 0.1f : 1.0f;
+            out.push_back(std::move(ac_hit));
+
+            if (!touches_katakana_boundary
+                && !pattern.called.empty()
+                && pattern.called != pattern.canonical) {
+                AcHit called_hit;
+                called_hit.matched_text = pattern.pattern;
+                called_hit.canonical = pattern.called;
+                called_hit.kind = MatchKind::character;
+                called_hit.source = AcHitSource::alias_called;
+                called_hit.score = 1.0f;
+                out.push_back(std::move(called_hit));
+            }
+            continue;
+        } else if (pattern.kind == MatchKind::term) {
+            ac_hit.source = AcHitSource::direct;
+            ac_hit.score = 1.0f;
+        }
         
         out.push_back(std::move(ac_hit));
     }

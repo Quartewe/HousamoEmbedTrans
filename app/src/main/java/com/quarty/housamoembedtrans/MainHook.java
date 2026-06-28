@@ -7,6 +7,7 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 import de.robv.android.xposed.IXposedHookZygoteInit;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
@@ -16,6 +17,7 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipEntry;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 
 /**
  * LSPosed 模块入口 — Housamo AI 实时翻译。
@@ -141,6 +143,22 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
+    private static final class CharacterPatterns {
+        String[] patterns = new String[0];
+        String[] canonicals = new String[0];
+        String[] called = new String[0];
+    }
+
+    private static final class CharacterPatternEntry {
+        String canonical = "";
+        String called = "";
+
+        CharacterPatternEntry(String canonical, String called) {
+            this.canonical = canonical;
+            this.called = called;
+        }
+    }
+
     // Tools
     private static long parseRVA(String value) {
         // 支持十六进制（0x开头）和十进制格式的 RVA 输入
@@ -188,6 +206,90 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
 
         return result.toArray(new String[0]);
+    }
+
+    private static void addCharacterPattern(
+        LinkedHashMap<String, CharacterPatternEntry> patterns,
+        String pattern,
+        String canonical,
+        String called
+    ) {
+        if (pattern == null || canonical == null) {
+            return;
+        }
+
+        pattern = pattern.trim();
+        canonical = canonical.trim();
+        called = called == null ? "" : called.trim();
+
+        if (pattern.isEmpty() || canonical.isEmpty()) {
+            return;
+        }
+
+        if (!patterns.containsKey(pattern)) {
+            patterns.put(pattern, new CharacterPatternEntry(canonical, called));
+        }
+    }
+
+    private static CharacterPatterns readCharacterPatterns(String name) throws Exception {
+        String jsonText = readModuleAsset(name);
+        JSONObject json = new JSONObject(jsonText);
+        ArrayList<String> keys = new ArrayList<>();
+        Iterator<String> it = json.keys();
+
+        while (it.hasNext()) {
+            String key = it.next();
+            if (key != null && !key.isEmpty()) {
+                keys.add(key);
+            }
+        }
+
+        LinkedHashMap<String, CharacterPatternEntry> patterns = new LinkedHashMap<>();
+
+        // Pass 1: add canonical character names first, so official names win over aliases.
+        for (String canonical : keys) {
+            addCharacterPattern(patterns, canonical, canonical, "");
+        }
+
+        // Pass 2: add alias[].name. The normalized asset schema stores name as a string.
+        for (String canonical : keys) {
+            JSONObject character = json.optJSONObject(canonical);
+            if (character == null) {
+                continue;
+            }
+
+            JSONArray aliases = character.optJSONArray("alias");
+            if (aliases == null) {
+                continue;
+            }
+
+            for (int i = 0; i < aliases.length(); ++i) {
+                JSONObject alias = aliases.optJSONObject(i);
+                if (alias == null) {
+                    continue;
+                }
+
+                String called = alias.optString("called", "");
+                addCharacterPattern(patterns, alias.optString("name", ""), canonical, called);
+            }
+        }
+
+        CharacterPatterns result = new CharacterPatterns();
+        ArrayList<String> patternList = new ArrayList<>();
+        ArrayList<String> canonicalList = new ArrayList<>();
+        ArrayList<String> calledList = new ArrayList<>();
+
+        for (String pattern : patterns.keySet()) {
+            CharacterPatternEntry entry = patterns.get(pattern);
+            patternList.add(pattern);
+            canonicalList.add(entry.canonical);
+            calledList.add(entry.called);
+        }
+
+        result.patterns = patternList.toArray(new String[0]);
+        result.canonicals = canonicalList.toArray(new String[0]);
+        result.called = calledList.toArray(new String[0]);
+        return result;
     }
 
     private static String readModuleAsset(String name) throws Exception {
@@ -313,8 +415,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         RVA rva, 
         Layout layout,
         boolean enablePageRecDebug,
-        String[] charList,
-        String[] termList
+        String[] charPatternList,
+        String[] charCanonicalList,
+        String[] charCalledList,
+        String[] termList,
+        String chardictJson
     );
 
     @Override
@@ -328,8 +433,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         RVA rva = new RVA();
         Layout layout = new Layout();
         boolean enablePageRecDebug = false;
-        String[] charList = null;
+        CharacterPatterns charPatterns = new CharacterPatterns();
         String[] termList = null;
+        String chardictJson;
 
         if (!TARGET_PACKAGE.equals(lpparam.packageName)) return;
         if (s_loaded) return; // 防止重复加载（某些情况下 handleLoadPackage 会多调）
@@ -344,10 +450,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             layout = Init_Layout(json);
             enablePageRecDebug = Init_EnablePageRecDebug(json);
 
-            charList = readJsonKey("chardict.json");
+            charPatterns = readCharacterPatterns("chardict.json");
             termList = readJsonKey("gameterms.json");
+            chardictJson = readModuleAsset("chardict.json");
         } catch (Exception e) {
-            XposedBridge.log("[HousamoTrans] FATAL: Failed to read config.json from assets: " + e.getMessage());
+            XposedBridge.log("[HousamoTrans] FATAL: Failed to read module assets: " + e.getMessage());
             return;
         }
 
@@ -366,7 +473,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // 加载 native 库，触发 JNI_OnLoad → 在 native 层设置 hook
             System.loadLibrary("housamo_trans");
             XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
-            nativeStart(rva, layout, enablePageRecDebug, charList, termList);
+            nativeStart(
+                rva,
+                layout,
+                enablePageRecDebug,
+                charPatterns.patterns,
+                charPatterns.canonicals,
+                charPatterns.called,
+                termList,
+                chardictJson
+            );
             XposedBridge.log("[HousamoTrans] Native hook RVA setup complete.");
             s_loaded = true;
         } catch (UnsatisfiedLinkError e) {

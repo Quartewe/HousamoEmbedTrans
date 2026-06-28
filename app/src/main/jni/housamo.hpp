@@ -26,14 +26,24 @@ enum class MatchKind {
     term
 };
 
+enum class AcHitSource {
+    direct,
+    alias_canonical,
+    alias_called
+};
+
 struct ACInit {
-    std::vector<std::string> char_list;
+    std::vector<std::string> char_patterns;
+    std::vector<std::string> char_canonicals;
+    std::vector<std::string> char_called;
     std::vector<std::string> term_list;
 };
 
 struct AcHit {
-    std::string text;
+    std::string matched_text;
+    std::string canonical;
     MatchKind kind;
+    AcHitSource source = AcHitSource::direct;
     float score = 0.0f;
 };
 
@@ -211,32 +221,38 @@ struct ChoiceBlock {
 
 using SceneItem = std::variant<TextItem, ChoiceBlock, IfBlock>;
 
+struct I18N {
+    std::string en;
+    std::string zh_tw;
+    std::string zh_cn;
+};
+
 struct Relationship {
     std::string target;
     std::string type;
-    bool direction;
 };
 
-struct HighWeightItem {
+struct CharacterItem {
     std::string name;
-    std::string school;
-    std::string community;
+    I18N i18n;
+    std::vector<std::string> school;
+    std::vector<std::string> guild;
+    std::vector<std::string> origin_world;
     std::string speech_style;
     std::vector<Relationship> relationships;
-    std::string description;
-};
-
-struct LowWeightItem {
-    std::string name;
-    std::string school;
-    std::string community;
-    std::vector<Relationship> relationships;
+    std::string info;
     std::string description;
 };
 
 struct Character {
-    std::vector<HighWeightItem> high_weight;
-    std::vector<LowWeightItem> low_weight;
+    std::vector<CharacterItem> high_weight;
+    std::vector<CharacterItem> low_weight;
+};
+
+struct GameTerm {
+    std::string term;
+    I18N i18n;
+    std::string description;
 };
 
 struct ItemScore {
@@ -262,12 +278,14 @@ struct Scene {
     std::string target_lang;
     Character character;
     std::vector<std::string> mentioned_character;
-    std::vector<std::string> game_terms;
+    std::vector<GameTerm> game_terms;
     std::vector<ProtectedToken> protect;
     std::vector<SceneItem> scene_items;
 };
 
 //函数声明
+void StartCharDictManager(std::string json_text);
+bool FindCharacterItem(const std::string& name, CharacterItem* out);
 void NotifyPageRecStopChanged();
 void NotifySceneBuilderStopChanged();
 void SubmitScenarioParseResult(ScenarioParseResult result);

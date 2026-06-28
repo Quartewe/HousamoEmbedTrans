@@ -309,17 +309,17 @@ static bool ReadTranslatableText(
     // 读当前显示角色
     for (auto& ac_hit : AcScan(ReadRowStringColumn(cmd_item, 1))) {
         if (ac_hit.kind == MatchKind::character) {
-            AddItemScore(result.show_character, ac_hit.text, ac_hit.score);
+            AddItemScore(result.show_character, ac_hit.canonical, ac_hit.score);
         } else if (ac_hit.kind == MatchKind::term) {
-            AddItemScore(result.game_terms, ac_hit.text, 1);
+            AddItemScore(result.game_terms, ac_hit.canonical, ac_hit.score);
         }
     }
 
     for (auto& ac_hit : AcScan(raw_text)) {
         if (ac_hit.kind == MatchKind::character) {
-            AddItemScore(result.text_character, ac_hit.text, ac_hit.score);
+            AddItemScore(result.text_character, ac_hit.canonical, ac_hit.score);
         } else if (ac_hit.kind == MatchKind::term) {
-            AddItemScore(result.game_terms, ac_hit.text, 1);
+            AddItemScore(result.game_terms, ac_hit.canonical, ac_hit.score);
         }
     }
 

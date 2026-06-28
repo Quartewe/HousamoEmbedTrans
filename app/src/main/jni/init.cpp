@@ -195,7 +195,11 @@ static std::string jstring_to_string(JNIEnv* env, jstring value) {
     return out;
 }
 
-static std::vector<std::string> jobjarray_to_vector(JNIEnv* env, jobjectArray array) {
+static std::vector<std::string> jobjarray_to_vector(
+    JNIEnv* env,
+    jobjectArray array,
+    bool keep_empty = false
+) {
     std::vector<std::string> out;
 
     if (array == nullptr) {
@@ -210,7 +214,7 @@ static std::vector<std::string> jobjarray_to_vector(JNIEnv* env, jobjectArray ar
         auto item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
 
         std::string text = jstring_to_string(env, item);
-        if (!text.empty()) {
+        if (!text.empty() || keep_empty) {
             out.push_back(std::move(text));
         }
         if (item != nullptr) {
@@ -275,15 +279,21 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jobject rvaConfigObj,
     jobject layOutObj,
     jboolean enablePageRecDebug,
-    jobjectArray charList,
-    jobjectArray termList
+    jobjectArray charPatternList,
+    jobjectArray charCanonicalList,
+    jobjectArray charCalledList,
+    jobjectArray termList,
+    jstring chardictJson
 ) {
     RvaConfig java_rva = jcls_to_rvaconfig(env, rvaConfigObj);
     LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
 
     ACInit ac_init;
-    ac_init.char_list = std::move(jobjarray_to_vector(env, charList));
+    ac_init.char_patterns = std::move(jobjarray_to_vector(env, charPatternList));
+    ac_init.char_canonicals = std::move(jobjarray_to_vector(env, charCanonicalList));
+    ac_init.char_called = std::move(jobjarray_to_vector(env, charCalledList, true));
     ac_init.term_list = std::move(jobjarray_to_vector(env, termList));
+    std::string chardict_json = jstring_to_string(env, chardictJson);
 
     RuntimeConfig config;
 
@@ -307,6 +317,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     LOGI("Starting initialization thread...");
 
     StartAcInit(std::move(ac_init));
+    StartCharDictManager(std::move(chardict_json));
     std::thread(InitThread, config).detach();// 启动一个新的线程来执行初始化逻辑，避免阻塞JNI_OnLoad函数
 }
 
