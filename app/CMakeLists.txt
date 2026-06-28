@@ -14,11 +14,13 @@ add_library(housamo_trans SHARED
     src/main/jni/text_ac.cpp
     src/main/jni/scene_builder.cpp
     src/main/jni/scenario_catcher.cpp
+    src/main/jni/character_dict.cpp
 )
 
 # Header file paths
 target_include_directories(housamo_trans PRIVATE
     src/main/jni
+    src/main/jni/third_party/rapidjson/include
 )
 
 # Link libraries
