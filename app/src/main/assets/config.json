@@ -1,11 +1,15 @@
 {
     "GameVersion": "5.18.0",
     "RVA": {
+        "RVA_FindScenarioData": "0x21532DC",
         "RVA_InitBase": "0x213FAD4",
         "RVA_InitText": "0x2148988",
         "RVA_PageTextChange": "0x218CC7C",
         "RVA_AddSelection": "0x218F5B4",
         "RVA_ShowSelection": "0x218F9DC"
+    },
+    "Features": {
+        "EnablePageRecDebug": false
     },
     "Layout": {
         "Il2CppString": {
@@ -34,6 +38,21 @@
             "Next": "0x20",
             "CommandList": "0x28",
             "ScenarioLabelCommand": "0x30"
+        },
+        "AdvScenarioData": {
+            "Name": "0x10",
+            "JumpDataList": "0x28",
+            "ScenarioLabels": "0x30"
+        },
+        "Il2CppDictionary": {
+            "Entries": "0x18",
+            "Count": "0x20"
+        },
+        "DictionaryEntry": {
+            "HashCode": "0x00",
+            "Key": "0x08",
+            "Value": "0x10",
+            "Size": "0x18"
         },
         "AdvCommand": {
             "RowData": "0x10",
