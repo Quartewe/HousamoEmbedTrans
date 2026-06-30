@@ -4,6 +4,7 @@
 #include <vector>
 #include <condition_variable>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <android/log.h>
 #include <cstdint>
@@ -157,9 +158,19 @@ struct LayoutConfig {
     TextColumnsConfig text_columns;
 };
 
+struct CharacterWeightConfig {
+    float high_relevance = 4.0f;
+    float mid_relevance = 3.0f;
+    float density_high = 1.5f;
+    float text_low_score = 3.0f;
+    float text_mentioned_score = 1.0f;
+    int related_num = 1;
+};
+
 struct RuntimeConfig {
     RvaConfig rva;
     LayoutConfig layout;
+    CharacterWeightConfig character_weight;
     bool enable_page_rec_debug = false;
 };
 
@@ -244,6 +255,18 @@ struct CharacterItem {
     std::string description;
 };
 
+struct RelationshipHit {
+    std::string source;   // 查询角色
+    std::string target;   // 命中的相关角色
+    std::string type;     // relationship.type
+    bool reverse = false; // false: source -> target, true: target -> source
+};
+
+struct MentionedCharacter {
+    std::string name;
+    I18N i18n;
+};
+
 struct Character {
     std::vector<CharacterItem> high_weight;
     std::vector<CharacterItem> low_weight;
@@ -277,15 +300,18 @@ struct Scene {
     std::string raw_lang = "ja";
     std::string target_lang;
     Character character;
-    std::vector<std::string> mentioned_character;
+    std::vector<MentionedCharacter> mentioned_characters;
     std::vector<GameTerm> game_terms;
     std::vector<ProtectedToken> protect;
     std::vector<SceneItem> scene_items;
 };
 
 //函数声明
-void StartCharDictManager(std::string json_text);
+int RelatedNum(const std::string& name, const std::unordered_set<std::string>& related_characters);
+void StartJsonManager(std::string chardict_json, std::string gameterms_json);
+bool IsJsonManagerReady();
 bool FindCharacterItem(const std::string& name, CharacterItem* out);
+bool FindGameTerm(const std::string& term, GameTerm* out);
 void NotifyPageRecStopChanged();
 void NotifySceneBuilderStopChanged();
 void SubmitScenarioParseResult(ScenarioParseResult result);
@@ -300,6 +326,7 @@ bool CommandExamine(void* pageData, const std::string& source);
 bool make_runtime_config(
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
+    const CharacterWeightConfig& character_weight,
     bool enable_page_rec_debug,
     RuntimeConfig* out);
 bool valid_rva_config(const RvaConfig& config);

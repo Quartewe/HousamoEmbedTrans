@@ -18,5 +18,4 @@
 /.vscode
 AGENTS.md
 PLAN.md
-/tools/frida
-/tools/rva
+/tools

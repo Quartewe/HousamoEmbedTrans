@@ -52,6 +52,15 @@ static int get_int_field(JNIEnv* env, jobject obj, const char* name) {
     return env->GetIntField(obj, field_id);
 }
 
+static float get_float_field(JNIEnv* env, jobject obj, const char* name) {
+    jfieldID field_id = get_field_id(env, obj, name, "F");
+    if (field_id == nullptr) {
+        return 0.0f;
+    }
+
+    return env->GetFloatField(obj, field_id);
+}
+
 static jobject get_object_field(JNIEnv* env, jobject obj, const char* name, const char* signature) {
     jfieldID field_id = get_field_id(env, obj, name, signature);
     if (field_id == nullptr) {
@@ -74,6 +83,19 @@ static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
     out.page_text_change = get_uintptr_field(env, rvaConfigObj, "pageTextChange");
     out.add_selection = get_uintptr_field(env, rvaConfigObj, "addSelection");
     out.show_selection = get_uintptr_field(env, rvaConfigObj, "showSelection");
+    return out;
+}
+
+static CharacterWeightConfig jcls_to_character_weight_config(
+    JNIEnv* env,
+    jobject characterWeightObj) {
+    CharacterWeightConfig out;
+    out.high_relevance = get_float_field(env, characterWeightObj, "highRelevance");
+    out.mid_relevance = get_float_field(env, characterWeightObj, "midRelevance");
+    out.density_high = get_float_field(env, characterWeightObj, "densityHigh");
+    out.text_low_score = get_float_field(env, characterWeightObj, "textLowScore");
+    out.text_mentioned_score = get_float_field(env, characterWeightObj, "textMentionedScore");
+    out.related_num = get_int_field(env, characterWeightObj, "relatedNum");
     return out;
 }
 
@@ -195,36 +217,6 @@ static std::string jstring_to_string(JNIEnv* env, jstring value) {
     return out;
 }
 
-static std::vector<std::string> jobjarray_to_vector(
-    JNIEnv* env,
-    jobjectArray array,
-    bool keep_empty = false
-) {
-    std::vector<std::string> out;
-
-    if (array == nullptr) {
-        LOGW("jobjarray_to_vector: input array is nullptr");
-        return out;
-    }
-
-    jsize length = env->GetArrayLength(array);
-    out.reserve(static_cast<size_t>(length));
-
-    for (jsize i =0; i < length; ++i) {
-        auto item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
-
-        std::string text = jstring_to_string(env, item);
-        if (!text.empty() || keep_empty) {
-            out.push_back(std::move(text));
-        }
-        if (item != nullptr) {
-            env->DeleteLocalRef(item);
-        }
-    }
-
-    return out;
-}
-
 // 捕获il2cpp基址的函数
 static uintptr_t CatchIl2CppBase() {
     LOGI("Starting to search for il2cpp base address...");
@@ -278,28 +270,24 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jclass clazz,
     jobject rvaConfigObj,
     jobject layOutObj,
+    jobject characterWeightObj,
     jboolean enablePageRecDebug,
-    jobjectArray charPatternList,
-    jobjectArray charCanonicalList,
-    jobjectArray charCalledList,
-    jobjectArray termList,
-    jstring chardictJson
+    jstring chardictJson,
+    jstring gametermsJson
 ) {
     RvaConfig java_rva = jcls_to_rvaconfig(env, rvaConfigObj);
     LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
+    CharacterWeightConfig character_weight = jcls_to_character_weight_config(env, characterWeightObj);
 
-    ACInit ac_init;
-    ac_init.char_patterns = std::move(jobjarray_to_vector(env, charPatternList));
-    ac_init.char_canonicals = std::move(jobjarray_to_vector(env, charCanonicalList));
-    ac_init.char_called = std::move(jobjarray_to_vector(env, charCalledList, true));
-    ac_init.term_list = std::move(jobjarray_to_vector(env, termList));
     std::string chardict_json = jstring_to_string(env, chardictJson);
+    std::string gameterms_json = jstring_to_string(env, gametermsJson);
 
     RuntimeConfig config;
 
     if (!make_runtime_config(
             java_rva,
             java_layout,
+            character_weight,
             enablePageRecDebug == JNI_TRUE,
             &config)) {
         return;
@@ -316,8 +304,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
          config.enable_page_rec_debug ? 1 : 0);
     LOGI("Starting initialization thread...");
 
-    StartAcInit(std::move(ac_init));
-    StartCharDictManager(std::move(chardict_json));
+    StartJsonManager(std::move(chardict_json), std::move(gameterms_json));
     std::thread(InitThread, config).detach();// 启动一个新的线程来执行初始化逻辑，避免阻塞JNI_OnLoad函数
 }
 

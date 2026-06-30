@@ -151,6 +151,7 @@ bool valid_layout_config(const LayoutConfig& config) {
 bool make_runtime_config(
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
+    const CharacterWeightConfig& character_weight,
     bool enable_page_rec_debug,
     RuntimeConfig* out) {
     if (out == nullptr) {
@@ -163,6 +164,15 @@ bool make_runtime_config(
 
     out->rva = java_rva;
     out->layout = java_layout;
+    out->character_weight = character_weight;
     out->enable_page_rec_debug = enable_page_rec_debug;
+    LOGI("character weight config: high_relevance=%.3f mid_relevance=%.3f density_high=%.3f"
+         " text_low_score=%.3f text_mentioned_score=%.3f related_num=%d",
+         out->character_weight.high_relevance,
+         out->character_weight.mid_relevance,
+         out->character_weight.density_high,
+         out->character_weight.text_low_score,
+         out->character_weight.text_mentioned_score,
+         out->character_weight.related_num);
     return true;
 }

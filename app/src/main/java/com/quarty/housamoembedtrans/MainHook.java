@@ -7,7 +7,6 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 import de.robv.android.xposed.IXposedHookZygoteInit;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
@@ -15,9 +14,6 @@ import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipEntry;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 
 /**
  * LSPosed 模块入口 — Housamo AI 实时翻译。
@@ -143,20 +139,13 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private static final class CharacterPatterns {
-        String[] patterns = new String[0];
-        String[] canonicals = new String[0];
-        String[] called = new String[0];
-    }
-
-    private static final class CharacterPatternEntry {
-        String canonical = "";
-        String called = "";
-
-        CharacterPatternEntry(String canonical, String called) {
-            this.canonical = canonical;
-            this.called = called;
-        }
+    private static final class CharacterWeight {
+        float highRelevance = 4.0f;
+        float midRelevance = 3.0f;
+        float densityHigh = 1.5f;
+        float textLowScore = 3.0f;
+        float textMentionedScore = 1.0f;
+        int relatedNum = 1;
     }
 
     // Tools
@@ -191,105 +180,33 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return (int) value;
     }
 
-    private static String[] readJsonKey(String name) throws Exception {
-        String jsonText = readModuleAsset(name);
-        JSONObject json = new JSONObject(jsonText);
-        ArrayList<String> result = new ArrayList<>();
-        Iterator<String> keys = json.keys();
-
-        while (keys.hasNext()) {
-            String key = keys.next();
-
-            if (key != null && !key.isEmpty()) {
-                result.add(key);
-            }
+    private static int getConfigInt(JSONObject json, String key, int defaultValue) throws Exception {
+        if (!json.has(key)) {
+            return defaultValue;
         }
 
-        return result.toArray(new String[0]);
+        return getConfigInt(json, key);
     }
 
-    private static void addCharacterPattern(
-        LinkedHashMap<String, CharacterPatternEntry> patterns,
-        String pattern,
-        String canonical,
-        String called
-    ) {
-        if (pattern == null || canonical == null) {
-            return;
+    private static float getConfigFloat(JSONObject json, String key, float defaultValue) throws Exception {
+        if (!json.has(key)) {
+            return defaultValue;
         }
 
-        pattern = pattern.trim();
-        canonical = canonical.trim();
-        called = called == null ? "" : called.trim();
+        Object value = json.get(key);
+        double parsed;
 
-        if (pattern.isEmpty() || canonical.isEmpty()) {
-            return;
+        if (value instanceof Number) {
+            parsed = ((Number) value).doubleValue();
+        } else {
+            parsed = Double.parseDouble(String.valueOf(value).trim());
         }
 
-        if (!patterns.containsKey(pattern)) {
-            patterns.put(pattern, new CharacterPatternEntry(canonical, called));
-        }
-    }
-
-    private static CharacterPatterns readCharacterPatterns(String name) throws Exception {
-        String jsonText = readModuleAsset(name);
-        JSONObject json = new JSONObject(jsonText);
-        ArrayList<String> keys = new ArrayList<>();
-        Iterator<String> it = json.keys();
-
-        while (it.hasNext()) {
-            String key = it.next();
-            if (key != null && !key.isEmpty()) {
-                keys.add(key);
-            }
+        if (Double.isNaN(parsed) || Double.isInfinite(parsed) || parsed <= 0.0 || parsed > 100000.0) {
+            throw new IllegalArgumentException(key + " must be a finite positive number: " + value);
         }
 
-        LinkedHashMap<String, CharacterPatternEntry> patterns = new LinkedHashMap<>();
-
-        // Pass 1: add canonical character names first, so official names win over aliases.
-        for (String canonical : keys) {
-            addCharacterPattern(patterns, canonical, canonical, "");
-        }
-
-        // Pass 2: add alias[].name. The normalized asset schema stores name as a string.
-        for (String canonical : keys) {
-            JSONObject character = json.optJSONObject(canonical);
-            if (character == null) {
-                continue;
-            }
-
-            JSONArray aliases = character.optJSONArray("alias");
-            if (aliases == null) {
-                continue;
-            }
-
-            for (int i = 0; i < aliases.length(); ++i) {
-                JSONObject alias = aliases.optJSONObject(i);
-                if (alias == null) {
-                    continue;
-                }
-
-                String called = alias.optString("called", "");
-                addCharacterPattern(patterns, alias.optString("name", ""), canonical, called);
-            }
-        }
-
-        CharacterPatterns result = new CharacterPatterns();
-        ArrayList<String> patternList = new ArrayList<>();
-        ArrayList<String> canonicalList = new ArrayList<>();
-        ArrayList<String> calledList = new ArrayList<>();
-
-        for (String pattern : patterns.keySet()) {
-            CharacterPatternEntry entry = patterns.get(pattern);
-            patternList.add(pattern);
-            canonicalList.add(entry.canonical);
-            calledList.add(entry.called);
-        }
-
-        result.patterns = patternList.toArray(new String[0]);
-        result.canonicals = canonicalList.toArray(new String[0]);
-        result.called = calledList.toArray(new String[0]);
-        return result;
+        return (float) parsed;
     }
 
     private static String readModuleAsset(String name) throws Exception {
@@ -411,15 +328,53 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return features.optBoolean("EnablePageRecDebug", false);
     }
 
+    private static CharacterWeight Init_CharacterWeight(JSONObject json) throws Exception {
+        CharacterWeight weight = new CharacterWeight();
+        JSONObject weightConfig = json.optJSONObject("CharacterWeight");
+
+        if (weightConfig == null) {
+            return weight;
+        }
+
+        weight.highRelevance = getConfigFloat(weightConfig, "HighRelevance", weight.highRelevance);
+        weight.midRelevance = getConfigFloat(weightConfig, "MidRelevance", weight.midRelevance);
+        weight.densityHigh = getConfigFloat(weightConfig, "DensityHigh", weight.densityHigh);
+        weight.textLowScore = getConfigFloat(weightConfig, "TextLowScore", weight.textLowScore);
+        weight.textMentionedScore = getConfigFloat(
+            weightConfig,
+            "TextMentionedScore",
+            weight.textMentionedScore
+        );
+        weight.relatedNum = getConfigInt(weightConfig, "RelatedNum", weight.relatedNum);
+
+        if (weight.highRelevance < weight.midRelevance) {
+            throw new IllegalArgumentException(
+                "CharacterWeight.HighRelevance must be >= MidRelevance"
+            );
+        }
+
+        if (weight.textLowScore < weight.textMentionedScore) {
+            throw new IllegalArgumentException(
+                "CharacterWeight.TextLowScore must be >= TextMentionedScore"
+            );
+        }
+
+        if (weight.relatedNum < 1) {
+            throw new IllegalArgumentException(
+                "CharacterWeight.RelatedNum must be >= 1"
+            );
+        }
+
+        return weight;
+    }
+
     private static native void nativeStart(
         RVA rva, 
         Layout layout,
+        CharacterWeight characterWeight,
         boolean enablePageRecDebug,
-        String[] charPatternList,
-        String[] charCanonicalList,
-        String[] charCalledList,
-        String[] termList,
-        String chardictJson
+        String chardictJson,
+        String gametermsJson
     );
 
     @Override
@@ -432,10 +387,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     public void handleLoadPackage(LoadPackageParam lpparam) {
         RVA rva = new RVA();
         Layout layout = new Layout();
+        CharacterWeight characterWeight = new CharacterWeight();
         boolean enablePageRecDebug = false;
-        CharacterPatterns charPatterns = new CharacterPatterns();
-        String[] termList = null;
         String chardictJson;
+        String gametermsJson;
 
         if (!TARGET_PACKAGE.equals(lpparam.packageName)) return;
         if (s_loaded) return; // 防止重复加载（某些情况下 handleLoadPackage 会多调）
@@ -448,11 +403,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // 解析 RVA 配置
             rva = Init_RVA(json);
             layout = Init_Layout(json);
+            characterWeight = Init_CharacterWeight(json);
             enablePageRecDebug = Init_EnablePageRecDebug(json);
 
-            charPatterns = readCharacterPatterns("chardict.json");
-            termList = readJsonKey("gameterms.json");
             chardictJson = readModuleAsset("chardict.json");
+            gametermsJson = readModuleAsset("gameterms.json");
         } catch (Exception e) {
             XposedBridge.log("[HousamoTrans] FATAL: Failed to read module assets: " + e.getMessage());
             return;
@@ -476,12 +431,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             nativeStart(
                 rva,
                 layout,
+                characterWeight,
                 enablePageRecDebug,
-                charPatterns.patterns,
-                charPatterns.canonicals,
-                charPatterns.called,
-                termList,
-                chardictJson
+                chardictJson,
+                gametermsJson
             );
             XposedBridge.log("[HousamoTrans] Native hook RVA setup complete.");
             s_loaded = true;
