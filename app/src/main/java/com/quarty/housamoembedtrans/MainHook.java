@@ -146,6 +146,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         float textLowScore = 3.0f;
         float textMentionedScore = 1.0f;
         int relatedNum = 1;
+        int lowTermScore = 3;
     }
 
     // Tools
@@ -180,19 +181,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return (int) value;
     }
 
-    private static int getConfigInt(JSONObject json, String key, int defaultValue) throws Exception {
-        if (!json.has(key)) {
-            return defaultValue;
-        }
-
-        return getConfigInt(json, key);
-    }
-
-    private static float getConfigFloat(JSONObject json, String key, float defaultValue) throws Exception {
-        if (!json.has(key)) {
-            return defaultValue;
-        }
-
+    private static float getConfigFloat(JSONObject json, String key) throws Exception {
         Object value = json.get(key);
         double parsed;
 
@@ -320,32 +309,25 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     private static boolean Init_EnablePageRecDebug(JSONObject json) throws Exception {
-        if (!json.has("Features")) {
-            return false;
-        }
-
-        JSONObject features = json.getJSONObject("Features");
-        return features.optBoolean("EnablePageRecDebug", false);
+        JSONObject userSettings = json.getJSONObject("UserSettings");
+        return userSettings.getBoolean("EnablePageRecDebug");
     }
 
     private static CharacterWeight Init_CharacterWeight(JSONObject json) throws Exception {
         CharacterWeight weight = new CharacterWeight();
-        JSONObject weightConfig = json.optJSONObject("CharacterWeight");
+        JSONObject userSettings = json.getJSONObject("UserSettings");
+        JSONObject weightConfig = userSettings.getJSONObject("CharacterWeight");
 
-        if (weightConfig == null) {
-            return weight;
-        }
-
-        weight.highRelevance = getConfigFloat(weightConfig, "HighRelevance", weight.highRelevance);
-        weight.midRelevance = getConfigFloat(weightConfig, "MidRelevance", weight.midRelevance);
-        weight.densityHigh = getConfigFloat(weightConfig, "DensityHigh", weight.densityHigh);
-        weight.textLowScore = getConfigFloat(weightConfig, "TextLowScore", weight.textLowScore);
+        weight.highRelevance = getConfigFloat(weightConfig, "HighRelevance");
+        weight.midRelevance = getConfigFloat(weightConfig, "MidRelevance");
+        weight.densityHigh = getConfigFloat(weightConfig, "DensityHigh");
+        weight.textLowScore = getConfigFloat(weightConfig, "TextLowScore");
         weight.textMentionedScore = getConfigFloat(
             weightConfig,
-            "TextMentionedScore",
-            weight.textMentionedScore
+            "TextMentionedScore"
         );
-        weight.relatedNum = getConfigInt(weightConfig, "RelatedNum", weight.relatedNum);
+        weight.relatedNum = getConfigInt(weightConfig, "RelatedNum");
+        weight.lowTermScore = getConfigInt(weightConfig, "LowTermScore");
 
         if (weight.highRelevance < weight.midRelevance) {
             throw new IllegalArgumentException(
@@ -365,7 +347,22 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             );
         }
 
+        if (weight.lowTermScore < 1) {
+            throw new IllegalArgumentException(
+                "CharacterWeight.LowTermScore must be >= 1"
+            );
+        }
+
         return weight;
+    }
+
+    private static String Init_TargetLanguage(JSONObject json) throws Exception {
+        JSONObject userSettings = json.getJSONObject("UserSettings");
+        return userSettings.getString("TargetLanguage");
+    }
+
+    private static String Init_GameVersion(JSONObject json) throws Exception {
+        return json.getString("GameVersion");
     }
 
     private static native void nativeStart(
@@ -373,6 +370,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Layout layout,
         CharacterWeight characterWeight,
         boolean enablePageRecDebug,
+        String targetLanguage,
         String chardictJson,
         String gametermsJson
     );
@@ -389,6 +387,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Layout layout = new Layout();
         CharacterWeight characterWeight = new CharacterWeight();
         boolean enablePageRecDebug = false;
+        String targetLanguage = "";
+        String gameVersion = "";
         String chardictJson;
         String gametermsJson;
 
@@ -400,11 +400,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // 从模块 APK 的 assets 目录读取 RVA 配置
             String jsonText = readModuleAsset("config.json");
             JSONObject json = new JSONObject(jsonText);
+            JSONObject runtimeConfigs = json.getJSONObject("RuntimeConfigs");
             // 解析 RVA 配置
-            rva = Init_RVA(json);
-            layout = Init_Layout(json);
+            rva = Init_RVA(runtimeConfigs);
+            layout = Init_Layout(runtimeConfigs);
             characterWeight = Init_CharacterWeight(json);
             enablePageRecDebug = Init_EnablePageRecDebug(json);
+            targetLanguage = Init_TargetLanguage(json);
+            gameVersion = Init_GameVersion(json);
 
             chardictJson = readModuleAsset("chardict.json");
             gametermsJson = readModuleAsset("gameterms.json");
@@ -433,10 +436,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 layout,
                 characterWeight,
                 enablePageRecDebug,
+                targetLanguage,
                 chardictJson,
                 gametermsJson
             );
-            XposedBridge.log("[HousamoTrans] Native hook RVA setup complete.");
+            XposedBridge.log("[HousamoTrans] Native hook setup complete. gameVersion="
+                + gameVersion + " targetLanguage=" + targetLanguage);
             s_loaded = true;
         } catch (UnsatisfiedLinkError e) {
             XposedBridge.log("[HousamoTrans] FATAL: Failed to load housamo_trans.so: " + e.getMessage());

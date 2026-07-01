@@ -152,6 +152,7 @@ bool make_runtime_config(
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
     const CharacterWeightConfig& character_weight,
+    const std::string& target_lang,
     bool enable_page_rec_debug,
     RuntimeConfig* out) {
     if (out == nullptr) {
@@ -159,20 +160,35 @@ bool make_runtime_config(
         return false;
     }
 
-    if (!valid_rva_config(java_rva)) {return false; }
-    if (!valid_layout_config(java_layout)) {return false; }
+    if (!valid_rva_config(java_rva)) {
+        LOGE("make_runtime_config failed: invalid rva config");
+        return false; 
+    }
+    if (!valid_layout_config(java_layout)) {
+        LOGE("make_runtime_config failed: invalid layout config");
+        return false;
+    }
+    if (target_lang.empty()) {
+        LOGE("make_runtime_config failed: target_lang is empty");
+        return false;
+    } else if (target_lang != "en" && target_lang != "zh-tw" && target_lang != "zh-cn") {
+        LOGW("unsupported target_lang=%s, might couldnt work properly", target_lang.c_str());
+    }
 
     out->rva = java_rva;
     out->layout = java_layout;
     out->character_weight = character_weight;
+    out->target_lang = target_lang;
     out->enable_page_rec_debug = enable_page_rec_debug;
     LOGI("character weight config: high_relevance=%.3f mid_relevance=%.3f density_high=%.3f"
-         " text_low_score=%.3f text_mentioned_score=%.3f related_num=%d",
+         " text_low_score=%.3f text_mentioned_score=%.3f related_num=%d low_term_score=%d target_lang=%s",
          out->character_weight.high_relevance,
          out->character_weight.mid_relevance,
          out->character_weight.density_high,
          out->character_weight.text_low_score,
          out->character_weight.text_mentioned_score,
-         out->character_weight.related_num);
+         out->character_weight.related_num,
+         out->character_weight.low_term_score,
+         out->target_lang.c_str());
     return true;
 }

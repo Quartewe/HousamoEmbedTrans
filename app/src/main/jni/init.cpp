@@ -96,6 +96,7 @@ static CharacterWeightConfig jcls_to_character_weight_config(
     out.text_low_score = get_float_field(env, characterWeightObj, "textLowScore");
     out.text_mentioned_score = get_float_field(env, characterWeightObj, "textMentionedScore");
     out.related_num = get_int_field(env, characterWeightObj, "relatedNum");
+    out.low_term_score = get_int_field(env, characterWeightObj, "lowTermScore");
     return out;
 }
 
@@ -272,6 +273,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jobject layOutObj,
     jobject characterWeightObj,
     jboolean enablePageRecDebug,
+    jstring targetLanguage,
     jstring chardictJson,
     jstring gametermsJson
 ) {
@@ -279,6 +281,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
     CharacterWeightConfig character_weight = jcls_to_character_weight_config(env, characterWeightObj);
 
+    std::string target_lang = jstring_to_string(env, targetLanguage);
     std::string chardict_json = jstring_to_string(env, chardictJson);
     std::string gameterms_json = jstring_to_string(env, gametermsJson);
 
@@ -288,6 +291,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
             java_rva,
             java_layout,
             character_weight,
+            target_lang,
             enablePageRecDebug == JNI_TRUE,
             &config)) {
         return;

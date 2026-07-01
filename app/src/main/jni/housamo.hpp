@@ -29,8 +29,7 @@ enum class MatchKind {
 
 enum class AcHitSource {
     direct,
-    alias_canonical,
-    alias_called
+    alias
 };
 
 struct ACInit {
@@ -43,6 +42,7 @@ struct ACInit {
 struct AcHit {
     std::string matched_text;
     std::string canonical;
+    std::string called;
     MatchKind kind;
     AcHitSource source = AcHitSource::direct;
     float score = 0.0f;
@@ -165,12 +165,14 @@ struct CharacterWeightConfig {
     float text_low_score = 3.0f;
     float text_mentioned_score = 1.0f;
     int related_num = 1;
+    int low_term_score = 3;
 };
 
 struct RuntimeConfig {
     RvaConfig rva;
     LayoutConfig layout;
     CharacterWeightConfig character_weight;
+    std::string target_lang;
     bool enable_page_rec_debug = false;
 };
 
@@ -243,8 +245,15 @@ struct Relationship {
     std::string type;
 };
 
+struct AliasItem {
+    std::string name;
+    I18N i18n;
+    std::string called;
+};
+
 struct CharacterItem {
     std::string name;
+    std::vector<AliasItem> aliases;
     I18N i18n;
     std::vector<std::string> school;
     std::vector<std::string> guild;
@@ -283,12 +292,20 @@ struct ItemScore {
     float score = 0.0f;
 };
 
+struct AliasScore {
+    std::string pattern;
+    std::string canonical;
+    std::string called;
+    float score = 0.0f;
+};
+
 struct ScenarioParseResult {
     std::string scene;        // scenarioData.name
     std::string entry_label;  // FindScenarioData(label) 的参数
     std::vector<ItemScore> speaker_character;
     std::vector<ItemScore> show_character;
     std::vector<ItemScore> text_character;
+    std::vector<AliasScore> aliases;
     std::vector<ItemScore> game_terms;
 
     std::vector<ProtectedToken> protect;
@@ -308,6 +325,7 @@ struct Scene {
 
 //函数声明
 int RelatedNum(const std::string& name, const std::unordered_set<std::string>& related_characters);
+bool FindAliasItem(const std::string& canonical, const std::string& alias_name, std::vector<AliasItem>* out);
 void StartJsonManager(std::string chardict_json, std::string gameterms_json);
 bool IsJsonManagerReady();
 bool FindCharacterItem(const std::string& name, CharacterItem* out);
@@ -327,6 +345,7 @@ bool make_runtime_config(
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
     const CharacterWeightConfig& character_weight,
+    const std::string& target_lang,
     bool enable_page_rec_debug,
     RuntimeConfig* out);
 bool valid_rva_config(const RvaConfig& config);

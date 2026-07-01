@@ -1,84 +1,96 @@
 {
     "GameVersion": "5.18.0",
-    "RVA": {
-        "RVA_FindScenarioData": "0x21532DC",
-        "RVA_InitBase": "0x213FAD4",
-        "RVA_InitText": "0x2148988",
-        "RVA_PageTextChange": "0x218CC7C",
-        "RVA_AddSelection": "0x218F5B4",
-        "RVA_ShowSelection": "0x218F9DC"
+    "UserSettings": {
+        "EnablePageRecDebug": false,
+        "CharacterWeight": {
+            "HighRelevance": 4.0,
+            "MidRelevance": 3.0,
+            "DensityHigh": 1.5,
+            "TextLowScore": 3.0,
+            "TextMentionedScore": 1.0,
+            "RelatedNum": 1,
+            "LowTermScore": 3
+        },
+        "TargetLanguage": ""
     },
-    "Features": {
-        "EnablePageRecDebug": false
-    },
-    "Layout": {
-        "Il2CppString": {
-            "Length": "0x10",
-            "Chars": "0x14"
+    "RuntimeConfigs": {
+        "RVA": {
+            "RVA_FindScenarioData": "0x21532DC",
+            "RVA_InitBase": "0x213FAD4",
+            "RVA_InitText": "0x2148988",
+            "RVA_PageTextChange": "0x218CC7C",
+            "RVA_AddSelection": "0x218F5B4",
+            "RVA_ShowSelection": "0x218F9DC"
         },
-        "Il2CppArray": {
-            "Length": "0x18",
-            "FirstElement": "0x20",
-            "PointerSize": 8
-        },
-        "Il2CppList": {
-            "Items": "0x10",
-            "Size": "0x18"
-        },
-        "AdvScenarioPageData": {
-            "CommandList": "0x10",
-            "TextDataList": "0x18",
-            "ScenarioLabelData": "0x20",
-            "PageNo": "0x38",
-            "MessageWindowName": "0x40"
-        },
-        "ScenarioLabelData":{
-            "PageDataList": "0x10",
-            "ScenarioLabel": "0x18",
-            "Next": "0x20",
-            "CommandList": "0x28",
-            "ScenarioLabelCommand": "0x30"
-        },
-        "AdvScenarioData": {
-            "Name": "0x10",
-            "JumpDataList": "0x28",
-            "ScenarioLabels": "0x30"
-        },
-        "Il2CppDictionary": {
-            "Entries": "0x18",
-            "Count": "0x20"
-        },
-        "DictionaryEntry": {
-            "HashCode": "0x00",
-            "Key": "0x08",
-            "Value": "0x10",
-            "Size": "0x18"
-        },
-        "AdvCommand": {
-            "RowData": "0x10",
-            "Type": "0x20"
-        },
-        "StringGridRow": {
-            "RowIndex": "0x18",
-            "Strings": "0x20"
-        },
-        "AdvCommandCharacter": {
-            "CharacterInfo": "0x38",
-            "NameText": "0x18"
-        },
-        "AdvCommandSelection": {
-            "JumpLabel": "0x38"
-        },
-        "AdvCommandJump": {
-            "JumpLabel": "0x38",
-            "ExpressionParser": "0x40",
-            "ConditionColumn": 2
-        },
-        "TextColumns": {
-            "Raw": 8,
-            "En": 9,
-            "ZhTw": 10,
-            "ZhCn": 11
+        "Layout": {
+            "Il2CppString": {
+                "Length": "0x10",
+                "Chars": "0x14"
+            },
+            "Il2CppArray": {
+                "Length": "0x18",
+                "FirstElement": "0x20",
+                "PointerSize": 8
+            },
+            "Il2CppList": {
+                "Items": "0x10",
+                "Size": "0x18"
+            },
+            "AdvScenarioPageData": {
+                "CommandList": "0x10",
+                "TextDataList": "0x18",
+                "ScenarioLabelData": "0x20",
+                "PageNo": "0x38",
+                "MessageWindowName": "0x40"
+            },
+            "ScenarioLabelData":{
+                "PageDataList": "0x10",
+                "ScenarioLabel": "0x18",
+                "Next": "0x20",
+                "CommandList": "0x28",
+                "ScenarioLabelCommand": "0x30"
+            },
+            "AdvScenarioData": {
+                "Name": "0x10",
+                "JumpDataList": "0x28",
+                "ScenarioLabels": "0x30"
+            },
+            "Il2CppDictionary": {
+                "Entries": "0x18",
+                "Count": "0x20"
+            },
+            "DictionaryEntry": {
+                "HashCode": "0x00",
+                "Key": "0x08",
+                "Value": "0x10",
+                "Size": "0x18"
+            },
+            "AdvCommand": {
+                "RowData": "0x10",
+                "Type": "0x20"
+            },
+            "StringGridRow": {
+                "RowIndex": "0x18",
+                "Strings": "0x20"
+            },
+            "AdvCommandCharacter": {
+                "CharacterInfo": "0x38",
+                "NameText": "0x18"
+            },
+            "AdvCommandSelection": {
+                "JumpLabel": "0x38"
+            },
+            "AdvCommandJump": {
+                "JumpLabel": "0x38",
+                "ExpressionParser": "0x40",
+                "ConditionColumn": 2
+            },
+            "TextColumns": {
+                "Raw": 8,
+                "En": 9,
+                "ZhTw": 10,
+                "ZhCn": 11
+            }
         }
     }
 }
