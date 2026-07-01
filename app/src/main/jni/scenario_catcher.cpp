@@ -68,6 +68,7 @@ struct PageParseResult {
     std::vector<ItemScore> speaker_character;
     std::vector<ItemScore> show_character;
     std::vector<ItemScore> text_character;
+    std::vector<AliasScore> aliases;
     std::vector<ItemScore> game_terms;
 
     std::vector<ProtectedToken> protect;
@@ -135,6 +136,25 @@ static void AddItemScore(std::vector<ItemScore>& item, const std::string& name, 
     item.push_back({name, score});
 }
 
+static void AddAlias(
+    std::vector<AliasScore>& aliases,
+    const std::string& pattern,
+    const std::string& canonical,
+    const std::string& called,
+    float score) {
+    if (pattern.empty() || canonical.empty()) {
+        return;
+    }
+
+    for (auto& existing : aliases) {
+        if (existing.pattern == pattern) {
+            existing.score += score;
+            return;
+        }
+    }
+    aliases.push_back({pattern, canonical, called, score});
+}
+
 static void MergeStats(ParseStats& dst, const ParseStats& src) {
     dst.pages += src.pages;
     dst.text += src.text;
@@ -145,6 +165,12 @@ static void MergeStats(ParseStats& dst, const ParseStats& src) {
 static void MergeScores(std::vector<ItemScore>& dst, const std::vector<ItemScore>& src) {
     for (const auto& item : src) {
         AddItemScore(dst, item.item, item.score);
+    }
+}
+
+static void MergeAliases(std::vector<AliasScore>& dst, const std::vector<AliasScore>& src) {
+    for (const auto& alias : src) {
+        AddAlias(dst, alias.pattern, alias.canonical, alias.called, alias.score);
     }
 }
 
@@ -288,6 +314,7 @@ static bool ReadTranslatableText(
     PageParseResult& result,
     std::string token_prefix,
     int& protect_index,
+    const std::string& current_speaker,
     std::string* out) {
     if (out == nullptr) {
         return false;
@@ -307,7 +334,7 @@ static bool ReadTranslatableText(
     }
 
     // 读当前显示角色
-    for (auto& ac_hit : AcScan(ReadRowStringColumn(cmd_item, 1))) {
+    for (const AcHit& ac_hit : AcScan(ReadRowStringColumn(cmd_item, 1))) {
         if (ac_hit.kind == MatchKind::character) {
             AddItemScore(result.show_character, ac_hit.canonical, ac_hit.score);
         } else if (ac_hit.kind == MatchKind::term) {
@@ -315,11 +342,21 @@ static bool ReadTranslatableText(
         }
     }
 
-    for (auto& ac_hit : AcScan(raw_text)) {
-        if (ac_hit.kind == MatchKind::character) {
-            AddItemScore(result.text_character, ac_hit.canonical, ac_hit.score);
-        } else if (ac_hit.kind == MatchKind::term) {
+    for (const AcHit& ac_hit : AcScan(raw_text)) {
+        bool valid_alias = ac_hit.called.empty() || ac_hit.called == current_speaker;
+
+        if (ac_hit.kind == MatchKind::term) {
             AddItemScore(result.game_terms, ac_hit.canonical, ac_hit.score);
+            continue;
+        } else if (ac_hit.kind == MatchKind::character) {
+            if (ac_hit.source == AcHitSource::alias) {
+                if (valid_alias) {
+                    AddAlias(result.aliases, ac_hit.matched_text, ac_hit.canonical, ac_hit.called, ac_hit.score);
+                    AddItemScore(result.text_character, ac_hit.canonical, ac_hit.score);
+                }
+                continue;
+            }
+            AddItemScore(result.text_character, ac_hit.canonical, ac_hit.score);
         }
     }
 
@@ -525,7 +562,7 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
 
         if (type == "Text") {
             std::string text;
-            if (!ReadTranslatableText(cmd_item, result, token_prefix, protect_index, &text)) {
+            if (!ReadTranslatableText(cmd_item, result, token_prefix, protect_index, current_speaker, &text)) {
                 if (stop_catch.load()) return result;
                 continue;
             }
@@ -546,7 +583,7 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
 
         if (type == "Selection") {
             std::string text;
-            if (!ReadTranslatableText(cmd_item, result, token_prefix, protect_index, &text)) {
+            if (!ReadTranslatableText(cmd_item, result, token_prefix, protect_index, current_speaker, &text)) {
                 if (stop_catch.load()) return result;
                 continue;
             }
@@ -725,6 +762,8 @@ static bool ParseScenarioToResult(const RuntimeScenario& scenario, ScenarioParse
         MergeScores(f_result.text_character, result.text_character);
         MergeScores(f_result.show_character, result.show_character);
         MergeScores(f_result.game_terms, result.game_terms);
+
+        MergeAliases(f_result.aliases, result.aliases);
 
         MoveAppend(f_result.protect, result.protect);
         MoveAppend(f_result.scene_items, result.scene_items);

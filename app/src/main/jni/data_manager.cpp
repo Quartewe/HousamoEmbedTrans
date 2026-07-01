@@ -4,20 +4,16 @@
 #include <mutex>
 #include <thread>
 #include <utility>
+#include <algorithm>
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 
 namespace {
 
-struct CharacterAlias {
-    std::string name;
-    std::string called;
-};
-
 struct CharacterRecord {
     CharacterItem item;
-    std::vector<CharacterAlias> aliases;
+    std::vector<AliasItem> aliases;
 };
 
 struct GameDataSnapshot {
@@ -80,8 +76,8 @@ static std::vector<Relationship> ParseRelationships(const rapidjson::Value& obj)
     return out;
 }
 
-static std::vector<CharacterAlias> ParseAliases(const rapidjson::Value& obj) {
-    std::vector<CharacterAlias> out;
+static std::vector<AliasItem> ParseAliases(const rapidjson::Value& obj) {
+    std::vector<AliasItem> out;
 
     if (!obj.IsObject() || !obj.HasMember("alias")) return out;
 
@@ -92,8 +88,11 @@ static std::vector<CharacterAlias> ParseAliases(const rapidjson::Value& obj) {
     for (const auto& item : arr.GetArray()) {
         if (!item.IsObject()) continue;
 
-        CharacterAlias alias;
+        AliasItem alias;
         alias.name = JsonString(item, "name");
+        alias.i18n.en = JsonString(item, "en");
+        alias.i18n.zh_tw = JsonString(item, "zh-tw");
+        alias.i18n.zh_cn = JsonString(item, "zh-cn");
         alias.called = JsonString(item, "called");
 
         if (!alias.name.empty()) {
@@ -270,7 +269,7 @@ static ACInit BuildAcInit(const GameDataSnapshot& snapshot) {
     }
 
     for (const auto& [name, record] : snapshot.characters) {
-        for (const CharacterAlias& alias : record.aliases) {
+        for (const AliasItem& alias : record.aliases) {
             AddAcPattern(&out, alias.name, name, alias.called, &seen_patterns);
         }
     }
@@ -315,7 +314,7 @@ int RelatedNum(const std::string& name, const std::unordered_set<std::string>& r
     return out;
 }
 
-bool FindCharacterItem(const std::string& name, CharacterItem* out) {
+bool FindCharacterItem(std::string target_lang, const std::string& name, CharacterItem* out) {
     if (out == nullptr) return false;
 
     auto snapshot = GetGameDataSnapshot();
@@ -326,6 +325,30 @@ bool FindCharacterItem(const std::string& name, CharacterItem* out) {
 
     *out = it->second.item;
     return true;
+}
+
+bool FindAliasItem(const std::string& canonical, const std::string& alias_name, std::vector<AliasItem>* out) {
+    if (out == nullptr) return false;
+
+    auto snapshot = GetGameDataSnapshot();
+    if (!snapshot) return false;
+
+    auto it = snapshot->characters.find(canonical);
+    if (it == snapshot->characters.end()) return false;
+
+    for (const AliasItem& alias : it->second.aliases) {
+        if (alias.name == alias_name) {
+            if (
+            std::find_if(out->begin(), out->end(), [&alias](const AliasItem& existing) {
+                return existing.name == alias.name;
+            }) == out->end()
+            ) {
+                out->push_back(alias);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 bool FindGameTerm(const std::string& term, GameTerm* out) {

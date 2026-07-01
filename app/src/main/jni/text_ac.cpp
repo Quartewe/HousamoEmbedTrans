@@ -294,35 +294,22 @@ std::vector<AcHit> AcScan(const std::string& text) {
     auto hits = ac->Scan(text);
 
     std::vector<AcHit> out;
-    out.reserve(hits.size() * 2);
+    out.reserve(hits.size());
 
     for (const auto& hit : hits) {
         const auto& pattern = ac->Pattern(hit.pattern_id);
 
         AcHit ac_hit;
+
         ac_hit.matched_text = pattern.pattern;
         ac_hit.canonical = pattern.canonical;
+        ac_hit.called = pattern.called;
         ac_hit.kind = pattern.kind;
+
         if (pattern.kind == MatchKind::character) {
             bool touches_katakana_boundary = TouchesKatakanaBoundary(text, hit.begin, hit.end);
-            ac_hit.source = pattern.pattern == pattern.canonical
-                ? AcHitSource::direct
-                : AcHitSource::alias_canonical;
+            ac_hit.source = pattern.pattern == pattern.canonical ? AcHitSource::direct : AcHitSource::alias;
             ac_hit.score = touches_katakana_boundary ? 0.1f : 1.0f;
-            out.push_back(std::move(ac_hit));
-
-            if (!touches_katakana_boundary
-                && !pattern.called.empty()
-                && pattern.called != pattern.canonical) {
-                AcHit called_hit;
-                called_hit.matched_text = pattern.pattern;
-                called_hit.canonical = pattern.called;
-                called_hit.kind = MatchKind::character;
-                called_hit.source = AcHitSource::alias_called;
-                called_hit.score = 1.0f;
-                out.push_back(std::move(called_hit));
-            }
-            continue;
         } else if (pattern.kind == MatchKind::term) {
             ac_hit.source = AcHitSource::direct;
             ac_hit.score = 1.0f;
