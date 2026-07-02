@@ -275,7 +275,8 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jboolean enablePageRecDebug,
     jstring targetLanguage,
     jstring chardictJson,
-    jstring gametermsJson
+    jstring gametermsJson,
+    jstring baseDir
 ) {
     RvaConfig java_rva = jcls_to_rvaconfig(env, rvaConfigObj);
     LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
@@ -284,6 +285,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     std::string target_lang = jstring_to_string(env, targetLanguage);
     std::string chardict_json = jstring_to_string(env, chardictJson);
     std::string gameterms_json = jstring_to_string(env, gametermsJson);
+    std::string base_dir = jstring_to_string(env, baseDir);
 
     RuntimeConfig config;
 
@@ -293,6 +295,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
             character_weight,
             target_lang,
             enablePageRecDebug == JNI_TRUE,
+            base_dir,
             &config)) {
         return;
     }

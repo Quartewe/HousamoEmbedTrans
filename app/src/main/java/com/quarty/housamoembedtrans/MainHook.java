@@ -14,6 +14,7 @@ import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipEntry;
+import java.io.File;
 
 /**
  * LSPosed 模块入口 — Housamo AI 实时翻译。
@@ -372,7 +373,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         boolean enablePageRecDebug,
         String targetLanguage,
         String chardictJson,
-        String gametermsJson
+        String gametermsJson,
+        String baseDir
     );
 
     @Override
@@ -391,6 +393,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         String gameVersion = "";
         String chardictJson;
         String gametermsJson;
+        String baseDir = lpparam.appInfo.dataDir + "/files/housamo_embed_trans";
 
         if (!TARGET_PACKAGE.equals(lpparam.packageName)) return;
         if (s_loaded) return; // 防止重复加载（某些情况下 handleLoadPackage 会多调）
@@ -429,6 +432,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         try {
             // 加载 native 库，触发 JNI_OnLoad → 在 native 层设置 hook
+            new File(baseDir).mkdirs();
             System.loadLibrary("housamo_trans");
             XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
             nativeStart(
@@ -438,7 +442,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 enablePageRecDebug,
                 targetLanguage,
                 chardictJson,
-                gametermsJson
+                gametermsJson,
+                baseDir
             );
             XposedBridge.log("[HousamoTrans] Native hook setup complete. gameVersion="
                 + gameVersion + " targetLanguage=" + targetLanguage);
