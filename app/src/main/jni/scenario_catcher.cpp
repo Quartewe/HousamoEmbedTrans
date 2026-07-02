@@ -11,16 +11,32 @@
 #include <deque>
 #include <thread>
 
-std::atomic<bool> stop_catch{false};
+std::atomic<StopReason> stop_reason{StopReason::none};
 
-void SetStopCatch(bool stop) {
-    stop_catch.store(stop, std::memory_order_release);
+void StopForExistingSceneJson() {
+    stop_reason.store(StopReason::existing_scene, std::memory_order_release);
+    NotifyPageRecStopChanged();
+    NotifySceneBuilderStopChanged();
+}
 
+void ResumeCapture() {
+    stop_reason.store(StopReason::none, std::memory_order_release);
     NotifyPageRecStopChanged();
     NotifySceneBuilderStopChanged();
 }
 
 namespace {
+
+enum class ScenarioParseStatus {
+    ok,
+    skipped_official_translation,
+    failed,
+};
+
+struct ScenarioParseOutput {
+    ScenarioParseStatus status = ScenarioParseStatus::failed;
+    ScenarioParseResult result;
+};
 
 struct ListView {
     bool ok = false;
@@ -59,6 +75,7 @@ struct PageParseJob {
 
 struct PageParseResult {
     bool ok = false;
+    bool official_translation = false;
     int label_index = -1;
     int page_index = -1;
     int page_no = -1;
@@ -309,7 +326,13 @@ static std::string ReadSelectionJumpLabel(void* cmd_item) {
     return read_il2cpp_string(label_ptr);
 }
 
-static bool ReadTranslatableText(
+enum class TextStatus {
+    ok,
+    empty,
+    official_translation,
+};
+
+static TextStatus ReadTranslatableText(
     void* cmd_item,
     PageParseResult& result,
     std::string token_prefix,
@@ -317,20 +340,33 @@ static bool ReadTranslatableText(
     const std::string& current_speaker,
     std::string* out) {
     if (out == nullptr) {
-        return false;
+        return TextStatus::empty;
+    }
+    const auto& columns = g_runtime_config.layout.text_columns;
+    int target_lang = 0;
+
+    if (g_runtime_config.target_lang == "en") {
+        target_lang = columns.en;
+    } else if (g_runtime_config.target_lang == "zh-tw") {
+        target_lang = columns.zh_tw;
+    } else if (g_runtime_config.target_lang == "zh-cn") {
+        target_lang = columns.zh_cn;
+    } else {
+        LOGW("[ScenarioCatcher] target lang [%s] has no official translation", g_runtime_config.target_lang.c_str());
     }
 
-    const auto& columns = g_runtime_config.layout.text_columns;
-    std::string zh_cn = ReadRowStringColumn(cmd_item, columns.zh_cn);
-    if (!zh_cn.empty()) {
-        LOGW("[ScenarioCatcher] zh_cn already exists; stop current capture");
-        SetStopCatch(true);
-        return false;
+    if (target_lang != 0) {
+        std::string target_lang_text = ReadRowStringColumn(cmd_item, target_lang);
+        if (!target_lang_text.empty()) {
+            LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
+            return TextStatus::official_translation;
+        }
     }
+
 
     std::string raw_text = ReadRowStringColumn(cmd_item, columns.raw);
     if (raw_text.empty()) {
-        return false;
+        return TextStatus::empty;
     }
 
     // 读当前显示角色
@@ -366,7 +402,10 @@ static bool ReadTranslatableText(
         token_prefix,
         result.protect,
         protect_index);
-    return !out->empty();
+    if (out->empty()) {
+        return TextStatus::empty;
+    }
+    return TextStatus::ok;
 }
 
 static void FlushChoiceBlock(ChoiceBlock& choice, PageParseResult& result) {
@@ -562,8 +601,13 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
 
         if (type == "Text") {
             std::string text;
-            if (!ReadTranslatableText(cmd_item, result, token_prefix, protect_index, current_speaker, &text)) {
-                if (stop_catch.load()) return result;
+
+            TextStatus status = ReadTranslatableText(cmd_item, result, token_prefix, protect_index, current_speaker, &text);
+            if (status == TextStatus::official_translation) {
+                result.official_translation = true;
+                return result;
+            }
+            if (status != TextStatus::ok) {
                 continue;
             }
 
@@ -583,8 +627,13 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
 
         if (type == "Selection") {
             std::string text;
-            if (!ReadTranslatableText(cmd_item, result, token_prefix, protect_index, current_speaker, &text)) {
-                if (stop_catch.load()) return result;
+
+            TextStatus status = ReadTranslatableText(cmd_item, result, token_prefix, protect_index, current_speaker, &text);
+            if (status == TextStatus::official_translation) {
+                result.official_translation = true;
+                return result;
+            }
+            if (status != TextStatus::ok) {
                 continue;
             }
 
@@ -623,170 +672,255 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
     return result;
 }
 
-static void PageWorkerLoop(
-    BlockingQueue<PageParseJob>* jobs,
-    BlockingQueue<PageParseResult>* results) {
-    PageParseJob job;
+class ScenarioParseRunner {
+public:
+    explicit ScenarioParseRunner(const RuntimeScenario& scenario)
+        : scenario_(scenario) {}
 
-    while (jobs->Pop(&job)) {
-        if (stop_catch.load()) {
-            PageParseResult result;
-            result.label_index = job.label_index;
-            result.page_index = job.page_index;
-            result.page_no = job.page_no;
-            results->Push(std::move(result));
-            continue;
+    ScenarioParseOutput Run() {
+        result_.scene = scenario_.result.scene;
+        result_.entry_label = scenario_.result.entry_label;
+
+        StartWorkers();
+        size_t submitted_jobs = SubmitJobs();
+
+        job_queue_.Close();
+        JoinWorkers();
+
+        result_queue_.Close();
+        CollectResults(submitted_jobs);
+
+        if (Reason() == AbortReason::official_translation) {
+            LOGI("[ScenarioCatcher] skipped official translation scene=%s entry=%s",
+                 scenario_.result.scene.c_str(),
+                 scenario_.result.entry_label.c_str());
+            return {ScenarioParseStatus::skipped_official_translation, {}};
         }
 
-        results->Push(ParsePageJob(job));
-    }
-}
-
-static bool ParseScenarioToResult(const RuntimeScenario& scenario, ScenarioParseResult* out_result) {
-    if (out_result == nullptr) {
-        return false;
-    }
-
-    ScenarioParseResult f_result;
-    f_result.scene = scenario.result.scene;
-    f_result.entry_label = scenario.result.entry_label;
-
-    ParseStats total_stats;
-
-    BlockingQueue<PageParseJob> job_queue;
-    BlockingQueue<PageParseResult> result_queue;
-
-    // 启动线程
-    int worker_count = static_cast<int>(std::thread::hardware_concurrency());
-    if (worker_count <= 0) {
-        worker_count = 2;
-    }
-    worker_count = std::min(worker_count, 4);
-    std::vector<std::thread> workers;
-    workers.reserve(worker_count);
-
-    for (int i = 0; i < worker_count; ++i) {
-        workers.emplace_back(PageWorkerLoop, &job_queue, &result_queue);
-    }
-
-    size_t submitted_jobs = 0;
-
-    for (size_t label_index = 0; label_index < scenario.label_order.size(); ++label_index) {
-        const std::string& label_name = scenario.label_order[label_index];
-        auto it = scenario.labels.find(label_name);
-        if (it == scenario.labels.end()) {
-            continue;
+        if (Reason() != AbortReason::none) {
+            return {ScenarioParseStatus::failed, {}};
         }
 
-        const RuntimeLabelNode& label = it->second;
-        ListView pages = ReadList(
-            read_ptr(label.label_data, g_runtime_config.layout.scenario_label_data.page_data_list),
-            8192);
-        if (!pages.ok) {
-            LOGW("[ScenarioCatcher] page list invalid label=%s", label.label.c_str());
-            continue;
+        LOGI("[ScenarioCatcher] parsed scene=%s labels=%d/%zu pages=%d text=%d selection=%d jump=%d items=%zu",
+             scenario_.result.scene.c_str(),
+             total_stats_.labels,
+             scenario_.labels.size(),
+             total_stats_.pages,
+             total_stats_.text,
+             total_stats_.selection,
+             total_stats_.jump,
+             result_.scene_items.size());
+
+        return {ScenarioParseStatus::ok, std::move(result_)};
+    }
+
+private:
+    enum class AbortReason : int {
+        none = 0,
+        official_translation = 1,
+        paused_existing_scene = 2,
+    };
+
+    int WorkerCount() const {
+        int count = static_cast<int>(std::thread::hardware_concurrency());
+        if (count <= 0) {
+            count = 2;
         }
+        return std::min(count, 4);
+    }
 
-        ++total_stats.labels;
+    void StartWorkers() {
+        int count = WorkerCount();
+        workers_.reserve(count);
 
-        for (int page_index = 0; page_index < pages.size; ++page_index) {
-            if (stop_catch.load()) {
-                job_queue.Close();
-                result_queue.Close();
+        for (int i = 0; i < count; ++i) {
+            workers_.emplace_back(&ScenarioParseRunner::WorkerLoop, this);
+        }
+    }
 
-                for (auto& worker : workers) {
-                    if (worker.joinable()) worker.join();
+    void JoinWorkers() {
+        for (auto& worker : workers_) {
+            if (worker.joinable()) {
+                worker.join();
+            }
+        }
+    }
+
+    bool IsCapturePaused() const {
+        return stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene;
+    }
+
+    void Abort(AbortReason reason) {
+        int expected = static_cast<int>(AbortReason::none);
+        abort_reason_.compare_exchange_strong(
+            expected,
+            static_cast<int>(reason),
+            std::memory_order_acq_rel
+        );
+    }
+
+    bool ShouldAbort() const {
+        return abort_reason_.load(std::memory_order_acquire) !=
+            static_cast<int>(AbortReason::none);
+    }
+
+    AbortReason Reason() const {
+        return static_cast<AbortReason>(
+            abort_reason_.load(std::memory_order_acquire)
+        );
+    }
+
+    size_t SubmitJobs() {
+        size_t submitted_jobs = 0;
+
+        for (size_t label_index = 0; label_index < scenario_.label_order.size(); ++label_index) {
+            if (ShouldAbort()) {
+                break;
+            }
+
+            if (IsCapturePaused()) {
+                Abort(AbortReason::paused_existing_scene);
+                break;
+            }
+
+            const std::string& label_name = scenario_.label_order[label_index];
+            auto it = scenario_.labels.find(label_name);
+            if (it == scenario_.labels.end()) {
+                continue;
+            }
+
+            const RuntimeLabelNode& label = it->second;
+            ListView pages = ReadList(
+                read_ptr(label.label_data, g_runtime_config.layout.scenario_label_data.page_data_list),
+                8192);
+            if (!pages.ok) {
+                LOGW("[ScenarioCatcher] page list invalid label=%s", label.label.c_str());
+                continue;
+            }
+
+            ++total_stats_.labels;
+
+            for (int page_index = 0; page_index < pages.size; ++page_index) {
+                if (ShouldAbort()) {
+                    break;
                 }
 
-                return false;
+                if (IsCapturePaused()) {
+                    Abort(AbortReason::paused_existing_scene);
+                    break;
+                }
+
+                void* page_data = ListElement(pages, page_index);
+                PageParseJob job;
+                job.label_index = static_cast<int>(label_index);
+                job.page_index = page_index;
+                job.page_no = read_int(
+                    page_data,
+                    g_runtime_config.layout.adv_scenario_page_data.page_no
+                );
+                job.label = label.label;
+                job.page_data = page_data;
+
+                if (!job_queue_.Push(std::move(job))) {
+                    LOGE("[ScenarioCatcher] failed to push page job label=%s pageIndex=%d",
+                         label.label.c_str(),
+                         page_index);
+                } else {
+                    ++submitted_jobs;
+                }
+            }
+        }
+
+        return submitted_jobs;
+    }
+
+    void WorkerLoop() {
+        PageParseJob job;
+
+        while (job_queue_.Pop(&job)) {
+            if (ShouldAbort()) {
+                continue;
             }
 
-            void* page_data = ListElement(pages, page_index);
-            PageParseJob job;
-            job.label_index = static_cast<int>(label_index);
-            job.page_index = page_index;
-            job.page_no = read_int(
-                page_data,
-                g_runtime_config.layout.adv_scenario_page_data.page_no
-            );
-            job.label = label.label;
-            job.page_data = page_data;
-
-            if (!job_queue.Push(std::move(job))) {
-                LOGE("[ScenarioCatcher] failed to push page job label=%s pageIndex=%d",
-                     label.label.c_str(),
-                     page_index);
-            } else {
-                ++submitted_jobs;
+            if (IsCapturePaused()) {
+                Abort(AbortReason::paused_existing_scene);
+                continue;
             }
+
+            PageParseResult result = ParsePageJob(job);
+            if (result.official_translation) {
+                Abort(AbortReason::official_translation);
+            }
+
+            result_queue_.Push(std::move(result));
         }
     }
 
-    // 关闭队列，等待线程结束
-    job_queue.Close();
-    for (auto& worker : workers) {
-        if (worker.joinable()) worker.join();
-    }
-    result_queue.Close();
+    void CollectResults(size_t submitted_jobs) {
+        std::vector<PageParseResult> page_results;
+        page_results.reserve(submitted_jobs);
 
-    // 收集结果
-    std::vector<PageParseResult> page_results;
-    page_results.reserve(submitted_jobs);
-    PageParseResult page_result;
-    while (result_queue.Pop(&page_result)) {
-        page_results.push_back(std::move(page_result));
-    }
-
-    // 排序
-    std::sort(page_results.begin(), page_results.end(),
-    [](const PageParseResult& a, const PageParseResult& b) {
-        if (a.label_index != b.label_index) {
-            return a.label_index < b.label_index;
+        PageParseResult page_result;
+        while (result_queue_.Pop(&page_result)) {
+            page_results.push_back(std::move(page_result));
         }
 
-        if (a.page_index != b.page_index) {
-            return a.page_index < b.page_index;
+        std::sort(page_results.begin(), page_results.end(),
+            [](const PageParseResult& a, const PageParseResult& b) {
+                if (a.label_index != b.label_index) {
+                    return a.label_index < b.label_index;
+                }
+
+                if (a.page_index != b.page_index) {
+                    return a.page_index < b.page_index;
+                }
+
+                return a.page_no < b.page_no;
+            });
+
+        for (auto& result : page_results) {
+            if (!result.ok) {
+                continue;
+            }
+
+            MergeStats(total_stats_, result.stats);
+
+            MergeScores(result_.speaker_character, result.speaker_character);
+            MergeScores(result_.text_character, result.text_character);
+            MergeScores(result_.show_character, result.show_character);
+            MergeScores(result_.game_terms, result.game_terms);
+
+            MergeAliases(result_.aliases, result.aliases);
+
+            MoveAppend(result_.protect, result.protect);
+            MoveAppend(result_.scene_items, result.scene_items);
         }
-
-        return a.page_no < b.page_no;
-    });
-
-    for (auto& result : page_results) {
-        if (!result.ok) {
-            continue;
-        }
-
-        MergeStats(total_stats, result.stats);
-
-        MergeScores(f_result.speaker_character, result.speaker_character);
-        MergeScores(f_result.text_character, result.text_character);
-        MergeScores(f_result.show_character, result.show_character);
-        MergeScores(f_result.game_terms, result.game_terms);
-
-        MergeAliases(f_result.aliases, result.aliases);
-
-        MoveAppend(f_result.protect, result.protect);
-        MoveAppend(f_result.scene_items, result.scene_items);
     }
 
-    LOGI("[ScenarioCatcher] parsed scene=%s labels=%d/%zu pages=%d text=%d selection=%d jump=%d items=%zu",
-         scenario.result.scene.c_str(),
-         total_stats.labels,
-         scenario.labels.size(),
-         total_stats.pages,
-         total_stats.text,
-         total_stats.selection,
-         total_stats.jump,
-         f_result.scene_items.size());
+private:
+    const RuntimeScenario& scenario_;
 
-    *out_result = std::move(f_result);
-    return true;
+    std::atomic<int> abort_reason_{
+        static_cast<int>(AbortReason::none)
+    };
+
+    BlockingQueue<PageParseJob> job_queue_;
+    BlockingQueue<PageParseResult> result_queue_;
+    std::vector<std::thread> workers_;
+
+    ScenarioParseResult result_;
+    ParseStats total_stats_;
+};
+
+static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario) {
+    ScenarioParseRunner runner(scenario);
+    return runner.Run();
 }
 
 } // namespace
 
 bool CatchScenario(void* scenario_data, const std::string& entry_label) {
-    if (stop_catch.load()) {
+    if (stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene) {
         return false;
     }
 
@@ -816,13 +950,19 @@ bool CatchScenario(void* scenario_data, const std::string& entry_label) {
          scenario.labels.size(),
          scenario.label_order.size());
 
-    ScenarioParseResult result;
-    if (!ParseScenarioToResult(scenario, &result)) {
+    ScenarioParseOutput output = ParseScenarioToResult(scenario);
+    if (output.status == ScenarioParseStatus::skipped_official_translation) {
+        LOGI("[ScenarioCatcher] scenario skipped because official translation exists entry=%s",
+             entry_label.c_str());
+        return true;
+    }
+
+    if (output.status != ScenarioParseStatus::ok) {
         LOGE("[ScenarioCatcher] failed to parse scene entry=%s", entry_label.c_str());
         return false;
     }
 
     StartSceneBuilder();
-    SubmitScenarioParseResult(std::move(result));
+    SubmitScenarioParseResult(std::move(output.result));
     return true;
 }

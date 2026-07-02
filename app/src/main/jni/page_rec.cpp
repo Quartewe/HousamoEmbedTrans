@@ -83,6 +83,10 @@ static std::atomic<uint64_t> next_seq{0};
 static std::atomic<int> protect_label{0}; 
 static std::unordered_set<PageKey, PageKeyHash> seen_pages;
 
+static bool IsCapturePaused() {
+    return stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene;
+}
+
 class PageParser {
 public:
     explicit PageParser(ProcessPageResult& result) : result_(result) {}
@@ -306,7 +310,6 @@ private:
         std::string cn_text = ReadRowStringColumn(cmd_item, column.zh_cn);
         if (!cn_text.empty()) {
             LOGW("[ProcessPageJob] Already has translation");
-            SetStopCatch(true);
             return "";
         }
 
@@ -347,7 +350,6 @@ private:
         std::string cn_text = ReadRowStringColumn(cmd_item, column.zh_cn);
         if (!cn_text.empty()) {
             LOGW("[ProcessPageJob] Already has translation");
-            SetStopCatch(true);
             return item;
         }
 
@@ -398,13 +400,13 @@ static void PageEventWorker() {
             std::unique_lock<std::mutex> lock(event_mutex);
 
             event_cv.wait(lock, [] {
-                return stop_catch.load() || !event_queue.empty();
+                return IsCapturePaused() || !event_queue.empty();
             });
 
-            if (stop_catch.load()) {
+            if (IsCapturePaused()) {
                 event_queue.clear();
                 event_cv.wait(lock, [] {
-                    return !stop_catch.load();
+                    return !IsCapturePaused();
                 });
                 continue;
             }
@@ -445,13 +447,13 @@ static void PageWorker() {
             std::unique_lock<std::mutex> lock(page_mutex);
 
             page_cv.wait(lock, [] {
-                return stop_catch.load() || !page_queue.empty();
+                return IsCapturePaused() || !page_queue.empty();
             });
 
-            if (stop_catch.load()) {
+            if (IsCapturePaused()) {
                 page_queue.clear();
                 page_cv.wait(lock, [] {
-                    return !stop_catch.load();
+                    return !IsCapturePaused();
                 });
                 continue;
             }
@@ -484,7 +486,7 @@ static void StartPageRecorder() {
 }
 
 bool CommandExamine(void* pageData, const std::string& source) {
-    if (stop_catch.load()) {
+    if (IsCapturePaused()) {
         return false;
     }
 

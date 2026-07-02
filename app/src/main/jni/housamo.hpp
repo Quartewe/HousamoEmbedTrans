@@ -19,7 +19,12 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 // 全局变量和结构体定义
-extern std::atomic<bool> stop_catch;
+enum class StopReason {
+    none,
+    existing_scene
+};
+
+extern std::atomic<StopReason> stop_reason;
 
 // AC机
 enum class MatchKind {
@@ -173,6 +178,7 @@ struct RuntimeConfig {
     LayoutConfig layout;
     CharacterWeightConfig character_weight;
     std::string target_lang;
+    std::string base_dir;
     bool enable_page_rec_debug = false;
 };
 
@@ -324,6 +330,7 @@ struct Scene {
 };
 
 //函数声明
+void WriteSceneJson(const Scene& scene, const std::string& file_path);
 int RelatedNum(const std::string& name, const std::unordered_set<std::string>& related_characters);
 bool FindAliasItem(const std::string& canonical, const std::string& alias_name, std::vector<AliasItem>* out);
 void StartJsonManager(std::string chardict_json, std::string gameterms_json);
@@ -332,6 +339,8 @@ bool FindCharacterItem(const std::string& name, CharacterItem* out);
 bool FindGameTerm(const std::string& term, GameTerm* out);
 void NotifyPageRecStopChanged();
 void NotifySceneBuilderStopChanged();
+void StopForExistingSceneJson();
+void ResumeCapture();
 void SubmitScenarioParseResult(ScenarioParseResult result);
 bool CatchScenario(void* scenario_data, const std::string& entry_label);
 void NotifySceneBuilderStopChanged();
@@ -339,7 +348,6 @@ std::vector<AcHit> AcScan(const std::string& text);
 bool IsAcReady();
 void StartAcInit(ACInit ac_init);
 void StartSceneBuilder();
-void SetStopCatch(bool stop);
 bool CommandExamine(void* pageData, const std::string& source);
 bool make_runtime_config(
     const RvaConfig& java_rva,
@@ -347,6 +355,7 @@ bool make_runtime_config(
     const CharacterWeightConfig& character_weight,
     const std::string& target_lang,
     bool enable_page_rec_debug,
+    const std::string& base_dir,
     RuntimeConfig* out);
 bool valid_rva_config(const RvaConfig& config);
 bool valid_layout_config(const LayoutConfig& config);
