@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <atomic>
+#include <memory>
 
 // 日志宏
 #define LOG_TAG "HousamoTrans"
@@ -174,6 +175,7 @@ struct CharacterWeightConfig {
 };
 
 struct RuntimeConfig {
+    std::string game_version;
     RvaConfig rva;
     LayoutConfig layout;
     CharacterWeightConfig character_weight;
@@ -234,7 +236,7 @@ struct IfBlock {
 };
 
 struct ChoiceBlock {
-    std::string options_seq;
+    OrderKey order;
     std::vector<BrenchItem> brenches;
 };
 
@@ -264,10 +266,10 @@ struct CharacterItem {
     std::vector<std::string> school;
     std::vector<std::string> guild;
     std::vector<std::string> origin_world;
-    std::string speech_style;
     std::vector<Relationship> relationships;
     std::string info;
     std::string description;
+    std::string speech_style;
 };
 
 struct RelationshipHit {
@@ -330,7 +332,7 @@ struct Scene {
 };
 
 //函数声明
-void WriteSceneJson(const Scene& scene, const std::string& file_path);
+void SubmitToJsonHandler(std::shared_ptr<const Scene> scene);
 int RelatedNum(const std::string& name, const std::unordered_set<std::string>& related_characters);
 bool FindAliasItem(const std::string& canonical, const std::string& alias_name, std::vector<AliasItem>* out);
 void StartJsonManager(std::string chardict_json, std::string gameterms_json);
@@ -338,18 +340,17 @@ bool IsJsonManagerReady();
 bool FindCharacterItem(const std::string& name, CharacterItem* out);
 bool FindGameTerm(const std::string& term, GameTerm* out);
 void NotifyPageRecStopChanged();
-void NotifySceneBuilderStopChanged();
 void StopForExistingSceneJson();
 void ResumeCapture();
 void SubmitScenarioParseResult(ScenarioParseResult result);
 bool CatchScenario(void* scenario_data, const std::string& entry_label);
-void NotifySceneBuilderStopChanged();
 std::vector<AcHit> AcScan(const std::string& text);
 bool IsAcReady();
 void StartAcInit(ACInit ac_init);
 void StartSceneBuilder();
 bool CommandExamine(void* pageData, const std::string& source);
 bool make_runtime_config(
+    const std::string& game_version,
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
     const CharacterWeightConfig& character_weight,

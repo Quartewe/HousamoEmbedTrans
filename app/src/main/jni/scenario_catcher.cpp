@@ -16,13 +16,13 @@ std::atomic<StopReason> stop_reason{StopReason::none};
 void StopForExistingSceneJson() {
     stop_reason.store(StopReason::existing_scene, std::memory_order_release);
     NotifyPageRecStopChanged();
-    NotifySceneBuilderStopChanged();
+    // NotifySceneBuilderStopChanged();
 }
 
 void ResumeCapture() {
     stop_reason.store(StopReason::none, std::memory_order_release);
     NotifyPageRecStopChanged();
-    NotifySceneBuilderStopChanged();
+    // NotifySceneBuilderStopChanged();
 }
 
 namespace {
@@ -638,9 +638,10 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
             }
 
             if (pending_choice.brenches.empty()) {
-                pending_choice.options_seq = job.label + ":"
-                    + std::to_string(page_no) + ":"
-                    + std::to_string(i);
+                pending_choice.order.label_index = result.label_index;
+                pending_choice.order.page_no = page_no;
+                pending_choice.order.cmd_index = i;
+                pending_choice.order.sub_index = 0;
             }
 
             BrenchItem branch;
