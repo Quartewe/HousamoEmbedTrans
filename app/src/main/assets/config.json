@@ -2,6 +2,7 @@
     "GameVersion": "5.18.0",
     "UserSettings": {
         "EnablePageRecDebug": false,
+        "OverwriteExistingJson": false,
         "CharacterWeight": {
             "HighRelevance": 4.0,
             "MidRelevance": 3.0,
@@ -11,7 +12,7 @@
             "RelatedNum": 1,
             "LowTermScore": 3
         },
-        "TargetLanguage": ""
+        "TargetLanguage": "zh-cn"
     },
     "RuntimeConfigs": {
         "RVA": {

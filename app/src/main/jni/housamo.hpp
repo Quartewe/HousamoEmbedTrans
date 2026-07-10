@@ -181,6 +181,7 @@ struct RuntimeConfig {
     CharacterWeightConfig character_weight;
     std::string target_lang;
     std::string base_dir;
+    bool overwrite_existing = false;
     bool enable_page_rec_debug = false;
 };
 
@@ -356,6 +357,7 @@ bool make_runtime_config(
     const CharacterWeightConfig& character_weight,
     const std::string& target_lang,
     bool enable_page_rec_debug,
+    bool overwrite_existing,
     const std::string& base_dir,
     RuntimeConfig* out);
 bool valid_rva_config(const RvaConfig& config);

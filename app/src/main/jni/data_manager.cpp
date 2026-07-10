@@ -314,7 +314,7 @@ int RelatedNum(const std::string& name, const std::unordered_set<std::string>& r
     return out;
 }
 
-bool FindCharacterItem(std::string target_lang, const std::string& name, CharacterItem* out) {
+bool FindCharacterItem(const std::string& name, CharacterItem* out) {
     if (out == nullptr) return false;
 
     auto snapshot = GetGameDataSnapshot();

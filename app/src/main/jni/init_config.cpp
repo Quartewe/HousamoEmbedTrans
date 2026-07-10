@@ -149,11 +149,13 @@ bool valid_layout_config(const LayoutConfig& config) {
 }
 
 bool make_runtime_config(
+    const std::string& game_version,
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
     const CharacterWeightConfig& character_weight,
     const std::string& target_lang,
     bool enable_page_rec_debug,
+    bool overwrite_existing,
     const std::string& base_dir,
     RuntimeConfig* out) {
     if (out == nullptr) {
@@ -176,14 +178,17 @@ bool make_runtime_config(
         LOGW("unsupported target_lang=%s, might couldnt work properly", target_lang.c_str());
     }
 
+    out->game_version = game_version;
     out->rva = java_rva;
     out->layout = java_layout;
     out->character_weight = character_weight;
     out->target_lang = target_lang;
     out->enable_page_rec_debug = enable_page_rec_debug;
+    out->overwrite_existing = overwrite_existing;
     out->base_dir = base_dir;
     LOGI("character weight config: high_relevance=%.3f mid_relevance=%.3f density_high=%.3f"
-         " text_low_score=%.3f text_mentioned_score=%.3f related_num=%d low_term_score=%d target_lang=%s base_dir=%s",
+         " text_low_score=%.3f text_mentioned_score=%.3f related_num=%d low_term_score=%d target_lang=%s"
+         " overwrite_existing=%d base_dir=%s",
          out->character_weight.high_relevance,
          out->character_weight.mid_relevance,
          out->character_weight.density_high,
@@ -192,6 +197,7 @@ bool make_runtime_config(
          out->character_weight.related_num,
          out->character_weight.low_term_score,
          out->target_lang.c_str(),
+         out->overwrite_existing ? 1 : 0,
          out->base_dir.c_str());
     return true;
 }

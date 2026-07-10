@@ -269,10 +269,12 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     JNIEnv* env,
     jclass clazz,
+    jstring gameVersion,
     jobject rvaConfigObj,
     jobject layOutObj,
     jobject characterWeightObj,
     jboolean enablePageRecDebug,
+    jboolean overwriteExistingJson,
     jstring targetLanguage,
     jstring chardictJson,
     jstring gametermsJson,
@@ -282,6 +284,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
     CharacterWeightConfig character_weight = jcls_to_character_weight_config(env, characterWeightObj);
 
+    std::string game_version = jstring_to_string(env, gameVersion);
     std::string target_lang = jstring_to_string(env, targetLanguage);
     std::string chardict_json = jstring_to_string(env, chardictJson);
     std::string gameterms_json = jstring_to_string(env, gametermsJson);
@@ -290,11 +293,13 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     RuntimeConfig config;
 
     if (!make_runtime_config(
+            game_version,
             java_rva,
             java_layout,
             character_weight,
             target_lang,
             enablePageRecDebug == JNI_TRUE,
+            overwriteExistingJson == JNI_TRUE,
             base_dir,
             &config)) {
         return;
@@ -304,11 +309,12 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
 
     LOGI("Received RVA config from Java: FindScenarioData=0x%" PRIxPTR
          ", InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR
-         ", PageRecDebug=%d",
+         ", PageRecDebug=%d, OverwriteExistingJson=%d",
          config.rva.find_scenario_data,
          config.rva.init_base,
          config.rva.init_text,
-         config.enable_page_rec_debug ? 1 : 0);
+         config.enable_page_rec_debug ? 1 : 0,
+         config.overwrite_existing ? 1 : 0);
     LOGI("Starting initialization thread...");
 
     StartJsonManager(std::move(chardict_json), std::move(gameterms_json));

@@ -314,6 +314,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return userSettings.getBoolean("EnablePageRecDebug");
     }
 
+    private static boolean Init_OverwriteExistingJson(JSONObject json) throws Exception {
+        JSONObject userSettings = json.getJSONObject("UserSettings");
+        return userSettings.getBoolean("OverwriteExistingJson");
+    }
+
     private static CharacterWeight Init_CharacterWeight(JSONObject json) throws Exception {
         CharacterWeight weight = new CharacterWeight();
         JSONObject userSettings = json.getJSONObject("UserSettings");
@@ -367,10 +372,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     }
 
     private static native void nativeStart(
+        String gameVersion,
         RVA rva, 
         Layout layout,
         CharacterWeight characterWeight,
         boolean enablePageRecDebug,
+        boolean overwriteExistingJson,
         String targetLanguage,
         String chardictJson,
         String gametermsJson,
@@ -389,6 +396,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Layout layout = new Layout();
         CharacterWeight characterWeight = new CharacterWeight();
         boolean enablePageRecDebug = false;
+        boolean overwriteExistingJson = false;
         String targetLanguage = "";
         String gameVersion = "";
         String chardictJson;
@@ -409,6 +417,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             layout = Init_Layout(runtimeConfigs);
             characterWeight = Init_CharacterWeight(json);
             enablePageRecDebug = Init_EnablePageRecDebug(json);
+            overwriteExistingJson = Init_OverwriteExistingJson(json);
             targetLanguage = Init_TargetLanguage(json);
             gameVersion = Init_GameVersion(json);
 
@@ -433,13 +442,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         try {
             // 加载 native 库，触发 JNI_OnLoad → 在 native 层设置 hook
             new File(baseDir).mkdirs();
+            new File(baseDir + "/scenes").mkdirs();
             System.loadLibrary("housamo_trans");
             XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
             nativeStart(
+                gameVersion,
                 rva,
                 layout,
                 characterWeight,
                 enablePageRecDebug,
+                overwriteExistingJson,
                 targetLanguage,
                 chardictJson,
                 gametermsJson,
