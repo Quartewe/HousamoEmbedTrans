@@ -12,48 +12,66 @@ struct CharacterSignal {
     float text_score = 0.0f;
 };
 
+static bool IsCapturePaused() {
+    return stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene;
+}
+
 class SceneBuilder {
 public:
     void Start() {
-        LOGI("[SceneBuilder] ready");
+        LOGI("[SceneBuilder] workers started");
     }
 
     void Submit(ScenarioParseResult result) {
-        std::lock_guard<std::mutex> lock(mutex_);
         Scene scene;
 
         const size_t item_count = result.scene_items.size();
         const size_t protect_count = result.protect.size();
-        latest_result_ = std::move(result);
+
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (result.scene == latest_scene_.scene && 
+                g_runtime_config.target_lang == latest_scene_.target_lang &&
+                item_count == latest_scene_.scene_items.size() &&
+                protect_count == latest_scene_.protect.size()
+            ) {
+                LOGW("[SceneBuilder] parse result received but scene unchanged, items=%zu protect=%zu",
+                    item_count,
+                    protect_count);
+                return;
+            }
+        }
 
         LOGI("[SceneBuilder] parse result received items=%zu protect=%zu",
              item_count,
              protect_count);
 
-        // TODO: 后续在这里把 ScenarioParseResult 组装成完整 Scene 并生成 scene.json。
         std::vector<GameTerm> character_terms;
 
-        scene.scene = latest_result_.scene;
+        scene.scene = result.scene;
         scene.target_lang = g_runtime_config.target_lang;
-        scene.protect = latest_result_.protect;
-        scene.scene_items = latest_result_.scene_items;
+        scene.protect = result.protect;
+        scene.scene_items = result.scene_items;
         CharacterBuild(
-            latest_result_.speaker_character,
-            latest_result_.show_character,
-            latest_result_.text_character,
-            latest_result_.aliases,
-            latest_result_.scene_items.size(),
+            result.speaker_character,
+            result.show_character,
+            result.text_character,
+            result.aliases,
+            result.scene_items.size(),
             scene.character,
             scene.mentioned_characters,
             character_terms
         );
-        TermBuild(latest_result_.game_terms, character_terms, scene.game_terms);
+        TermBuild(result.game_terms, character_terms, scene.game_terms);
 
-        latest_scene_ = std::move(scene);
-    }
+        auto scene_ptr = std::make_shared<const Scene>(std::move(scene));
 
-    void NotifyStopChanged() {
-        // Scene 静态解析当前不维护等待队列；保留接口给 SetStopCatch 广播使用。
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            latest_scene_ = *scene_ptr; // 只作为调试缓存，可选
+        }
+
+        SubmitToJsonHandler(scene_ptr);
     }
 
 private:
@@ -268,15 +286,10 @@ private:
 
 private:
     std::mutex mutex_;
-    ScenarioParseResult latest_result_;
     Scene latest_scene_;
 };
 
 static SceneBuilder g_scene_builder;
-
-void NotifySceneBuilderStopChanged() {
-    g_scene_builder.NotifyStopChanged();
-}
 
 void SubmitScenarioParseResult(ScenarioParseResult result) {
     g_scene_builder.Submit(std::move(result));

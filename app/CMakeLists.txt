@@ -15,6 +15,7 @@ add_library(housamo_trans SHARED
     src/main/jni/scene_builder.cpp
     src/main/jni/scenario_catcher.cpp
     src/main/jni/data_manager.cpp
+    src/main/jni/json_handler.cpp
 )
 
 # Header file paths
