@@ -1066,12 +1066,76 @@ static bool ResolveIfBlock(
     return true;
 }
 
+static std::string MergeIfConditions(
+    const std::string& first,
+    const std::string& second) {
+    if (first.empty() || first == second) {
+        return second.empty() ? first : second;
+    }
+    if (second.empty()) {
+        return first;
+    }
+
+    return "(" + first + ")||(" + second + ")";
+}
+
+static void CoalesceParallelIfEdges(LabelBlock* block) {
+    if (block == nullptr || block->scene_items.size() < 2) {
+        return;
+    }
+
+    std::vector<SceneItem> normalized;
+    normalized.reserve(block->scene_items.size());
+
+    std::unordered_map<std::string, size_t> target_indices;
+    target_indices.reserve(block->scene_items.size());
+
+    for (SceneItem& item : block->scene_items) {
+        IfBlock* current = std::get_if<IfBlock>(&item.value);
+        if (current == nullptr || current->target_label.empty()) {
+            normalized.emplace_back(std::move(item));
+            continue;
+        }
+
+        auto [target_it, inserted] = target_indices.emplace(
+            current->target_label,
+            normalized.size());
+        if (inserted) {
+            normalized.emplace_back(std::move(item));
+            continue;
+        }
+
+        IfBlock* existing = std::get_if<IfBlock>(
+            &normalized[target_it->second].value);
+        if (existing == nullptr) {
+            target_it->second = normalized.size();
+            normalized.emplace_back(std::move(item));
+            continue;
+        }
+
+        existing->condition = MergeIfConditions(
+            existing->condition,
+            current->condition);
+
+        LOGD("[ScenarioCatcher] coalesced if owner=%s target=%s condition=%s",
+             block->label.c_str(),
+             existing->target_label.c_str(),
+             existing->condition.c_str());
+    }
+
+    block->scene_items = std::move(normalized);
+}
+
 static bool AssembleLabelBlocks(
     std::vector<LabelBlock>* blocks,
     const std::unordered_map<std::string, size_t>& label_indices,
     std::vector<SceneItem>* out) {
     if (blocks == nullptr || out == nullptr) {
         return false;
+    }
+
+    for (LabelBlock& block : *blocks) {
+        CoalesceParallelIfEdges(&block);
     }
 
     for (size_t reverse_index = blocks->size(); reverse_index > 0; --reverse_index) {
