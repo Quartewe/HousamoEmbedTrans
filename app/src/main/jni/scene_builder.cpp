@@ -126,7 +126,13 @@ private:
         }
     }
 
-    bool AttachMatchedAliases(const std::string& name, CharacterItem& character, const std::unordered_map<std::string, std::unordered_set<std::string>>& alias_map) {
+    using MatchedAliasMap = std::unordered_map<std::string, std::vector<AliasScore>>;
+
+    bool AttachMatchedAliases(
+        const std::string& name,
+        CharacterItem& character,
+        const MatchedAliasMap& alias_map
+    ) {
         auto it = alias_map.find(name);
 
         if (it == alias_map.end() || it->second.empty()) {
@@ -134,9 +140,12 @@ private:
         }
 
         character.aliases.reserve(it->second.size());
-        for (const std::string& alias : it->second) {
-            if (!FindAliasItem(name, alias, &character.aliases)) {
-                LOGW("[SceneBuilder] alias not found: %s -> %s", name.c_str(), alias.c_str());
+        for (const AliasScore& alias : it->second) {
+            if (!FindAliasItem(name, alias.pattern, alias.called, &character.aliases)) {
+                LOGW("[SceneBuilder] alias not found: %s -> %s (called=%s)",
+                     name.c_str(),
+                     alias.pattern.c_str(),
+                     alias.called.c_str());
                 return false;
             }
         }
@@ -171,13 +180,27 @@ private:
             signals[item.item].text_score += item.score;
         }
 
-        std::unordered_map<std::string, std::unordered_set<std::string>> alias_map;
+        MatchedAliasMap alias_map;
 
         for (const AliasScore& alias : aliases) {
-            if (alias.score >= weight.text_mentioned_score) {
-                alias_map[alias.canonical].insert(alias.pattern);
+            if (alias.score < weight.text_mentioned_score) {
+                continue;
             }
+
+            if (alias.canonical == "mc"
+                && !alias.called.empty()
+                && signals.find(alias.called) == signals.end()) {
+                continue;
+            }
+
+            alias_map[alias.canonical].push_back(alias);
         }
+
+        if (!FindCharacterItem("mc", &character_out.mc)) {
+            LOGW("[SceneBuilder] mc character not found");
+            character_out.mc.name = "mc";
+        }
+        AttachMatchedAliases("mc", character_out.mc, alias_map);
 
         size_t total_size = signals.size();
         character_out.high_weight.reserve(total_size);
