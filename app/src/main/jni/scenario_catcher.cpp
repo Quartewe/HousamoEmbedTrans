@@ -853,6 +853,44 @@ static bool FindChoiceMerge(
     return false;
 }
 
+static bool FindIfMerge(
+    const std::string& true_start,
+    const std::string& false_start,
+    const std::vector<LabelBlock>& blocks,
+    const std::unordered_map<std::string, size_t>& label_indices,
+    std::string* merge_label) {
+    if (true_start.empty() || false_start.empty() || merge_label == nullptr) {
+        return false;
+    }
+
+    std::vector<std::string> true_chain;
+    true_chain.reserve(blocks.size() + 1);
+    if (!BuildContinuationChain(true_start, blocks, label_indices, &true_chain)) {
+        return false;
+    }
+
+    std::vector<std::string> false_chain;
+    false_chain.reserve(blocks.size() + 1);
+    if (false_start == kVirtualExit) {
+        false_chain.emplace_back(kVirtualExit);
+    } else if (!BuildContinuationChain(false_start, blocks, label_indices, &false_chain)) {
+        return false;
+    }
+
+    const std::unordered_set<std::string> false_reachable(
+        false_chain.begin(),
+        false_chain.end());
+
+    for (const std::string& candidate : true_chain) {
+        if (false_reachable.find(candidate) != false_reachable.end()) {
+            *merge_label = candidate;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static bool CollectBranchPath(
     const std::string& start,
     const std::string& merge_label,
@@ -963,11 +1001,26 @@ static bool ResolveChoice(
 static bool ResolveIfBlock(
     size_t owner_index,
     const std::string& owner_label,
-    const std::string& merge_label,
+    const std::string& false_start,
     IfBlock* if_block,
     std::vector<LabelBlock>* blocks,
     const std::unordered_map<std::string, size_t>& label_indices) {
     if (if_block == nullptr || blocks == nullptr || if_block->target_label.empty()) {
+        return false;
+    }
+
+    std::string merge_label;
+    if (!FindIfMerge(
+            if_block->target_label,
+            false_start,
+            *blocks,
+            label_indices,
+            &merge_label)) {
+        LOGW("[ScenarioCatcher] no common merge for if owner=%s target=%s false=%s condition=%s",
+             owner_label.c_str(),
+             if_block->target_label.c_str(),
+             false_start == kVirtualExit ? "<exit>" : false_start.c_str(),
+             if_block->condition.c_str());
         return false;
     }
 
@@ -1050,13 +1103,13 @@ static bool AssembleLabelBlocks(
 
             IfBlock* if_block = std::get_if<IfBlock>(&item.value);
             if (if_block != nullptr) {
-                const std::string merge_label = block.continuation.empty()
+                const std::string false_start = block.continuation.empty()
                     ? std::string(kVirtualExit)
                     : block.continuation;
                 if (!ResolveIfBlock(
                         label_index,
                         block.label,
-                        merge_label,
+                        false_start,
                         if_block,
                         blocks,
                         label_indices)) {
