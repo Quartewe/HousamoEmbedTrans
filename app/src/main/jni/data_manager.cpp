@@ -327,7 +327,11 @@ bool FindCharacterItem(const std::string& name, CharacterItem* out) {
     return true;
 }
 
-bool FindAliasItem(const std::string& canonical, const std::string& alias_name, std::vector<AliasItem>* out) {
+bool FindAliasItem(
+    const std::string& canonical,
+    const std::string& alias_name,
+    const std::string& called,
+    std::vector<AliasItem>* out) {
     if (out == nullptr) return false;
 
     auto snapshot = GetGameDataSnapshot();
@@ -337,10 +341,10 @@ bool FindAliasItem(const std::string& canonical, const std::string& alias_name, 
     if (it == snapshot->characters.end()) return false;
 
     for (const AliasItem& alias : it->second.aliases) {
-        if (alias.name == alias_name) {
+        if (alias.name == alias_name && alias.called == called) {
             if (
             std::find_if(out->begin(), out->end(), [&alias](const AliasItem& existing) {
-                return existing.name == alias.name;
+                return existing.name == alias.name && existing.called == alias.called;
             }) == out->end()
             ) {
                 out->push_back(alias);
