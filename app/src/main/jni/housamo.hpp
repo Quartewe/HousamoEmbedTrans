@@ -214,7 +214,7 @@ struct JumpItem {
 
 struct SceneItem;
 
-struct BrenchItem {
+struct BranchItem {
     TextItem option;
     std::string target_label;
     std::string merge_label;
@@ -245,7 +245,7 @@ struct IfBlock {
 
 struct ChoiceBlock {
     OrderKey order;
-    std::vector<BrenchItem> brenches;
+    std::vector<BranchItem> branches;
 };
 
 struct SceneItem {
@@ -302,6 +302,7 @@ struct MentionedCharacter {
 };
 
 struct Character {
+    CharacterItem mc;
     std::vector<CharacterItem> high_weight;
     std::vector<CharacterItem> low_weight;
 };
@@ -351,7 +352,11 @@ struct Scene {
 //函数声明
 void SubmitToJsonHandler(std::shared_ptr<const Scene> scene);
 int RelatedNum(const std::string& name, const std::unordered_set<std::string>& related_characters);
-bool FindAliasItem(const std::string& canonical, const std::string& alias_name, std::vector<AliasItem>* out);
+bool FindAliasItem(
+    const std::string& canonical,
+    const std::string& alias_name,
+    const std::string& called,
+    std::vector<AliasItem>* out);
 void StartJsonManager(std::string chardict_json, std::string gameterms_json);
 bool IsJsonManagerReady();
 bool FindCharacterItem(const std::string& name, CharacterItem* out);

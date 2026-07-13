@@ -424,7 +424,7 @@ static TextStatus ReadTranslatableText(
 }
 
 static void FlushChoiceBlock(ChoiceBlock& choice, PageParseResult& result) {
-    if (choice.brenches.empty()) {
+    if (choice.branches.empty()) {
         return;
     }
 
@@ -652,23 +652,23 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
                 continue;
             }
 
-            if (pending_choice.brenches.empty()) {
+            if (pending_choice.branches.empty()) {
                 pending_choice.order.label_index = result.label_index;
                 pending_choice.order.page_no = page_no;
                 pending_choice.order.cmd_index = i;
                 pending_choice.order.sub_index = 0;
             }
 
-            BrenchItem branch;
+            BranchItem branch;
             branch.option.order.label_index = result.label_index;
             branch.option.order.page_no = page_no;
             branch.option.order.cmd_index = i;
-            branch.option.order.sub_index = static_cast<int>(pending_choice.brenches.size());
+            branch.option.order.sub_index = static_cast<int>(pending_choice.branches.size());
             branch.option.speaker = "mc";
             branch.option.text = std::move(text);
             branch.target_label = ReadSelectionJumpLabel(cmd_item);
 
-            pending_choice.brenches.emplace_back(std::move(branch));
+            pending_choice.branches.emplace_back(std::move(branch));
             ++result.stats.selection;
             continue;
         }
@@ -804,14 +804,14 @@ static bool FindChoiceMerge(
     const std::vector<LabelBlock>& blocks,
     const std::unordered_map<std::string, size_t>& label_indices,
     std::string* merge_label) {
-    if (choice.brenches.empty() || merge_label == nullptr) {
+    if (choice.branches.empty() || merge_label == nullptr) {
         return false;
     }
 
     std::vector<std::vector<std::string>> chains;
-    chains.reserve(choice.brenches.size());
+    chains.reserve(choice.branches.size());
 
-    for (const BrenchItem& branch : choice.brenches) {
+    for (const BranchItem& branch : choice.branches) {
         if (branch.target_label.empty()) {
             return false;
         }
@@ -949,10 +949,10 @@ static bool ResolveChoice(
     }
 
     std::vector<std::vector<size_t>> branch_paths;
-    branch_paths.reserve(choice->brenches.size());
+    branch_paths.reserve(choice->branches.size());
     std::unordered_set<size_t> claimed;
 
-    for (const BrenchItem& branch : choice->brenches) {
+    for (const BranchItem& branch : choice->branches) {
         std::vector<size_t> path;
         if (!CollectBranchPath(
                 branch.target_label,
@@ -980,8 +980,8 @@ static bool ResolveChoice(
         branch_paths.push_back(std::move(path));
     }
 
-    for (size_t branch_index = 0; branch_index < choice->brenches.size(); ++branch_index) {
-        BrenchItem& branch = choice->brenches[branch_index];
+    for (size_t branch_index = 0; branch_index < choice->branches.size(); ++branch_index) {
+        BranchItem& branch = choice->branches[branch_index];
         branch.merge_label = *merge_label == kVirtualExit ? "" : *merge_label;
         for (size_t label_index : branch_paths[branch_index]) {
             LabelBlock& block = (*blocks)[label_index];
@@ -993,7 +993,7 @@ static bool ResolveChoice(
     LOGD("[ScenarioCatcher] choice resolved label=%s merge=%s branches=%zu",
          owner_label.c_str(),
          *merge_label == kVirtualExit ? "<exit>" : merge_label->c_str(),
-         choice->brenches.size());
+         choice->branches.size());
 
     return true;
 }
