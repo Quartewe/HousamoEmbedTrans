@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <atomic>
 #include <memory>
+#include <utility>
 
 // 日志宏
 #define LOG_TAG "HousamoTrans"
@@ -211,10 +212,13 @@ struct JumpItem {
     std::string condition;
 };
 
+struct SceneItem;
+
 struct BrenchItem {
     TextItem option;
     std::string target_label;
-    std::vector<TextItem> following_text;
+    std::string merge_label;
+    std::vector<SceneItem> following_text;
 };
 
 struct ScenarioLabelNode {
@@ -232,8 +236,11 @@ struct ScenarioResult {
 };
 
 struct IfBlock {
+    OrderKey order;
     std::string condition;
-    std::vector<TextItem> branch_text;
+    std::string target_label;
+    std::string merge_label;
+    std::vector<SceneItem> following_text;
 };
 
 struct ChoiceBlock {
@@ -241,7 +248,16 @@ struct ChoiceBlock {
     std::vector<BrenchItem> brenches;
 };
 
-using SceneItem = std::variant<TextItem, ChoiceBlock, IfBlock>;
+struct SceneItem {
+    using Value = std::variant<TextItem, ChoiceBlock, IfBlock>;
+
+    Value value;
+
+    SceneItem() = default;
+    SceneItem(TextItem item) : value(std::move(item)) {}
+    SceneItem(ChoiceBlock item) : value(std::move(item)) {}
+    SceneItem(IfBlock item) : value(std::move(item)) {}
+};
 
 struct I18N {
     std::string en;

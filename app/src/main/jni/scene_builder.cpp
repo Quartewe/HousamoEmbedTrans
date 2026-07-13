@@ -30,10 +30,11 @@ public:
 
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (result.scene == latest_scene_.scene && 
-                g_runtime_config.target_lang == latest_scene_.target_lang &&
-                item_count == latest_scene_.scene_items.size() &&
-                protect_count == latest_scene_.protect.size()
+            if (latest_scene_ &&
+                result.scene == latest_scene_->scene &&
+                g_runtime_config.target_lang == latest_scene_->target_lang &&
+                item_count == latest_scene_->scene_items.size() &&
+                protect_count == latest_scene_->protect.size()
             ) {
                 LOGW("[SceneBuilder] parse result received but scene unchanged, items=%zu protect=%zu",
                     item_count,
@@ -50,14 +51,14 @@ public:
 
         scene.scene = result.scene;
         scene.target_lang = g_runtime_config.target_lang;
-        scene.protect = result.protect;
-        scene.scene_items = result.scene_items;
+        scene.protect = std::move(result.protect);
+        scene.scene_items = std::move(result.scene_items);
         CharacterBuild(
             result.speaker_character,
             result.show_character,
             result.text_character,
             result.aliases,
-            result.scene_items.size(),
+            item_count,
             scene.character,
             scene.mentioned_characters,
             character_terms
@@ -68,7 +69,7 @@ public:
 
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            latest_scene_ = *scene_ptr; // 只作为调试缓存，可选
+            latest_scene_ = scene_ptr;
         }
 
         SubmitToJsonHandler(scene_ptr);
@@ -262,7 +263,7 @@ private:
 
                 character_out.low_weight.push_back(std::move(character));
 
-            } else if (sig.text_score > weight.text_mentioned_score) {
+            } else if (sig.text_score >= weight.text_mentioned_score) {
                 MentionedCharacter mentioned;
                 mentioned.name = name;
                 mentioned.i18n = character.i18n;
@@ -286,7 +287,7 @@ private:
 
 private:
     std::mutex mutex_;
-    Scene latest_scene_;
+    std::shared_ptr<const Scene> latest_scene_;
 };
 
 static SceneBuilder g_scene_builder;

@@ -73,6 +73,15 @@ struct PageParseJob {
     void* page_data = nullptr;
 };
 
+struct OrderedJump {
+    int page_index = -1;
+    OrderKey order;
+
+    std::string command_type;
+    std::string target_label;
+    std::string condition;
+};
+
 struct PageParseResult {
     bool ok = false;
     bool official_translation = false;
@@ -89,11 +98,17 @@ struct PageParseResult {
     std::vector<ItemScore> game_terms;
 
     std::vector<ProtectedToken> protect;
+    std::vector<OrderedJump> jumps;
     std::vector<SceneItem> scene_items;
 };
 
 static std::mutex caught_mutex;
 static std::unordered_set<uintptr_t> caught_scenarios;
+
+static void ForgetCaughtScenario(uintptr_t scenario_key) {
+    std::lock_guard<std::mutex> lock(caught_mutex);
+    caught_scenarios.erase(scenario_key);
+}
 
 template <typename T>
 class BlockingQueue {
@@ -661,6 +676,23 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
         if (type == "Jump" || type == "JumpRandom" || type == "JumpSubroutine") {
             std::string target = ReadJumpLabel(cmd_item);
             if (!target.empty()) {
+                OrderedJump jump;
+                jump.page_index = result.page_index;
+                jump.order = {result.label_index, page_no, i, 0};
+                jump.command_type = type;
+                jump.target_label = target;
+                jump.condition = ReadRowStringColumn(cmd_item, g_runtime_config.layout.adv_command_jump.condition_column);
+
+                if (jump.command_type == "Jump" && !jump.condition.empty()) {
+                    IfBlock if_block;
+                    if_block.order = jump.order;
+                    if_block.condition = jump.condition;
+                    if_block.target_label = jump.target_label;
+                    result.scene_items.emplace_back(std::move(if_block));
+                }
+
+                result.jumps.emplace_back(std::move(jump));
+
                 ++result.stats.jump;
             }
             continue;
@@ -671,6 +703,383 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
 
     result.ok = true;
     return result;
+}
+
+struct LabelBlock {
+    std::string label;
+    std::string next_label;
+    std::vector<OrderedJump> jumps;
+    std::vector<SceneItem> scene_items;
+
+    std::string continuation;
+    bool has_terminal_jump = false;
+    bool consumed = false;
+};
+
+static constexpr const char* kVirtualExit = "\x1fHET_VIRTUAL_EXIT";
+
+static bool OrderedJumpLess(const OrderedJump& a, const OrderedJump& b) {
+    if (a.page_index != b.page_index) {
+        return a.page_index < b.page_index;
+    }
+    if (a.order.page_no != b.order.page_no) {
+        return a.order.page_no < b.order.page_no;
+    }
+    if (a.order.cmd_index != b.order.cmd_index) {
+        return a.order.cmd_index < b.order.cmd_index;
+    }
+    return a.order.sub_index < b.order.sub_index;
+}
+
+static bool InitializeContinuation(LabelBlock* block) {
+    if (block == nullptr) {
+        return false;
+    }
+
+    std::sort(block->jumps.begin(), block->jumps.end(), OrderedJumpLess);
+    for (const OrderedJump& jump : block->jumps) {
+        if (jump.command_type != "Jump") {
+            LOGW("[ScenarioCatcher] unsupported jump kind label=%s type=%s target=%s",
+                 block->label.c_str(),
+                 jump.command_type.c_str(),
+                 jump.target_label.c_str());
+            return false;
+        }
+    }
+
+    for (auto it = block->jumps.rbegin(); it != block->jumps.rend(); ++it) {
+        if (it->command_type == "Jump"
+            && it->condition.empty()
+            && !it->target_label.empty()) {
+            block->continuation = it->target_label;
+            block->has_terminal_jump = true;
+            return true;
+        }
+    }
+
+    block->continuation = block->next_label;
+    return true;
+}
+
+static bool BuildContinuationChain(
+    const std::string& start,
+    const std::vector<LabelBlock>& blocks,
+    const std::unordered_map<std::string, size_t>& label_indices,
+    std::vector<std::string>* out) {
+    if (start.empty() || out == nullptr) {
+        return false;
+    }
+
+    std::unordered_set<std::string> visited;
+    std::string current = start;
+
+    for (size_t step = 0; step <= blocks.size() + 1; ++step) {
+        if (current.empty()) {
+            out->emplace_back(kVirtualExit);
+            return true;
+        }
+
+        if (!visited.insert(current).second) {
+            LOGW("[ScenarioCatcher] continuation loop while resolving branch at label=%s",
+                 current.c_str());
+            return false;
+        }
+
+        out->push_back(current);
+
+        auto it = label_indices.find(current);
+        if (it == label_indices.end()) {
+            out->emplace_back(kVirtualExit);
+            return true;
+        }
+
+        current = blocks[it->second].continuation;
+    }
+
+    return false;
+}
+
+static bool FindChoiceMerge(
+    const ChoiceBlock& choice,
+    const std::vector<LabelBlock>& blocks,
+    const std::unordered_map<std::string, size_t>& label_indices,
+    std::string* merge_label) {
+    if (choice.brenches.empty() || merge_label == nullptr) {
+        return false;
+    }
+
+    std::vector<std::vector<std::string>> chains;
+    chains.reserve(choice.brenches.size());
+
+    for (const BrenchItem& branch : choice.brenches) {
+        if (branch.target_label.empty()) {
+            return false;
+        }
+
+        std::vector<std::string> chain;
+        chain.reserve(blocks.size() + 1);
+        if (!BuildContinuationChain(branch.target_label, blocks, label_indices, &chain)) {
+            return false;
+        }
+        chains.push_back(std::move(chain));
+    }
+
+    if (chains.size() == 1) {
+        *merge_label = kVirtualExit;
+        return true;
+    }
+
+    std::vector<std::unordered_set<std::string>> reachable;
+    reachable.reserve(chains.size() - 1);
+    for (size_t i = 1; i < chains.size(); ++i) {
+        reachable.emplace_back(chains[i].begin(), chains[i].end());
+    }
+
+    for (const std::string& candidate : chains.front()) {
+        bool common = true;
+        for (const auto& labels : reachable) {
+            if (labels.find(candidate) == labels.end()) {
+                common = false;
+                break;
+            }
+        }
+
+        if (common) {
+            *merge_label = candidate;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool CollectBranchPath(
+    const std::string& start,
+    const std::string& merge_label,
+    const std::vector<LabelBlock>& blocks,
+    const std::unordered_map<std::string, size_t>& label_indices,
+    std::vector<size_t>* path) {
+    if (start.empty() || merge_label.empty() || path == nullptr) {
+        return false;
+    }
+
+    std::unordered_set<std::string> visited;
+    std::string current = start;
+
+    for (size_t step = 0; step <= blocks.size(); ++step) {
+        if (current == merge_label) {
+            return true;
+        }
+
+        if (current.empty()) {
+            return merge_label == kVirtualExit;
+        }
+
+        if (!visited.insert(current).second) {
+            return false;
+        }
+
+        auto it = label_indices.find(current);
+        if (it == label_indices.end()) {
+            return merge_label == kVirtualExit;
+        }
+
+        path->push_back(it->second);
+        current = blocks[it->second].continuation;
+    }
+
+    return false;
+}
+
+static bool ResolveChoice(
+    size_t owner_index,
+    const std::string& owner_label,
+    ChoiceBlock* choice,
+    std::vector<LabelBlock>* blocks,
+    const std::unordered_map<std::string, size_t>& label_indices,
+    std::string* merge_label) {
+    if (choice == nullptr || blocks == nullptr || merge_label == nullptr) {
+        return false;
+    }
+
+    if (!FindChoiceMerge(*choice, *blocks, label_indices, merge_label)) {
+        LOGW("[ScenarioCatcher] no common merge for choice label=%s page=%d cmd=%d",
+             owner_label.c_str(),
+             choice->order.page_no,
+             choice->order.cmd_index);
+        return false;
+    }
+
+    std::vector<std::vector<size_t>> branch_paths;
+    branch_paths.reserve(choice->brenches.size());
+    std::unordered_set<size_t> claimed;
+
+    for (const BrenchItem& branch : choice->brenches) {
+        std::vector<size_t> path;
+        if (!CollectBranchPath(
+                branch.target_label,
+                *merge_label,
+                *blocks,
+                label_indices,
+                &path)) {
+            LOGW("[ScenarioCatcher] invalid branch path owner=%s target=%s merge=%s",
+                 owner_label.c_str(),
+                 branch.target_label.c_str(),
+                 merge_label->c_str());
+            return false;
+        }
+
+        for (size_t index : path) {
+            if (index <= owner_index || (*blocks)[index].consumed || !claimed.insert(index).second) {
+                LOGW("[ScenarioCatcher] branch path is not a tree owner=%s target=%s label=%s",
+                     owner_label.c_str(),
+                     branch.target_label.c_str(),
+                     (*blocks)[index].label.c_str());
+                return false;
+            }
+        }
+
+        branch_paths.push_back(std::move(path));
+    }
+
+    for (size_t branch_index = 0; branch_index < choice->brenches.size(); ++branch_index) {
+        BrenchItem& branch = choice->brenches[branch_index];
+        branch.merge_label = *merge_label == kVirtualExit ? "" : *merge_label;
+        for (size_t label_index : branch_paths[branch_index]) {
+            LabelBlock& block = (*blocks)[label_index];
+            MoveAppend(branch.following_text, block.scene_items);
+            block.consumed = true;
+        }
+    }
+
+    LOGD("[ScenarioCatcher] choice resolved label=%s merge=%s branches=%zu",
+         owner_label.c_str(),
+         *merge_label == kVirtualExit ? "<exit>" : merge_label->c_str(),
+         choice->brenches.size());
+
+    return true;
+}
+
+static bool ResolveIfBlock(
+    size_t owner_index,
+    const std::string& owner_label,
+    const std::string& merge_label,
+    IfBlock* if_block,
+    std::vector<LabelBlock>* blocks,
+    const std::unordered_map<std::string, size_t>& label_indices) {
+    if (if_block == nullptr || blocks == nullptr || if_block->target_label.empty()) {
+        return false;
+    }
+
+    std::vector<size_t> path;
+    if (!CollectBranchPath(
+            if_block->target_label,
+            merge_label,
+            *blocks,
+            label_indices,
+            &path)) {
+        LOGW("[ScenarioCatcher] invalid if path owner=%s target=%s merge=%s condition=%s",
+             owner_label.c_str(),
+             if_block->target_label.c_str(),
+             merge_label.c_str(),
+             if_block->condition.c_str());
+        return false;
+    }
+
+    for (size_t index : path) {
+        if (index <= owner_index || (*blocks)[index].consumed) {
+            LOGW("[ScenarioCatcher] if path is not a tree owner=%s target=%s label=%s",
+                 owner_label.c_str(),
+                 if_block->target_label.c_str(),
+                 (*blocks)[index].label.c_str());
+            return false;
+        }
+    }
+
+    for (size_t index : path) {
+        LabelBlock& block = (*blocks)[index];
+        MoveAppend(if_block->following_text, block.scene_items);
+        block.consumed = true;
+    }
+
+    if_block->merge_label = merge_label == kVirtualExit ? "" : merge_label;
+
+    LOGD("[ScenarioCatcher] if resolved label=%s target=%s merge=%s items=%zu",
+         owner_label.c_str(),
+         if_block->target_label.c_str(),
+         merge_label == kVirtualExit ? "<exit>" : merge_label.c_str(),
+         if_block->following_text.size());
+
+    return true;
+}
+
+static bool AssembleLabelBlocks(
+    std::vector<LabelBlock>* blocks,
+    const std::unordered_map<std::string, size_t>& label_indices,
+    std::vector<SceneItem>* out) {
+    if (blocks == nullptr || out == nullptr) {
+        return false;
+    }
+
+    for (size_t reverse_index = blocks->size(); reverse_index > 0; --reverse_index) {
+        const size_t label_index = reverse_index - 1;
+        LabelBlock& block = (*blocks)[label_index];
+        bool continuation_from_choice = false;
+
+        for (size_t item_index = block.scene_items.size(); item_index > 0; --item_index) {
+            SceneItem& item = block.scene_items[item_index - 1];
+            ChoiceBlock* choice = std::get_if<ChoiceBlock>(&item.value);
+            if (choice != nullptr) {
+                std::string merge_label;
+                if (!ResolveChoice(
+                        label_index,
+                        block.label,
+                        choice,
+                        blocks,
+                        label_indices,
+                        &merge_label)) {
+                    return false;
+                }
+
+                if (!block.has_terminal_jump && !continuation_from_choice) {
+                    block.continuation = merge_label == kVirtualExit ? "" : merge_label;
+                    continuation_from_choice = true;
+                }
+                continue;
+            }
+
+            IfBlock* if_block = std::get_if<IfBlock>(&item.value);
+            if (if_block != nullptr) {
+                const std::string merge_label = block.continuation.empty()
+                    ? std::string(kVirtualExit)
+                    : block.continuation;
+                if (!ResolveIfBlock(
+                        label_index,
+                        block.label,
+                        merge_label,
+                        if_block,
+                        blocks,
+                        label_indices)) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    size_t consumed_count = 0;
+    for (LabelBlock& block : *blocks) {
+        if (block.consumed) {
+            ++consumed_count;
+            continue;
+        }
+        MoveAppend(*out, block.scene_items);
+    }
+
+    LOGI("[ScenarioCatcher] assembled label tree consumed=%zu roots=%zu items=%zu",
+         consumed_count,
+         blocks->size() - consumed_count,
+         out->size());
+    return true;
 }
 
 class ScenarioParseRunner {
@@ -699,6 +1108,9 @@ public:
         }
 
         if (Reason() != AbortReason::none) {
+            LOGE("[ScenarioCatcher] parse aborted scene=%s reason=%d",
+                 scenario_.result.scene.c_str(),
+                 static_cast<int>(Reason()));
             return {ScenarioParseStatus::failed, {}};
         }
 
@@ -720,6 +1132,8 @@ private:
         none = 0,
         official_translation = 1,
         paused_existing_scene = 2,
+        page_parse_failed = 3,
+        branch_assembly_failed = 4,
     };
 
     int WorkerCount() const {
@@ -796,7 +1210,8 @@ private:
                 8192);
             if (!pages.ok) {
                 LOGW("[ScenarioCatcher] page list invalid label=%s", label.label.c_str());
-                continue;
+                Abort(AbortReason::page_parse_failed);
+                break;
             }
 
             ++total_stats_.labels;
@@ -826,6 +1241,8 @@ private:
                     LOGE("[ScenarioCatcher] failed to push page job label=%s pageIndex=%d",
                          label.label.c_str(),
                          page_index);
+                    Abort(AbortReason::page_parse_failed);
+                    break;
                 } else {
                     ++submitted_jobs;
                 }
@@ -851,6 +1268,8 @@ private:
             PageParseResult result = ParsePageJob(job);
             if (result.official_translation) {
                 Abort(AbortReason::official_translation);
+            } else if (!result.ok) {
+                Abort(AbortReason::page_parse_failed);
             }
 
             result_queue_.Push(std::move(result));
@@ -879,9 +1298,52 @@ private:
                 return a.page_no < b.page_no;
             });
 
+        if (ShouldAbort()) {
+            return;
+        }
+
+        std::vector<LabelBlock> label_blocks;
+        label_blocks.reserve(scenario_.label_order.size());
+
+        std::unordered_map<std::string, size_t> label_indices;
+        label_indices.reserve(scenario_.label_order.size());
+
+        for (const std::string& label_name : scenario_.label_order) {
+            auto runtime_it = scenario_.labels.find(label_name);
+            if (runtime_it == scenario_.labels.end()) {
+                LOGE("[ScenarioCatcher] ordered label missing from runtime map label=%s",
+                     label_name.c_str());
+                Abort(AbortReason::branch_assembly_failed);
+                return;
+            }
+
+            const RuntimeLabelNode& runtime = runtime_it->second;
+            LabelBlock block;
+            block.label = runtime.label;
+            block.next_label = runtime.next_label;
+
+            const size_t index = label_blocks.size();
+            if (!label_indices.emplace(block.label, index).second) {
+                LOGE("[ScenarioCatcher] duplicate label in order label=%s", block.label.c_str());
+                Abort(AbortReason::branch_assembly_failed);
+                return;
+            }
+
+            label_blocks.push_back(std::move(block));
+        }
+
         for (auto& result : page_results) {
             if (!result.ok) {
                 continue;
+            }
+
+            if (result.label_index < 0
+                || static_cast<size_t>(result.label_index) >= label_blocks.size()) {
+                LOGE("[ScenarioCatcher] page result label index out of range index=%d size=%zu",
+                     result.label_index,
+                     label_blocks.size());
+                Abort(AbortReason::branch_assembly_failed);
+                return;
             }
 
             MergeStats(total_stats_, result.stats);
@@ -894,7 +1356,20 @@ private:
             MergeAliases(result_.aliases, result.aliases);
 
             MoveAppend(result_.protect, result.protect);
-            MoveAppend(result_.scene_items, result.scene_items);
+            LabelBlock& block = label_blocks[static_cast<size_t>(result.label_index)];
+            MoveAppend(block.jumps, result.jumps);
+            MoveAppend(block.scene_items, result.scene_items);
+        }
+
+        for (LabelBlock& block : label_blocks) {
+            if (!InitializeContinuation(&block)) {
+                Abort(AbortReason::branch_assembly_failed);
+                return;
+            }
+        }
+
+        if (!AssembleLabelBlocks(&label_blocks, label_indices, &result_.scene_items)) {
+            Abort(AbortReason::branch_assembly_failed);
         }
     }
 
@@ -941,6 +1416,7 @@ bool CatchScenario(void* scenario_data, const std::string& entry_label) {
         LOGE("[ScenarioCatcher] failed to parse labels entry=%s data=%p",
              entry_label.c_str(),
              scenario_data);
+        ForgetCaughtScenario(scenario_key);
         return false;
     }
 
@@ -960,6 +1436,7 @@ bool CatchScenario(void* scenario_data, const std::string& entry_label) {
 
     if (output.status != ScenarioParseStatus::ok) {
         LOGE("[ScenarioCatcher] failed to parse scene entry=%s", entry_label.c_str());
+        ForgetCaughtScenario(scenario_key);
         return false;
     }
 

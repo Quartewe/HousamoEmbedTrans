@@ -2,6 +2,7 @@
 #include <rapidjson/document.h>
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 #include <cerrno>
 #include <cstdio>
@@ -19,12 +20,11 @@ namespace {
 struct JsonItem {
     std::string scene_name;
     rapidjson::Document process_doc;
-    std::vector<ProtectedToken> protect;
-    std::vector<SceneItem> scene_items;
+    std::shared_ptr<const Scene> scene;
 };
 
 struct ApiItem {
-    //todo
+    std::string api_doc;
 };
 
 struct JsonSceneResItem {
@@ -195,15 +195,24 @@ static rapidjson::Value ApiTextItem(const TextItem& text_item, rapidjson::Docume
 
 }
 
+static rapidjson::Value JsonSceneItemValue(
+    const SceneItem& item,
+    rapidjson::Document::AllocatorType& alloc);
+
+static rapidjson::Value ApiSceneItemValue(
+    const SceneItem& item,
+    rapidjson::Document::AllocatorType& alloc);
+
 static rapidjson::Value JsonBrenchItem(const BrenchItem& brench_item, rapidjson::Document::AllocatorType& alloc) {
     rapidjson::Value obj(rapidjson::kObjectType);
 
     obj.AddMember("target_label", JsonString(brench_item.target_label, alloc), alloc);
+    obj.AddMember("merge_label", JsonString(brench_item.merge_label, alloc), alloc);
     obj.AddMember("option", JsonTextItem(brench_item.option, alloc), alloc);
 
     rapidjson::Value following_text(rapidjson::kArrayType);
-    for (const TextItem& text_item : brench_item.following_text) {
-        following_text.PushBack(JsonTextItem(text_item, alloc), alloc);
+    for (const SceneItem& item : brench_item.following_text) {
+        following_text.PushBack(JsonSceneItemValue(item, alloc), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
 
@@ -229,11 +238,12 @@ static rapidjson::Value ApiBrenchItem(const BrenchItem& brench_item, rapidjson::
     rapidjson::Value obj(rapidjson::kObjectType);
 
     obj.AddMember("target_label", JsonString(brench_item.target_label, alloc), alloc);
+    obj.AddMember("merge_label", JsonString(brench_item.merge_label, alloc), alloc);
     obj.AddMember("option", ApiTextItem(brench_item.option, alloc), alloc);
 
     rapidjson::Value following_text(rapidjson::kArrayType);
-    for (const TextItem& text_item : brench_item.following_text) {
-        following_text.PushBack(ApiTextItem(text_item, alloc), alloc);
+    for (const SceneItem& item : brench_item.following_text) {
+        following_text.PushBack(ApiSceneItemValue(item, alloc), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
 
@@ -258,11 +268,14 @@ static rapidjson::Value JsonIfBlock(const IfBlock& if_block, rapidjson::Document
     rapidjson::Value obj(rapidjson::kObjectType);
 
     obj.AddMember("type", "if", alloc);
+    obj.AddMember("order", JsonOrderKey(if_block.order, alloc), alloc);
     obj.AddMember("condition", JsonString(if_block.condition, alloc), alloc);
+    obj.AddMember("target_label", JsonString(if_block.target_label, alloc), alloc);
+    obj.AddMember("merge_label", JsonString(if_block.merge_label, alloc), alloc);
 
     rapidjson::Value following_text(rapidjson::kArrayType);
-    for (const TextItem& text_item : if_block.branch_text) {
-        following_text.PushBack(JsonTextItem(text_item, alloc), alloc);
+    for (const SceneItem& item : if_block.following_text) {
+        following_text.PushBack(JsonSceneItemValue(item, alloc), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
 
@@ -274,54 +287,77 @@ static rapidjson::Value ApiIfBlock(const IfBlock& if_block, rapidjson::Document:
 
     obj.AddMember("type", "if", alloc);
     obj.AddMember("condition", JsonString(if_block.condition, alloc), alloc);
+    obj.AddMember("target_label", JsonString(if_block.target_label, alloc), alloc);
+    obj.AddMember("merge_label", JsonString(if_block.merge_label, alloc), alloc);
 
     rapidjson::Value following_text(rapidjson::kArrayType);
-    for (const TextItem& text_item : if_block.branch_text) {
-        following_text.PushBack(ApiTextItem(text_item, alloc), alloc);
+    for (const SceneItem& item : if_block.following_text) {
+        following_text.PushBack(ApiSceneItemValue(item, alloc), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
 
     return obj;
 }
 
-static JsonSceneResItem JsonSceneItemValue(const TextItem& item, rapidjson::Document::AllocatorType& alloc, rapidjson::Document::AllocatorType& api_alloc) {
-    JsonSceneResItem out;
-    out.scene_item = JsonTextItem(item, alloc);
-    out.api_item = ApiTextItem(item, api_alloc);
-    return out;
+static rapidjson::Value JsonSceneItemVariant(
+    const TextItem& item,
+    rapidjson::Document::AllocatorType& alloc) {
+    return JsonTextItem(item, alloc);
 }
 
-static JsonSceneResItem JsonSceneItemValue(
+static rapidjson::Value JsonSceneItemVariant(
     const ChoiceBlock& block,
-    rapidjson::Document::AllocatorType& alloc,
-    rapidjson::Document::AllocatorType& api_alloc
+    rapidjson::Document::AllocatorType& alloc
 ) {
-    JsonSceneResItem out;
-    out.scene_item = JsonChoiceBlock(block, alloc);
-    out.api_item = ApiChoiceBlock(block, api_alloc);
-    return out;
+    return JsonChoiceBlock(block, alloc);
 }
 
-static JsonSceneResItem JsonSceneItemValue(
+static rapidjson::Value JsonSceneItemVariant(
     const IfBlock& block,
-    rapidjson::Document::AllocatorType& alloc,
-    rapidjson::Document::AllocatorType& api_alloc
+    rapidjson::Document::AllocatorType& alloc
 ) {
-    JsonSceneResItem out;
-    out.scene_item = JsonIfBlock(block, alloc);
-    out.api_item = ApiIfBlock(block, api_alloc);
-    return out;
+    return JsonIfBlock(block, alloc);
 }
 
-static JsonSceneResItem JsonSceneItem(const SceneItem& item, rapidjson::Document::AllocatorType& alloc, rapidjson::Document::AllocatorType& api_alloc) {
+static rapidjson::Value ApiSceneItemVariant(
+    const TextItem& item,
+    rapidjson::Document::AllocatorType& alloc) {
+    return ApiTextItem(item, alloc);
+}
+
+static rapidjson::Value ApiSceneItemVariant(
+    const ChoiceBlock& block,
+    rapidjson::Document::AllocatorType& alloc) {
+    return ApiChoiceBlock(block, alloc);
+}
+
+static rapidjson::Value ApiSceneItemVariant(
+    const IfBlock& block,
+    rapidjson::Document::AllocatorType& alloc) {
+    return ApiIfBlock(block, alloc);
+}
+
+static rapidjson::Value JsonSceneItemValue(
+    const SceneItem& item,
+    rapidjson::Document::AllocatorType& alloc) {
     return std::visit([&](const auto& value) {
-        return JsonSceneItemValue(value, alloc, api_alloc);
-    }, item);
+        return JsonSceneItemVariant(value, alloc);
+    }, item.value);
+}
+
+static rapidjson::Value ApiSceneItemValue(
+    const SceneItem& item,
+    rapidjson::Document::AllocatorType& alloc) {
+    return std::visit([&](const auto& value) {
+        return ApiSceneItemVariant(value, alloc);
+    }, item.value);
 }
 
 static JsonSceneResItem JsonSceneItemArray(const SceneItem& item, rapidjson::Document::AllocatorType& alloc, rapidjson::Document::AllocatorType& api_alloc) {
-    JsonSceneResItem scene_res_item = JsonSceneItem(item, alloc, api_alloc);
-    return scene_res_item;
+    JsonSceneResItem out;
+    out.scene_item = JsonSceneItemValue(item, alloc);
+    out.api_item = ApiSceneItemValue(item, api_alloc);
+    return out;
 }
 
 // main handler
@@ -373,9 +409,10 @@ public:
         json_cv_.notify_one();
     }
 
-    void SubmitToApi(const rapidjson::Document& process_doc) {
+    void SubmitToApi(const std::string& api_doc) {
         ApiItem api_item;
-        // todo: fill api_item with process_doc data
+        api_item.api_doc = api_doc;
+
         {
             std::lock_guard<std::mutex> lock(api_mutex_);
             api_queue_.push_back(std::make_shared<ApiItem>(std::move(api_item)));
@@ -390,6 +427,10 @@ private:
     }
 
     void ProcessItem(const JsonItem& json_item, rapidjson::Document& out, rapidjson::Document& api_out) {
+        if (!json_item.scene) {
+            return;
+        }
+
         auto& alloc = out.GetAllocator();
         auto& api_alloc = api_out.GetAllocator();
 
@@ -397,12 +438,12 @@ private:
 
         out.CopyFrom(json_item.process_doc, alloc);
         api_out.CopyFrom(json_item.process_doc, api_alloc);
-        out.AddMember("protect", JsonProtectedTokenArray(json_item.protect, alloc), alloc);
+        out.AddMember("protect", JsonProtectedTokenArray(json_item.scene->protect, alloc), alloc);
 
         rapidjson::Value json_items(rapidjson::kArrayType);
         rapidjson::Value api_items(rapidjson::kArrayType);
 
-        for (const SceneItem& item : json_item.scene_items) {
+        for (const SceneItem& item : json_item.scene->scene_items) {
             JsonSceneResItem scene_item = JsonSceneItemArray(item, alloc, api_alloc);
 
             scene_item.api_item.AddMember("seq", ++i, api_alloc);
@@ -511,9 +552,19 @@ private:
             rapidjson::Document api_doc;
             doc.SetObject();
             api_doc.SetObject();
+            std::string api_doc_text;
 
             ProcessItem(*json_item, doc, api_doc);
-            SubmitToApi(api_doc);
+            
+            rapidjson::StringBuffer api_buffer;
+            rapidjson::PrettyWriter<rapidjson::StringBuffer> api_writer(api_buffer);
+            if (api_doc.Accept(api_writer)) {
+                api_doc_text.assign(api_buffer.GetString(), api_buffer.GetSize());
+            } else {
+                LOGE("[JsonHandler] Failed to serialize API JSON for scene %s", json_item->scene_name.c_str());
+            }
+
+            SubmitToApi(api_doc_text);
             for (int i = 0; i < 3; i++) {
                 if (WriteJsonToFile(doc, json_item->scene_name)) break; 
             }
@@ -570,11 +621,13 @@ private:
 static JsonHandler g_json_handler;
 
 void SubmitToJsonHandler(std::shared_ptr<const Scene> scene) {
+    if (!scene) {
+        return;
+    }
+
     g_json_handler.Start();
     JsonItem json_item;
     json_item.scene_name = scene->scene;
-    json_item.protect = std::move(scene->protect);
-    json_item.scene_items = std::move(scene->scene_items);
     
     json_item.process_doc.SetObject();
 
@@ -587,6 +640,8 @@ void SubmitToJsonHandler(std::shared_ptr<const Scene> scene) {
     json_item.process_doc.AddMember("character", JsonCharacter(scene->character, alloc), alloc);
     json_item.process_doc.AddMember("mentioned_characters", JsonMentionedCharacterArray(scene->mentioned_characters, alloc), alloc);
     json_item.process_doc.AddMember("game_terms", JsonGameTermArray(scene->game_terms, alloc), alloc);
+
+    json_item.scene = std::move(scene);
 
     g_json_handler.SubmitToJson(json_item);
 }
