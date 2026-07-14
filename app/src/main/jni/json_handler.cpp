@@ -15,6 +15,8 @@
 #include <deque>
 #include <thread>
 
+#include "jni_bridge.hpp"
+
 namespace {
 
 struct JsonItem {
@@ -24,7 +26,18 @@ struct JsonItem {
 };
 
 struct ApiItem {
+    std::string scene_name;
     std::string api_doc;
+    std::vector<OrderKey> seq_to_order; // seq N maps to index N - 1
+};
+
+struct ApiBuildContext {
+    std::vector<OrderKey> seq_to_order;
+
+    int AddText(const OrderKey& order) {
+        seq_to_order.push_back(order);
+        return static_cast<int>(seq_to_order.size());
+    }
 };
 
 struct JsonSceneResItem {
@@ -110,6 +123,7 @@ static rapidjson::Value JsonCharacterItemArray(const std::vector<CharacterItem>&
 
 static rapidjson::Value JsonCharacter(const Character& character, rapidjson::Document::AllocatorType& alloc) {
     rapidjson::Value obj(rapidjson::kObjectType);
+    obj.AddMember("mc", JsonCharacterItem(character.mc, alloc), alloc);
     obj.AddMember("high_weight", JsonCharacterItemArray(character.high_weight, alloc), alloc);
     obj.AddMember("low_weight", JsonCharacterItemArray(character.low_weight, alloc), alloc);
     return obj;
@@ -184,10 +198,16 @@ static rapidjson::Value JsonTextItem(const TextItem& text_item, rapidjson::Docum
     return obj;
 }
 
-static rapidjson::Value ApiTextItem(const TextItem& text_item, rapidjson::Document::AllocatorType& alloc) {
+static rapidjson::Value ApiTextItem(
+    const TextItem& text_item,
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context) {
     rapidjson::Value obj(rapidjson::kObjectType);
 
+    const int seq = context.AddText(text_item.order);
+
     obj.AddMember("type", "text", alloc);
+    obj.AddMember("seq", seq, alloc);
     obj.AddMember("speaker", JsonString(text_item.speaker, alloc), alloc);
     obj.AddMember("text", JsonString(text_item.text, alloc), alloc);
 
@@ -201,17 +221,18 @@ static rapidjson::Value JsonSceneItemValue(
 
 static rapidjson::Value ApiSceneItemValue(
     const SceneItem& item,
-    rapidjson::Document::AllocatorType& alloc);
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context);
 
-static rapidjson::Value JsonBrenchItem(const BrenchItem& brench_item, rapidjson::Document::AllocatorType& alloc) {
+static rapidjson::Value JsonBranchItem(const BranchItem& branch_item, rapidjson::Document::AllocatorType& alloc) {
     rapidjson::Value obj(rapidjson::kObjectType);
 
-    obj.AddMember("target_label", JsonString(brench_item.target_label, alloc), alloc);
-    obj.AddMember("merge_label", JsonString(brench_item.merge_label, alloc), alloc);
-    obj.AddMember("option", JsonTextItem(brench_item.option, alloc), alloc);
+    obj.AddMember("target_label", JsonString(branch_item.target_label, alloc), alloc);
+    obj.AddMember("merge_label", JsonString(branch_item.merge_label, alloc), alloc);
+    obj.AddMember("option", JsonTextItem(branch_item.option, alloc), alloc);
 
     rapidjson::Value following_text(rapidjson::kArrayType);
-    for (const SceneItem& item : brench_item.following_text) {
+    for (const SceneItem& item : branch_item.following_text) {
         following_text.PushBack(JsonSceneItemValue(item, alloc), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
@@ -225,41 +246,47 @@ static rapidjson::Value JsonChoiceBlock(const ChoiceBlock& choice_block, rapidjs
     obj.AddMember("type", "choice", alloc);
     obj.AddMember("order", JsonOrderKey(choice_block.order, alloc), alloc);
 
-    rapidjson::Value brenches(rapidjson::kArrayType);
-    for (const BrenchItem& brench : choice_block.brenches) {
-        brenches.PushBack(JsonBrenchItem(brench, alloc), alloc);
+    rapidjson::Value branches(rapidjson::kArrayType);
+    for (const BranchItem& branch : choice_block.branches) {
+        branches.PushBack(JsonBranchItem(branch, alloc), alloc);
     }
-    obj.AddMember("brenches", brenches, alloc);
+    obj.AddMember("branches", branches, alloc);
 
     return obj;
 }
 
-static rapidjson::Value ApiBrenchItem(const BrenchItem& brench_item, rapidjson::Document::AllocatorType& alloc) {
+static rapidjson::Value ApiBranchItem(
+    const BranchItem& branch_item,
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context) {
     rapidjson::Value obj(rapidjson::kObjectType);
 
-    obj.AddMember("target_label", JsonString(brench_item.target_label, alloc), alloc);
-    obj.AddMember("merge_label", JsonString(brench_item.merge_label, alloc), alloc);
-    obj.AddMember("option", ApiTextItem(brench_item.option, alloc), alloc);
+    obj.AddMember("target_label", JsonString(branch_item.target_label, alloc), alloc);
+    obj.AddMember("merge_label", JsonString(branch_item.merge_label, alloc), alloc);
+    obj.AddMember("option", ApiTextItem(branch_item.option, alloc, context), alloc);
 
     rapidjson::Value following_text(rapidjson::kArrayType);
-    for (const SceneItem& item : brench_item.following_text) {
-        following_text.PushBack(ApiSceneItemValue(item, alloc), alloc);
+    for (const SceneItem& item : branch_item.following_text) {
+        following_text.PushBack(ApiSceneItemValue(item, alloc, context), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
 
     return obj;
 }
 
-static rapidjson::Value ApiChoiceBlock(const ChoiceBlock& choice_block, rapidjson::Document::AllocatorType& alloc) {
+static rapidjson::Value ApiChoiceBlock(
+    const ChoiceBlock& choice_block,
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context) {
     rapidjson::Value obj(rapidjson::kObjectType);
 
     obj.AddMember("type", "choice", alloc);
 
-    rapidjson::Value brenches(rapidjson::kArrayType);
-    for (const BrenchItem& brench : choice_block.brenches) {
-        brenches.PushBack(ApiBrenchItem(brench, alloc), alloc);
+    rapidjson::Value branches(rapidjson::kArrayType);
+    for (const BranchItem& branch : choice_block.branches) {
+        branches.PushBack(ApiBranchItem(branch, alloc, context), alloc);
     }
-    obj.AddMember("brenches", brenches, alloc);
+    obj.AddMember("branches", branches, alloc);
 
     return obj;
 }
@@ -282,7 +309,10 @@ static rapidjson::Value JsonIfBlock(const IfBlock& if_block, rapidjson::Document
     return obj;
 }
 
-static rapidjson::Value ApiIfBlock(const IfBlock& if_block, rapidjson::Document::AllocatorType& alloc) {
+static rapidjson::Value ApiIfBlock(
+    const IfBlock& if_block,
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context) {
     rapidjson::Value obj(rapidjson::kObjectType);
 
     obj.AddMember("type", "if", alloc);
@@ -292,7 +322,7 @@ static rapidjson::Value ApiIfBlock(const IfBlock& if_block, rapidjson::Document:
 
     rapidjson::Value following_text(rapidjson::kArrayType);
     for (const SceneItem& item : if_block.following_text) {
-        following_text.PushBack(ApiSceneItemValue(item, alloc), alloc);
+        following_text.PushBack(ApiSceneItemValue(item, alloc, context), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
 
@@ -321,20 +351,23 @@ static rapidjson::Value JsonSceneItemVariant(
 
 static rapidjson::Value ApiSceneItemVariant(
     const TextItem& item,
-    rapidjson::Document::AllocatorType& alloc) {
-    return ApiTextItem(item, alloc);
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context) {
+    return ApiTextItem(item, alloc, context);
 }
 
 static rapidjson::Value ApiSceneItemVariant(
     const ChoiceBlock& block,
-    rapidjson::Document::AllocatorType& alloc) {
-    return ApiChoiceBlock(block, alloc);
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context) {
+    return ApiChoiceBlock(block, alloc, context);
 }
 
 static rapidjson::Value ApiSceneItemVariant(
     const IfBlock& block,
-    rapidjson::Document::AllocatorType& alloc) {
-    return ApiIfBlock(block, alloc);
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context) {
+    return ApiIfBlock(block, alloc, context);
 }
 
 static rapidjson::Value JsonSceneItemValue(
@@ -347,16 +380,21 @@ static rapidjson::Value JsonSceneItemValue(
 
 static rapidjson::Value ApiSceneItemValue(
     const SceneItem& item,
-    rapidjson::Document::AllocatorType& alloc) {
+    rapidjson::Document::AllocatorType& alloc,
+    ApiBuildContext& context) {
     return std::visit([&](const auto& value) {
-        return ApiSceneItemVariant(value, alloc);
+        return ApiSceneItemVariant(value, alloc, context);
     }, item.value);
 }
 
-static JsonSceneResItem JsonSceneItemArray(const SceneItem& item, rapidjson::Document::AllocatorType& alloc, rapidjson::Document::AllocatorType& api_alloc) {
+static JsonSceneResItem JsonSceneItemArray(
+    const SceneItem& item,
+    rapidjson::Document::AllocatorType& alloc,
+    rapidjson::Document::AllocatorType& api_alloc,
+    ApiBuildContext& context) {
     JsonSceneResItem out;
     out.scene_item = JsonSceneItemValue(item, alloc);
-    out.api_item = ApiSceneItemValue(item, api_alloc);
+    out.api_item = ApiSceneItemValue(item, api_alloc, context);
     return out;
 }
 
@@ -409,10 +447,7 @@ public:
         json_cv_.notify_one();
     }
 
-    void SubmitToApi(const std::string& api_doc) {
-        ApiItem api_item;
-        api_item.api_doc = api_doc;
-
+    void SubmitToApi(ApiItem api_item) {
         {
             std::lock_guard<std::mutex> lock(api_mutex_);
             api_queue_.push_back(std::make_shared<ApiItem>(std::move(api_item)));
@@ -426,7 +461,11 @@ private:
         return stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene;
     }
 
-    void ProcessItem(const JsonItem& json_item, rapidjson::Document& out, rapidjson::Document& api_out) {
+    void ProcessItem(
+        const JsonItem& json_item,
+        rapidjson::Document& out,
+        rapidjson::Document& api_out,
+        ApiBuildContext& api_context) {
         if (!json_item.scene) {
             return;
         }
@@ -434,19 +473,16 @@ private:
         auto& alloc = out.GetAllocator();
         auto& api_alloc = api_out.GetAllocator();
 
-        int i = 0;
-
         out.CopyFrom(json_item.process_doc, alloc);
         api_out.CopyFrom(json_item.process_doc, api_alloc);
         out.AddMember("protect", JsonProtectedTokenArray(json_item.scene->protect, alloc), alloc);
+        api_out.AddMember("protect", JsonProtectedTokenArray(json_item.scene->protect, api_alloc), api_alloc);
 
         rapidjson::Value json_items(rapidjson::kArrayType);
         rapidjson::Value api_items(rapidjson::kArrayType);
 
         for (const SceneItem& item : json_item.scene->scene_items) {
-            JsonSceneResItem scene_item = JsonSceneItemArray(item, alloc, api_alloc);
-
-            scene_item.api_item.AddMember("seq", ++i, api_alloc);
+            JsonSceneResItem scene_item = JsonSceneItemArray(item, alloc, api_alloc, api_context);
 
             json_items.PushBack(scene_item.scene_item, alloc);
             api_items.PushBack(scene_item.api_item, api_alloc);
@@ -552,23 +588,84 @@ private:
             rapidjson::Document api_doc;
             doc.SetObject();
             api_doc.SetObject();
-            std::string api_doc_text;
+            ApiBuildContext api_context;
+            ApiItem api_item;
+            api_item.scene_name = json_item->scene_name;
 
-            ProcessItem(*json_item, doc, api_doc);
+            ProcessItem(*json_item, doc, api_doc, api_context);
             
             rapidjson::StringBuffer api_buffer;
             rapidjson::PrettyWriter<rapidjson::StringBuffer> api_writer(api_buffer);
             if (api_doc.Accept(api_writer)) {
-                api_doc_text.assign(api_buffer.GetString(), api_buffer.GetSize());
+                api_item.api_doc.assign(api_buffer.GetString(), api_buffer.GetSize());
             } else {
                 LOGE("[JsonHandler] Failed to serialize API JSON for scene %s", json_item->scene_name.c_str());
             }
 
-            SubmitToApi(api_doc_text);
+            api_item.seq_to_order = std::move(api_context.seq_to_order);
+            SubmitToApi(std::move(api_item));
             for (int i = 0; i < 3; i++) {
                 if (WriteJsonToFile(doc, json_item->scene_name)) break; 
             }
         }
+    }
+
+    static bool JavaRequestTrans(const std::string& request, std::string* response) {
+        if (!response || !g_java_bridge.jvm || !g_java_bridge.main_hook_class || !g_java_bridge.request_api_method) {
+            return false;
+        }
+
+        JNIEnv* env = nullptr;
+        bool is_attached = false;
+
+        if (g_java_bridge.jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
+            if (g_java_bridge.jvm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+                LOGE("[JsonHandler] Failed to attach current thread to JVM");
+                return false;
+            }
+            is_attached = true;
+        }
+
+        jbyteArray request_array = env->NewByteArray(static_cast<jsize>(request.size()));
+
+        if (!request_array) {
+            if (is_attached) {
+                g_java_bridge.jvm->DetachCurrentThread();
+            }
+            return false;
+        }
+
+        env->SetByteArrayRegion(request_array, 0, static_cast<jsize>(request.size()), reinterpret_cast<const jbyte*>(request.data()));
+
+        auto response_array = static_cast<jbyteArray>(env->CallStaticObjectMethod(
+            g_java_bridge.main_hook_class,
+            g_java_bridge.request_api_method,
+            request_array
+        ));
+
+        env->DeleteLocalRef(request_array);
+
+        bool success = false;
+
+        if (env->ExceptionCheck()) {
+            LOGE("[JsonHandler] Exception occurred while calling Java method");
+            env->ExceptionClear();
+        } else if (response_array) {
+            const jsize size = env->GetArrayLength(response_array);
+
+            response->resize(static_cast<size_t>(size));
+
+            env->GetByteArrayRegion(response_array, 0, size, reinterpret_cast<jbyte*>(response->data()));
+
+            env->DeleteLocalRef(response_array);
+            success = true;
+        }
+
+        if (is_attached) {
+            g_java_bridge.jvm->DetachCurrentThread();
+        }
+
+        return success;
     }
 
     void ApiWorker() {
@@ -595,6 +692,22 @@ private:
 
             }
 
+            std::string response;
+            if (!JavaRequestTrans(api_item->api_doc, &response)) {
+                LOGE(
+                    "[JsonHandler] Failed to send API request scene=%s targets=%zu",
+                    api_item->scene_name.c_str(),
+                    api_item->seq_to_order.size()
+                );
+                continue;
+            } else {
+                LOGI(
+                    "[JsonHandler] API request sent scene=%s targets=%zu response_size=%zu",
+                    api_item->scene_name.c_str(),
+                    api_item->seq_to_order.size(),
+                    response.size()
+                );
+            }
         }
     }
 

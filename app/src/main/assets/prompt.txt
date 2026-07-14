@@ -79,7 +79,7 @@ The following terms are always-available background because their surface forms 
 `scene_items` contains the scenario in narrative order and may be recursive.
 
 - `type`: Structural item type. Never translate or change it.
-- `seq`: Structural sequence identifier. Never translate, renumber, omit, or reorder it.
+- `seq`: Translation identifier attached to every API `text` object, including each choice `option`. Return it unchanged so the translated text can be mapped back to its original scene item. Never translate, renumber, omit, or reorder it.
 - A `text` item contains `speaker` and `text`:
   - `speaker` identifies who is speaking and is context for choosing voice and register. Do not treat it as dialogue text.
   - A `speaker` value of `mc` identifies the protagonist or a player-selected line. `mc` is an internal identifier: never translate it or emit it as a character name, and do not infer the protagonist's name, gender, or speech style unless the input explicitly provides that information.
