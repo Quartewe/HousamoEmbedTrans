@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="api_protocol_labels">
+        <item>OpenAI 兼容协议</item>
+        <item>Anthropic 协议</item>
+    </string-array>
+
+    <string-array name="target_language_labels">
+        <item>zh-cn</item>
+        <item>zh-tw</item>
+        <item>en</item>
+        <item>自定义…</item>
+    </string-array>
+
+</resources>

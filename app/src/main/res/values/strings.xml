@@ -1,4 +1,143 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">HousamoEmbedTrans</string>
+    <string name="app_name">Housamo Embed Trans</string>
+    <string name="xposed_description">AI translation prefetch for Tokyo Afterschool Summoners</string>
+
+    <string name="settings_title">Translation settings</string>
+    <string name="settings_subtitle">Configure the API, target language, scene capture, and advanced matching parameters.</string>
+    <string name="config_source_default">Using the bundled default config.json</string>
+    <string name="config_source_saved">Using your saved config.json override</string>
+    <string name="config_source_invalid">The saved config.json is invalid; bundled defaults were loaded.</string>
+    <string name="config_load_failed">Could not load config: %1$s</string>
+    <string name="config_save_failed">Could not save config: %1$s</string>
+    <string name="settings_saved">Settings saved</string>
+    <string name="defaults_loaded">Default values loaded. Tap Save to apply them.</string>
+
+    <string name="api_settings">API</string>
+    <string name="api_protocol">Protocol</string>
+    <string name="base_url">Base URL</string>
+    <string name="base_url_hint">Leave empty for the official endpoint, or enter a provider base URL ending in /v1. A complete chat/completions or messages endpoint is also accepted.</string>
+    <string name="api_key">API key</string>
+    <string name="api_key_storage_hint">Stored separately and never written to config.json.</string>
+    <string name="model">Model</string>
+    <string name="model_input_hint">Enter a model ID manually, or query the current provider and select one.</string>
+    <string name="query_models">Query available models</string>
+    <string name="querying_models">Querying models…</string>
+    <string name="select_model_title">Select a model (%1$d)</string>
+    <string name="query_models_failed_title">Could not query models</string>
+    <string name="query_models_failed">The provider did not return a usable model list. %1$s</string>
+
+    <string name="translation_settings">Translation</string>
+    <string name="target_language">Target language</string>
+    <string name="custom_target_language">Custom language code</string>
+    <string name="custom_target_language_hint">Used only when Custom is selected, for example ja or fr.</string>
+
+    <string name="chardict_settings">Character dictionary</string>
+    <string name="expand_chardict_section">Expand character dictionary</string>
+    <string name="chardict_summary_loading">Loading character dictionary…</string>
+    <string name="chardict_summary_default">Bundled dictionary · %1$d characters</string>
+    <string name="chardict_summary_user">User dictionary · %1$d characters</string>
+    <string name="chardict_summary_invalid">User dictionary is invalid; bundled default · %1$d characters</string>
+    <string name="open_chardict_editor">Edit character dictionary</string>
+    <string name="chardict_title">Character dictionary</string>
+    <string name="chardict_editor_hint">Search for a character, then edit only that record. Unknown JSON fields are preserved.</string>
+    <string name="mc_settings">Main character (MC)</string>
+    <string name="mc_settings_hint">The root-level mc record is edited separately and is not mixed into the normal character list.</string>
+    <string name="edit_mc">Edit MC settings</string>
+    <string name="chardict_source_default">Bundled default · %1$d characters</string>
+    <string name="chardict_source_user">User file: files/chardict.json · %1$d characters</string>
+    <string name="chardict_source_invalid">User file is invalid; bundled default loaded · %1$d characters</string>
+    <string name="chardict_load_failed">Could not load character dictionary: %1$s</string>
+    <string name="chardict_save_failed">Could not save character dictionary: %1$s</string>
+    <string name="search_characters">Search names or aliases</string>
+    <string name="no_characters_found">No matching characters</string>
+    <string name="add_character">Add</string>
+    <string name="edit_character">Edit character</string>
+    <string name="save_character">Apply</string>
+    <string name="delete_character">Delete</string>
+    <string name="delete_character_title">Delete character?</string>
+    <string name="delete_character_message">Delete “%1$s” from the dictionary?</string>
+    <string name="canonical_character_name">Canonical name / object key</string>
+    <string name="character_record_json">Character record JSON</string>
+    <string name="character_record_json_hint">Edit one object only. alias must be an array and every alias must contain a string name.</string>
+    <string name="chardict_record_invalid">Invalid character record: %1$s</string>
+    <string name="character_already_exists">A character with this name already exists</string>
+    <string name="chardict_saved">Character dictionary saved</string>
+    <string name="restore_chardict_title">Restore bundled dictionary?</string>
+    <string name="restore_chardict_message">The user files/chardict.json override and all of its edits will be deleted.</string>
+    <string name="chardict_restored">Bundled character dictionary restored</string>
+    <string name="unsaved_chardict_title">Discard unsaved edits?</string>
+    <string name="unsaved_chardict_message">Changes made since the last dictionary save will be lost.</string>
+    <string name="keep_editing">Keep editing</string>
+    <string name="discard_changes">Discard</string>
+    <string name="invalid_character_record">Invalid record</string>
+    <string name="alias_count">%1$d aliases</string>
+    <string name="no_localized_name">No localized name</string>
+
+    <string name="capture_settings">Capture and output</string>
+    <string name="overwrite_existing_json">Overwrite existing scene JSON</string>
+    <string name="overwrite_existing_json_hint">When disabled, an existing local scene file is preserved.</string>
+    <string name="enable_page_rec_debug">Enable page-recorder debug hook</string>
+    <string name="enable_page_rec_debug_hint">Diagnostic option only. Leave it off during normal use.</string>
+    <string name="manage_scene_files">Import or export scene files</string>
+    <string name="scene_files_title">Scene files</string>
+    <string name="scene_files_intro">HET keeps a schema-validated scene mirror in its private files/scenes directory. Imported files are synchronized to the game on its next start.</string>
+    <string name="scene_files_loading">Loading local scenes…</string>
+    <string name="scene_files_summary">%1$d valid local scene file(s)</string>
+    <string name="import_scene_files">Batch import</string>
+    <string name="import_scene_files_hint">Select multiple JSON files. Each file is validated independently and stored using the value of its scene field as the local filename.</string>
+    <string name="export_scene_files">Export all to a folder</string>
+    <string name="export_scene_files_hint">Android will ask you to choose and grant access to a destination folder.</string>
+    <string name="scene_import_result">Imported %1$d; rejected %2$d.</string>
+    <string name="scene_export_result">Exported %1$d; failed %2$d.</string>
+    <string name="scene_export_folder">Destination folder</string>
+
+    <string name="character_weight_settings">Character relevance weights</string>
+    <string name="character_weight_intro">These values control scene-context selection. Positive values are required.</string>
+    <string name="high_relevance">High relevance</string>
+    <string name="high_relevance_hint">Threshold for the high-weight character group.</string>
+    <string name="mid_relevance">Mid relevance</string>
+    <string name="mid_relevance_hint">Threshold for weaker related characters.</string>
+    <string name="density_high">High-density multiplier</string>
+    <string name="density_high_hint">Promotes characters mentioned densely in the scene.</string>
+    <string name="text_low_score">Low text score</string>
+    <string name="text_low_score_hint">Threshold for low-weight direct text matches.</string>
+    <string name="text_mentioned_score">Mentioned text score</string>
+    <string name="text_mentioned_score_hint">Score used for lightweight mentioned characters.</string>
+    <string name="related_num">Related character count</string>
+    <string name="related_num_hint">Minimum number of related matches; must be at least 1.</string>
+    <string name="low_term_score">Low term score</string>
+    <string name="low_term_score_hint">Threshold for terms contributed by low-weight characters.</string>
+
+    <string name="runtime_settings">Runtime config</string>
+    <string name="runtime_settings_warning">Advanced: incorrect RVA or layout values can crash the game process.</string>
+    <string name="game_version">Game version</string>
+    <string name="runtime_config_json">RuntimeConfigs JSON</string>
+    <string name="runtime_config_json_hint">The complete RVA and Layout object is kept here so unknown fields are preserved.</string>
+
+    <string name="reset_defaults">Restore defaults</string>
+    <string name="save_settings">Save</string>
+    <string name="restart_game_hint">Saved changes take effect after the game process is fully restarted.</string>
+    <string name="reset_dialog_title">Restore bundled defaults?</string>
+    <string name="reset_dialog_message">All config.json fields will be reset. The API key is stored separately and will be kept.</string>
+    <string name="reset_action">Restore</string>
+    <string name="cancel_action">Cancel</string>
+
+    <string name="indicator_expanded">−</string>
+    <string name="indicator_collapsed">+</string>
+    <string name="expand_section">Expand %1$s</string>
+    <string name="collapse_section">Collapse %1$s</string>
+    <string name="collapse_api_section">Collapse API settings</string>
+    <string name="collapse_translation_section">Collapse translation settings</string>
+    <string name="collapse_capture_section">Collapse capture settings</string>
+    <string name="expand_character_weight_section">Expand character relevance weights</string>
+    <string name="expand_runtime_section">Expand runtime config</string>
+
+    <string name="error_required">Required</string>
+    <string name="error_positive_number">Enter a finite number greater than 0</string>
+    <string name="error_positive_integer">Enter an integer of at least 1</string>
+    <string name="error_high_less_than_mid">High relevance must be greater than or equal to mid relevance</string>
+    <string name="error_low_less_than_mentioned">Low text score must be greater than or equal to mentioned text score</string>
+    <string name="error_runtime_json">RuntimeConfigs must be a valid JSON object</string>
+    <string name="error_runtime_structure">RuntimeConfigs must contain RVA and Layout objects</string>
 </resources>

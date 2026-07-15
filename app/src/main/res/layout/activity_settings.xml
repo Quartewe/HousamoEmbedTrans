@@ -1,69 +1,510 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:background="?android:attr/colorBackground"
+    android:clipToPadding="false"
+    android:fillViewport="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Housamo 翻译设置"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp" />
-
-    <!-- API 地址 -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="API 地址"
-        android:textSize="14sp"
-        android:layout_marginBottom="4dp" />
-    <EditText
-        android:id="@+id/et_api_url"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="https://api.example.com/translate"
-        android:inputType="textUri"
-        android:layout_marginBottom="12dp" />
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="28dp">
 
-    <!-- API Key -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="API Key"
-        android:textSize="14sp"
-        android:layout_marginBottom="4dp" />
-    <EditText
-        android:id="@+id/et_api_key"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="输入你的 API Key"
-        android:inputType="textPassword"
-        android:layout_marginBottom="12dp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
+            android:textStyle="bold" />
 
-    <!-- 启用翻译 -->
-    <CheckBox
-        android:id="@+id/cb_enable_translation"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="启用实时翻译"
-        android:layout_marginBottom="12dp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/settings_subtitle"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+            android:textColor="?android:attr/textColorSecondary" />
 
-    <!-- 启用字典 -->
-    <CheckBox
-        android:id="@+id/cb_enable_dict"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="启用术语字典替换"
-        android:layout_marginBottom="24dp" />
+        <TextView
+            android:id="@+id/tv_config_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_config_status"
+            android:padding="10dp"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
 
-    <!-- 保存按钮 -->
-    <Button
-        android:id="@+id/btn_save"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="保存设置" />
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
-</LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_api"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/collapse_api_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/api_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_api"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_expanded" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_api"
+                    style="@style/Widget.HET.SectionBody">
+
+                    <TextView
+                        style="@style/Widget.HET.FieldLabel"
+                        android:text="@string/api_protocol" />
+
+                    <Spinner
+                        android:id="@+id/spinner_api_protocol"
+                        style="@style/Widget.HET.Spinner"
+                        android:entries="@array/api_protocol_labels" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/base_url"
+                        app:helperText="@string/base_url_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_api_url"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textUri"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/api_key"
+                        app:endIconMode="password_toggle"
+                        app:helperText="@string/api_key_storage_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_api_key"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textPassword"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/model"
+                        app:helperText="@string/model_input_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_model"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_query_models"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/query_models" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_chardict"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/expand_chardict_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/chardict_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_chardict"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_collapsed" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_chardict"
+                    style="@style/Widget.HET.SectionBody"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tv_chardict_summary"
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/chardict_summary_loading" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_edit_chardict"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/open_chardict_editor" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_translation"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/collapse_translation_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/translation_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_translation"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_expanded" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_translation"
+                    style="@style/Widget.HET.SectionBody">
+
+                    <TextView
+                        style="@style/Widget.HET.FieldLabel"
+                        android:text="@string/target_language" />
+
+                    <Spinner
+                        android:id="@+id/spinner_target_language"
+                        style="@style/Widget.HET.Spinner"
+                        android:entries="@array/target_language_labels" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/til_custom_target_language"
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/custom_target_language"
+                        android:visibility="gone"
+                        app:helperText="@string/custom_target_language_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_custom_target_language"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_capture"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/collapse_capture_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/capture_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_capture"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_expanded" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_capture"
+                    style="@style/Widget.HET.SectionBody">
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_overwrite_json"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="@string/overwrite_existing_json" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/overwrite_existing_json_hint" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_page_rec_debug"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:minHeight="48dp"
+                        android:text="@string/enable_page_rec_debug" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/enable_page_rec_debug_hint" />
+
+                    <TextView
+                        android:id="@+id/tv_scene_files_summary"
+                        style="@style/Widget.HET.HelperText"
+                        android:layout_marginTop="18dp"
+                        android:text="@string/scene_files_loading" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_manage_scene_files"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/manage_scene_files" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_character_weight"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/expand_character_weight_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/character_weight_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_character_weight"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_collapsed" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_character_weight"
+                    style="@style/Widget.HET.SectionBody"
+                    android:visibility="gone">
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:layout_marginBottom="4dp"
+                        android:text="@string/character_weight_intro" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/high_relevance"
+                        app:helperText="@string/high_relevance_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_high_relevance"
+                            style="@style/Widget.HET.DecimalInput" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/mid_relevance"
+                        app:helperText="@string/mid_relevance_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_mid_relevance"
+                            style="@style/Widget.HET.DecimalInput" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/density_high"
+                        app:helperText="@string/density_high_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_density_high"
+                            style="@style/Widget.HET.DecimalInput" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/text_low_score"
+                        app:helperText="@string/text_low_score_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_text_low_score"
+                            style="@style/Widget.HET.DecimalInput" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/text_mentioned_score"
+                        app:helperText="@string/text_mentioned_score_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_text_mentioned_score"
+                            style="@style/Widget.HET.DecimalInput" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/related_num"
+                        app:helperText="@string/related_num_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_related_num"
+                            style="@style/Widget.HET.IntegerInput" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/low_term_score"
+                        app:helperText="@string/low_term_score_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_low_term_score"
+                            style="@style/Widget.HET.IntegerInput" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_runtime"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/expand_runtime_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/runtime_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_runtime"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_collapsed" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_runtime"
+                    style="@style/Widget.HET.SectionBody"
+                    android:visibility="gone">
+
+                    <TextView
+                        style="@style/Widget.HET.WarningText"
+                        android:text="@string/runtime_settings_warning" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/game_version">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_game_version"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/runtime_config_json"
+                        app:helperText="@string/runtime_config_json_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_runtime_json"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:gravity="top|start"
+                            android:inputType="textMultiLine|textNoSuggestions"
+                            android:minLines="12"
+                            android:scrollbars="vertical" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_reset"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:text="@string/reset_defaults" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="@string/save_settings" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:text="@string/restart_game_hint"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+            android:textColor="?android:attr/textColorSecondary" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

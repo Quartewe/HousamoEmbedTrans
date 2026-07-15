@@ -12,6 +12,11 @@
             "RelatedNum": 1,
             "LowTermScore": 3
         },
+        "TranslationApi": {
+            "Protocol": "openai",
+            "BaseUrl": "",
+            "Model": ""
+        },
         "TargetLanguage": "zh-cn"
     },
     "RuntimeConfigs": {

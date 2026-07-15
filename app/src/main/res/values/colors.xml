@@ -7,4 +7,9 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="het_primary">#FF455A64</color>
+    <color name="het_primary_dark">#FF263238</color>
+    <color name="het_secondary">#FF607D8B</color>
+    <color name="config_status_background">#FFE8EEF1</color>
+    <color name="config_warning">#FF8A4B08</color>
 </resources>

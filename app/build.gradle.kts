@@ -37,7 +37,7 @@ android {
         prefab = true
     }
 
-    // LSPosed 模块无需 Activity（纯后台 Hook）
+    // 设置、字典与 scene 文件管理由已安装的 HET Activity 提供。
     buildTypes {
         release {
             isMinifyEnabled = false

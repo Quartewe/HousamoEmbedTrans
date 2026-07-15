@@ -20,13 +20,31 @@
 
         <!-- 设置入口 Activity -->
         <activity
+            android:name=".CharacterDictionaryActivity"
+            android:exported="false"
+            android:label="@string/chardict_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".SceneFilesActivity"
+            android:exported="false"
+            android:label="@string/scene_files_title" />
+
+        <activity
             android:name=".SettingsActivity"
-            android:exported="true">
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name=".UserConfigProvider"
+            android:authorities="com.quarty.housamoembedtrans.userfiles"
+            android:exported="true"
+            android:grantUriPermissions="true" />
 
         <!-- LSPosed 模块标记 -->
         <meta-data
@@ -34,7 +52,7 @@
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="东京放课后(Housamo)AI预取翻译" />
+            android:value="@string/xposed_description" />
         <meta-data
             android:name="xposedminversion"
             android:value="82" />

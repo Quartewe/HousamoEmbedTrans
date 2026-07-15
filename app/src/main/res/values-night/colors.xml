@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="het_primary">#FF78909C</color>
+    <color name="het_primary_dark">#FF263238</color>
+    <color name="het_secondary">#FF90A4AE</color>
+    <color name="config_status_background">#FF263238</color>
+    <color name="config_warning">#FFFFB86C</color>
+</resources>

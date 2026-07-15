@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Housamo Embed Trans</string>
+    <string name="xposed_description">东京放课后召唤师 AI 翻译预取模块</string>
+
+    <string name="settings_title">翻译设置</string>
+    <string name="settings_subtitle">配置 API、目标语言、剧情捕获和高级匹配参数。</string>
+    <string name="config_source_default">正在使用 APK 内置的默认 config.json</string>
+    <string name="config_source_saved">正在使用你保存的 config.json 配置</string>
+    <string name="config_source_invalid">已保存的 config.json 无效，现已载入包内默认配置。</string>
+    <string name="config_load_failed">无法读取配置：%1$s</string>
+    <string name="config_save_failed">无法保存配置：%1$s</string>
+    <string name="settings_saved">设置已保存</string>
+    <string name="defaults_loaded">已载入默认值，点击“保存”后生效。</string>
+
+    <string name="api_settings">API</string>
+    <string name="api_protocol">协议</string>
+    <string name="base_url">基础地址</string>
+    <string name="base_url_hint">留空时使用对应协议的官方地址；也可填写以 /v1 结尾的服务地址，或完整的 chat/completions、messages 接口地址。</string>
+    <string name="api_key">API Key</string>
+    <string name="api_key_storage_hint">单独保存，不会写入 config.json。</string>
+    <string name="model">模型</string>
+    <string name="model_input_hint">可手动填写模型标识，也可查询当前服务商后选择。</string>
+    <string name="query_models">查询可用模型</string>
+    <string name="querying_models">正在查询模型…</string>
+    <string name="select_model_title">选择模型（%1$d 个）</string>
+    <string name="query_models_failed_title">模型查询失败</string>
+    <string name="query_models_failed">服务商没有返回可用的模型列表。%1$s</string>
+
+    <string name="translation_settings">翻译</string>
+    <string name="target_language">目标语言</string>
+    <string name="custom_target_language">自定义语言代码</string>
+    <string name="custom_target_language_hint">仅在下拉框选择“自定义”时使用，例如 ja 或 fr。</string>
+
+    <string name="chardict_settings">角色字典</string>
+    <string name="expand_chardict_section">展开角色字典</string>
+    <string name="chardict_summary_loading">正在读取角色字典…</string>
+    <string name="chardict_summary_default">包内默认字典 · %1$d 个角色</string>
+    <string name="chardict_summary_user">用户字典 · %1$d 个角色</string>
+    <string name="chardict_summary_invalid">用户字典无效，当前使用包内默认字典 · %1$d 个角色</string>
+    <string name="open_chardict_editor">编辑角色字典</string>
+    <string name="chardict_title">角色字典</string>
+    <string name="chardict_editor_hint">搜索并打开单个角色记录进行编辑；未知的 JSON 字段会被保留。</string>
+    <string name="mc_settings">主角（MC）</string>
+    <string name="mc_settings_hint">根节点的 mc 记录会单独编辑，不再混入普通角色列表。</string>
+    <string name="edit_mc">编辑 MC 设置</string>
+    <string name="chardict_source_default">包内默认字典 · %1$d 个角色</string>
+    <string name="chardict_source_user">用户文件：files/chardict.json · %1$d 个角色</string>
+    <string name="chardict_source_invalid">用户文件无效，已载入包内默认字典 · %1$d 个角色</string>
+    <string name="chardict_load_failed">无法读取角色字典：%1$s</string>
+    <string name="chardict_save_failed">无法保存角色字典：%1$s</string>
+    <string name="search_characters">搜索名字或别名</string>
+    <string name="no_characters_found">没有匹配的角色</string>
+    <string name="add_character">新增</string>
+    <string name="edit_character">编辑角色</string>
+    <string name="save_character">应用</string>
+    <string name="delete_character">删除</string>
+    <string name="delete_character_title">删除角色？</string>
+    <string name="delete_character_message">确定从字典中删除“%1$s”吗？</string>
+    <string name="canonical_character_name">标准名字 / 对象键</string>
+    <string name="character_record_json">角色记录 JSON</string>
+    <string name="character_record_json_hint">这里只编辑单个对象。alias 必须是数组，且每个别名都必须包含字符串 name。</string>
+    <string name="chardict_record_invalid">角色记录无效：%1$s</string>
+    <string name="character_already_exists">已经存在同名角色</string>
+    <string name="chardict_saved">角色字典已保存</string>
+    <string name="restore_chardict_title">恢复包内默认字典？</string>
+    <string name="restore_chardict_message">用户的 files/chardict.json 及其全部修改都会被删除。</string>
+    <string name="chardict_restored">已恢复包内角色字典</string>
+    <string name="unsaved_chardict_title">放弃未保存的修改？</string>
+    <string name="unsaved_chardict_message">上次保存后所做的角色字典修改将会丢失。</string>
+    <string name="keep_editing">继续编辑</string>
+    <string name="discard_changes">放弃修改</string>
+    <string name="invalid_character_record">无效记录</string>
+    <string name="alias_count">%1$d 个别名</string>
+    <string name="no_localized_name">没有本地化名字</string>
+
+    <string name="capture_settings">捕获与输出</string>
+    <string name="overwrite_existing_json">覆盖已有剧情 JSON</string>
+    <string name="overwrite_existing_json_hint">关闭后，会保留本地已经存在的剧情文件。</string>
+    <string name="enable_page_rec_debug">启用页面记录调试 Hook</string>
+    <string name="enable_page_rec_debug_hint">仅用于诊断，正常使用时请保持关闭。</string>
+    <string name="manage_scene_files">导入或导出剧情文件</string>
+    <string name="scene_files_title">剧情文件</string>
+    <string name="scene_files_intro">HET 会在自己的 files/scenes 中保存一份经过 Schema 校验的剧情镜像；导入的文件会在下次启动游戏时同步到游戏目录。</string>
+    <string name="scene_files_loading">正在读取本地剧情…</string>
+    <string name="scene_files_summary">本地有 %1$d 个有效剧情文件</string>
+    <string name="import_scene_files">批量导入</string>
+    <string name="import_scene_files_hint">可一次选择多个 JSON。每个文件会独立校验，并根据其中的 scene 字段重写本地文件名；不合格的文件不会导入。</string>
+    <string name="export_scene_files">全部导出到文件夹</string>
+    <string name="export_scene_files_hint">Android 会要求你选择目标文件夹并授予该文件夹的访问权限。</string>
+    <string name="scene_import_result">成功导入 %1$d 个，拒绝 %2$d 个。</string>
+    <string name="scene_export_result">成功导出 %1$d 个，失败 %2$d 个。</string>
+    <string name="scene_export_folder">目标文件夹</string>
+
+    <string name="character_weight_settings">角色相关度权重</string>
+    <string name="character_weight_intro">这些参数控制剧情上下文的筛选，所有数值都必须为正数。</string>
+    <string name="high_relevance">高相关阈值</string>
+    <string name="high_relevance_hint">进入 high_weight 角色组的阈值。</string>
+    <string name="mid_relevance">中相关阈值</string>
+    <string name="mid_relevance_hint">筛选较弱相关角色时使用的阈值。</string>
+    <string name="density_high">高密度倍率</string>
+    <string name="density_high_hint">提高在当前剧情中密集出现的角色权重。</string>
+    <string name="text_low_score">正文低权重分数</string>
+    <string name="text_low_score_hint">正文直接命中后进入 low_weight 的阈值。</string>
+    <string name="text_mentioned_score">正文提及分数</string>
+    <string name="text_mentioned_score_hint">生成轻量 mentioned_characters 时使用的分数。</string>
+    <string name="related_num">关联角色数量</string>
+    <string name="related_num_hint">关联命中的最低数量，不能小于 1。</string>
+    <string name="low_term_score">低权重术语分数</string>
+    <string name="low_term_score_hint">由低权重角色补充术语时使用的阈值。</string>
+
+    <string name="runtime_settings">运行配置</string>
+    <string name="runtime_settings_warning">高级设置：错误的 RVA 或内存布局可能导致游戏进程崩溃。</string>
+    <string name="game_version">游戏版本</string>
+    <string name="runtime_config_json">RuntimeConfigs JSON</string>
+    <string name="runtime_config_json_hint">这里保留完整 RVA 和 Layout 对象，因此不会丢失前端未知的字段。</string>
+
+    <string name="reset_defaults">恢复默认</string>
+    <string name="save_settings">保存</string>
+    <string name="restart_game_hint">保存后需完全重启游戏进程才会生效。</string>
+    <string name="reset_dialog_title">恢复内置默认配置？</string>
+    <string name="reset_dialog_message">config.json 的所有字段都会恢复默认值；API Key 独立保存，不会被清除。</string>
+    <string name="reset_action">恢复</string>
+    <string name="cancel_action">取消</string>
+
+    <string name="indicator_expanded">−</string>
+    <string name="indicator_collapsed">+</string>
+    <string name="expand_section">展开%1$s</string>
+    <string name="collapse_section">收起%1$s</string>
+    <string name="collapse_api_section">收起 API 设置</string>
+    <string name="collapse_translation_section">收起翻译设置</string>
+    <string name="collapse_capture_section">收起捕获设置</string>
+    <string name="expand_character_weight_section">展开角色相关度权重</string>
+    <string name="expand_runtime_section">展开运行配置</string>
+
+    <string name="error_required">此项不能为空</string>
+    <string name="error_positive_number">请输入大于 0 的有限数值</string>
+    <string name="error_positive_integer">请输入不小于 1 的整数</string>
+    <string name="error_high_less_than_mid">高相关阈值不能小于中相关阈值</string>
+    <string name="error_low_less_than_mentioned">正文低权重分数不能小于正文提及分数</string>
+    <string name="error_runtime_json">RuntimeConfigs 必须是有效的 JSON 对象</string>
+    <string name="error_runtime_structure">RuntimeConfigs 必须包含 RVA 和 Layout 对象</string>
+</resources>

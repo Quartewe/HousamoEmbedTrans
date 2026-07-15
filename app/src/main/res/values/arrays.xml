@@ -4,4 +4,29 @@
     <string-array name="xposed_scope">
         <item>jp.co.lifewonders.housamo</item>
     </string-array>
+
+    <string-array name="api_protocol_labels">
+        <item>OpenAI compatible</item>
+        <item>Anthropic</item>
+    </string-array>
+
+    <string-array name="api_protocol_codes">
+        <item>openai</item>
+        <item>anthropic</item>
+    </string-array>
+
+    <string-array name="target_language_labels">
+        <item>zh-cn</item>
+        <item>zh-tw</item>
+        <item>en</item>
+        <item>Custom…</item>
+    </string-array>
+
+    <string-array name="target_language_codes">
+        <item>zh-cn</item>
+        <item>zh-tw</item>
+        <item>en</item>
+        <item>custom</item>
+    </string-array>
+
 </resources>
