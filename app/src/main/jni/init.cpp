@@ -306,9 +306,27 @@ bool InitJniBridge(JNIEnv* env, jclass main_hook_class) {
         return false;
     }
 
+    jmethodID store_scene_method = env->GetStaticMethodID(
+        global_class,
+        "storeScene",
+        "([B)Z"
+    );
+
+    if (!store_scene_method) {
+        LOGE("MainHook.storeScene(byte[]) not found");
+
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+
+        env->DeleteGlobalRef(global_class);
+        return false;
+    }
+
     // 所有查找都成功后再发布，避免留下半初始化状态
     g_java_bridge.main_hook_class = global_class;
     g_java_bridge.request_api_method = request_method;
+    g_java_bridge.store_scene_method = store_scene_method;
 
     LOGI("JNI bridge initialized");
     return true;

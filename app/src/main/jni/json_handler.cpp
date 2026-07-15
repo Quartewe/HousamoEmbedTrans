@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <fstream>
 #include <filesystem>
+#include <limits>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -428,6 +429,62 @@ static bool HaveFile(const std::string& name) {
     return std::filesystem::exists(name + ".json");
 }
 
+static bool JavaStoreScene(const char* bytes, size_t size) {
+    if (!bytes
+        || size == 0
+        || size > static_cast<size_t>(std::numeric_limits<jsize>::max())
+        || !g_java_bridge.jvm
+        || !g_java_bridge.main_hook_class
+        || !g_java_bridge.store_scene_method) {
+        return false;
+    }
+
+    JNIEnv* env = nullptr;
+    bool attached_here = false;
+    if (g_java_bridge.jvm->GetEnv(
+            reinterpret_cast<void**>(&env),
+            JNI_VERSION_1_6) != JNI_OK) {
+        if (g_java_bridge.jvm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+            LOGE("[JsonHandler] Failed to attach scene mirror worker to JVM");
+            return false;
+        }
+        attached_here = true;
+    }
+
+    jbyteArray array = env->NewByteArray(static_cast<jsize>(size));
+    if (!array) {
+        if (attached_here) {
+            g_java_bridge.jvm->DetachCurrentThread();
+        }
+        return false;
+    }
+
+    env->SetByteArrayRegion(
+        array,
+        0,
+        static_cast<jsize>(size),
+        reinterpret_cast<const jbyte*>(bytes)
+    );
+    jboolean stored = env->CallStaticBooleanMethod(
+        g_java_bridge.main_hook_class,
+        g_java_bridge.store_scene_method,
+        array
+    );
+    env->DeleteLocalRef(array);
+
+    bool success = stored == JNI_TRUE;
+    if (env->ExceptionCheck()) {
+        LOGE("[JsonHandler] Exception while mirroring scene to Java");
+        env->ExceptionClear();
+        success = false;
+    }
+
+    if (attached_here) {
+        g_java_bridge.jvm->DetachCurrentThread();
+    }
+    return success;
+}
+
 class JsonHandler {
 public:
     void Start() {
@@ -557,6 +614,13 @@ private:
             final_path.c_str(),
             buffer.GetSize()
         );
+
+        if (!JavaStoreScene(buffer.GetString(), buffer.GetSize())) {
+            LOGW(
+                "[JsonHandler] Scene was written locally but mirror update failed scene=%s",
+                scene_name.c_str()
+            );
+        }
 
         return true;
     }
