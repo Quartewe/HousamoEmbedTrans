@@ -4,6 +4,9 @@
 #include <jni.h>
 #include <inttypes.h>
 #include "housamo.hpp"
+#include "jni_bridge.hpp"
+
+JavaBridge g_java_bridge;
 
 static jfieldID get_field_id(JNIEnv* env, jobject obj, const char* name, const char* signature) {
     if (obj == nullptr) {
@@ -265,6 +268,52 @@ static void InitThread(RuntimeConfig config) {
     LOGI("Initialization completed successfully");
 }
 
+bool InitJniBridge(JNIEnv* env, jclass main_hook_class) {
+    if (!env || !main_hook_class) {
+        LOGE("InitJniBridge failed: invalid argument");
+        return false;
+    }
+
+    // 防止 nativeStart 意外重复调用时泄漏 GlobalRef
+    if (g_java_bridge.main_hook_class != nullptr) {
+        LOGW("JNI bridge already initialized");
+        return true;
+    }
+
+    auto global_class = static_cast<jclass>(
+        env->NewGlobalRef(main_hook_class)
+    );
+
+    if (!global_class) {
+        LOGE("Failed to create MainHook global reference");
+        return false;
+    }
+
+    jmethodID request_method = env->GetStaticMethodID(
+        global_class,
+        "requestTranslation",
+        "([B)[B"
+    );
+
+    if (!request_method) {
+        LOGE("MainHook.requestTranslation(byte[]) not found");
+
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+
+        env->DeleteGlobalRef(global_class);
+        return false;
+    }
+
+    // 所有查找都成功后再发布，避免留下半初始化状态
+    g_java_bridge.main_hook_class = global_class;
+    g_java_bridge.request_api_method = request_method;
+
+    LOGI("JNI bridge initialized");
+    return true;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     JNIEnv* env,
@@ -291,6 +340,11 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     std::string base_dir = jstring_to_string(env, baseDir);
 
     RuntimeConfig config;
+
+    if(!InitJniBridge(env, clazz)) {
+        LOGE("Failed to initialize JNI bridge");
+        return;
+    }
 
     if (!make_runtime_config(
             game_version,
@@ -322,6 +376,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
 }
 
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) { // JNI_OnLoad函数是JNI库被加载时调用的函数，返回JNI版本号
+    g_java_bridge.jvm = vm;
     LOGI("JNI_OnLoad called");
     // std::thread(InitThread).detach(); (已移交给Java层调用nativeStart函数来启动线程)
     return JNI_VERSION_1_6;
