@@ -487,6 +487,7 @@ private:
             json_items.PushBack(scene_item.scene_item, alloc);
             api_items.PushBack(scene_item.api_item, api_alloc);
         }
+        out.AddMember("summary", "", alloc);
         out.AddMember("scene_items", json_items, alloc);
         api_out.AddMember("scene_items", api_items, api_alloc);
 
