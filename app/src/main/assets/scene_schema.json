@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://housamo-embed-trans.local/schema/scene.json",
+  "title": "Housamo Embed Trans scene",
+  "type": "object",
+  "required": [
+    "scene",
+    "game_version",
+    "raw_lang",
+    "target_lang",
+    "character",
+    "mentioned_characters",
+    "game_terms",
+    "protect",
+    "summary",
+    "scene_items"
+  ],
+  "properties": {
+    "scene": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "game_version": { "type": "string", "minLength": 1 },
+    "raw_lang": { "type": "string", "minLength": 1 },
+    "target_lang": { "type": "string", "minLength": 1 },
+    "character": { "$ref": "#/$defs/characterContext" },
+    "mentioned_characters": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mentionedCharacter" }
+    },
+    "game_terms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gameTerm" }
+    },
+    "protect": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/protectedToken" }
+    },
+    "summary": { "type": "string" },
+    "scene_items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sceneItem" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "i18n": {
+      "type": "object",
+      "required": ["en", "zh_tw", "zh_cn"],
+      "properties": {
+        "en": { "type": "string" },
+        "zh_tw": { "type": "string" },
+        "zh_cn": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "alias": {
+      "type": "object",
+      "required": ["name", "i18n", "called"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "i18n": { "$ref": "#/$defs/i18n" },
+        "called": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "relationship": {
+      "type": "object",
+      "required": ["target", "type"],
+      "properties": {
+        "target": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "characterItem": {
+      "type": "object",
+      "required": [
+        "name",
+        "aliases",
+        "i18n",
+        "school",
+        "guild",
+        "origin_world",
+        "relationships",
+        "info",
+        "description",
+        "speech_style"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "aliases": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/alias" }
+        },
+        "i18n": { "$ref": "#/$defs/i18n" },
+        "school": { "type": "array", "items": { "type": "string" } },
+        "guild": { "type": "array", "items": { "type": "string" } },
+        "origin_world": { "type": "array", "items": { "type": "string" } },
+        "relationships": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relationship" }
+        },
+        "info": { "type": "string" },
+        "description": { "type": "string" },
+        "speech_style": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "characterContext": {
+      "type": "object",
+      "required": ["mc", "high_weight", "low_weight"],
+      "properties": {
+        "mc": { "$ref": "#/$defs/characterItem" },
+        "high_weight": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/characterItem" }
+        },
+        "low_weight": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/characterItem" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "mentionedCharacter": {
+      "type": "object",
+      "required": ["name", "i18n"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "i18n": { "$ref": "#/$defs/i18n" }
+      },
+      "additionalProperties": false
+    },
+    "gameTerm": {
+      "type": "object",
+      "required": ["term", "i18n", "description"],
+      "properties": {
+        "term": { "type": "string", "minLength": 1 },
+        "i18n": { "$ref": "#/$defs/i18n" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "protectedToken": {
+      "type": "object",
+      "required": ["label", "origin"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "origin": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "orderKey": {
+      "type": "object",
+      "required": ["label_index", "page_no", "cmd_index", "sub_index"],
+      "properties": {
+        "label_index": { "type": "integer" },
+        "page_no": { "type": "integer" },
+        "cmd_index": { "type": "integer" },
+        "sub_index": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "textItem": {
+      "type": "object",
+      "required": ["type", "order", "speaker", "text", "translations"],
+      "properties": {
+        "type": { "const": "text" },
+        "order": { "$ref": "#/$defs/orderKey" },
+        "speaker": { "type": "string" },
+        "text": { "type": "string" },
+        "translations": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    },
+    "branch": {
+      "type": "object",
+      "required": ["target_label", "merge_label", "option", "following_text"],
+      "properties": {
+        "target_label": { "type": "string" },
+        "merge_label": { "type": "string" },
+        "option": { "$ref": "#/$defs/textItem" },
+        "following_text": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sceneItem" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "choiceItem": {
+      "type": "object",
+      "required": ["type", "order", "branches"],
+      "properties": {
+        "type": { "const": "choice" },
+        "order": { "$ref": "#/$defs/orderKey" },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/branch" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ifItem": {
+      "type": "object",
+      "required": [
+        "type",
+        "order",
+        "condition",
+        "target_label",
+        "merge_label",
+        "following_text"
+      ],
+      "properties": {
+        "type": { "const": "if" },
+        "order": { "$ref": "#/$defs/orderKey" },
+        "condition": { "type": "string" },
+        "target_label": { "type": "string" },
+        "merge_label": { "type": "string" },
+        "following_text": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sceneItem" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "sceneItem": {
+      "oneOf": [
+        { "$ref": "#/$defs/textItem" },
+        { "$ref": "#/$defs/choiceItem" },
+        { "$ref": "#/$defs/ifItem" }
+      ]
+    }
+  }
+}
