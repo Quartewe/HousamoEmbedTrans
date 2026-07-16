@@ -39,12 +39,12 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
     }
 
     switch (CheckFileStatus(entry_label)) {
-        // case SceneFileStatus::complete:
+        case SceneFileStatus::complete:
         //     if (!SubmitToQuestRewriter(entry_label)) {
         //         LOGE("[FindScenarioData] failed to rewrite scene to quest entry=%s", entry_label.c_str());
         //     }
-        //     LOGI("[FindScenarioData] scene file already complete, skipping entry=%s", entry_label.c_str());
-        //     return scenario_data;
+            LOGI("[FindScenarioData] scene file already complete, skipping entry=%s", entry_label.c_str());
+            return scenario_data;
         case SceneFileStatus::pending:
             if (!LoadFromExistingScene(entry_label)) {
                 LOGE("[FindScenarioData] failed to post existing scene to api entry=%s", entry_label.c_str());
