@@ -668,9 +668,17 @@ private:
             }
 
             api_item.seq_to_order = std::move(api_context.seq_to_order);
-            SubmitToApi(std::move(api_item));
+
+            bool writen = false;
             for (int i = 0; i < 3; i++) {
-                if (WriteJsonToFile(doc, json_item->scene_name)) break; 
+                writen = WriteJsonToFile(doc, json_item->scene_name);
+                if (writen) break; 
+            }
+            
+            if (writen) {
+                SubmitToApi(std::move(api_item));
+            } else {
+                LOGE("[JsonHandler] Failed to write JSON for scene %s after 3 attempts", json_item->scene_name.c_str());
             }
         }
     }
