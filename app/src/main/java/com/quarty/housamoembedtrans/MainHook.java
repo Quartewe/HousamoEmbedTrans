@@ -195,6 +195,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Layout layout;
         CharacterWeight characterWeight;
         boolean enablePageRecDebug;
+        boolean enableParseOnlyDebug;
         boolean overwriteExistingJson;
         String targetLanguage;
         String gameVersion;
@@ -642,6 +643,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return userSettings.getBoolean("EnablePageRecDebug");
     }
 
+    private static boolean Init_EnableParseOnlyDebug(JSONObject json) throws Exception {
+        JSONObject userSettings = json.getJSONObject("UserSettings");
+        return userSettings.optBoolean("EnableParseOnlyDebug", false);
+    }
+
     private static boolean Init_OverwriteExistingJson(JSONObject json) throws Exception {
         JSONObject userSettings = json.getJSONObject("UserSettings");
         return userSettings.getBoolean("OverwriteExistingJson");
@@ -722,6 +728,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         config.layout = Init_Layout(runtimeConfigs);
         config.characterWeight = Init_CharacterWeight(json);
         config.enablePageRecDebug = Init_EnablePageRecDebug(json);
+        config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(json);
         config.overwriteExistingJson = Init_OverwriteExistingJson(json);
         config.targetLanguage = Init_TargetLanguage(json);
         config.gameVersion = Init_GameVersion(json);
@@ -1264,6 +1271,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 startup.layout,
                 startup.characterWeight,
                 startup.enablePageRecDebug,
+                startup.enableParseOnlyDebug,
                 startup.overwriteExistingJson,
                 startup.targetLanguage,
                 chardictJson,
@@ -1277,6 +1285,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + startup.gameVersion
                     + " targetLanguage="
                     + startup.targetLanguage
+                    + " parseOnlyDebug="
+                    + startup.enableParseOnlyDebug
                     + " protocol="
                     + sTranslationConfig.protocol
                     + " model="
@@ -1302,6 +1312,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Layout layout,
         CharacterWeight characterWeight,
         boolean enablePageRecDebug,
+        boolean enableParseOnlyDebug,
         boolean overwriteExistingJson,
         String targetLanguage,
         String chardictJson,

@@ -77,6 +77,8 @@
     <string name="capture_settings">捕获与输出</string>
     <string name="overwrite_existing_json">覆盖已有剧情 JSON</string>
     <string name="overwrite_existing_json_hint">关闭后，会保留本地已经存在的剧情文件。</string>
+    <string name="enable_parse_only_debug">仅解析，不发送到 API </string>
+    <string name="enable_parse_only_debug_hint">仍会捕获并写入待翻译的 scene JSON，但不会发起 API 请求。关闭此选项并重启游戏后，再次进入对应剧情即可发送。</string>
     <string name="enable_page_rec_debug">启用页面记录调试 Hook</string>
     <string name="enable_page_rec_debug_hint">仅用于诊断，正常使用时请保持关闭。</string>
     <string name="manage_scene_files">导入或导出剧情文件</string>

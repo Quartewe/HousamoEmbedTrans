@@ -273,6 +273,18 @@
                         android:text="@string/overwrite_existing_json_hint" />
 
                     <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_parse_only_debug"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:minHeight="48dp"
+                        android:text="@string/enable_parse_only_debug" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/enable_parse_only_debug_hint" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
                         android:id="@+id/switch_page_rec_debug"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

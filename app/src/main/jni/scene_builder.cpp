@@ -13,7 +13,7 @@ struct CharacterSignal {
 };
 
 static bool IsCapturePaused() {
-    return stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene;
+    return stop_reason.load(std::memory_order_acquire) == StopReason::user_pause;
 }
 
 class SceneBuilder {

@@ -16,12 +16,17 @@ static void* StubInitText = nullptr;
 static void* StubFindScenarioData = nullptr;
 
 static void* HookFindScenarioData(void* self, void* label, void* method) {
-    std::string entry_label = read_il2cpp_string(label);
-
     void* scenario_data = nullptr;
     if (RawFindScenarioData) {
         scenario_data = RawFindScenarioData(self, label, method);
     }
+
+    if (stop_reason.load(std::memory_order_acquire) == StopReason::user_pause) {
+        LOGI("[FindScenarioData] user pause, skipping scenario catch");
+        return scenario_data;
+    }
+
+    std::string entry_label = read_il2cpp_string(label);
 
     if (!valid_ptr(scenario_data)) {
         LOGW("[FindScenarioData] scenarioData invalid entry=%s", entry_label.c_str());
@@ -33,7 +38,25 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
         return scenario_data;
     }
 
-    CatchScenario(scenario_data, entry_label);
+    switch (CheckFileStatus(entry_label)) {
+        // case SceneFileStatus::complete:
+        //     if (!SubmitToQuestRewriter(entry_label)) {
+        //         LOGE("[FindScenarioData] failed to rewrite scene to quest entry=%s", entry_label.c_str());
+        //     }
+        //     LOGI("[FindScenarioData] scene file already complete, skipping entry=%s", entry_label.c_str());
+        //     return scenario_data;
+        case SceneFileStatus::pending:
+            if (!LoadFromExistingScene(entry_label)) {
+                LOGE("[FindScenarioData] failed to post existing scene to api entry=%s", entry_label.c_str());
+            }
+            return scenario_data;
+        case SceneFileStatus::not_found:
+            if (!CatchScenario(scenario_data, entry_label)) {
+                LOGE("[FindScenarioData] failed to catch scenario entry=%s", entry_label.c_str());
+            }
+            return scenario_data;
+    }
+
     return scenario_data;
 }
 

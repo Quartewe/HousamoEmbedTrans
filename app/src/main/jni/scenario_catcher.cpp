@@ -13,12 +13,6 @@
 
 std::atomic<StopReason> stop_reason{StopReason::none};
 
-void StopForExistingSceneJson() {
-    stop_reason.store(StopReason::existing_scene, std::memory_order_release);
-    NotifyPageRecStopChanged();
-    // NotifySceneBuilderStopChanged();
-}
-
 void ResumeCapture() {
     stop_reason.store(StopReason::none, std::memory_order_release);
     NotifyPageRecStopChanged();
@@ -1279,7 +1273,7 @@ private:
     }
 
     bool IsCapturePaused() const {
-        return stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene;
+        return stop_reason.load(std::memory_order_acquire) == StopReason::user_pause;
     }
 
     void Abort(AbortReason reason) {
@@ -1513,11 +1507,8 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 } // namespace
 
 bool CatchScenario(void* scenario_data, const std::string& entry_label) {
-    if (stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene) {
-        return false;
-    }
-
     uintptr_t scenario_key = reinterpret_cast<uintptr_t>(scenario_data);
+
     {
         std::lock_guard<std::mutex> lock(caught_mutex);
         if (!caught_scenarios.insert(scenario_key).second) {

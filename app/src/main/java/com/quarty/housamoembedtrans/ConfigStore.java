@@ -224,6 +224,12 @@ final class ConfigStore {
 
         JSONObject userSettings = config.getJSONObject("UserSettings");
         userSettings.getBoolean("EnablePageRecDebug");
+        if (userSettings.has("EnableParseOnlyDebug")
+            && !(userSettings.get("EnableParseOnlyDebug") instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                "UserSettings.EnableParseOnlyDebug must be a boolean"
+            );
+        }
         userSettings.getBoolean("OverwriteExistingJson");
         requireNonEmptyString(userSettings, "TargetLanguage", "UserSettings");
 

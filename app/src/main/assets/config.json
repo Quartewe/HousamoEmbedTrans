@@ -2,6 +2,7 @@
     "GameVersion": "5.18.0",
     "UserSettings": {
         "EnablePageRecDebug": false,
+        "EnableParseOnlyDebug": false,
         "OverwriteExistingJson": false,
         "CharacterWeight": {
             "HighRelevance": 4.0,

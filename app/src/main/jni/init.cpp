@@ -341,6 +341,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jobject layOutObj,
     jobject characterWeightObj,
     jboolean enablePageRecDebug,
+    jboolean enableParseOnlyDebug,
     jboolean overwriteExistingJson,
     jstring targetLanguage,
     jstring chardictJson,
@@ -371,6 +372,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
             character_weight,
             target_lang,
             enablePageRecDebug == JNI_TRUE,
+            enableParseOnlyDebug == JNI_TRUE,
             overwriteExistingJson == JNI_TRUE,
             base_dir,
             &config)) {
@@ -381,11 +383,12 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
 
     LOGI("Received RVA config from Java: FindScenarioData=0x%" PRIxPTR
          ", InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR
-         ", PageRecDebug=%d, OverwriteExistingJson=%d",
+         ", PageRecDebug=%d, ParseOnlyDebug=%d, OverwriteExistingJson=%d",
          config.rva.find_scenario_data,
          config.rva.init_base,
          config.rva.init_text,
          config.enable_page_rec_debug ? 1 : 0,
+         config.parse_only_debug ? 1 : 0,
          config.overwrite_existing ? 1 : 0);
     LOGI("Starting initialization thread...");
 

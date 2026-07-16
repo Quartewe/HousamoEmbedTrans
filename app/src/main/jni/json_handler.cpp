@@ -6,6 +6,7 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <filesystem>
 #include <limits>
@@ -429,6 +430,310 @@ static bool HaveFile(const std::string& name) {
     return std::filesystem::exists(name + ".json");
 }
 
+static bool ReadFile(const std::string& scene_name, rapidjson::Document& doc) {
+    std::string path = FormalPath(scene_name) + ".json";
+
+    if (!std::filesystem::exists(path)) {
+        return false;
+    }
+
+    std::ifstream file(path, std::ios::binary);
+
+    if (!file.is_open()) {
+        LOGE("[JsonHandler] Failed to open file %s for reading: %s", path.c_str(), std::strerror(errno));
+        return false;
+    }
+
+    std::string text{
+        std::istreambuf_iterator<char>{file},
+        std::istreambuf_iterator<char>{}
+    };
+
+    doc.Parse(text.c_str(), text.size());
+
+    if (doc.HasParseError() || !doc.IsObject()) {
+        LOGE(
+            "[JsonHandler] Failed to parse JSON file %s: error=%u offset=%zu",
+            path.c_str(),
+            static_cast<unsigned>(doc.GetParseError()),
+            doc.GetErrorOffset()
+        );
+        return false;
+    }
+
+    return true;
+}
+
+static bool ReadIntMember(
+    const rapidjson::Value& object,
+    const char* name,
+    int* out) {
+    if (!out || !object.IsObject()) {
+        return false;
+    }
+
+    const auto member = object.FindMember(name);
+    if (member == object.MemberEnd() || !member->value.IsInt()) {
+        return false;
+    }
+
+    *out = member->value.GetInt();
+    return true;
+}
+
+static bool ReadOrderKey(const rapidjson::Value& value, OrderKey* out) {
+    if (!out || !value.IsObject()) {
+        return false;
+    }
+
+    OrderKey order;
+    if (!ReadIntMember(value, "label_index", &order.label_index)
+        || !ReadIntMember(value, "page_no", &order.page_no)
+        || !ReadIntMember(value, "cmd_index", &order.cmd_index)
+        || !ReadIntMember(value, "sub_index", &order.sub_index)) {
+        return false;
+    }
+
+    *out = order;
+    return true;
+}
+
+static bool SameOrderKey(const OrderKey& left, const OrderKey& right) {
+    return left.label_index == right.label_index
+        && left.page_no == right.page_no
+        && left.cmd_index == right.cmd_index
+        && left.sub_index == right.sub_index;
+}
+
+static bool ReadSeqToOrder(
+    const rapidjson::Value& value,
+    std::vector<OrderKey>* out) {
+    if (!out || !value.IsArray()
+        || value.Size() > static_cast<rapidjson::SizeType>(std::numeric_limits<int>::max())) {
+        return false;
+    }
+
+    out->clear();
+    out->reserve(value.Size());
+
+    int expected_seq = 1;
+    for (const rapidjson::Value& seq_item : value.GetArray()) {
+        if (!seq_item.IsObject()) {
+            return false;
+        }
+
+        const auto seq_member = seq_item.FindMember("seq");
+        const auto order_member = seq_item.FindMember("order");
+        if (seq_member == seq_item.MemberEnd()
+            || !seq_member->value.IsInt()
+            || seq_member->value.GetInt() != expected_seq
+            || order_member == seq_item.MemberEnd()) {
+            return false;
+        }
+
+        OrderKey order;
+        if (!ReadOrderKey(order_member->value, &order)) {
+            return false;
+        }
+
+        out->push_back(order);
+        ++expected_seq;
+    }
+
+    return true;
+}
+
+static bool JsonStringEquals(const rapidjson::Value& value, const char* expected) {
+    const size_t expected_size = std::strlen(expected);
+    return value.IsString()
+        && value.GetStringLength() == expected_size
+        && std::memcmp(value.GetString(), expected, expected_size) == 0;
+}
+
+static bool HasStringMember(const rapidjson::Value& object, const char* name) {
+    if (!object.IsObject()) {
+        return false;
+    }
+
+    const auto member = object.FindMember(name);
+    return member != object.MemberEnd() && member->value.IsString();
+}
+
+static bool ConvertExistingSceneItemToApi(
+    rapidjson::Value& item,
+    const std::vector<OrderKey>& seq_to_order,
+    size_t* cursor,
+    rapidjson::Document::AllocatorType& alloc);
+
+static bool ConvertExistingSceneItemsToApi(
+    rapidjson::Value& items,
+    const std::vector<OrderKey>& seq_to_order,
+    size_t* cursor,
+    rapidjson::Document::AllocatorType& alloc) {
+    if (!cursor || !items.IsArray()) {
+        return false;
+    }
+
+    for (rapidjson::Value& item : items.GetArray()) {
+        if (!ConvertExistingSceneItemToApi(item, seq_to_order, cursor, alloc)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool ConvertExistingTextToApi(
+    rapidjson::Value& item,
+    const std::vector<OrderKey>& seq_to_order,
+    size_t* cursor,
+    rapidjson::Document::AllocatorType& alloc) {
+    if (!cursor || !item.IsObject()
+        || !HasStringMember(item, "speaker")
+        || !HasStringMember(item, "text")
+        || item.HasMember("seq")) {
+        return false;
+    }
+
+    const auto order_member = item.FindMember("order");
+    const auto translations_member = item.FindMember("translations");
+    if (order_member == item.MemberEnd()
+        || translations_member == item.MemberEnd()
+        || !translations_member->value.IsObject()
+        || *cursor >= seq_to_order.size()) {
+        return false;
+    }
+
+    OrderKey order;
+    if (!ReadOrderKey(order_member->value, &order)
+        || !SameOrderKey(order, seq_to_order[*cursor])) {
+        return false;
+    }
+
+    const int seq = static_cast<int>(*cursor + 1);
+    item.RemoveMember("order");
+    item.RemoveMember("translations");
+    item.AddMember("seq", seq, alloc);
+    ++(*cursor);
+    return true;
+}
+
+static bool RemoveStructuralOrder(rapidjson::Value& item) {
+    if (!item.IsObject() || item.HasMember("seq")) {
+        return false;
+    }
+
+    const auto order_member = item.FindMember("order");
+    OrderKey order;
+    if (order_member == item.MemberEnd()
+        || !ReadOrderKey(order_member->value, &order)) {
+        return false;
+    }
+
+    item.RemoveMember("order");
+    return true;
+}
+
+static bool ConvertExistingChoiceToApi(
+    rapidjson::Value& item,
+    const std::vector<OrderKey>& seq_to_order,
+    size_t* cursor,
+    rapidjson::Document::AllocatorType& alloc) {
+    if (!RemoveStructuralOrder(item)) {
+        return false;
+    }
+
+    const auto branches_member = item.FindMember("branches");
+    if (branches_member == item.MemberEnd() || !branches_member->value.IsArray()) {
+        return false;
+    }
+
+    for (rapidjson::Value& branch : branches_member->value.GetArray()) {
+        if (!branch.IsObject()
+            || !HasStringMember(branch, "target_label")
+            || !HasStringMember(branch, "merge_label")) {
+            return false;
+        }
+
+        const auto option_member = branch.FindMember("option");
+        const auto following_member = branch.FindMember("following_text");
+        if (option_member == branch.MemberEnd()
+            || following_member == branch.MemberEnd()
+            || !following_member->value.IsArray()) {
+            return false;
+        }
+
+        rapidjson::Value& option = option_member->value;
+        if (!option.IsObject()) {
+            return false;
+        }
+
+        const auto option_type = option.FindMember("type");
+        if (option_type == option.MemberEnd()
+            || !JsonStringEquals(option_type->value, "text")
+            || !ConvertExistingTextToApi(option, seq_to_order, cursor, alloc)
+            || !ConvertExistingSceneItemsToApi(
+                following_member->value,
+                seq_to_order,
+                cursor,
+                alloc)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool ConvertExistingIfToApi(
+    rapidjson::Value& item,
+    const std::vector<OrderKey>& seq_to_order,
+    size_t* cursor,
+    rapidjson::Document::AllocatorType& alloc) {
+    if (!HasStringMember(item, "condition")
+        || !HasStringMember(item, "target_label")
+        || !HasStringMember(item, "merge_label")
+        || !RemoveStructuralOrder(item)) {
+        return false;
+    }
+
+    const auto following_member = item.FindMember("following_text");
+    return following_member != item.MemberEnd()
+        && ConvertExistingSceneItemsToApi(
+            following_member->value,
+            seq_to_order,
+            cursor,
+            alloc);
+}
+
+static bool ConvertExistingSceneItemToApi(
+    rapidjson::Value& item,
+    const std::vector<OrderKey>& seq_to_order,
+    size_t* cursor,
+    rapidjson::Document::AllocatorType& alloc) {
+    if (!item.IsObject()) {
+        return false;
+    }
+
+    const auto type_member = item.FindMember("type");
+    if (type_member == item.MemberEnd() || !type_member->value.IsString()) {
+        return false;
+    }
+
+    if (JsonStringEquals(type_member->value, "text")) {
+        return ConvertExistingTextToApi(item, seq_to_order, cursor, alloc);
+    }
+
+    if (JsonStringEquals(type_member->value, "choice")) {
+        return ConvertExistingChoiceToApi(item, seq_to_order, cursor, alloc);
+    }
+
+    if (JsonStringEquals(type_member->value, "if")) {
+        return ConvertExistingIfToApi(item, seq_to_order, cursor, alloc);
+    }
+
+    return false;
+}
+
 static bool JavaStoreScene(const char* bytes, size_t size) {
     if (!bytes
         || size == 0
@@ -505,6 +810,15 @@ public:
     }
 
     void SubmitToApi(ApiItem api_item) {
+        if (g_runtime_config.parse_only_debug) {
+            LOGI(
+                "[JsonHandler] Parse-only debug enabled, skipping API submission scene=%s targets=%zu",
+                api_item.scene_name.c_str(),
+                api_item.seq_to_order.size()
+            );
+            return;
+        }
+
         {
             std::lock_guard<std::mutex> lock(api_mutex_);
             api_queue_.push_back(std::make_shared<ApiItem>(std::move(api_item)));
@@ -515,7 +829,7 @@ public:
 
 private:
     static bool IsCapturePaused() {
-        return stop_reason.load(std::memory_order_acquire) == StopReason::existing_scene;
+        return stop_reason.load(std::memory_order_acquire) == StopReason::user_pause;
     }
 
     void ProcessItem(
@@ -532,6 +846,7 @@ private:
 
         out.CopyFrom(json_item.process_doc, alloc);
         api_out.CopyFrom(json_item.process_doc, api_alloc);
+        api_out.RemoveMember("translated");
         out.AddMember("protect", JsonProtectedTokenArray(json_item.scene->protect, alloc), alloc);
         api_out.AddMember("protect", JsonProtectedTokenArray(json_item.scene->protect, api_alloc), api_alloc);
 
@@ -544,6 +859,19 @@ private:
             json_items.PushBack(scene_item.scene_item, alloc);
             api_items.PushBack(scene_item.api_item, api_alloc);
         }
+
+        rapidjson::Value seq_to_order(rapidjson::kArrayType);
+
+        int seq = 1;
+        for (const OrderKey& order : api_context.seq_to_order) {
+            rapidjson::Value seq_item(rapidjson::kObjectType);
+            seq_item.AddMember("seq", seq++, alloc);
+            seq_item.AddMember("order", JsonOrderKey(order, alloc), alloc);
+
+            seq_to_order.PushBack(seq_item, alloc);
+        }
+
+        out.AddMember("seq_to_order", seq_to_order, alloc);
         out.AddMember("summary", "", alloc);
         out.AddMember("scene_items", json_items, alloc);
         api_out.AddMember("scene_items", api_items, api_alloc);
@@ -659,12 +987,14 @@ private:
 
             ProcessItem(*json_item, doc, api_doc, api_context);
             
-            rapidjson::StringBuffer api_buffer;
-            rapidjson::PrettyWriter<rapidjson::StringBuffer> api_writer(api_buffer);
-            if (api_doc.Accept(api_writer)) {
-                api_item.api_doc.assign(api_buffer.GetString(), api_buffer.GetSize());
-            } else {
-                LOGE("[JsonHandler] Failed to serialize API JSON for scene %s", json_item->scene_name.c_str());
+            if (!g_runtime_config.parse_only_debug) {
+                rapidjson::StringBuffer api_buffer;
+                rapidjson::PrettyWriter<rapidjson::StringBuffer> api_writer(api_buffer);
+                if (api_doc.Accept(api_writer)) {
+                    api_item.api_doc.assign(api_buffer.GetString(), api_buffer.GetSize());
+                } else {
+                    LOGE("[JsonHandler] Failed to serialize API JSON for scene %s", json_item->scene_name.c_str());
+                }
             }
 
             api_item.seq_to_order = std::move(api_context.seq_to_order);
@@ -674,7 +1004,7 @@ private:
                 writen = WriteJsonToFile(doc, json_item->scene_name);
                 if (writen) break; 
             }
-            
+
             if (writen) {
                 SubmitToApi(std::move(api_item));
             } else {
@@ -800,11 +1130,113 @@ private:
     
 };
 
-// rapidjson::Value 
-
 } // namespace
 
 static JsonHandler g_json_handler;
+
+SceneFileStatus CheckFileStatus(const std::string& scene_name) {
+    rapidjson::Document doc;
+
+    if (ReadFile(scene_name, doc)) {
+        bool translated =
+            doc.FindMember("translated") != doc.MemberEnd() &&
+            doc["translated"].IsBool() &&
+            doc["translated"].GetBool();
+
+        if (translated) {
+            return SceneFileStatus::complete;
+        } else {
+            return SceneFileStatus::pending;
+        }
+    } else return SceneFileStatus::not_found;
+}
+
+bool LoadFromExistingScene(std::string entry_label) {
+    if (entry_label.empty()) {
+        LOGW("[JsonHandler] LoadFromExistingScene called with empty entry_label");
+        return false;
+    }
+
+    if (g_runtime_config.parse_only_debug) {
+        LOGI(
+            "[JsonHandler] Parse-only debug enabled, keeping pending scene without API submission scene=%s",
+            entry_label.c_str()
+        );
+        return true;
+    }
+
+    rapidjson::Document doc;
+    if (!ReadFile(entry_label, doc)) {
+        LOGW("[JsonHandler] LoadFromExistingScene failed to read scene %s", entry_label.c_str());
+        return false;
+    }
+
+    const auto translated_member = doc.FindMember("translated");
+    const auto seq_to_order_member = doc.FindMember("seq_to_order");
+    const auto scene_items_member = doc.FindMember("scene_items");
+    const auto summary_member = doc.FindMember("summary");
+    if (translated_member == doc.MemberEnd()
+        || !translated_member->value.IsBool()
+        || translated_member->value.GetBool()
+        || seq_to_order_member == doc.MemberEnd()
+        || !seq_to_order_member->value.IsArray()
+        || scene_items_member == doc.MemberEnd()
+        || !scene_items_member->value.IsArray()
+        || summary_member == doc.MemberEnd()
+        || !summary_member->value.IsString()) {
+        LOGW(
+            "[JsonHandler] LoadFromExistingScene failed: invalid pending scene root scene=%s",
+            entry_label.c_str()
+        );
+        return false;
+    }
+
+    ApiItem api_item;
+    api_item.scene_name = entry_label;
+    if (!ReadSeqToOrder(seq_to_order_member->value, &api_item.seq_to_order)) {
+        LOGW(
+            "[JsonHandler] LoadFromExistingScene failed: invalid seq_to_order scene=%s",
+            entry_label.c_str()
+        );
+        return false;
+    }
+
+    size_t cursor = 0;
+    auto& alloc = doc.GetAllocator();
+    if (!ConvertExistingSceneItemsToApi(
+            scene_items_member->value,
+            api_item.seq_to_order,
+            &cursor,
+            alloc)
+        || cursor != api_item.seq_to_order.size()) {
+        LOGW(
+            "[JsonHandler] LoadFromExistingScene failed: scene_items and seq_to_order do not match scene=%s converted=%zu targets=%zu",
+            entry_label.c_str(),
+            cursor,
+            api_item.seq_to_order.size()
+        );
+        return false;
+    }
+
+    doc.RemoveMember("seq_to_order");
+    doc.RemoveMember("summary");
+    doc.RemoveMember("translated");
+
+    rapidjson::StringBuffer api_buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> api_writer(api_buffer);
+    if (!doc.Accept(api_writer)) {
+        LOGE(
+            "[JsonHandler] LoadFromExistingScene failed to serialize API JSON scene=%s",
+            entry_label.c_str()
+        );
+        return false;
+    }
+
+    api_item.api_doc.assign(api_buffer.GetString(), api_buffer.GetSize());
+    g_json_handler.Start();
+    g_json_handler.SubmitToApi(std::move(api_item));
+    return true;
+}
 
 void SubmitToJsonHandler(std::shared_ptr<const Scene> scene) {
     if (!scene) {
@@ -823,6 +1255,7 @@ void SubmitToJsonHandler(std::shared_ptr<const Scene> scene) {
     json_item.process_doc.AddMember("game_version", JsonString(g_runtime_config.game_version, alloc), alloc);
     json_item.process_doc.AddMember("raw_lang", JsonString(scene->raw_lang, alloc), alloc);
     json_item.process_doc.AddMember("target_lang", JsonString(scene->target_lang, alloc), alloc);
+    json_item.process_doc.AddMember("translated", false, alloc);
     json_item.process_doc.AddMember("character", JsonCharacter(scene->character, alloc), alloc);
     json_item.process_doc.AddMember("mentioned_characters", JsonMentionedCharacterArray(scene->mentioned_characters, alloc), alloc);
     json_item.process_doc.AddMember("game_terms", JsonGameTermArray(scene->game_terms, alloc), alloc);

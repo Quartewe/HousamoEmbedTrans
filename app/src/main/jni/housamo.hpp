@@ -23,10 +23,16 @@
 // 全局变量和结构体定义
 enum class StopReason {
     none,
-    existing_scene
+    user_pause
 };
 
 extern std::atomic<StopReason> stop_reason;
+
+enum class SceneFileStatus {
+    not_found, // 文件不存在
+    complete, // 文件完整
+    pending // 文件存在但未完成
+};
 
 // AC机
 enum class MatchKind {
@@ -184,6 +190,7 @@ struct RuntimeConfig {
     std::string base_dir;
     bool overwrite_existing = false;
     bool enable_page_rec_debug = false;
+    bool parse_only_debug = false;
 };
 
 extern RuntimeConfig g_runtime_config;
@@ -349,28 +356,37 @@ struct Scene {
     std::vector<SceneItem> scene_items;
 };
 
-//函数声明
+// 启动类
+bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config);
+void StartJsonManager(std::string chardict_json, std::string gameterms_json);
+void StartAcInit(ACInit ac_init);
+void StartSceneBuilder();
+
+// submit 类
+// bool SubmitToQuestRewriter(const std::string& entry_label);
+void SubmitScenarioParseResult(ScenarioParseResult result);
+bool LoadFromExistingScene(std::string entry_label);
 void SubmitToJsonHandler(std::shared_ptr<const Scene> scene);
+
+// 检验类
+SceneFileStatus CheckFileStatus(const std::string& scene_name);
+bool IsJsonManagerReady();
+void NotifyPageRecStopChanged();
+void ResumeCapture();
+bool IsAcReady();
+
+// 解析类
 int RelatedNum(const std::string& name, const std::unordered_set<std::string>& related_characters);
 bool FindAliasItem(
     const std::string& canonical,
     const std::string& alias_name,
     const std::string& called,
     std::vector<AliasItem>* out);
-void StartJsonManager(std::string chardict_json, std::string gameterms_json);
-bool IsJsonManagerReady();
-bool FindCharacterItem(const std::string& name, CharacterItem* out);
-bool FindGameTerm(const std::string& term, GameTerm* out);
-void NotifyPageRecStopChanged();
-void StopForExistingSceneJson();
-void ResumeCapture();
-void SubmitScenarioParseResult(ScenarioParseResult result);
+bool CommandExamine(void* pageData, const std::string& source);
 bool CatchScenario(void* scenario_data, const std::string& entry_label);
 std::vector<AcHit> AcScan(const std::string& text);
-bool IsAcReady();
-void StartAcInit(ACInit ac_init);
-void StartSceneBuilder();
-bool CommandExamine(void* pageData, const std::string& source);
+bool FindCharacterItem(const std::string& name, CharacterItem* out);
+bool FindGameTerm(const std::string& term, GameTerm* out);
 bool make_runtime_config(
     const std::string& game_version,
     const RvaConfig& java_rva,
@@ -378,12 +394,14 @@ bool make_runtime_config(
     const CharacterWeightConfig& character_weight,
     const std::string& target_lang,
     bool enable_page_rec_debug,
+    bool parse_only_debug,
     bool overwrite_existing,
     const std::string& base_dir,
     RuntimeConfig* out);
+
+// 工具类
 bool valid_rva_config(const RvaConfig& config);
 bool valid_layout_config(const LayoutConfig& config);
-bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config);
 bool valid_ptr(void* ptr);
 void* read_ptr(void* base, size_t offset);
 int read_int(void* base, size_t offset);
