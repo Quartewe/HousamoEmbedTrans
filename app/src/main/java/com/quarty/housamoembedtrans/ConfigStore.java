@@ -215,7 +215,7 @@ final class ConfigStore {
         } else if (CHARDICT_FILE_NAME.equals(name)) {
             validateCharacterDictionary(json);
         } else if (GAMETERMS_FILE_NAME.equals(name)) {
-            validateObjectDictionary("game term dictionary", json);
+            validateGameTermDictionary(json);
         }
     }
 
@@ -279,23 +279,36 @@ final class ConfigStore {
         runtime.getJSONObject("Layout");
     }
 
-    private static void validateObjectDictionary(String label, JSONObject dictionary)
-        throws Exception {
+    static void validateGameTermDictionary(JSONObject dictionary) throws Exception {
         if (dictionary.length() == 0) {
-            throw new IllegalArgumentException(label + " must not be empty");
+            throw new IllegalArgumentException("game term dictionary must not be empty");
         }
 
         JSONArray names = dictionary.names();
         if (names == null) {
-            throw new IllegalArgumentException(label + " has no entries");
+            throw new IllegalArgumentException("game term dictionary has no entries");
         }
 
         for (int index = 0; index < names.length(); index++) {
             String name = names.getString(index);
             if (name.trim().isEmpty()) {
-                throw new IllegalArgumentException(label + " contains an empty key");
+                throw new IllegalArgumentException(
+                    "game term dictionary contains an empty key"
+                );
             }
-            dictionary.getJSONObject(name);
+            validateGameTermRecord(name, dictionary.getJSONObject(name));
+        }
+    }
+
+    static void validateGameTermRecord(String name, JSONObject record)
+        throws Exception {
+        String[] stringFields = {"en", "zh-tw", "zh-cn", "description"};
+        for (String field : stringFields) {
+            if (record.has(field) && !(record.get(field) instanceof String)) {
+                throw new IllegalArgumentException(
+                    name + "." + field + " must be a string"
+                );
+            }
         }
     }
 

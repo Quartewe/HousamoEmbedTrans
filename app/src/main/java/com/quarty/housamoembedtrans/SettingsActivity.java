@@ -26,8 +26,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Module settings UI. It edits the user-facing portion of config.json while
- * preserving the complete RuntimeConfigs object for advanced users.
+ * Module settings UI. It edits only user-owned settings while preserving
+ * runtime-owned config fields unchanged.
  */
 public class SettingsActivity extends AppCompatActivity {
 
@@ -37,6 +37,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private TextView configStatus;
     private TextView chardictSummary;
+    private TextView gametermsSummary;
     private TextView sceneFilesSummary;
     private Spinner apiProtocol;
     private Spinner targetLanguagePreset;
@@ -56,14 +57,13 @@ public class SettingsActivity extends AppCompatActivity {
     private EditText textMentionedScore;
     private EditText relatedNum;
     private EditText lowTermScore;
-    private EditText gameVersion;
-    private EditText runtimeJson;
     private final ExecutorService modelQueryExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+        SystemBarInsets.apply(findViewById(R.id.root_settings));
 
         configStore = new ConfigStore(this);
         sceneStore = new SceneStore(this);
@@ -76,6 +76,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void bindViews() {
         configStatus = findViewById(R.id.tv_config_status);
         chardictSummary = findViewById(R.id.tv_chardict_summary);
+        gametermsSummary = findViewById(R.id.tv_gameterms_summary);
         sceneFilesSummary = findViewById(R.id.tv_scene_files_summary);
         apiProtocol = findViewById(R.id.spinner_api_protocol);
         targetLanguagePreset = findViewById(R.id.spinner_target_language);
@@ -95,8 +96,6 @@ public class SettingsActivity extends AppCompatActivity {
         textMentionedScore = findViewById(R.id.et_text_mentioned_score);
         relatedNum = findViewById(R.id.et_related_num);
         lowTermScore = findViewById(R.id.et_low_term_score);
-        gameVersion = findViewById(R.id.et_game_version);
-        runtimeJson = findViewById(R.id.et_runtime_json);
     }
 
     private void bindSections() {
@@ -122,6 +121,13 @@ public class SettingsActivity extends AppCompatActivity {
             false
         );
         bindSection(
+            R.id.header_gameterms,
+            R.id.body_gameterms,
+            R.id.arrow_gameterms,
+            R.string.gameterms_settings,
+            false
+        );
+        bindSection(
             R.id.header_capture,
             R.id.body_capture,
             R.id.arrow_capture,
@@ -133,13 +139,6 @@ public class SettingsActivity extends AppCompatActivity {
             R.id.body_character_weight,
             R.id.arrow_character_weight,
             R.string.character_weight_settings,
-            false
-        );
-        bindSection(
-            R.id.header_runtime,
-            R.id.body_runtime,
-            R.id.arrow_runtime,
-            R.string.runtime_settings,
             false
         );
     }
@@ -206,6 +205,9 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.btn_edit_chardict).setOnClickListener(view -> {
             startActivity(new Intent(this, CharacterDictionaryActivity.class));
         });
+        findViewById(R.id.btn_edit_gameterms).setOnClickListener(view -> {
+            startActivity(new Intent(this, GameTermsActivity.class));
+        });
         findViewById(R.id.btn_manage_scene_files).setOnClickListener(view -> {
             startActivity(new Intent(this, SceneFilesActivity.class));
         });
@@ -215,6 +217,7 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         updateChardictSummary();
+        updateGameTermsSummary();
         updateSceneFilesSummary();
     }
 
@@ -289,6 +292,32 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 
+    private void updateGameTermsSummary() {
+        if (configStore == null || gametermsSummary == null) {
+            return;
+        }
+
+        try {
+            ConfigStore.JsonLoadResult result = configStore.loadJson(
+                ConfigStore.GAMETERMS_FILE_NAME
+            );
+            int statusId;
+            if (result.invalidUserOverride) {
+                statusId = R.string.gameterms_summary_invalid;
+            } else if (result.userOverride) {
+                statusId = R.string.gameterms_summary_user;
+            } else {
+                statusId = R.string.gameterms_summary_default;
+            }
+            gametermsSummary.setText(getString(statusId, result.json.length()));
+        } catch (Exception e) {
+            gametermsSummary.setText(getString(
+                R.string.gameterms_load_failed,
+                safeMessage(e)
+            ));
+        }
+    }
+
     private void showConfig(JSONObject config) throws Exception {
         JSONObject userSettings = config.getJSONObject("UserSettings");
         JSONObject translationApi = userSettings.optJSONObject("TranslationApi");
@@ -320,8 +349,6 @@ public class SettingsActivity extends AppCompatActivity {
         setJsonNumber(relatedNum, weights, "RelatedNum");
         setJsonNumber(lowTermScore, weights, "LowTermScore");
 
-        gameVersion.setText(config.getString("GameVersion"));
-        runtimeJson.setText(config.getJSONObject("RuntimeConfigs").toString(2));
         clearErrors();
     }
 
@@ -353,8 +380,6 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private JSONObject buildConfigFromForm(JSONObject config) throws Exception {
-        String version = requireText(gameVersion);
-
         double parsedHighRelevance = positiveDouble(highRelevance);
         double parsedMidRelevance = positiveDouble(midRelevance);
         double parsedDensityHigh = positiveDouble(densityHigh);
@@ -375,20 +400,6 @@ public class SettingsActivity extends AppCompatActivity {
                 textLowScore,
                 R.string.error_low_less_than_mentioned
             );
-        }
-
-        JSONObject parsedRuntime;
-        try {
-            parsedRuntime = new JSONObject(requireText(runtimeJson));
-        } catch (ValidationException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ValidationException(runtimeJson, R.string.error_runtime_json);
-        }
-
-        if (parsedRuntime.optJSONObject("RVA") == null
-            || parsedRuntime.optJSONObject("Layout") == null) {
-            throw new ValidationException(runtimeJson, R.string.error_runtime_structure);
         }
 
         JSONObject userSettings = config.getJSONObject("UserSettings");
@@ -416,8 +427,6 @@ public class SettingsActivity extends AppCompatActivity {
         weights.put("RelatedNum", parsedRelatedNum);
         weights.put("LowTermScore", parsedLowTermScore);
 
-        config.put("GameVersion", version);
-        config.put("RuntimeConfigs", parsedRuntime);
         return config;
     }
 
@@ -491,8 +500,11 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void loadDefaultsIntoForm() {
         try {
-            currentConfig = configStore.loadBundledDefault();
-            showConfig(currentConfig);
+            JSONObject defaults = configStore.loadBundledDefault();
+            showConfig(defaults);
+            if (currentConfig == null) {
+                currentConfig = defaults;
+            }
             configStatus.setText(R.string.defaults_loaded);
             findViewById(R.id.btn_save).setEnabled(true);
         } catch (Exception e) {
@@ -513,9 +525,7 @@ public class SettingsActivity extends AppCompatActivity {
             textLowScore,
             textMentionedScore,
             relatedNum,
-            lowTermScore,
-            gameVersion,
-            runtimeJson
+            lowTermScore
         };
 
         for (EditText field : fields) {

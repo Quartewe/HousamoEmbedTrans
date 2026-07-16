@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_settings"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:attr/colorBackground"
@@ -126,6 +127,52 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:text="@string/query_models" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_gameterms"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/expand_gameterms_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/gameterms_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_gameterms"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_collapsed" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_gameterms"
+                    style="@style/Widget.HET.SectionBody"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tv_gameterms_summary"
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/gameterms_summary_loading" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_edit_gameterms"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/open_gameterms_editor" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -416,71 +463,6 @@
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_low_term_score"
                             style="@style/Widget.HET.IntegerInput" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_runtime"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/expand_runtime_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/runtime_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_runtime"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_collapsed" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_runtime"
-                    style="@style/Widget.HET.SectionBody"
-                    android:visibility="gone">
-
-                    <TextView
-                        style="@style/Widget.HET.WarningText"
-                        android:text="@string/runtime_settings_warning" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/game_version">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_game_version"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="text"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/runtime_config_json"
-                        app:helperText="@string/runtime_config_json_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_runtime_json"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="monospace"
-                            android:gravity="top|start"
-                            android:inputType="textMultiLine|textNoSuggestions"
-                            android:minLines="12"
-                            android:scrollbars="vertical" />
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
             </LinearLayout>

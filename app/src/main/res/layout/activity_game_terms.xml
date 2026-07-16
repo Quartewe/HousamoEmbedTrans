@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/root_character_dictionary"
+    android:id="@+id/root_game_terms"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:attr/colorBackground"
@@ -12,24 +12,24 @@
     android:paddingBottom="12dp">
 
     <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar_character_dictionary"
+        android:id="@+id/toolbar_game_terms"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="?attr/actionBarSize"
         app:navigationContentDescription="@string/back_action"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="@string/chardict_title" />
+        app:title="@string/gameterms_title" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="@string/chardict_editor_hint"
+        android:text="@string/gameterms_editor_hint"
         android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
         android:textColor="?android:attr/textColorSecondary" />
 
     <TextView
-        android:id="@+id/tv_chardict_status"
+        android:id="@+id/tv_gameterms_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
@@ -37,47 +37,13 @@
         android:padding="10dp"
         android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
 
-    <com.google.android.material.card.MaterialCardView
-        style="@style/Widget.HET.SectionCard"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/mc_settings"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                android:textStyle="bold" />
-
-            <TextView
-                style="@style/Widget.HET.HelperText"
-                android:layout_marginTop="2dp"
-                android:text="@string/mc_settings_hint" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_edit_mc"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/edit_mc" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
     <com.google.android.material.textfield.TextInputLayout
         style="@style/Widget.HET.TextInputLayout"
-        android:hint="@string/search_characters"
+        android:hint="@string/search_game_terms"
         app:endIconMode="clear_text">
 
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_character_search"
+            android:id="@+id/et_gameterms_search"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:imeOptions="actionDone"
@@ -92,7 +58,7 @@
         android:layout_weight="1">
 
         <ListView
-            android:id="@+id/list_characters"
+            android:id="@+id/list_game_terms"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:choiceMode="none"
@@ -101,11 +67,11 @@
             android:paddingBottom="8dp" />
 
         <TextView
-            android:id="@+id/tv_character_empty"
+            android:id="@+id/tv_game_terms_empty"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:text="@string/no_characters_found"
+            android:text="@string/no_game_terms_found"
             android:textColor="?android:attr/textColorSecondary"
             android:visibility="gone" />
     </FrameLayout>
@@ -116,7 +82,7 @@
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_restore_chardict"
+            android:id="@+id/btn_restore_gameterms"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -125,17 +91,17 @@
             android:text="@string/reset_defaults" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_add_character"
+            android:id="@+id/btn_add_game_term"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             android:layout_marginEnd="4dp"
             android:layout_weight="1"
-            android:text="@string/add_character" />
+            android:text="@string/add_game_term" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_save_chardict"
+            android:id="@+id/btn_save_gameterms"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"

@@ -13,9 +13,9 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 
 import java.io.IOException;
@@ -44,12 +44,11 @@ public final class SceneFilesActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_scene_files);
-
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setTitle(R.string.scene_files_title);
-            actionBar.setDisplayHomeAsUpEnabled(true);
-        }
+        SystemBarInsets.apply(findViewById(R.id.root_scene_files));
+        MaterialToolbar toolbar = findViewById(R.id.toolbar_scene_files);
+        toolbar.setNavigationOnClickListener(
+            view -> getOnBackPressedDispatcher().onBackPressed()
+        );
 
         sceneStore = new SceneStore(this);
         summary = findViewById(R.id.tv_scene_summary);
@@ -75,12 +74,6 @@ public final class SceneFilesActivity extends AppCompatActivity {
         }));
         exportButton.setOnClickListener(view -> exportLauncher.launch(null));
         refreshSummaryAsync();
-    }
-
-    @Override
-    public boolean onSupportNavigateUp() {
-        finish();
-        return true;
     }
 
     private void importScenes(List<Uri> uris) {

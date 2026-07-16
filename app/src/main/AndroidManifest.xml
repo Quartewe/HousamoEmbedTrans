@@ -26,6 +26,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".GameTermsActivity"
+            android:exported="false"
+            android:label="@string/gameterms_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".SceneFilesActivity"
             android:exported="false"
             android:label="@string/scene_files_title" />

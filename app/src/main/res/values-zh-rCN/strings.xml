@@ -4,6 +4,7 @@
     <string name="xposed_description">东京放课后召唤师 AI 翻译预取模块</string>
 
     <string name="settings_title">翻译设置</string>
+    <string name="back_action">返回</string>
     <string name="settings_subtitle">配置 API、目标语言、剧情捕获和高级匹配参数。</string>
     <string name="config_source_default">正在使用 APK 内置的默认 config.json</string>
     <string name="config_source_saved">正在使用你保存的 config.json 配置</string>
@@ -40,7 +41,7 @@
     <string name="chardict_summary_invalid">用户字典无效，当前使用包内默认字典 · %1$d 个角色</string>
     <string name="open_chardict_editor">编辑角色字典</string>
     <string name="chardict_title">角色字典</string>
-    <string name="chardict_editor_hint">搜索并打开单个角色记录进行编辑；未知的 JSON 字段会被保留。</string>
+    <string name="chardict_editor_hint">已有角色键不可改名；可新增或删除角色，并逐字段修改对应的值。</string>
     <string name="mc_settings">主角（MC）</string>
     <string name="mc_settings_hint">根节点的 mc 记录会单独编辑，不再混入普通角色列表。</string>
     <string name="edit_mc">编辑 MC 设置</string>
@@ -57,9 +58,36 @@
     <string name="delete_character">删除</string>
     <string name="delete_character_title">删除角色？</string>
     <string name="delete_character_message">确定从字典中删除“%1$s”吗？</string>
-    <string name="canonical_character_name">标准名字 / 对象键</string>
-    <string name="character_record_json">角色记录 JSON</string>
-    <string name="character_record_json_hint">这里只编辑单个对象。alias 必须是数组，且每个别名都必须包含字符串 name。</string>
+    <string name="canonical_character_name">角色键</string>
+    <string name="character_key_read_only">已有角色键不可改名；如需更换，请删除该角色后重新新增。</string>
+    <string name="character_key_new_hint">请输入新的根节点角色键。</string>
+    <string name="character_fields_hint">字段键固定；数组字段可展开逐项编辑，点击“＋”即可新增元素。</string>
+    <string name="character_json_value_hint">JSON 值；请保留原有数组或对象结构。</string>
+    <string name="character_info_read_only">官方情报，只读。</string>
+    <string name="character_field_invalid">%1$s 的值无效：%2$s</string>
+    <string name="array_item_count">%1$d 项</string>
+    <string name="array_empty">暂无元素，点击“＋”添加。</string>
+    <string name="add_array_item">向%1$s添加元素</string>
+    <string name="delete_array_item">删除</string>
+    <string name="array_item_title">第 %1$d 项</string>
+    <string name="array_item_value">值</string>
+    <string name="array_indicator_expanded">▾</string>
+    <string name="array_indicator_collapsed">▸</string>
+    <string name="field_alias">别名（alias）</string>
+    <string name="field_name">原文名字（name）</string>
+    <string name="field_en">英文（en）</string>
+    <string name="field_zh_tw">繁体中文（zh-tw）</string>
+    <string name="field_zh_cn">简体中文（zh-cn）</string>
+    <string name="field_called">关联称呼（called）</string>
+    <string name="field_school">学校（school）</string>
+    <string name="field_guild">公会（guild）</string>
+    <string name="field_origin_world">出身世界（origin_world）</string>
+    <string name="field_relationships">角色关系（relationships）</string>
+    <string name="field_target">目标角色（target）</string>
+    <string name="field_type">关系类型（type）</string>
+    <string name="field_info">官方情报（info）</string>
+    <string name="field_description">补充说明（description）</string>
+    <string name="field_speech_style">说话风格（speech_style）</string>
     <string name="chardict_record_invalid">角色记录无效：%1$s</string>
     <string name="character_already_exists">已经存在同名角色</string>
     <string name="chardict_saved">角色字典已保存</string>
@@ -73,6 +101,42 @@
     <string name="invalid_character_record">无效记录</string>
     <string name="alias_count">%1$d 个别名</string>
     <string name="no_localized_name">没有本地化名字</string>
+
+    <string name="gameterms_settings">游戏术语字典</string>
+    <string name="expand_gameterms_section">展开游戏术语字典</string>
+    <string name="gameterms_summary_loading">正在读取游戏术语…</string>
+    <string name="gameterms_summary_default">包内默认字典 · %1$d 个术语</string>
+    <string name="gameterms_summary_user">用户字典 · %1$d 个术语</string>
+    <string name="gameterms_summary_invalid">用户字典无效，当前使用包内默认字典 · %1$d 个术语</string>
+    <string name="open_gameterms_editor">编辑游戏术语字典</string>
+    <string name="gameterms_title">游戏术语</string>
+    <string name="gameterms_editor_hint">已有术语键不可改名；可逐字段编辑译名和补充说明。修改会在游戏进程下次启动时读取。</string>
+    <string name="gameterms_source_default">包内默认字典 · %1$d 个术语</string>
+    <string name="gameterms_source_user">用户文件：files/gameterms.json · %1$d 个术语</string>
+    <string name="gameterms_source_invalid">用户文件无效，已载入包内默认字典 · %1$d 个术语</string>
+    <string name="gameterms_load_failed">无法读取游戏术语：%1$s</string>
+    <string name="gameterms_save_failed">无法保存游戏术语：%1$s</string>
+    <string name="search_game_terms">搜索术语或译名</string>
+    <string name="no_game_terms_found">没有匹配的术语</string>
+    <string name="add_game_term">新增</string>
+    <string name="edit_game_term">编辑术语</string>
+    <string name="save_game_term">应用</string>
+    <string name="delete_game_term">删除</string>
+    <string name="delete_game_term_title">删除术语？</string>
+    <string name="delete_game_term_message">确定从游戏术语字典中删除“%1$s”吗？</string>
+    <string name="game_term_key">术语键</string>
+    <string name="game_term_key_read_only">已有术语键不可改名；如需更换，请删除该术语后重新新增。</string>
+    <string name="game_term_key_new_hint">请输入新的根节点术语键。</string>
+    <string name="game_term_fields_hint">字段键固定，只能修改译名和补充说明对应的值。</string>
+    <string name="gameterms_record_invalid">游戏术语记录无效：%1$s</string>
+    <string name="game_term_already_exists">已经存在相同术语键</string>
+    <string name="gameterms_saved">游戏术语字典已保存</string>
+    <string name="restore_gameterms_title">恢复包内默认术语？</string>
+    <string name="restore_gameterms_message">用户的 files/gameterms.json 及其全部修改都会被删除。</string>
+    <string name="gameterms_restored">已恢复包内游戏术语字典</string>
+    <string name="unsaved_gameterms_title">放弃未保存的修改？</string>
+    <string name="unsaved_gameterms_message">上次保存后所做的游戏术语修改将会丢失。</string>
+    <string name="no_localized_term">没有本地化术语</string>
 
     <string name="capture_settings">捕获与输出</string>
     <string name="overwrite_existing_json">覆盖已有剧情 JSON</string>
@@ -111,11 +175,6 @@
     <string name="low_term_score">低权重术语分数</string>
     <string name="low_term_score_hint">由低权重角色补充术语时使用的阈值。</string>
 
-    <string name="runtime_settings">运行配置</string>
-    <string name="runtime_settings_warning">高级设置：错误的 RVA 或内存布局可能导致游戏进程崩溃。</string>
-    <string name="game_version">游戏版本</string>
-    <string name="runtime_config_json">RuntimeConfigs JSON</string>
-    <string name="runtime_config_json_hint">这里保留完整 RVA 和 Layout 对象，因此不会丢失前端未知的字段。</string>
 
     <string name="reset_defaults">恢复默认</string>
     <string name="save_settings">保存</string>
@@ -133,13 +192,10 @@
     <string name="collapse_translation_section">收起翻译设置</string>
     <string name="collapse_capture_section">收起捕获设置</string>
     <string name="expand_character_weight_section">展开角色相关度权重</string>
-    <string name="expand_runtime_section">展开运行配置</string>
 
     <string name="error_required">此项不能为空</string>
     <string name="error_positive_number">请输入大于 0 的有限数值</string>
     <string name="error_positive_integer">请输入不小于 1 的整数</string>
     <string name="error_high_less_than_mid">高相关阈值不能小于中相关阈值</string>
     <string name="error_low_less_than_mentioned">正文低权重分数不能小于正文提及分数</string>
-    <string name="error_runtime_json">RuntimeConfigs 必须是有效的 JSON 对象</string>
-    <string name="error_runtime_structure">RuntimeConfigs 必须包含 RVA 和 Layout 对象</string>
 </resources>
