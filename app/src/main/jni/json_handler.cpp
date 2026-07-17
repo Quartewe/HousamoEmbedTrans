@@ -226,15 +226,19 @@ static rapidjson::Value ApiSceneItemValue(
     rapidjson::Document::AllocatorType& alloc,
     ApiBuildContext& context);
 
-static rapidjson::Value JsonBranchItem(const BranchItem& branch_item, rapidjson::Document::AllocatorType& alloc) {
+static rapidjson::Value JsonChoiceBranch(const ChoiceBranch& branch, rapidjson::Document::AllocatorType& alloc) {
     rapidjson::Value obj(rapidjson::kObjectType);
 
-    obj.AddMember("target_label", JsonString(branch_item.target_label, alloc), alloc);
-    obj.AddMember("merge_label", JsonString(branch_item.merge_label, alloc), alloc);
-    obj.AddMember("option", JsonTextItem(branch_item.option, alloc), alloc);
+    obj.AddMember("target_label", JsonString(branch.target_label, alloc), alloc);
+
+    rapidjson::Value options(rapidjson::kArrayType);
+    for (const TextItem& option : branch.options) {
+        options.PushBack(JsonTextItem(option, alloc), alloc);
+    }
+    obj.AddMember("options", options, alloc);
 
     rapidjson::Value following_text(rapidjson::kArrayType);
-    for (const SceneItem& item : branch_item.following_text) {
+    for (const SceneItem& item : branch.following_text) {
         following_text.PushBack(JsonSceneItemValue(item, alloc), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
@@ -247,28 +251,33 @@ static rapidjson::Value JsonChoiceBlock(const ChoiceBlock& choice_block, rapidjs
 
     obj.AddMember("type", "choice", alloc);
     obj.AddMember("order", JsonOrderKey(choice_block.order, alloc), alloc);
+    obj.AddMember("merge_label", JsonString(choice_block.merge_label, alloc), alloc);
 
     rapidjson::Value branches(rapidjson::kArrayType);
-    for (const BranchItem& branch : choice_block.branches) {
-        branches.PushBack(JsonBranchItem(branch, alloc), alloc);
+    for (const ChoiceBranch& branch : choice_block.branches) {
+        branches.PushBack(JsonChoiceBranch(branch, alloc), alloc);
     }
     obj.AddMember("branches", branches, alloc);
 
     return obj;
 }
 
-static rapidjson::Value ApiBranchItem(
-    const BranchItem& branch_item,
+static rapidjson::Value ApiChoiceBranch(
+    const ChoiceBranch& branch,
     rapidjson::Document::AllocatorType& alloc,
     ApiBuildContext& context) {
     rapidjson::Value obj(rapidjson::kObjectType);
 
-    obj.AddMember("target_label", JsonString(branch_item.target_label, alloc), alloc);
-    obj.AddMember("merge_label", JsonString(branch_item.merge_label, alloc), alloc);
-    obj.AddMember("option", ApiTextItem(branch_item.option, alloc, context), alloc);
+    obj.AddMember("target_label", JsonString(branch.target_label, alloc), alloc);
+
+    rapidjson::Value options(rapidjson::kArrayType);
+    for (const TextItem& option : branch.options) {
+        options.PushBack(ApiTextItem(option, alloc, context), alloc);
+    }
+    obj.AddMember("options", options, alloc);
 
     rapidjson::Value following_text(rapidjson::kArrayType);
-    for (const SceneItem& item : branch_item.following_text) {
+    for (const SceneItem& item : branch.following_text) {
         following_text.PushBack(ApiSceneItemValue(item, alloc, context), alloc);
     }
     obj.AddMember("following_text", following_text, alloc);
@@ -283,10 +292,11 @@ static rapidjson::Value ApiChoiceBlock(
     rapidjson::Value obj(rapidjson::kObjectType);
 
     obj.AddMember("type", "choice", alloc);
+    obj.AddMember("merge_label", JsonString(choice_block.merge_label, alloc), alloc);
 
     rapidjson::Value branches(rapidjson::kArrayType);
-    for (const BranchItem& branch : choice_block.branches) {
-        branches.PushBack(ApiBranchItem(branch, alloc, context), alloc);
+    for (const ChoiceBranch& branch : choice_block.branches) {
+        branches.PushBack(ApiChoiceBranch(branch, alloc, context), alloc);
     }
     obj.AddMember("branches", branches, alloc);
 
@@ -639,7 +649,7 @@ static bool ConvertExistingChoiceToApi(
     const std::vector<OrderKey>& seq_to_order,
     size_t* cursor,
     rapidjson::Document::AllocatorType& alloc) {
-    if (!RemoveStructuralOrder(item)) {
+    if (!HasStringMember(item, "merge_label") || !RemoveStructuralOrder(item)) {
         return false;
     }
 
@@ -649,30 +659,34 @@ static bool ConvertExistingChoiceToApi(
     }
 
     for (rapidjson::Value& branch : branches_member->value.GetArray()) {
-        if (!branch.IsObject()
-            || !HasStringMember(branch, "target_label")
-            || !HasStringMember(branch, "merge_label")) {
+        if (!branch.IsObject() || !HasStringMember(branch, "target_label")) {
             return false;
         }
 
-        const auto option_member = branch.FindMember("option");
+        const auto options_member = branch.FindMember("options");
         const auto following_member = branch.FindMember("following_text");
-        if (option_member == branch.MemberEnd()
+        if (options_member == branch.MemberEnd()
             || following_member == branch.MemberEnd()
+            || !options_member->value.IsArray()
+            || options_member->value.Empty()
             || !following_member->value.IsArray()) {
             return false;
         }
 
-        rapidjson::Value& option = option_member->value;
-        if (!option.IsObject()) {
-            return false;
+        for (rapidjson::Value& option : options_member->value.GetArray()) {
+            if (!option.IsObject()) {
+                return false;
+            }
+
+            const auto option_type = option.FindMember("type");
+            if (option_type == option.MemberEnd()
+                || !JsonStringEquals(option_type->value, "text")
+                || !ConvertExistingTextToApi(option, seq_to_order, cursor, alloc)) {
+                return false;
+            }
         }
 
-        const auto option_type = option.FindMember("type");
-        if (option_type == option.MemberEnd()
-            || !JsonStringEquals(option_type->value, "text")
-            || !ConvertExistingTextToApi(option, seq_to_order, cursor, alloc)
-            || !ConvertExistingSceneItemsToApi(
+        if (!ConvertExistingSceneItemsToApi(
                 following_member->value,
                 seq_to_order,
                 cursor,

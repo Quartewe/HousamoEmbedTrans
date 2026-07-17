@@ -173,11 +173,14 @@
     },
     "branch": {
       "type": "object",
-      "required": ["target_label", "merge_label", "option", "following_text"],
+      "required": ["target_label", "options", "following_text"],
       "properties": {
         "target_label": { "type": "string" },
-        "merge_label": { "type": "string" },
-        "option": { "$ref": "#/$defs/textItem" },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/textItem" }
+        },
         "following_text": {
           "type": "array",
           "items": { "$ref": "#/$defs/sceneItem" }
@@ -187,10 +190,11 @@
     },
     "choiceItem": {
       "type": "object",
-      "required": ["type", "order", "branches"],
+      "required": ["type", "order", "merge_label", "branches"],
       "properties": {
         "type": { "const": "choice" },
         "order": { "$ref": "#/$defs/orderKey" },
+        "merge_label": { "type": "string" },
         "branches": {
           "type": "array",
           "minItems": 1,

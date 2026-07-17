@@ -221,10 +221,9 @@ struct JumpItem {
 
 struct SceneItem;
 
-struct BranchItem {
-    TextItem option;
+struct ChoiceBranch {
     std::string target_label;
-    std::string merge_label;
+    std::vector<TextItem> options;
     std::vector<SceneItem> following_text;
 };
 
@@ -252,7 +251,8 @@ struct IfBlock {
 
 struct ChoiceBlock {
     OrderKey order;
-    std::vector<BranchItem> branches;
+    std::string merge_label;
+    std::vector<ChoiceBranch> branches;
 };
 
 struct SceneItem {
