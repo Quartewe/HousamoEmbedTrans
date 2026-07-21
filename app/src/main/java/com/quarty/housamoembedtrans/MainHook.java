@@ -805,23 +805,21 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         JSONObject request = new JSONObject();
         request.put("model", config.model);
 
+        String systemPrompt = config.systemPrompt
+            + "\n\n## Required response JSON Schema\n\n"
+            + config.responseSchema;
+
         JSONArray messages = new JSONArray();
         messages.put(new JSONObject()
             .put("role", "system")
-            .put("content", config.systemPrompt));
+            .put("content", systemPrompt));
         messages.put(new JSONObject()
             .put("role", "user")
             .put("content", sceneJson));
         request.put("messages", messages);
 
-        JSONObject jsonSchema = new JSONObject();
-        jsonSchema.put("name", "housamo_translation");
-        jsonSchema.put("strict", true);
-        jsonSchema.put("schema", new JSONObject(config.responseSchema));
-
         request.put("response_format", new JSONObject()
-            .put("type", "json_schema")
-            .put("json_schema", jsonSchema));
+            .put("type", "json_object"));
         return request;
     }
 
