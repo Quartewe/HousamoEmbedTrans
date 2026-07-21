@@ -233,6 +233,12 @@ final class ConfigStore {
                 "UserSettings.EnableParseOnlyDebug must be a boolean"
             );
         }
+        if (userSettings.has("EnableFailedApiResponseDump")
+            && !(userSettings.get("EnableFailedApiResponseDump") instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                "UserSettings.EnableFailedApiResponseDump must be a boolean"
+            );
+        }
         userSettings.getBoolean("OverwriteExistingJson");
         requireNonEmptyString(userSettings, "TargetLanguage", "UserSettings");
 

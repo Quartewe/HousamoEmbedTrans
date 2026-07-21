@@ -3,7 +3,7 @@
   "properties": {
     "summary": {
       "type": "string",
-      "description": "A concise summary of the entire supplied scene written in target_lang. Account for alternative branches without treating mutually exclusive events as one continuous path."
+      "description": "A concise summary of the entire supplied scene written in target_lang. Account for alternative branches without treating mutually exclusive events as one continuous path. During a retry, copy the summary supplied in the input unchanged."
     },
     "translations": {
       "type": "array",

@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <thread>
@@ -1804,20 +1805,69 @@ private:
 
             std::string response;
             ApiResponse api_response;
-            if (!JavaRequestTrans(api_item->api_doc, &response)) {
+            LOGI(
+                "[JsonHandler] API request started scene=%s targets=%zu",
+                api_item->scene_name.c_str(),
+                api_item->seq_to_order.size()
+            );
+
+            const auto wait_started_at = std::chrono::steady_clock::now();
+            std::mutex wait_log_mutex;
+            std::condition_variable wait_log_cv;
+            bool callback_finished = false;
+            std::thread wait_logger([&] {
+                std::unique_lock<std::mutex> lock(wait_log_mutex);
+                while (!wait_log_cv.wait_for(
+                    lock,
+                    std::chrono::seconds(30),
+                    [&callback_finished] {
+                        return callback_finished;
+                    }
+                )) {
+                    const auto elapsed_seconds =
+                        std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::steady_clock::now() - wait_started_at
+                        ).count();
+                    LOGI(
+                        "[JsonHandler] Waiting for API callback scene=%s elapsed=%llds",
+                        api_item->scene_name.c_str(),
+                        static_cast<long long>(elapsed_seconds)
+                    );
+                }
+            });
+
+            const bool request_success =
+                JavaRequestTrans(api_item->api_doc, &response);
+            const auto callback_returned_at = std::chrono::steady_clock::now();
+
+            {
+                std::lock_guard<std::mutex> lock(wait_log_mutex);
+                callback_finished = true;
+            }
+            wait_log_cv.notify_one();
+            wait_logger.join();
+
+            const auto total_wait_ms =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    callback_returned_at - wait_started_at
+                ).count();
+
+            if (!request_success) {
                 LOGE(
-                    "[JsonHandler] Failed to send API request scene=%s targets=%zu",
+                    "[JsonHandler] Failed to receive API callback scene=%s targets=%zu total_wait_ms=%lld",
                     api_item->scene_name.c_str(),
-                    api_item->seq_to_order.size()
+                    api_item->seq_to_order.size(),
+                    static_cast<long long>(total_wait_ms)
                 );
                 continue;
-            } 
+            }
 
             LOGI(
-                "[JsonHandler] API request sent scene=%s targets=%zu response_size=%zu",
+                "[JsonHandler] API callback received scene=%s targets=%zu response_size=%zu total_wait_ms=%lld",
                 api_item->scene_name.c_str(),
                 api_item->seq_to_order.size(),
-                response.size()
+                response.size(),
+                static_cast<long long>(total_wait_ms)
             );
             LOGI(
                 "[JsonHandler] API response scene=%s response(first 128 chars)=%s",

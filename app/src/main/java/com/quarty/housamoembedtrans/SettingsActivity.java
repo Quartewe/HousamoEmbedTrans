@@ -51,6 +51,7 @@ public class SettingsActivity extends AppCompatActivity {
     private MaterialButton queryModelsButton;
     private SwitchMaterial overwriteJson;
     private SwitchMaterial parseOnlyDebug;
+    private SwitchMaterial failedApiResponseDump;
     private SwitchMaterial pageRecDebug;
     private EditText highRelevance;
     private EditText midRelevance;
@@ -92,6 +93,9 @@ public class SettingsActivity extends AppCompatActivity {
         queryModelsButton = findViewById(R.id.btn_query_models);
         overwriteJson = findViewById(R.id.switch_overwrite_json);
         parseOnlyDebug = findViewById(R.id.switch_parse_only_debug);
+        failedApiResponseDump = findViewById(
+            R.id.switch_failed_api_response_dump
+        );
         pageRecDebug = findViewById(R.id.switch_page_rec_debug);
         highRelevance = findViewById(R.id.et_high_relevance);
         midRelevance = findViewById(R.id.et_mid_relevance);
@@ -362,6 +366,9 @@ public class SettingsActivity extends AppCompatActivity {
         showTargetLanguage(userSettings.optString("TargetLanguage", "zh-cn"));
         overwriteJson.setChecked(userSettings.optBoolean("OverwriteExistingJson", false));
         parseOnlyDebug.setChecked(userSettings.optBoolean("EnableParseOnlyDebug", false));
+        failedApiResponseDump.setChecked(
+            userSettings.optBoolean("EnableFailedApiResponseDump", false)
+        );
         pageRecDebug.setChecked(userSettings.optBoolean("EnablePageRecDebug", false));
 
         JSONObject weights = userSettings.getJSONObject("CharacterWeight");
@@ -445,6 +452,10 @@ public class SettingsActivity extends AppCompatActivity {
         userSettings.put("TargetLanguage", selectedTargetLanguage());
         userSettings.put("OverwriteExistingJson", overwriteJson.isChecked());
         userSettings.put("EnableParseOnlyDebug", parseOnlyDebug.isChecked());
+        userSettings.put(
+            "EnableFailedApiResponseDump",
+            failedApiResponseDump.isChecked()
+        );
         userSettings.put("EnablePageRecDebug", pageRecDebug.isChecked());
 
         JSONObject weights = userSettings.getJSONObject("CharacterWeight");

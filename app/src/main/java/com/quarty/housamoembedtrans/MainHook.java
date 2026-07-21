@@ -64,6 +64,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final String GAMETERMS_FILE_NAME = "gameterms.json";
     private static final String PROMPT_FILE_NAME = "prompt.txt";
     private static final String TRANSLATION_SCHEMA_FILE_NAME = "translation_schema.json";
+    private static final String FAILED_API_DIRECTORY_NAME = "failed";
+    private static final String FAILED_API_FILE_PREFIX = "api_failed_";
     private static final int HTTP_CONNECT_TIMEOUT_MS = 30_000;
     private static final int HTTP_READ_TIMEOUT_MS = 300_000;
     private static final long HTTP_RETRY_BASE_DELAY_MS = 1_000L;
@@ -76,6 +78,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static boolean s_initializing = false;
     private static volatile TranslationConfig sTranslationConfig;
     private static volatile Context sTargetContext;
+    private static volatile File sFailedApiDirectory;
 
     private static final class RVA {
         long findScenarioData = 0;
@@ -213,6 +216,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         final String model;
         final int networkRetryCount;
         final int resultRepairCount;
+        final boolean dumpFailedApiResponse;
         final String apiKey;
         final String systemPrompt;
         final String responseSchema;
@@ -223,6 +227,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             String model,
             int networkRetryCount,
             int resultRepairCount,
+            boolean dumpFailedApiResponse,
             String apiKey,
             String systemPrompt,
             String responseSchema
@@ -232,6 +237,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             this.model = model;
             this.networkRetryCount = networkRetryCount;
             this.resultRepairCount = resultRepairCount;
+            this.dumpFailedApiResponse = dumpFailedApiResponse;
             this.apiKey = apiKey;
             this.systemPrompt = systemPrompt;
             this.responseSchema = responseSchema;
@@ -248,6 +254,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 model,
                 networkRetryCount,
                 resultRepairCount,
+                dumpFailedApiResponse,
                 apiKey,
                 systemPrompt,
                 responseSchema
@@ -272,6 +279,58 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         TranslationValidationResult(String summary) {
             this.summary = summary;
+        }
+    }
+
+    private static final class LineBreakProfile {
+        final int leadingCount;
+        final ArrayList<Integer> internalRuns;
+        final int trailingCount;
+
+        LineBreakProfile(
+            int leadingCount,
+            ArrayList<Integer> internalRuns,
+            int trailingCount
+        ) {
+            this.leadingCount = leadingCount;
+            this.internalRuns = internalRuns;
+            this.trailingCount = trailingCount;
+        }
+
+        boolean hasSameStructure(LineBreakProfile other) {
+            return other != null
+                && leadingCount == other.leadingCount
+                && trailingCount == other.trailingCount
+                && internalRuns.equals(other.internalRuns);
+        }
+
+        @Override
+        public String toString() {
+            return "{leading="
+                + leadingCount
+                + ", internal_runs="
+                + internalRuns
+                + ", trailing="
+                + trailingCount
+                + "}";
+        }
+    }
+
+    private static final class TextNormalizationResult {
+        final String text;
+        final boolean removedUnexpectedTrailingLineBreaks;
+        final boolean restoredLiteralTrailingLineBreaks;
+
+        TextNormalizationResult(
+            String text,
+            boolean removedUnexpectedTrailingLineBreaks,
+            boolean restoredLiteralTrailingLineBreaks
+        ) {
+            this.text = text;
+            this.removedUnexpectedTrailingLineBreaks =
+                removedUnexpectedTrailingLineBreaks;
+            this.restoredLiteralTrailingLineBreaks =
+                restoredLiteralTrailingLineBreaks;
         }
     }
 
@@ -465,9 +524,31 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             ArrayList<String> listed = result == null
                 ? null
                 : result.getStringArrayList(UserConfigProvider.RESULT_SCENES);
+            ArrayList<String> deletedList = result == null
+                ? null
+                : result.getStringArrayList(
+                    UserConfigProvider.RESULT_DELETED_SCENES
+                );
             Set<String> mirrored = listed == null
                 ? new HashSet<>()
                 : new HashSet<>(listed);
+            Set<String> deleted = deletedList == null
+                ? new HashSet<>()
+                : new HashSet<>(deletedList);
+
+            int deletedCount = 0;
+            for (String fileName : deleted) {
+                if (!SceneStore.isSimpleSceneFileName(fileName)) {
+                    continue;
+                }
+                File localFile = new File(targetSceneDirectory, fileName);
+                if (localFile.isFile()
+                    || new File(localFile.getPath() + ".bak").isFile()) {
+                    new AtomicFile(localFile).delete();
+                    deletedCount++;
+                }
+            }
+            mirrored.removeAll(deleted);
 
             int pulled = 0;
             for (String fileName : mirrored) {
@@ -500,7 +581,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             );
             if (localFiles != null) {
                 for (File file : localFiles) {
-                    if (mirrored.contains(file.getName())) {
+                    if (mirrored.contains(file.getName())
+                        || deleted.contains(file.getName())) {
                         continue;
                     }
                     try (InputStream input = new FileInputStream(file)) {
@@ -523,6 +605,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + pulled
                     + " pushed="
                     + pushed
+                    + " deleted="
+                    + deletedCount
             );
         } catch (Exception e) {
             XposedBridge.log(
@@ -571,6 +655,53 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 atomicFile.failWrite(output);
             }
             throw e;
+        }
+    }
+
+    private static void dumpFailedApiResponse(
+        String sceneName,
+        String responseBody,
+        TranslationConfig config
+    ) {
+        if (!config.dumpFailedApiResponse
+            || sceneName == null
+            || responseBody == null) {
+            return;
+        }
+
+        File directory = sFailedApiDirectory;
+        if (directory == null) {
+            XposedBridge.log(
+                "[HousamoTrans] Failed API response was not saved: "
+                    + "output directory is not initialized"
+            );
+            return;
+        }
+
+        try {
+            if (!directory.isDirectory() && !directory.mkdirs()) {
+                throw new IOException("could not create " + directory);
+            }
+
+            String fileName = FAILED_API_FILE_PREFIX
+                + SceneStore.fileNameForScene(sceneName);
+            File outputFile = new File(directory, fileName);
+            byte[] responseBytes = redactSecret(responseBody, config.apiKey)
+                .getBytes(StandardCharsets.UTF_8);
+            writeAtomically(outputFile, responseBytes);
+            XposedBridge.log(
+                "[HousamoTrans] Failed API response saved path="
+                    + outputFile.getAbsolutePath()
+                    + " bytes="
+                    + responseBytes.length
+            );
+        } catch (Exception e) {
+            XposedBridge.log(
+                "[HousamoTrans] Could not save failed API response: "
+                    + e.getClass().getSimpleName()
+                    + ": "
+                    + safeMessage(e)
+            );
         }
     }
 
@@ -730,8 +861,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private static TranslationConfig Init_TranslationConfig(JSONObject json)
         throws Exception {
-        JSONObject api = json.getJSONObject("UserSettings")
-            .getJSONObject("TranslationApi");
+        JSONObject userSettings = json.getJSONObject("UserSettings");
+        JSONObject api = userSettings.getJSONObject("TranslationApi");
         boolean hasSplitRetryCounts = api.has("NetworkRetryCount")
             || api.has("ResultRepairCount");
         int networkRetryCount = hasSplitRetryCounts
@@ -758,6 +889,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             api.optString("Model", "").trim(),
             networkRetryCount,
             resultRepairCount,
+            userSettings.optBoolean("EnableFailedApiResponseDump", false),
             "",
             "",
             ""
@@ -852,11 +984,15 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             return errorBytes("config", 0, "translation config is not initialized");
         }
 
+        String sceneName = null;
+        String lastFailedApiResponse = null;
+
         try {
             validateTranslationConfig(config);
 
             String sceneJson = new String(requestJson, StandardCharsets.UTF_8);
             JSONObject scene = new JSONObject(sceneJson);
+            sceneName = scene.getString("scene");
 
             String targetLanguage = scene.getString("target_lang");
 
@@ -864,9 +1000,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 throw new IllegalArgumentException("target_lang is empty");
             }
 
-            if (scene.has("retry_seqs")) {
+            if (scene.has("retry_seqs") || scene.has("retry_feedback")) {
                 throw new IllegalArgumentException(
-                    "retry_seqs is reserved for internal translation retries"
+                    "retry fields are reserved for internal translation retries"
                 );
             }
 
@@ -874,14 +1010,20 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             Set<String> protectedLabels = collectProtectedLabels(scene);
             Map<Integer, String> acceptedTranslations = new HashMap<>();
             Set<Integer> pendingSeqs = new HashSet<>(expectedTexts.keySet());
-            Map<Integer, String> lastRejectedReasons = new HashMap<>();
+            Map<Integer, String> retryReasons = new HashMap<>();
             String acceptedSummary = null;
             int resultRepairsUsed = 0;
             boolean partialRetry = false;
 
             while (true) {
                 String currentSceneJson = partialRetry
-                    ? buildRetrySceneJson(scene, pendingSeqs)
+                    ? buildRetrySceneJson(
+                        scene,
+                        pendingSeqs,
+                        expectedTexts,
+                        retryReasons,
+                        acceptedSummary
+                    )
                     : sceneJson;
 
                 JSONObject apiRequest;
@@ -901,6 +1043,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 );
                 if (httpResult.statusCode < 200
                     || httpResult.statusCode >= 300) {
+                    dumpFailedApiResponse(sceneName, httpResult.body, config);
                     return errorBytes(
                         "http",
                         httpResult.statusCode,
@@ -929,14 +1072,17 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                         acceptedSummary = validation.summary;
                     }
 
+                    retryReasons.clear();
+                    retryReasons.putAll(validation.rejectedReasons);
+
                     acceptedTranslations.putAll(
                         validation.acceptedTranslations
                     );
                     pendingSeqs.removeAll(
                         validation.acceptedTranslations.keySet()
                     );
-                    lastRejectedReasons = validation.rejectedReasons;
                 } catch (Exception e) {
+                    lastFailedApiResponse = httpResult.body;
                     if (resultRepairsUsed >= config.resultRepairCount) {
                         throw e;
                     }
@@ -970,23 +1116,20 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     );
                 }
 
+                lastFailedApiResponse = httpResult.body;
                 if (resultRepairsUsed >= config.resultRepairCount) {
                     throw new IllegalArgumentException(
-                        "translation validation failed for seqs "
-                            + formatSeqs(pendingSeqs)
-                            + ": "
-                            + formatRejectedReasons(
-                                pendingSeqs,
-                                lastRejectedReasons
-                            )
+                        "translation validation failed for "
+                            + pendingSeqs.size()
+                            + " seqs"
                     );
                 }
 
                 resultRepairsUsed++;
                 partialRetry = true;
                 XposedBridge.log(
-                    "[HousamoTrans] Repairing invalid translation seqs="
-                        + formatSeqs(pendingSeqs)
+                    "[HousamoTrans] Repairing invalid translations count="
+                        + pendingSeqs.size()
                         + " (repair "
                         + resultRepairsUsed
                         + "/"
@@ -996,6 +1139,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 waitBeforeRetry(resultRepairsUsed);
             }
         } catch (Exception e) {
+            dumpFailedApiResponse(sceneName, lastFailedApiResponse, config);
             String message = redactSecret(safeMessage(e), config.apiKey);
             XposedBridge.log(
                 "[HousamoTrans] Translation request failed: "
@@ -1366,50 +1510,198 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return labels;
     }
 
-    private static boolean hasSameLineBreakSrc(String source, String translation) {
-        if (source == null || translation == null) {
-            return false;
+    private static TextNormalizationResult normalizeUnexpectedTrailingLineBreaks(
+        String sourceText,
+        String translatedText
+    ) {
+        if (sourceText == null
+            || translatedText == null
+            || endsWithLineBreak(sourceText)
+            || !endsWithLineBreak(translatedText)) {
+            return new TextNormalizationResult(translatedText, false, false);
         }
-        String sourceBreaks = source.replace("\r\n", "\n").replace("\r", "\n");
-        String translationBreaks = translation.replace("\r\n", "\n").replace("\r", "\n");
 
-        int runLength = 0;
-        ArrayList<Integer> sourceBreakIndices = new ArrayList<>();
+        int end = translatedText.length();
+        while (end > 0) {
+            char value = translatedText.charAt(end - 1);
+            if (value != '\r' && value != '\n') {
+                break;
+            }
+            end--;
+        }
+        String normalized = translatedText.substring(0, end);
+        String literalSuffix = trailingLiteralLineBreakSuffix(sourceText);
+        boolean restoredLiteralSuffix = false;
 
-        for (int i = 0; i < sourceBreaks.length(); i++) {
-            char c = sourceBreaks.charAt(i);
-            if (c == '\n') {
-                runLength++;
-            } else if (runLength != 0) {
-                sourceBreakIndices.add(runLength);
-                runLength = 0;
+        if (!literalSuffix.isEmpty()
+            && !normalized.endsWith(literalSuffix)
+            && missingEscapesExactlyMatchSuffix(
+                sourceText,
+                normalized,
+                literalSuffix
+            )) {
+            normalized += literalSuffix;
+            restoredLiteralSuffix = true;
+        }
+
+        return new TextNormalizationResult(
+            normalized,
+            true,
+            restoredLiteralSuffix
+        );
+    }
+
+    private static String trailingLiteralLineBreakSuffix(String text) {
+        if (text == null || text.length() < 2) {
+            return "";
+        }
+
+        int start = text.length();
+        while (start >= 2
+            && text.charAt(start - 2) == '\\'
+            && (text.charAt(start - 1) == 'n'
+                || text.charAt(start - 1) == 'r')) {
+            start -= 2;
+        }
+        return start == text.length() ? "" : text.substring(start);
+    }
+
+    private static boolean missingEscapesExactlyMatchSuffix(
+        String sourceText,
+        String translatedText,
+        String sourceSuffix
+    ) {
+        Map<String, Integer> expected = escapedSequenceCounts(sourceText);
+        Map<String, Integer> actual = escapedSequenceCounts(translatedText);
+        Map<String, Integer> suffix = escapedSequenceCounts(sourceSuffix);
+        Set<String> sequences = new HashSet<>();
+        sequences.addAll(expected.keySet());
+        sequences.addAll(actual.keySet());
+        sequences.addAll(suffix.keySet());
+
+        for (String sequence : sequences) {
+            int missing = expected.getOrDefault(sequence, 0)
+                - actual.getOrDefault(sequence, 0);
+            if (missing != suffix.getOrDefault(sequence, 0)) {
+                return false;
             }
         }
-        if (runLength != 0) {
-            sourceBreakIndices.add(runLength);
-        }
-
-        runLength = 0;
-        ArrayList<Integer> translationBreakIndices = new ArrayList<>();
-
-        for (int i = 0; i < translationBreaks.length(); i++) {
-            char c = translationBreaks.charAt(i);
-            if (c == '\n') {
-                runLength++;
-            } else if (runLength != 0) {
-                translationBreakIndices.add(runLength);
-                runLength = 0;
-            }
-        }
-        if (runLength != 0) {
-            translationBreakIndices.add(runLength);
-        }
-
-        if (!sourceBreakIndices.equals(translationBreakIndices)) {
-            return false;
-        }
-
         return true;
+    }
+
+    private static boolean endsWithLineBreak(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        char last = text.charAt(text.length() - 1);
+        return last == '\r' || last == '\n';
+    }
+
+    private static LineBreakProfile lineBreakProfile(String text) {
+        String normalized = text == null
+            ? ""
+            : text.replace("\r\n", "\n").replace("\r", "\n");
+
+        int leadingCount = 0;
+        while (leadingCount < normalized.length()
+            && normalized.charAt(leadingCount) == '\n') {
+            leadingCount++;
+        }
+
+        int trailingStart = normalized.length();
+        while (trailingStart > leadingCount
+            && normalized.charAt(trailingStart - 1) == '\n') {
+            trailingStart--;
+        }
+        int trailingCount = normalized.length() - trailingStart;
+
+        ArrayList<Integer> internalRuns = new ArrayList<>();
+        int runLength = 0;
+        for (int index = leadingCount; index < trailingStart; index++) {
+            if (normalized.charAt(index) == '\n') {
+                runLength++;
+            } else if (runLength != 0) {
+                internalRuns.add(runLength);
+                runLength = 0;
+            }
+        }
+        if (runLength != 0) {
+            internalRuns.add(runLength);
+        }
+
+        return new LineBreakProfile(
+            leadingCount,
+            internalRuns,
+            trailingCount
+        );
+    }
+
+    private static Map<String, Integer> escapedSequenceCounts(String text) {
+        Map<String, Integer> counts = new java.util.TreeMap<>();
+        if (text == null) {
+            return counts;
+        }
+
+        for (int index = 0; index < text.length(); index++) {
+            if (text.charAt(index) != '\\') {
+                continue;
+            }
+
+            int end = Math.min(index + 2, text.length());
+            if (index + 5 < text.length()
+                && text.charAt(index + 1) == 'u'
+                && isFourDigitHex(text, index + 2)) {
+                end = index + 6;
+            }
+
+            String sequence = text.substring(index, end);
+            counts.put(sequence, counts.getOrDefault(sequence, 0) + 1);
+            index = end - 1;
+        }
+        return counts;
+    }
+
+    private static boolean isFourDigitHex(String text, int start) {
+        if (start < 0 || start + 4 > text.length()) {
+            return false;
+        }
+        for (int index = start; index < start + 4; index++) {
+            char value = text.charAt(index);
+            boolean hexadecimal = (value >= '0' && value <= '9')
+                || (value >= 'a' && value <= 'f')
+                || (value >= 'A' && value <= 'F');
+            if (!hexadecimal) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String jsonObjectKeys(JSONObject object) {
+        JSONArray names = object.names();
+        return names == null ? "[]" : names.toString();
+    }
+
+    private static String jsonValueType(Object value) {
+        if (value == null || value == JSONObject.NULL) {
+            return "null";
+        }
+        if (value instanceof JSONObject) {
+            return "object";
+        }
+        if (value instanceof JSONArray) {
+            return "array";
+        }
+        if (value instanceof String) {
+            return "string";
+        }
+        if (value instanceof Number) {
+            return "number";
+        }
+        if (value instanceof Boolean) {
+            return "boolean";
+        }
+        return value.getClass().getSimpleName();
     }
 
     private static TranslationValidationResult validateTranslationResult(
@@ -1422,13 +1714,17 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             || !result.has("summary")
             || !result.has("translations")) {
             throw new IllegalArgumentException(
-                "translation result must contain only summary and translations"
+                "translation result keys must be exactly [summary, translations]; actual="
+                    + jsonObjectKeys(result)
             );
         }
 
         Object summaryValue = result.get("summary");
         if (!(summaryValue instanceof String)) {
-            throw new IllegalArgumentException("translation summary must be a string");
+            throw new IllegalArgumentException(
+                "translation summary must be a string; actual_type="
+                    + jsonValueType(summaryValue)
+            );
         }
 
         String summary = (String) summaryValue;
@@ -1436,17 +1732,28 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             throw new IllegalArgumentException("translation summary is empty");
         }
 
-        JSONArray translations = result.getJSONArray("translations");
+        Object translationsValue = result.get("translations");
+        if (!(translationsValue instanceof JSONArray)) {
+            throw new IllegalArgumentException(
+                "translation translations must be an array; actual_type="
+                    + jsonValueType(translationsValue)
+            );
+        }
+        JSONArray translations = (JSONArray) translationsValue;
         TranslationValidationResult validation =
             new TranslationValidationResult(summary);
         Set<Integer> returnedSeqs = new HashSet<>();
+        int normalizedTrailingLineBreakCount = 0;
+        int restoredLiteralTrailingLineBreakCount = 0;
 
         for (int index = 0; index < translations.length(); index++) {
             Object entryValue = translations.opt(index);
             if (!(entryValue instanceof JSONObject)) {
                 XposedBridge.log(
-                    "[HousamoTrans] Ignoring non-object translation entry at index "
+                    "[HousamoTrans] Rejected translation response_index="
                         + index
+                        + " seq=<unavailable> reason=entry must be an object; actual_type="
+                        + jsonValueType(entryValue)
                 );
                 continue;
             }
@@ -1460,10 +1767,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 );
             } catch (Exception e) {
                 XposedBridge.log(
-                    "[HousamoTrans] Ignoring translation entry with invalid seq "
-                        + "at index "
+                    "[HousamoTrans] Rejected translation response_index="
                         + index
-                        + ": "
+                        + " seq=<invalid> reason="
                         + safeMessage(e)
                 );
                 continue;
@@ -1472,14 +1778,19 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             String sourceText = expectedTexts.get(seq);
             if (sourceText == null) {
                 XposedBridge.log(
-                    "[HousamoTrans] Ignoring unrequested translated seq " + seq
+                    "[HousamoTrans] Rejected translation response_index="
+                        + index
+                        + " seq="
+                        + seq
+                        + " reason=seq was not requested in this attempt"
                 );
                 continue;
             }
 
             if (!returnedSeqs.add(seq)) {
-                validation.acceptedTranslations.remove(seq);
-                validation.rejectedReasons.put(
+                rejectTranslation(
+                    validation,
+                    index,
                     seq,
                     "duplicate translated seq"
                 );
@@ -1491,66 +1802,153 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     || !translation.has("seq")
                     || !translation.has("text")) {
                     throw new IllegalArgumentException(
-                        "translation must contain only seq and text"
+                        "translation keys must be exactly [seq, text]; actual="
+                            + jsonObjectKeys(translation)
                     );
                 }
 
                 Object textValue = translation.get("text");
                 if (!(textValue instanceof String)) {
                     throw new IllegalArgumentException(
-                        "translated text must be a string"
+                        "translated text must be a string; actual_type="
+                            + jsonValueType(textValue)
                     );
                 }
                 String translatedText = (String) textValue;
+                TextNormalizationResult normalization =
+                    normalizeUnexpectedTrailingLineBreaks(
+                        sourceText,
+                        translatedText
+                    );
+                if (normalization.removedUnexpectedTrailingLineBreaks) {
+                    normalizedTrailingLineBreakCount++;
+                }
+                if (normalization.restoredLiteralTrailingLineBreaks) {
+                    restoredLiteralTrailingLineBreakCount++;
+                }
 
                 validateTranslatedText(
-                    seq,
                     sourceText,
-                    translatedText,
+                    normalization.text,
                     protectedLabels
                 );
 
-                validation.acceptedTranslations.put(seq, translatedText);
+                validation.acceptedTranslations.put(
+                    seq,
+                    normalization.text
+                );
             } catch (Exception e) {
-                validation.rejectedReasons.put(seq, safeMessage(e));
+                rejectTranslation(
+                    validation,
+                    index,
+                    seq,
+                    safeMessage(e)
+                );
             }
         }
 
-        for (Integer seq : expectedTexts.keySet()) {
+        ArrayList<Integer> expectedSeqs = new ArrayList<>(expectedTexts.keySet());
+        java.util.Collections.sort(expectedSeqs);
+        for (Integer seq : expectedSeqs) {
             if (!validation.acceptedTranslations.containsKey(seq)
                 && !validation.rejectedReasons.containsKey(seq)) {
-                validation.rejectedReasons.put(seq, "translation is missing");
+                rejectTranslation(
+                    validation,
+                    -1,
+                    seq,
+                    "translation is missing from the response"
+                );
             }
+        }
+
+        if (normalizedTrailingLineBreakCount > 0) {
+            XposedBridge.log(
+                "[HousamoTrans] Normalized unexpected trailing line breaks count="
+                    + normalizedTrailingLineBreakCount
+            );
+        }
+        if (restoredLiteralTrailingLineBreakCount > 0) {
+            XposedBridge.log(
+                "[HousamoTrans] Restored literal trailing line-break escapes count="
+                    + restoredLiteralTrailingLineBreakCount
+            );
         }
 
         return validation;
     }
 
-    private static void validateTranslatedText(
+    private static void rejectTranslation(
+        TranslationValidationResult validation,
+        int responseIndex,
         int seq,
+        String reason
+    ) {
+        validation.acceptedTranslations.remove(seq);
+        validation.rejectedReasons.put(seq, reason);
+        XposedBridge.log(
+            "[HousamoTrans] Rejected translation response_index="
+                + (responseIndex >= 0
+                    ? Integer.toString(responseIndex)
+                    : "<missing>")
+                + " seq="
+                + seq
+                + " reason="
+                + reason
+        );
+    }
+
+    private static void validateTranslatedText(
         String sourceText,
         String translatedText,
         Set<String> protectedLabels
     ) {
+        ArrayList<String> reasons = new ArrayList<>();
+
         if (translatedText.isEmpty()) {
-            throw new IllegalArgumentException(
-                "translated text is empty at seq " + seq
+            reasons.add("translated text is empty");
+        }
+
+        LineBreakProfile expectedLineBreaks = lineBreakProfile(sourceText);
+        LineBreakProfile actualLineBreaks = lineBreakProfile(translatedText);
+        if (!expectedLineBreaks.hasSameStructure(actualLineBreaks)) {
+            reasons.add(
+                "line break structure changed; expected="
+                    + expectedLineBreaks
+                    + " actual="
+                    + actualLineBreaks
             );
         }
 
-        if (!hasSameLineBreakSrc(sourceText, translatedText)) {
-            throw new IllegalArgumentException(
-                "line break structure changed at seq " + seq
+        Map<String, Integer> expectedEscapes =
+            escapedSequenceCounts(sourceText);
+        Map<String, Integer> actualEscapes =
+            escapedSequenceCounts(translatedText);
+        if (!expectedEscapes.equals(actualEscapes)) {
+            reasons.add(
+                "escape sequences changed; expected="
+                    + expectedEscapes
+                    + " actual="
+                    + actualEscapes
             );
         }
 
         for (String label : protectedLabels) {
-            if (countOccurrences(sourceText, label)
-                != countOccurrences(translatedText, label)) {
-                throw new IllegalArgumentException(
-                    "protected label count changed at seq " + seq + ": " + label
+            int expectedCount = countOccurrences(sourceText, label);
+            int actualCount = countOccurrences(translatedText, label);
+            if (expectedCount != actualCount) {
+                reasons.add(
+                    "protected label count changed; label="
+                        + label
+                        + " expected_count="
+                        + expectedCount
+                        + " actual_count="
+                        + actualCount
                 );
             }
+        }
+
+        if (!reasons.isEmpty()) {
+            throw new IllegalArgumentException(String.join("; ", reasons));
         }
     }
 
@@ -1573,8 +1971,17 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     private static String buildRetrySceneJson(
         JSONObject scene,
-        Set<Integer> requestedSeqs
+        Set<Integer> requestedSeqs,
+        Map<Integer, String> expectedTexts,
+        Map<Integer, String> rejectedReasons,
+        String summary
     ) throws Exception {
+        if (summary == null || summary.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                "accepted summary is unavailable for translation repair"
+            );
+        }
+
         JSONObject retryScene = new JSONObject(scene.toString());
         JSONArray retrySeqs = new JSONArray();
         ArrayList<Integer> orderedSeqs = new ArrayList<>(requestedSeqs);
@@ -1582,8 +1989,125 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         for (Integer seq : orderedSeqs) {
             retrySeqs.put(seq);
         }
+
+        JSONArray retryProtect = selectRetryProtect(
+            scene,
+            orderedSeqs,
+            expectedTexts
+        );
+        retryScene.put("summary", summary);
+        retryScene.put("protect", retryProtect);
         retryScene.put("retry_seqs", retrySeqs);
+
+        Set<String> retryProtectedLabels = collectProtectedLabels(retryScene);
+        JSONArray retryFeedback = new JSONArray();
+        for (Integer seq : orderedSeqs) {
+            String sourceText = expectedTexts.get(seq);
+            if (sourceText == null) {
+                throw new IllegalArgumentException(
+                    "retry seq is not present in the source scene: " + seq
+                );
+            }
+
+            String reason = rejectedReasons.get(seq);
+            if (reason == null || reason.trim().isEmpty()) {
+                reason = "translation was not accepted";
+            }
+
+            JSONObject feedback = new JSONObject()
+                .put("seq", seq)
+                .put("reason", reason)
+                .put(
+                    "required_line_breaks",
+                    lineBreakProfileJson(lineBreakProfile(sourceText))
+                )
+                .put(
+                    "required_escape_sequences",
+                    stringCountMapJson(escapedSequenceCounts(sourceText))
+                );
+
+            Map<String, Integer> protectedCounts = new java.util.TreeMap<>();
+            for (String label : retryProtectedLabels) {
+                int count = countOccurrences(sourceText, label);
+                if (count > 0) {
+                    protectedCounts.put(label, count);
+                }
+            }
+            if (!protectedCounts.isEmpty()) {
+                feedback.put(
+                    "required_protected_labels",
+                    stringCountMapJson(protectedCounts)
+                );
+            }
+            retryFeedback.put(feedback);
+        }
+        retryScene.put("retry_feedback", retryFeedback);
+
+        XposedBridge.log(
+            "[HousamoTrans] Built translation repair payload seqs="
+                + orderedSeqs
+                + " protect_tokens="
+                + retryProtect.length()
+                + " summary_included=true"
+        );
         return retryScene.toString();
+    }
+
+    private static JSONArray selectRetryProtect(
+        JSONObject scene,
+        ArrayList<Integer> orderedSeqs,
+        Map<Integer, String> expectedTexts
+    ) throws Exception {
+        JSONArray selected = new JSONArray();
+        JSONArray protect = scene.optJSONArray("protect");
+        if (protect == null || protect.length() == 0) {
+            return selected;
+        }
+
+        for (int index = 0; index < protect.length(); index++) {
+            JSONObject item = protect.getJSONObject(index);
+            String label = item.getString("label");
+            if (label.isEmpty()) {
+                continue;
+            }
+
+            boolean usedByRetry = false;
+            for (Integer seq : orderedSeqs) {
+                String sourceText = expectedTexts.get(seq);
+                if (sourceText != null && sourceText.contains(label)) {
+                    usedByRetry = true;
+                    break;
+                }
+            }
+            if (usedByRetry) {
+                selected.put(new JSONObject(item.toString()));
+            }
+        }
+        return selected;
+    }
+
+    private static JSONObject lineBreakProfileJson(LineBreakProfile profile)
+        throws Exception {
+        JSONArray internalRuns = new JSONArray();
+        for (Integer run : profile.internalRuns) {
+            internalRuns.put(run);
+        }
+        return new JSONObject()
+            .put("leading", profile.leadingCount)
+            .put("internal_runs", internalRuns)
+            .put("trailing", profile.trailingCount);
+    }
+
+    private static JSONObject stringCountMapJson(
+        Map<String, Integer> counts
+    ) throws Exception {
+        JSONObject object = new JSONObject();
+        ArrayList<String> keys = new ArrayList<>(counts.keySet());
+        java.util.Collections.sort(keys);
+        for (String key : keys) {
+            object.put(key, counts.get(key));
+        }
+        return object;
     }
 
     private static JSONObject buildCompleteTranslationResult(
@@ -1613,30 +2137,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return new JSONObject()
             .put("summary", summary)
             .put("translations", translations);
-    }
-
-    private static String formatSeqs(Set<Integer> seqs) {
-        ArrayList<Integer> orderedSeqs = new ArrayList<>(seqs);
-        java.util.Collections.sort(orderedSeqs);
-        return orderedSeqs.toString();
-    }
-
-    private static String formatRejectedReasons(
-        Set<Integer> pendingSeqs,
-        Map<Integer, String> rejectedReasons
-    ) {
-        ArrayList<Integer> orderedSeqs = new ArrayList<>(pendingSeqs);
-        java.util.Collections.sort(orderedSeqs);
-        StringBuilder result = new StringBuilder();
-        for (Integer seq : orderedSeqs) {
-            if (result.length() > 0) {
-                result.append("; ");
-            }
-            result.append(seq)
-                .append('=')
-                .append(rejectedReasons.getOrDefault(seq, "unknown validation error"));
-        }
-        return result.toString();
     }
 
     private static int countOccurrences(String text, String token) {
@@ -1748,7 +2248,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
 
         String baseDir = lpparam.appInfo.dataDir + "/files/housamo_embed_trans";
-        sTargetContext = context.getApplicationContext();
+        Context applicationContext = context.getApplicationContext();
+        sTargetContext = applicationContext != null
+            ? applicationContext
+            : context;
+        if (applicationContext == null) {
+            XposedBridge.log(
+                "[HousamoTrans] Application context is not ready during attach; "
+                    + "using the base context"
+            );
+        }
 
         try {
             XposedBridge.log(
@@ -1774,6 +2283,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             new File(baseDir).mkdirs();
             File targetSceneDirectory = new File(baseDir, SceneStore.DIRECTORY_NAME);
             targetSceneDirectory.mkdirs();
+            sFailedApiDirectory = new File(
+                targetSceneDirectory,
+                FAILED_API_DIRECTORY_NAME
+            );
             startSceneMirrorSync(sTargetContext, targetSceneDirectory);
             System.loadLibrary("housamo_trans");
             XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
@@ -1808,6 +2321,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + sTranslationConfig.networkRetryCount
                     + " resultRepairCount="
                     + sTranslationConfig.resultRepairCount
+                    + " failedApiResponseDump="
+                    + sTranslationConfig.dumpFailedApiResponse
             );
         } catch (Throwable t) {
             XposedBridge.log(

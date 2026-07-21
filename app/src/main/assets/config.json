@@ -3,6 +3,7 @@
     "UserSettings": {
         "EnablePageRecDebug": false,
         "EnableParseOnlyDebug": false,
+        "EnableFailedApiResponseDump": false,
         "OverwriteExistingJson": false,
         "CharacterWeight": {
             "HighRelevance": 4.0,
