@@ -8,6 +8,10 @@ import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.text.TextUtils;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -17,17 +21,19 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Batch import/export UI for schema-valid scene files. */
+/** UI for importing, exporting, and deleting schema-valid scene data. */
 public final class SceneFilesActivity extends AppCompatActivity {
 
     private SceneStore sceneStore;
@@ -35,10 +41,19 @@ public final class SceneFilesActivity extends AppCompatActivity {
     private TextView lastResult;
     private MaterialButton importButton;
     private MaterialButton exportButton;
+    private MaterialButton deleteLanguageButton;
+    private MaterialButton deleteFileButton;
+    private Spinner sceneFileSpinner;
+    private Spinner sceneLanguageSpinner;
+    private ArrayAdapter<String> sceneFileAdapter;
+    private ArrayAdapter<String> sceneLanguageAdapter;
+    private final List<SceneStore.SceneInfo> scenes = new ArrayList<>();
+    private final List<String> sceneFileLabels = new ArrayList<>();
+    private final List<String> sceneLanguages = new ArrayList<>();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<String[]> importLauncher;
     private ActivityResultLauncher<Uri> exportLauncher;
-    private int sceneCount;
+    private boolean busy = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,7 +70,30 @@ public final class SceneFilesActivity extends AppCompatActivity {
         lastResult = findViewById(R.id.tv_scene_last_result);
         importButton = findViewById(R.id.btn_import_scenes);
         exportButton = findViewById(R.id.btn_export_scenes);
-        exportButton.setEnabled(false);
+        deleteLanguageButton = findViewById(R.id.btn_delete_scene_language);
+        deleteFileButton = findViewById(R.id.btn_delete_scene_file);
+        sceneFileSpinner = findViewById(R.id.spinner_scene_file);
+        sceneLanguageSpinner = findViewById(R.id.spinner_scene_language);
+
+        sceneFileAdapter = new ArrayAdapter<>(
+            this,
+            android.R.layout.simple_spinner_item,
+            sceneFileLabels
+        );
+        sceneFileAdapter.setDropDownViewResource(
+            android.R.layout.simple_spinner_dropdown_item
+        );
+        sceneFileSpinner.setAdapter(sceneFileAdapter);
+
+        sceneLanguageAdapter = new ArrayAdapter<>(
+            this,
+            android.R.layout.simple_spinner_item,
+            sceneLanguages
+        );
+        sceneLanguageAdapter.setDropDownViewResource(
+            android.R.layout.simple_spinner_dropdown_item
+        );
+        sceneLanguageSpinner.setAdapter(sceneLanguageAdapter);
 
         importLauncher = registerForActivityResult(
             new ActivityResultContracts.OpenMultipleDocuments(),
@@ -73,7 +111,48 @@ public final class SceneFilesActivity extends AppCompatActivity {
             "application/octet-stream"
         }));
         exportButton.setOnClickListener(view -> exportLauncher.launch(null));
-        refreshSummaryAsync();
+        deleteLanguageButton.setOnClickListener(
+            view -> confirmDeleteLanguage()
+        );
+        deleteFileButton.setOnClickListener(view -> confirmDeleteFile());
+        sceneFileSpinner.setOnItemSelectedListener(
+            new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(
+                    AdapterView<?> parent,
+                    View view,
+                    int position,
+                    long id
+                ) {
+                    updateLanguageChoices(null);
+                }
+
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+                    updateLanguageChoices(null);
+                }
+            }
+        );
+        sceneLanguageSpinner.setOnItemSelectedListener(
+            new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(
+                    AdapterView<?> parent,
+                    View view,
+                    int position,
+                    long id
+                ) {
+                    updateActionState();
+                }
+
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+                    updateActionState();
+                }
+            }
+        );
+        updateActionState();
+        refreshScenesAsync();
     }
 
     private void importScenes(List<Uri> uris) {
@@ -102,12 +181,12 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
             int finalImported = imported;
             int finalRejected = rejected;
-            int finalSceneCount = sceneStore.listValidScenes().size();
+            List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) {
                     return;
                 }
-                updateSummary(finalSceneCount);
+                updateScenes(refreshedScenes, null, null);
                 setBusy(false);
                 showResult(getString(
                     R.string.scene_import_result,
@@ -238,26 +317,228 @@ public final class SceneFilesActivity extends AppCompatActivity {
         );
     }
 
-    private void refreshSummaryAsync() {
+    private void refreshScenesAsync() {
+        setBusy(true);
         ioExecutor.execute(() -> {
-            int count = sceneStore.listValidScenes().size();
+            List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
             runOnUiThread(() -> {
                 if (!isFinishing() && !isDestroyed()) {
-                    updateSummary(count);
+                    updateScenes(refreshedScenes, null, null);
                     setBusy(false);
                 }
             });
         });
     }
 
-    private void updateSummary(int count) {
-        sceneCount = count;
-        summary.setText(getString(R.string.scene_files_summary, count));
+    private void updateScenes(
+        List<SceneStore.SceneInfo> refreshedScenes,
+        String preferredFileName,
+        String preferredLanguage
+    ) {
+        SceneStore.SceneInfo previousScene = selectedScene();
+        String wantedFileName = preferredFileName;
+        if (wantedFileName == null && previousScene != null) {
+            wantedFileName = previousScene.fileName;
+        }
+
+        String wantedLanguage = preferredLanguage;
+        if (wantedLanguage == null && previousScene != null
+            && previousScene.fileName.equals(wantedFileName)) {
+            wantedLanguage = selectedLanguage();
+        }
+
+        scenes.clear();
+        scenes.addAll(refreshedScenes);
+        sceneFileLabels.clear();
+        if (scenes.isEmpty()) {
+            sceneFileLabels.add(getString(R.string.scene_files_empty));
+        } else {
+            for (SceneStore.SceneInfo scene : scenes) {
+                sceneFileLabels.add(scene.fileName);
+            }
+        }
+        sceneFileAdapter.notifyDataSetChanged();
+
+        int selectedIndex = indexOfScene(wantedFileName);
+        sceneFileSpinner.setSelection(selectedIndex < 0 ? 0 : selectedIndex, false);
+        summary.setText(getString(R.string.scene_files_summary, scenes.size()));
+        updateLanguageChoices(wantedLanguage);
     }
 
     private void setBusy(boolean busy) {
+        this.busy = busy;
+        updateActionState();
+    }
+
+    private void updateLanguageChoices(String preferredLanguage) {
+        sceneLanguages.clear();
+        SceneStore.SceneInfo scene = selectedScene();
+        if (scene == null || scene.languages.isEmpty()) {
+            sceneLanguages.add(getString(R.string.scene_languages_empty));
+        } else {
+            sceneLanguages.addAll(scene.languages);
+        }
+        sceneLanguageAdapter.notifyDataSetChanged();
+
+        int selectedIndex = sceneLanguages.indexOf(preferredLanguage);
+        sceneLanguageSpinner.setSelection(selectedIndex < 0 ? 0 : selectedIndex, false);
+        updateActionState();
+    }
+
+    private void updateActionState() {
+        boolean hasScene = selectedScene() != null;
+        boolean hasLanguage = selectedLanguage() != null;
         importButton.setEnabled(!busy);
-        exportButton.setEnabled(!busy && sceneCount > 0);
+        exportButton.setEnabled(!busy && !scenes.isEmpty());
+        sceneFileSpinner.setEnabled(!busy && hasScene);
+        sceneLanguageSpinner.setEnabled(!busy && hasLanguage);
+        deleteLanguageButton.setEnabled(!busy && hasLanguage);
+        deleteFileButton.setEnabled(!busy && hasScene);
+    }
+
+    private SceneStore.SceneInfo selectedScene() {
+        int position = sceneFileSpinner.getSelectedItemPosition();
+        return position >= 0 && position < scenes.size()
+            ? scenes.get(position)
+            : null;
+    }
+
+    private String selectedLanguage() {
+        SceneStore.SceneInfo scene = selectedScene();
+        int position = sceneLanguageSpinner.getSelectedItemPosition();
+        return scene != null
+            && !scene.languages.isEmpty()
+            && position >= 0
+            && position < sceneLanguages.size()
+            ? sceneLanguages.get(position)
+            : null;
+    }
+
+    private int indexOfScene(String fileName) {
+        if (fileName == null) {
+            return -1;
+        }
+        for (int index = 0; index < scenes.size(); index++) {
+            if (fileName.equals(scenes.get(index).fileName)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private void confirmDeleteLanguage() {
+        SceneStore.SceneInfo scene = selectedScene();
+        String language = selectedLanguage();
+        if (scene == null || language == null) {
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.delete_scene_language_title)
+            .setMessage(getString(
+                R.string.delete_scene_language_message,
+                language,
+                scene.fileName
+            ))
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.delete_scene_language,
+                (dialog, which) -> deleteLanguage(scene.fileName, language)
+            )
+            .show();
+    }
+
+    private void deleteLanguage(String fileName, String language) {
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                sceneStore.removeLanguage(fileName, language);
+                List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    updateScenes(refreshedScenes, fileName, null);
+                    setBusy(false);
+                    showResult(getString(
+                        R.string.scene_language_deleted,
+                        language,
+                        fileName
+                    ), "");
+                });
+            } catch (Exception e) {
+                showOperationFailure(safeMessage(e));
+            }
+        });
+    }
+
+    private void confirmDeleteFile() {
+        SceneStore.SceneInfo scene = selectedScene();
+        if (scene == null) {
+            return;
+        }
+
+        String preferredFileName = neighboringFileName(
+            sceneFileSpinner.getSelectedItemPosition()
+        );
+        new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.delete_scene_file_title)
+            .setMessage(getString(
+                R.string.delete_scene_file_message,
+                scene.fileName
+            ))
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.delete_scene_file,
+                (dialog, which) -> deleteFile(
+                    scene.fileName,
+                    preferredFileName
+                )
+            )
+            .show();
+    }
+
+    private String neighboringFileName(int selectedIndex) {
+        if (scenes.size() <= 1 || selectedIndex < 0) {
+            return null;
+        }
+        int neighborIndex = selectedIndex + 1 < scenes.size()
+            ? selectedIndex + 1
+            : selectedIndex - 1;
+        return scenes.get(neighborIndex).fileName;
+    }
+
+    private void deleteFile(String fileName, String preferredFileName) {
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                sceneStore.deleteScene(fileName);
+                List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    updateScenes(refreshedScenes, preferredFileName, null);
+                    setBusy(false);
+                    showResult(getString(
+                        R.string.scene_file_deleted,
+                        fileName
+                    ), "");
+                });
+            } catch (Exception e) {
+                showOperationFailure(safeMessage(e));
+            }
+        });
+    }
+
+    private void showOperationFailure(String reason) {
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            setBusy(false);
+            showResult(getString(R.string.scene_operation_failed, reason), "");
+        });
     }
 
     private void showResult(String message, String details) {

@@ -40,6 +40,64 @@
             android:text="@string/scene_files_loading"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/scene_management_title"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+            android:textStyle="bold" />
+
+        <TextView
+            style="@style/Widget.HET.FieldLabel"
+            android:text="@string/scene_file_label" />
+
+        <Spinner
+            android:id="@+id/spinner_scene_file"
+            style="@style/Widget.HET.Spinner" />
+
+        <TextView
+            style="@style/Widget.HET.FieldLabel"
+            android:text="@string/scene_language_label" />
+
+        <Spinner
+            android:id="@+id/spinner_scene_language"
+            style="@style/Widget.HET.Spinner" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_delete_scene_language"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/delete_scene_language" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/delete_scene_language_hint"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+            android:textColor="?android:attr/textColorSecondary" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_delete_scene_file"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/delete_scene_file"
+            android:textColor="?attr/colorError"
+            app:strokeColor="?attr/colorError" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/delete_scene_file_hint"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+            android:textColor="?android:attr/textColorSecondary" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_import_scenes"
             android:layout_width="match_parent"

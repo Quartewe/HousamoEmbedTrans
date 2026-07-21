@@ -34,6 +34,7 @@ public final class UserConfigProvider extends ContentProvider {
     static final String METHOD_LIST_SCENES = "list_scenes";
     static final String RESULT_API_KEY = "api_key";
     static final String RESULT_SCENES = "scenes";
+    static final String RESULT_DELETED_SCENES = "deleted_scenes";
 
     private static final String TAG = "HET.UserFiles";
     private static final String MODULE_PACKAGE = "com.quarty.housamoembedtrans";
@@ -107,6 +108,10 @@ public final class UserConfigProvider extends ContentProvider {
             result.putStringArrayList(
                 RESULT_SCENES,
                 new ArrayList<>(sceneStore.listValidFileNames())
+            );
+            result.putStringArrayList(
+                RESULT_DELETED_SCENES,
+                new ArrayList<>(sceneStore.listDeletedFileNames())
             );
             return result;
         }
