@@ -7,7 +7,9 @@
     "scene",
     "game_version",
     "raw_lang",
-    "target_lang",
+    "provider",
+    "model",
+    "translated",
     "character",
     "mentioned_characters",
     "game_terms",
@@ -20,6 +22,15 @@
     "game_version": { "type": "string", "minLength": 1 },
     "raw_lang": { "type": "string", "minLength": 1 },
     "target_lang": { "type": "string", "minLength": 1 },
+    "provider": {
+      "$ref": "#/$defs/languageStringMap"
+    },
+    "model": {
+      "$ref": "#/$defs/languageStringMap"
+    },
+    "translated": {
+      "$ref": "#/$defs/languageBooleanMap"
+    },
     "character": { "$ref": "#/$defs/characterContext" },
     "mentioned_characters": {
       "type": "array",
@@ -33,7 +44,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/protectedToken" }
     },
-    "summary": { "type": "string" },
+    "summary": { "$ref": "#/$defs/languageStringMap" },
     "scene_items": {
       "type": "array",
       "items": { "$ref": "#/$defs/sceneItem" }
@@ -141,8 +152,9 @@
     },
     "protectedToken": {
       "type": "object",
-      "required": ["label", "origin"],
+      "required": ["order", "label", "origin"],
       "properties": {
+        "order": { "$ref": "#/$defs/orderKey" },
         "label": { "type": "string", "minLength": 1 },
         "origin": { "type": "string", "minLength": 1 }
       },
@@ -159,6 +171,27 @@
       },
       "additionalProperties": false
     },
+    "languageStringMap": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "languageBooleanMap": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
     "textItem": {
       "type": "object",
       "required": ["type", "order", "speaker", "text", "translations"],
@@ -167,7 +200,7 @@
         "order": { "$ref": "#/$defs/orderKey" },
         "speaker": { "type": "string" },
         "text": { "type": "string" },
-        "translations": { "type": "object", "additionalProperties": true }
+        "translations": { "$ref": "#/$defs/languageStringMap" }
       },
       "additionalProperties": false
     },

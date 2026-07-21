@@ -20,15 +20,41 @@
 #include "jni_bridge.hpp"
 
 namespace {
+using ProtectedTokenMap =
+    std::unordered_map<
+        OrderKey,
+        std::vector<ProtectedToken>,
+        OrderKeyHash
+    >;
+
+enum class ApiResponseKind {
+    success,
+    api_error,
+    invalid
+};
+
+struct ApiResponse {
+    ApiResponseKind kind = ApiResponseKind::invalid;
+    std::string provider;
+    std::string model;
+    std::string target_lang;
+    std::string summary;
+    std::string error_type;
+    std::string error_message;
+    int error_code = 0;
+    std::vector<std::string> translations;
+};
 
 struct JsonItem {
     std::string scene_name;
+    std::string target_lang;
     rapidjson::Document process_doc;
     std::shared_ptr<const Scene> scene;
 };
 
 struct ApiItem {
     std::string scene_name;
+    std::string target_lang;
     std::string api_doc;
     std::vector<OrderKey> seq_to_order; // seq N maps to index N - 1
 };
@@ -51,6 +77,94 @@ struct JsonSceneResItem {
 
 static rapidjson::Value JsonString(const std::string& str, rapidjson::Document::AllocatorType& alloc) {
     return rapidjson::Value(str.c_str(), static_cast<rapidjson::SizeType>(str.length()), alloc);
+}
+
+static bool IsLanguageStringMap(const rapidjson::Value& value) {
+    if (!value.IsObject()) {
+        return false;
+    }
+
+    for (auto member = value.MemberBegin(); member != value.MemberEnd(); ++member) {
+        if (member->name.GetStringLength() == 0
+            || !member->value.IsString()
+            || member->value.GetStringLength() == 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool IsLanguageBooleanMap(const rapidjson::Value& value) {
+    if (!value.IsObject()) {
+        return false;
+    }
+
+    for (auto member = value.MemberBegin(); member != value.MemberEnd(); ++member) {
+        if (member->name.GetStringLength() == 0 || !member->value.IsBool()) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool IsLanguageTranslated(
+    const rapidjson::Value& translated,
+    const std::string& target_lang) {
+    if (!IsLanguageBooleanMap(translated) || target_lang.empty()) {
+        return false;
+    }
+
+    const auto member = translated.FindMember(target_lang.c_str());
+    return member != translated.MemberEnd() && member->value.GetBool();
+}
+
+static bool UpsertLanguageString(
+    rapidjson::Value& object,
+    const std::string& target_lang,
+    const std::string& value,
+    rapidjson::Document::AllocatorType& alloc) {
+    if (!object.IsObject() || target_lang.empty()) {
+        return false;
+    }
+
+    auto member = object.FindMember(target_lang.c_str());
+    if (member == object.MemberEnd()) {
+        object.AddMember(
+            JsonString(target_lang, alloc),
+            JsonString(value, alloc),
+            alloc
+        );
+    } else {
+        member->value.SetString(
+            value.c_str(),
+            static_cast<rapidjson::SizeType>(value.size()),
+            alloc
+        );
+    }
+
+    return true;
+}
+
+static bool UpsertLanguageBoolean(
+    rapidjson::Value& object,
+    const std::string& target_lang,
+    bool value,
+    rapidjson::Document::AllocatorType& alloc) {
+    if (!object.IsObject() || target_lang.empty()) {
+        return false;
+    }
+
+    auto member = object.FindMember(target_lang.c_str());
+    if (member == object.MemberEnd()) {
+        rapidjson::Value language = JsonString(target_lang, alloc);
+        object.AddMember(language, value, alloc);
+    } else {
+        member->value.SetBool(value);
+    }
+
+    return true;
 }
 
 static rapidjson::Value JsonStringArray(const std::vector<std::string>& arr, rapidjson::Document::AllocatorType& alloc) {
@@ -162,8 +276,18 @@ static rapidjson::Value JsonGameTermArray(const std::vector<GameTerm>& terms, ra
     return arr;
 }
 
+static rapidjson::Value JsonOrderKey(const OrderKey& order, rapidjson::Document::AllocatorType& alloc) {
+    rapidjson::Value obj(rapidjson::kObjectType);
+    obj.AddMember("label_index", order.label_index, alloc);
+    obj.AddMember("page_no", order.page_no, alloc);
+    obj.AddMember("cmd_index", order.cmd_index, alloc);
+    obj.AddMember("sub_index", order.sub_index, alloc);
+    return obj;
+}
+
 static rapidjson::Value JsonProtectedToken(const ProtectedToken& token, rapidjson::Document::AllocatorType& alloc) {
     rapidjson::Value obj(rapidjson::kObjectType);
+    obj.AddMember("order", JsonOrderKey(token.order, alloc), alloc);
     obj.AddMember("label", JsonString(token.label, alloc), alloc);
     obj.AddMember("origin", JsonString(token.origin, alloc), alloc);
     return obj;
@@ -177,13 +301,15 @@ static rapidjson::Value JsonProtectedTokenArray(const std::vector<ProtectedToken
     return arr;
 }
 
-static rapidjson::Value JsonOrderKey(const OrderKey& order, rapidjson::Document::AllocatorType& alloc) {
-    rapidjson::Value obj(rapidjson::kObjectType);
-    obj.AddMember("label_index", order.label_index, alloc);
-    obj.AddMember("page_no", order.page_no, alloc);
-    obj.AddMember("cmd_index", order.cmd_index, alloc);
-    obj.AddMember("sub_index", order.sub_index, alloc);
-    return obj;
+static rapidjson::Value ApiProtectedTokenArray(const std::vector<ProtectedToken>& tokens, rapidjson::Document::AllocatorType& alloc) {
+    rapidjson::Value arr(rapidjson::kArrayType);
+    for (const auto& token : tokens) {
+        rapidjson::Value obj(rapidjson::kObjectType);
+        obj = JsonProtectedToken(token, alloc);
+        obj.RemoveMember("order");
+        arr.PushBack(obj, alloc);
+    }
+    return arr;
 }
 
 static rapidjson::Value JsonTextItem(const TextItem& text_item, rapidjson::Document::AllocatorType& alloc) {
@@ -553,6 +679,54 @@ static bool ReadSeqToOrder(
     return true;
 }
 
+static bool ReadProtectedTokens(const rapidjson::Value& value, ProtectedTokenMap* out) {
+    if (!out || !value.IsArray()) {
+        return false;
+    }
+
+    out->clear();
+    out->reserve(value.Size());
+
+    for (const rapidjson::Value& token_item : value.GetArray()) {
+        if (!token_item.IsObject()) {
+            return false;
+        }
+
+        const auto order_member = token_item.FindMember("order");
+        const auto label_member = token_item.FindMember("label");
+        const auto origin_member = token_item.FindMember("origin");
+        if (order_member == token_item.MemberEnd()
+            || label_member == token_item.MemberEnd()
+            || origin_member == token_item.MemberEnd()) {
+            return false;
+        }
+
+        OrderKey order;
+        if (!ReadOrderKey(order_member->value, &order)) {
+            return false;
+        }
+
+        if (!label_member->value.IsString() || !origin_member->value.IsString()) {
+            return false;
+        }
+
+        ProtectedToken token;
+        token.order = order;
+        token.label = label_member->value.GetString();
+        token.origin = origin_member->value.GetString();
+
+        auto it = out->find(token.order);
+        if (it == out->end()) {
+            out->insert({token.order, {token}});
+        } else {
+            it->second.push_back(token);
+        }
+    }
+
+    return true;
+
+}
+
 static bool JsonStringEquals(const rapidjson::Value& value, const char* expected) {
     const size_t expected_size = std::strlen(expected);
     return value.IsString()
@@ -609,7 +783,7 @@ static bool ConvertExistingTextToApi(
     const auto translations_member = item.FindMember("translations");
     if (order_member == item.MemberEnd()
         || translations_member == item.MemberEnd()
-        || !translations_member->value.IsObject()
+        || !IsLanguageStringMap(translations_member->value)
         || *cursor >= seq_to_order.size()) {
         return false;
     }
@@ -862,7 +1036,7 @@ private:
         api_out.CopyFrom(json_item.process_doc, api_alloc);
         api_out.RemoveMember("translated");
         out.AddMember("protect", JsonProtectedTokenArray(json_item.scene->protect, alloc), alloc);
-        api_out.AddMember("protect", JsonProtectedTokenArray(json_item.scene->protect, api_alloc), api_alloc);
+        api_out.AddMember("protect", ApiProtectedTokenArray(json_item.scene->protect, api_alloc), api_alloc);
 
         rapidjson::Value json_items(rapidjson::kArrayType);
         rapidjson::Value api_items(rapidjson::kArrayType);
@@ -885,30 +1059,21 @@ private:
             seq_to_order.PushBack(seq_item, alloc);
         }
 
+        api_out.AddMember("target_lang", JsonString(json_item.target_lang, api_alloc), api_alloc);
+
+        rapidjson::Value providers(rapidjson::kObjectType);
+        rapidjson::Value models(rapidjson::kObjectType);
+        rapidjson::Value summaries(rapidjson::kObjectType);
+        out.AddMember("provider", providers, alloc);
+        out.AddMember("model", models, alloc);
         out.AddMember("seq_to_order", seq_to_order, alloc);
-        out.AddMember("summary", "", alloc);
+        out.AddMember("summary", summaries, alloc);
         out.AddMember("scene_items", json_items, alloc);
         api_out.AddMember("scene_items", api_items, api_alloc);
-
+        
     }
 
-    bool WriteJsonToFile(const rapidjson::Document& doc, const std::string& scene_name) {
-        const auto& base_dir = g_runtime_config.base_dir;
-        if (!doc.IsObject() || base_dir.empty() || scene_name.empty()) {
-            return false;
-        }
-
-        std::string path = FormalPath(scene_name);
-        
-        if (path.empty()) {
-            return false;
-        } else if (HaveFile(path)) {
-            if (!g_runtime_config.overwrite_existing) {
-                LOGI("[JsonHandler] Scene %s already exists, skipping", scene_name.c_str());
-                return true;
-            } 
-        }
-
+    bool WriteJsonToFile(const rapidjson::Document& doc, const std::string& path) {
         const std::string temp_path = path + ".tmp";
         const std::string final_path = path + ".json";
 
@@ -916,7 +1081,7 @@ private:
         rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
 
         if (!doc.Accept(writer)) {
-            LOGE("[JsonHandler] Failed to write JSON for scene %s", scene_name.c_str());
+            LOGE("[JsonHandler] Failed to write JSON for path %s", path.c_str());
             return false;
         }
 
@@ -951,20 +1116,430 @@ private:
         }
 
         LOGI(
-            "[JsonHandler] scene written scene=%s path=%s bytes=%zu",
-            scene_name.c_str(),
+            "[JsonHandler] scene written path=%s bytes=%zu",
             final_path.c_str(),
             buffer.GetSize()
         );
 
         if (!JavaStoreScene(buffer.GetString(), buffer.GetSize())) {
             LOGW(
-                "[JsonHandler] Scene was written locally but mirror update failed scene=%s",
-                scene_name.c_str()
+                "[JsonHandler] Scene was written locally but mirror update failed path=%s",
+                final_path.c_str()
             );
         }
 
         return true;
+    }
+
+    bool WriteSceneToFile(const rapidjson::Document& doc, const std::string& scene_name) {
+        const auto& base_dir = g_runtime_config.base_dir;
+        if (!doc.IsObject() || base_dir.empty() || scene_name.empty()) {
+            return false;
+        }
+
+        std::string path = FormalPath(scene_name);
+        
+        if (path.empty()) {
+            return false;
+        } else if (HaveFile(path) && !g_runtime_config.overwrite_existing) {
+            LOGI("[JsonHandler] Scene %s already exists, skipping", scene_name.c_str());
+            return true;
+        }
+
+        return WriteJsonToFile(doc, path);
+    }
+
+    static bool ReplaceProtectToken(std::string& text, const std::vector<ProtectedToken>& tokens) {
+        if (tokens.empty()) {
+            return true;
+        }
+        
+        if (text.empty()) {
+            return false;
+        }
+
+        for (const auto& token : tokens) {
+            size_t pos = text.find(token.label);
+            if (pos == std::string::npos) {
+                return false;
+            }
+
+            text.replace(pos, token.label.length(), token.origin);
+        }
+
+        return true;
+    }
+
+    static bool ApplyTranslationToText(
+        rapidjson::Value& item, 
+        const std::string& target_lang, 
+        const std::string& translation, 
+        const OrderKey& target_order,
+        const std::vector<ProtectedToken>& protect,
+        int* order_cursor,
+        rapidjson::Document::AllocatorType& alloc) {
+        if (!order_cursor || !item.IsObject()) {
+            return false;
+        }
+
+        const auto order_member = item.FindMember("order");
+        const auto translations_member = item.FindMember("translations");
+
+        if (order_member == item.MemberEnd()
+            || translations_member == item.MemberEnd()
+            || !IsLanguageStringMap(translations_member->value)) {
+            return false;
+        }
+        
+        std::string replaced_translation = translation;
+        if (!ReplaceProtectToken(replaced_translation, protect)) {
+            LOGE(
+                "[JsonHandler] ApplyTranslationToText: failed to replace protect token for order index %d",
+                *order_cursor
+            );
+            return false;
+        }
+
+        OrderKey order;
+        if (!ReadOrderKey(order_member->value, &order)) {
+            return false;
+        }
+
+        if (!SameOrderKey(order, target_order)) {
+            return false;
+        }
+
+        rapidjson::Value& translations = translations_member->value;
+        if (!UpsertLanguageString(
+                translations,
+                target_lang,
+                replaced_translation,
+                alloc)) {
+            return false;
+        }
+
+        ++(*order_cursor);
+        return true;
+    }
+    
+    static bool ApplyTranslationsToSceneItem(
+        rapidjson::Value& items, 
+        const ApiResponse& response, 
+        const std::vector<OrderKey>& file_seq_to_order, 
+        ProtectedTokenMap& protect_tokens,
+        int* order_cursor, 
+        rapidjson::Document::AllocatorType& alloc) {
+        if (!order_cursor || !items.IsArray()) return false;
+        
+        for (auto& item : items.GetArray()) {
+            if (!item.IsObject() || !item.HasMember("type") || !item.FindMember("type")->value.IsString()) {
+                LOGE(
+                    "[JsonHandler] ApplyTranslationsToSceneItem: scene item missing or invalid type"
+                );
+                return false;
+            }
+
+            switch (item.FindMember("type")->value.GetString()[0]) {
+                case 't': { // text
+                    if (!order_cursor || 
+                        *order_cursor < 0 || 
+                        static_cast<size_t>(*order_cursor) >= response.translations.size() || 
+                        static_cast<size_t>(*order_cursor) >= file_seq_to_order.size()) 
+                        return false;
+
+                    std::vector<ProtectedToken> protect_item;
+                    
+                    if (protect_tokens.find(file_seq_to_order[*order_cursor]) != protect_tokens.end()) {
+                        protect_item = protect_tokens.at(file_seq_to_order[*order_cursor]);
+                    }
+
+                    if (!ApplyTranslationToText(
+                        item, 
+                        response.target_lang, 
+                        response.translations[*order_cursor], 
+                        file_seq_to_order[*order_cursor], 
+                        protect_item,
+                        order_cursor, 
+                        alloc)) {
+                            LOGE(
+                                "[JsonHandler] ApplyTranslationsToSceneItem: failed to apply translation to text item at order index %d",
+                                *order_cursor
+                            );
+                            return false;
+                        }
+                    protect_tokens.erase(file_seq_to_order[*order_cursor - 1]);
+                    break;
+                }
+                case 'i': {// if
+                    const auto& following_text = item.FindMember("following_text");
+                    if (following_text == item.MemberEnd() || !following_text->value.IsArray()){
+                        LOGE(
+                            "[JsonHandler] ApplyTranslationsToSceneItem: choice item missing or invalid following_text"
+                        );
+                        return false;
+                    }
+                        
+                    if (!ApplyTranslationsToSceneItem(following_text->value, response, file_seq_to_order, protect_tokens, order_cursor, alloc)) {
+                        LOGE(
+                            "[JsonHandler] ApplyTranslationsToSceneItem: failed to apply translations to if following_text"
+                        );
+                        return false;
+                    }
+                    break;
+                }
+                case 'c': {// choice
+                    const auto& branches = item.FindMember("branches");
+                    if (branches == item.MemberEnd() || !branches->value.IsArray()) {
+                        LOGE(
+                            "[JsonHandler] ApplyTranslationsToSceneItem: choice item missing or invalid branches"
+                        );
+                        return false;
+                    }
+                    for (auto& branch : branches->value.GetArray()) {
+                        if (!branch.IsObject() || !branch.HasMember("options")) {
+                            LOGE(
+                                "[JsonHandler] ApplyTranslationsToSceneItem: choice branch missing or invalid options"
+                            );
+                            return false;
+                        }
+                        const auto& options = branch.FindMember("options");
+                        if (options == branch.MemberEnd() || !options->value.IsArray()) {
+                            LOGE(
+                                "[JsonHandler] ApplyTranslationsToSceneItem: choice branch missing or invalid options"
+                            );
+                            return false;
+                        }
+                        for (auto& option : options->value.GetArray()) {
+                            if (!order_cursor || 
+                                *order_cursor < 0 || 
+                                static_cast<size_t>(*order_cursor) >= response.translations.size() || 
+                                static_cast<size_t>(*order_cursor) >= file_seq_to_order.size()) 
+                                return false;
+
+                            std::vector<ProtectedToken> protect_item;
+                            
+                            if (protect_tokens.find(file_seq_to_order[*order_cursor]) != protect_tokens.end()) {
+                                protect_item = protect_tokens.at(file_seq_to_order[*order_cursor]);
+                            }
+                            
+                            if (!ApplyTranslationToText(
+                                option, 
+                                response.target_lang, 
+                                response.translations[*order_cursor], 
+                                file_seq_to_order[*order_cursor], 
+                                protect_item,
+                                order_cursor, 
+                                alloc)) {
+                                    LOGE(
+                                        "[JsonHandler] ApplyTranslationsToSceneItem: failed to apply translation to choice option at order index %d",
+                                        *order_cursor
+                                    );
+                                    return false;
+                                }
+                            protect_tokens.erase(file_seq_to_order[*order_cursor - 1]);
+                        }
+                        const auto& following_text = branch.FindMember("following_text");
+                        if (following_text == branch.MemberEnd() || !following_text->value.IsArray()){
+                            LOGE(
+                                "[JsonHandler] ApplyTranslationsToSceneItem: choice item missing or invalid following_text"
+                            );
+                            return false;
+                        }
+                        // 调用本身递归
+                        if (!ApplyTranslationsToSceneItem(following_text->value, response, file_seq_to_order, protect_tokens, order_cursor, alloc)) {
+                            LOGE(
+                                "[JsonHandler] ApplyTranslationsToSceneItem: failed to apply translations to choice following_text"
+                            );
+                            return false;
+                        }
+                    }
+
+                    break;
+                }
+                default: {
+                    LOGE(
+                        "[JsonHandler] ApplyTranslationsToSceneItem: unknown scene item type"
+                    );
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool WriteTranslationToFile(const ApiItem& api_item, const ApiResponse& response) {
+        if (api_item.scene_name.empty()
+            || response.kind != ApiResponseKind::success
+            || response.provider.empty()
+            || response.model.empty()
+            || response.target_lang.empty()
+            || response.summary.empty()
+            || response.translations.size() != api_item.seq_to_order.size()) {
+            return false;
+        }
+
+        rapidjson::Document doc;
+        if (!ReadFile(api_item.scene_name, doc)) {
+            return false;
+        }
+
+        const auto& scene = doc.FindMember("scene");
+        if (scene == doc.MemberEnd() || !scene->value.IsString()) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: scene missing or invalid",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        if (api_item.target_lang != response.target_lang) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: target_lang missing or invalid",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        auto translated = doc.FindMember("translated");
+        if (translated == doc.MemberEnd()
+            || !IsLanguageBooleanMap(translated->value)
+            || IsLanguageTranslated(translated->value, api_item.target_lang)) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: translated missing or invalid",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        auto summary = doc.FindMember("summary");
+        auto provider = doc.FindMember("provider");
+        auto model = doc.FindMember("model");
+        if (summary == doc.MemberEnd()
+            || !IsLanguageStringMap(summary->value)
+            || provider == doc.MemberEnd()
+            || !IsLanguageStringMap(provider->value)
+            || model == doc.MemberEnd()
+            || !IsLanguageStringMap(model->value)) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: language metadata missing or invalid",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        const auto& seq_to_order = doc.FindMember("seq_to_order");
+        std::vector<OrderKey> file_seq_to_order;
+        if (seq_to_order != doc.MemberEnd() && seq_to_order->value.IsArray()) {
+            if (seq_to_order->value.Size() != api_item.seq_to_order.size()) {
+                LOGE(
+                    "[JsonHandler] API response translation count mismatch for scene %s: expected=%zu got=%zu",
+                    api_item.scene_name.c_str(),
+                    api_item.seq_to_order.size(),
+                    static_cast<size_t>(seq_to_order->value.Size())
+                );
+                return false;
+            }
+            if (!ReadSeqToOrder(seq_to_order->value, &file_seq_to_order)) {
+                LOGE(
+                    "[JsonHandler] API response translation count mismatch for scene %s: seq_to_order invalid",
+                    api_item.scene_name.c_str()
+                );
+                return false;
+            }
+            if (file_seq_to_order.size() != api_item.seq_to_order.size()) {
+                LOGE(
+                    "[JsonHandler] API response translation count mismatch for scene %s: seq_to_order mismatch",
+                    api_item.scene_name.c_str()
+                );
+                return false;
+            }
+            for (size_t i = 0; i < file_seq_to_order.size(); ++i) {
+                if (!SameOrderKey(file_seq_to_order[i], api_item.seq_to_order[i])) {
+                    LOGE(
+                        "[JsonHandler] API response translation count mismatch for scene %s: seq_to_order mismatch at index %zu",
+                        api_item.scene_name.c_str(),
+                        i
+                    );
+                    return false;
+                }
+            }
+        } else {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: seq_to_order missing or invalid",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        const auto& scene_items = doc.FindMember("scene_items");
+        if (scene_items == doc.MemberEnd() || !scene_items->value.IsArray()) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: scene_items missing or invalid",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        auto& alloc = doc.GetAllocator();
+
+        const auto& protected_token = doc.FindMember("protect");
+        if (protected_token == doc.MemberEnd() || !protected_token->value.IsArray()) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: protected_token missing or invalid",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        ProtectedTokenMap protect_tokens;
+        if (!ReadProtectedTokens(protected_token->value, &protect_tokens)) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: protected_token should not be present in the original scene",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        int order_cursor = 0;
+        if (!ApplyTranslationsToSceneItem(scene_items->value, response, file_seq_to_order, protect_tokens, &order_cursor, alloc)) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: failed to apply translations to scene items",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        if (!protect_tokens.empty()) {
+            LOGE(
+                "[JsonHandler] API response translation count mismatch for scene %s: unprocessed protect tokens remain",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        if (static_cast<size_t>(order_cursor)!= response.translations.size()) {
+            LOGE(
+                "[JsonHandler] Translation traversal count mismatch: mapped=%d expected=%zu",
+                order_cursor,
+                response.translations.size()
+            );
+            return false;
+        }
+
+        doc.RemoveMember("target_lang");
+
+        if (!UpsertLanguageString(summary->value, response.target_lang, response.summary, alloc)
+            || !UpsertLanguageString(provider->value, response.target_lang, response.provider, alloc)
+            || !UpsertLanguageString(model->value, response.target_lang, response.model, alloc)
+            || !UpsertLanguageBoolean(translated->value, response.target_lang, true, alloc)) {
+            LOGE(
+                "[JsonHandler] Failed to update language metadata for scene %s",
+                api_item.scene_name.c_str()
+            );
+            return false;
+        }
+
+        return WriteJsonToFile(doc, FormalPath(api_item.scene_name));
     }
 
     void JsonWorker() {
@@ -998,6 +1573,7 @@ private:
             ApiBuildContext api_context;
             ApiItem api_item;
             api_item.scene_name = json_item->scene_name;
+            api_item.target_lang = json_item->target_lang;
 
             ProcessItem(*json_item, doc, api_doc, api_context);
             
@@ -1015,7 +1591,7 @@ private:
 
             bool writen = false;
             for (int i = 0; i < 3; i++) {
-                writen = WriteJsonToFile(doc, json_item->scene_name);
+                writen = WriteSceneToFile(doc, json_item->scene_name);
                 if (writen) break; 
             }
 
@@ -1025,6 +1601,123 @@ private:
                 LOGE("[JsonHandler] Failed to write JSON for scene %s after 3 attempts", json_item->scene_name.c_str());
             }
         }
+    }
+
+    static ApiResponse ParseApiResponse(const std::string& response, size_t expect_count) {
+        ApiResponse result;
+
+        if (response.empty() || expect_count == 0) return result;
+        rapidjson::Document doc;
+        doc.Parse(response.c_str(), response.size());
+
+        if (doc.HasParseError() || !doc.IsObject()) {
+            LOGE("[JsonHandler] Failed to parse API response: error=%u offset=%zu", static_cast<unsigned>(doc.GetParseError()), doc.GetErrorOffset());
+            return result;
+        }
+
+        if (doc.HasMember("error")) {
+            if (!doc["error"].IsObject()) {
+                LOGE("[JsonHandler] API response error field is not an object");
+                return result;
+            }
+            const auto& error_member = doc["error"];
+            const auto& error_type = error_member.FindMember("type");
+            const auto& error_message = error_member.FindMember("message");
+            const auto& error_code = error_member.FindMember("status");
+            if (error_message != error_member.MemberEnd() && error_message->value.IsString()) {
+                result.error_message = error_message->value.GetString();
+            } else {
+                result.error_message = "Unknown error";
+            }
+            if (error_type != error_member.MemberEnd() && error_type->value.IsString()) {
+                result.error_type = error_type->value.GetString();
+            } else {
+                result.error_type = "Unknown";
+            }
+            if (error_code != error_member.MemberEnd() && error_code->value.IsInt()) {
+                result.error_code = error_code->value.GetInt();
+            } else {
+                result.error_code = -1;
+            }
+            result.kind = ApiResponseKind::api_error;
+            return result;
+        }
+
+        const auto& provider = doc.FindMember("provider");
+        if (provider != doc.MemberEnd() && provider->value.IsString()) {
+            result.provider = provider->value.GetString();
+        } else {
+            LOGE("[JsonHandler] API response missing provider");
+            return result;
+        }
+
+        const auto& model = doc.FindMember("model");
+        if (model != doc.MemberEnd() && model->value.IsString()) {
+            result.model = model->value.GetString();
+        } else {
+            LOGE("[JsonHandler] API response missing model");
+            return result;
+        }
+
+        const auto& target_lang = doc.FindMember("target_lang");
+        if (target_lang != doc.MemberEnd() && target_lang->value.IsString()) {
+            result.target_lang = target_lang->value.GetString();
+        } else {
+            LOGE("[JsonHandler] API response missing target_lang");
+            return result;
+        }
+
+        const auto& summary = doc.FindMember("summary");
+        if (summary != doc.MemberEnd() && summary->value.IsString()) {
+            result.summary = summary->value.GetString();
+        } else {
+            LOGE("[JsonHandler] API response missing summary");
+            return result;
+        }
+
+        
+        const auto& translations = doc.FindMember("translations");
+        if (translations != doc.MemberEnd() && translations->value.IsArray() && translations->value.Size() == expect_count) {
+            result.translations.resize(expect_count);
+            for (const auto& translation : translations->value.GetArray()) {
+                if (translation.IsObject()) {
+                    const auto& seq_member = translation.FindMember("seq");
+                    const auto& text_member = translation.FindMember("text");
+
+                    if (seq_member != translation.MemberEnd() && seq_member->value.IsInt() &&
+                        text_member != translation.MemberEnd() && text_member->value.IsString()) {
+                        int seq = seq_member->value.GetInt();
+                        std::string text = text_member->value.GetString();
+                        
+                        if (seq < 1 || seq > static_cast<int>(expect_count)) {
+                            LOGE("[JsonHandler] Invalid seq %d in translation entry", seq);
+                            return result;
+                        }
+
+                        if (result.translations[seq -1].empty()) {
+                            result.translations[seq -1] = text;
+                        } else {
+                            LOGE("[JsonHandler] Invalid seq %d for translation", seq);
+                            return result;
+                        }
+                        
+                    } else {
+                        LOGE("[JsonHandler] Invalid translation entry in API response");
+                        return result;
+                    }
+
+                } else {
+                    LOGE("[JsonHandler] Invalid translation entry in API response");
+                    return result;
+                }
+            }
+            result.kind = ApiResponseKind::success;
+        } else {
+            LOGE("[JsonHandler] API response missing translations");
+            return result;
+        }
+
+        return result;
     }
 
     static bool JavaRequestTrans(const std::string& request, std::string* response) {
@@ -1110,6 +1803,7 @@ private:
             }
 
             std::string response;
+            ApiResponse api_response;
             if (!JavaRequestTrans(api_item->api_doc, &response)) {
                 LOGE(
                     "[JsonHandler] Failed to send API request scene=%s targets=%zu",
@@ -1117,18 +1811,48 @@ private:
                     api_item->seq_to_order.size()
                 );
                 continue;
+            } 
+
+            LOGI(
+                "[JsonHandler] API request sent scene=%s targets=%zu response_size=%zu",
+                api_item->scene_name.c_str(),
+                api_item->seq_to_order.size(),
+                response.size()
+            );
+            LOGI(
+                "[JsonHandler] API response scene=%s response(first 128 chars)=%s",
+                api_item->scene_name.c_str(),
+                response.substr(0, 128).c_str()
+            );
+
+            api_response = ParseApiResponse(response, api_item->seq_to_order.size());
+            if (api_response.kind == ApiResponseKind::api_error) {
+                LOGE(
+                    "[JsonHandler] API response error scene=%s error_type=%s error_code=%d error_message=%s",
+                    api_item->scene_name.c_str(),
+                    api_response.error_type.c_str(),
+                    api_response.error_code,
+                    api_response.error_message.c_str()
+                );
+                continue;
+            } else if (api_response.kind == ApiResponseKind::invalid) {
+                LOGE(
+                    "[JsonHandler] API response invalid scene=%s",
+                    api_item->scene_name.c_str()
+                );
+                continue;
+            }
+
+            if (!WriteTranslationToFile(*api_item, api_response)) {
+                LOGE("[JsonHandler] Failed to write translation to file scene=%s", api_item->scene_name.c_str());
             } else {
                 LOGI(
-                    "[JsonHandler] API request sent scene=%s targets=%zu response_size=%zu",
-                    api_item->scene_name.c_str(),
-                    api_item->seq_to_order.size(),
-                    response.size()
+                    "[JsonHandler] API response scene=%s is written to file successfully",
+                    api_item->scene_name.c_str()
                 );
             }
         }
     }
-
-
 
 private:
     std::once_flag start_once_;
@@ -1152,16 +1876,15 @@ SceneFileStatus CheckFileStatus(const std::string& scene_name) {
     rapidjson::Document doc;
 
     if (ReadFile(scene_name, doc)) {
-        bool translated =
-            doc.FindMember("translated") != doc.MemberEnd() &&
-            doc["translated"].IsBool() &&
-            doc["translated"].GetBool();
-
-        if (translated) {
+        const auto translated = doc.FindMember("translated");
+        if (translated != doc.MemberEnd()
+            && IsLanguageTranslated(
+                translated->value,
+                g_runtime_config.target_lang)) {
             return SceneFileStatus::complete;
-        } else {
-            return SceneFileStatus::pending;
         }
+
+        return SceneFileStatus::pending;
     } else return SceneFileStatus::not_found;
 }
 
@@ -1189,15 +1912,23 @@ bool LoadFromExistingScene(std::string entry_label) {
     const auto seq_to_order_member = doc.FindMember("seq_to_order");
     const auto scene_items_member = doc.FindMember("scene_items");
     const auto summary_member = doc.FindMember("summary");
+    const auto provider_member = doc.FindMember("provider");
+    const auto model_member = doc.FindMember("model");
     if (translated_member == doc.MemberEnd()
-        || !translated_member->value.IsBool()
-        || translated_member->value.GetBool()
+        || !IsLanguageBooleanMap(translated_member->value)
+        || IsLanguageTranslated(
+            translated_member->value,
+            g_runtime_config.target_lang)
         || seq_to_order_member == doc.MemberEnd()
         || !seq_to_order_member->value.IsArray()
         || scene_items_member == doc.MemberEnd()
         || !scene_items_member->value.IsArray()
         || summary_member == doc.MemberEnd()
-        || !summary_member->value.IsString()) {
+        || !IsLanguageStringMap(summary_member->value)
+        || provider_member == doc.MemberEnd()
+        || !IsLanguageStringMap(provider_member->value)
+        || model_member == doc.MemberEnd()
+        || !IsLanguageStringMap(model_member->value)) {
         LOGW(
             "[JsonHandler] LoadFromExistingScene failed: invalid pending scene root scene=%s",
             entry_label.c_str()
@@ -1207,6 +1938,7 @@ bool LoadFromExistingScene(std::string entry_label) {
 
     ApiItem api_item;
     api_item.scene_name = entry_label;
+    api_item.target_lang = g_runtime_config.target_lang;
     if (!ReadSeqToOrder(seq_to_order_member->value, &api_item.seq_to_order)) {
         LOGW(
             "[JsonHandler] LoadFromExistingScene failed: invalid seq_to_order scene=%s",
@@ -1235,6 +1967,14 @@ bool LoadFromExistingScene(std::string entry_label) {
     doc.RemoveMember("seq_to_order");
     doc.RemoveMember("summary");
     doc.RemoveMember("translated");
+    doc.RemoveMember("provider");
+    doc.RemoveMember("model");
+    doc.RemoveMember("target_lang");
+    doc.AddMember(
+        "target_lang",
+        JsonString(api_item.target_lang, alloc),
+        alloc
+    );
 
     rapidjson::StringBuffer api_buffer;
     rapidjson::Writer<rapidjson::StringBuffer> api_writer(api_buffer);
@@ -1260,6 +2000,7 @@ void SubmitToJsonHandler(std::shared_ptr<const Scene> scene) {
     g_json_handler.Start();
     JsonItem json_item;
     json_item.scene_name = scene->scene;
+    json_item.target_lang = scene->target_lang;
     
     json_item.process_doc.SetObject();
 
@@ -1268,8 +2009,14 @@ void SubmitToJsonHandler(std::shared_ptr<const Scene> scene) {
     json_item.process_doc.AddMember("scene", JsonString(scene->scene, alloc), alloc);
     json_item.process_doc.AddMember("game_version", JsonString(g_runtime_config.game_version, alloc), alloc);
     json_item.process_doc.AddMember("raw_lang", JsonString(scene->raw_lang, alloc), alloc);
-    json_item.process_doc.AddMember("target_lang", JsonString(scene->target_lang, alloc), alloc);
-    json_item.process_doc.AddMember("translated", false, alloc);
+    rapidjson::Value translated_item(rapidjson::kObjectType);
+    UpsertLanguageBoolean(
+        translated_item,
+        scene->target_lang,
+        false,
+        alloc
+    );
+    json_item.process_doc.AddMember("translated", translated_item, alloc);
     json_item.process_doc.AddMember("character", JsonCharacter(scene->character, alloc), alloc);
     json_item.process_doc.AddMember("mentioned_characters", JsonMentionedCharacterArray(scene->mentioned_characters, alloc), alloc);
     json_item.process_doc.AddMember("game_terms", JsonGameTermArray(scene->game_terms, alloc), alloc);

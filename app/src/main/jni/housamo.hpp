@@ -9,6 +9,7 @@
 #include <android/log.h>
 #include <cstdint>
 #include <cstddef>
+#include <functional>
 #include <atomic>
 #include <memory>
 #include <utility>
@@ -196,16 +197,43 @@ struct RuntimeConfig {
 extern RuntimeConfig g_runtime_config;
 
 // 预处理文本结构体
-struct ProtectedToken {
-    std::string label;      // __HET__PH_0__
-    std::string origin;   // <param=teamLeaderCharaName>
-};
-
 struct OrderKey {
     int label_index = -1;   // ScenarioLabelData.Next 排序后的 label 序号
     int page_no = -1;      // 游戏里的 pageNo，主要用于调试
     int cmd_index = -1;    // CommandList 里的真实下标
     int sub_index = 0;     // 同一个命令内的子项，普通 Text 用 0，选项可用 0/1/2
+
+    bool operator==(const OrderKey& other) const noexcept {
+        return label_index == other.label_index
+            && page_no == other.page_no
+            && cmd_index == other.cmd_index
+            && sub_index == other.sub_index;
+    }
+};
+
+struct OrderKeyHash {
+    std::size_t operator()(const OrderKey& key) const noexcept {
+        std::size_t seed = 0;
+
+        auto combine = [&seed](int value) {
+            seed ^= std::hash<int>{}(value)
+                + static_cast<std::size_t>(0x9e3779b9U)
+                + (seed << 6U)
+                + (seed >> 2U);
+        };
+
+        combine(key.label_index);
+        combine(key.page_no);
+        combine(key.cmd_index);
+        combine(key.sub_index);
+        return seed;
+    }
+};
+
+struct ProtectedToken {
+    OrderKey order;
+    std::string label;      // __HET__PH_0__
+    std::string origin;   // <param=teamLeaderCharaName>
 };
 
 struct TextItem {

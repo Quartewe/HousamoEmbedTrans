@@ -271,7 +271,7 @@ static bool IsTagStart(const std::string& raw, size_t index) {
 static std::string CatchTextLabel(
     const std::string& raw,
     bool replace_mode,
-    const std::string& token_prefix,
+    OrderKey order,
     std::vector<ProtectedToken>& protect,
     int& protect_index) {
     if (raw.empty()) {
@@ -300,7 +300,8 @@ static std::string CatchTextLabel(
         if (c == '>') {
             if (replace_mode) {
                 ProtectedToken token;
-                token.label = token_prefix + std::to_string(protect_index++) + "__";
+                token.order = order;
+                token.label = "__HET__PT_" + std::to_string(order.label_index) + "_" + std::to_string(order.page_no) + "_" + std::to_string(protect_index++) + "__";
                 token.origin = raw.substr(label_start, i - label_start + 1);
                 out += token.label;
                 protect.push_back(std::move(token));
@@ -344,7 +345,7 @@ enum class TextStatus {
 static TextStatus ReadTranslatableText(
     void* cmd_item,
     PageParseResult& result,
-    std::string token_prefix,
+    OrderKey order,
     int& protect_index,
     const std::string& current_speaker,
     std::string* out) {
@@ -408,7 +409,7 @@ static TextStatus ReadTranslatableText(
     *out = CatchTextLabel(
         raw_text,
         true,
-        token_prefix,
+        order,
         result.protect,
         protect_index);
     if (out->empty()) {
@@ -571,9 +572,6 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
 
     void* page_data = job.page_data;
     int protect_index = 0;
-    std::string token_prefix =
-        "__HET__PT_" + std::to_string(job.label_index) + "_"
-                     + std::to_string(job.page_index) + "_";
 
     if (!valid_ptr(page_data)) {
         return result;
@@ -618,8 +616,9 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
 
         if (type == "Text") {
             std::string text;
+            OrderKey order = {result.label_index, page_no, i, 0};
 
-            TextStatus status = ReadTranslatableText(cmd_item, result, token_prefix, protect_index, current_speaker, &text);
+            TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text);
             if (status == TextStatus::official_translation) {
                 result.official_translation = true;
                 return result;
@@ -629,10 +628,7 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
             }
 
             TextItem item;
-            item.order.label_index = result.label_index;
-            item.order.page_no = page_no;
-            item.order.cmd_index = i;
-            item.order.sub_index = 0;
+            item.order = order;
             item.speaker = current_speaker;
             AddItemScore(result.speaker_character, current_speaker, 10.0f);
             item.text = std::move(text);
@@ -644,8 +640,9 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
 
         if (type == "Selection") {
             std::string text;
+            OrderKey order = {result.label_index, page_no, i, static_cast<int>(ChoiceOptionCount(pending_choice))};
 
-            TextStatus status = ReadTranslatableText(cmd_item, result, token_prefix, protect_index, current_speaker, &text);
+            TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text);
             if (status == TextStatus::official_translation) {
                 result.official_translation = true;
                 return result;
@@ -655,17 +652,11 @@ static PageParseResult ParsePageJob(const PageParseJob& job) {
             }
 
             if (pending_choice.branches.empty()) {
-                pending_choice.order.label_index = result.label_index;
-                pending_choice.order.page_no = page_no;
-                pending_choice.order.cmd_index = i;
-                pending_choice.order.sub_index = 0;
+                pending_choice.order = {result.label_index, page_no, i, 0};
             }
 
             TextItem option;
-            option.order.label_index = result.label_index;
-            option.order.page_no = page_no;
-            option.order.cmd_index = i;
-            option.order.sub_index = static_cast<int>(ChoiceOptionCount(pending_choice));
+            option.order = std::move(order);
             option.speaker = "mc";
             option.text = std::move(text);
 

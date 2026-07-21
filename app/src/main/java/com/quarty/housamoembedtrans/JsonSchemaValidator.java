@@ -149,10 +149,19 @@ final class JsonSchemaValidator {
             }
         }
 
+        JSONObject propertyNameSchema = schema.optJSONObject("propertyNames");
         Object additional = schema.opt("additionalProperties");
         Iterator<String> keys = object.keys();
         while (keys.hasNext()) {
             String key = keys.next();
+            if (propertyNameSchema != null) {
+                validateValue(
+                    key,
+                    propertyNameSchema,
+                    childPath(path, key),
+                    depth
+                );
+            }
             if (known.contains(key)) {
                 continue;
             }
