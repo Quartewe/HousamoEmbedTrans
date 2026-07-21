@@ -22,6 +22,10 @@
     <string name="api_key_storage_hint">Stored separately and never written to config.json.</string>
     <string name="model">Model</string>
     <string name="model_input_hint">Enter a model ID manually, or query the current provider and select one.</string>
+    <string name="network_retry_count">Network retry count</string>
+    <string name="network_retry_count_hint">Additional attempts after connection failures, timeouts, or retryable HTTP statuses. 0 disables network retries; allowed range: 0–5.</string>
+    <string name="result_repair_count">Result repair count</string>
+    <string name="result_repair_count_hint">Additional repair requests when a model result cannot be parsed, fails validation, or contains invalid seq entries. 0 disables repairs; allowed range: 0–5. Each repair may incur API charges.</string>
     <string name="query_models">Query available models</string>
     <string name="querying_models">Querying models…</string>
     <string name="select_model_title">Select a model (%1$d)</string>
@@ -196,6 +200,7 @@
     <string name="error_required">Required</string>
     <string name="error_positive_number">Enter a finite number greater than 0</string>
     <string name="error_positive_integer">Enter an integer of at least 1</string>
+    <string name="error_retry_count_range">Enter an integer from 0 to 5</string>
     <string name="error_high_less_than_mid">High relevance must be greater than or equal to mid relevance</string>
     <string name="error_low_less_than_mentioned">Low text score must be greater than or equal to mentioned text score</string>
 </resources>

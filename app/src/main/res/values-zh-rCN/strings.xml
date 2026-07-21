@@ -22,6 +22,10 @@
     <string name="api_key_storage_hint">单独保存，不会写入 config.json。</string>
     <string name="model">模型</string>
     <string name="model_input_hint">可手动填写模型标识，也可查询当前服务商后选择。</string>
+    <string name="network_retry_count">网络重试次数</string>
+    <string name="network_retry_count_hint">连接失败、超时或可重试 HTTP 状态后的额外请求次数。0 表示不重试，可填写 0–5。</string>
+    <string name="result_repair_count">结果修复次数</string>
+    <string name="result_repair_count_hint">模型结果无法解析、校验失败或部分 seq 无效时的额外修复请求次数。0 表示不修复，可填写 0–5；每次修复可能产生额外 API 费用。</string>
     <string name="query_models">查询可用模型</string>
     <string name="querying_models">正在查询模型…</string>
     <string name="select_model_title">选择模型（%1$d 个）</string>
@@ -196,6 +200,7 @@
     <string name="error_required">此项不能为空</string>
     <string name="error_positive_number">请输入大于 0 的有限数值</string>
     <string name="error_positive_integer">请输入不小于 1 的整数</string>
+    <string name="error_retry_count_range">请输入 0 到 5 之间的整数</string>
     <string name="error_high_less_than_mid">高相关阈值不能小于中相关阈值</string>
     <string name="error_low_less_than_mentioned">正文低权重分数不能小于正文提及分数</string>
 </resources>

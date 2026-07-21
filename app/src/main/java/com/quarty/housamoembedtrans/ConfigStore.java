@@ -22,6 +22,9 @@ final class ConfigStore {
     static final String CONFIG_FILE_NAME = "config.json";
     static final String CHARDICT_FILE_NAME = "chardict.json";
     static final String GAMETERMS_FILE_NAME = "gameterms.json";
+    static final int DEFAULT_NETWORK_RETRY_COUNT = 1;
+    static final int DEFAULT_RESULT_REPAIR_COUNT = 1;
+    static final int MAX_TRANSLATION_RETRY_COUNT = 5;
     private static final String PREFS_NAME = "housamo_trans_prefs";
     private static final String KEY_API_KEY = "api_key";
 
@@ -242,6 +245,14 @@ final class ConfigStore {
         }
         translationApi.getString("BaseUrl");
         translationApi.getString("Model");
+        boolean hasSplitRetryCounts = translationApi.has("NetworkRetryCount")
+            || translationApi.has("ResultRepairCount");
+        if (hasSplitRetryCounts) {
+            validateOptionalRetryCount(translationApi, "NetworkRetryCount");
+            validateOptionalRetryCount(translationApi, "ResultRepairCount");
+        } else {
+            validateOptionalRetryCount(translationApi, "RetryCount");
+        }
 
         JSONObject weights = userSettings.getJSONObject("CharacterWeight");
         String[] weightFields = {
@@ -277,6 +288,35 @@ final class ConfigStore {
         JSONObject runtime = config.getJSONObject("RuntimeConfigs");
         runtime.getJSONObject("RVA");
         runtime.getJSONObject("Layout");
+    }
+
+    private static void validateOptionalRetryCount(JSONObject translationApi, String key)
+        throws Exception {
+        if (!translationApi.has(key)) {
+            return;
+        }
+
+        Object value = translationApi.get(key);
+        if (!(value instanceof Number)) {
+            throw invalidRetryCount(key);
+        }
+
+        double retryCount = ((Number) value).doubleValue();
+        if (!Double.isFinite(retryCount)
+            || retryCount != Math.rint(retryCount)
+            || retryCount < 0
+            || retryCount > MAX_TRANSLATION_RETRY_COUNT) {
+            throw invalidRetryCount(key);
+        }
+    }
+
+    private static IllegalArgumentException invalidRetryCount(String key) {
+        return new IllegalArgumentException(
+            "UserSettings.TranslationApi."
+                + key
+                + " must be an integer from 0 to "
+                + MAX_TRANSLATION_RETRY_COUNT
+        );
     }
 
     static void validateGameTermDictionary(JSONObject dictionary) throws Exception {

@@ -27,6 +27,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -63,6 +66,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final String TRANSLATION_SCHEMA_FILE_NAME = "translation_schema.json";
     private static final int HTTP_CONNECT_TIMEOUT_MS = 30_000;
     private static final int HTTP_READ_TIMEOUT_MS = 300_000;
+    private static final long HTTP_RETRY_BASE_DELAY_MS = 1_000L;
+    private static final long HTTP_RETRY_MAX_DELAY_MS = 8_000L;
     private static final int MAX_HTTP_RESPONSE_BYTES = 16 * 1024 * 1024;
     private static final int ANTHROPIC_MAX_TOKENS = 8_192;
     private static String sModulePath = null;
@@ -206,6 +211,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         final String protocol;
         final String apiUrl;
         final String model;
+        final int networkRetryCount;
+        final int resultRepairCount;
         final String apiKey;
         final String systemPrompt;
         final String responseSchema;
@@ -214,6 +221,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             String protocol,
             String apiUrl,
             String model,
+            int networkRetryCount,
+            int resultRepairCount,
             String apiKey,
             String systemPrompt,
             String responseSchema
@@ -221,6 +230,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             this.protocol = protocol;
             this.apiUrl = apiUrl;
             this.model = model;
+            this.networkRetryCount = networkRetryCount;
+            this.resultRepairCount = resultRepairCount;
             this.apiKey = apiKey;
             this.systemPrompt = systemPrompt;
             this.responseSchema = responseSchema;
@@ -235,6 +246,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 protocol,
                 apiUrl,
                 model,
+                networkRetryCount,
+                resultRepairCount,
                 apiKey,
                 systemPrompt,
                 responseSchema
@@ -249,6 +262,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         HttpResult(int statusCode, String body) {
             this.statusCode = statusCode;
             this.body = body;
+        }
+    }
+
+    private static final class TranslationValidationResult {
+        final String summary;
+        final Map<Integer, String> acceptedTranslations = new HashMap<>();
+        final Map<Integer, String> rejectedReasons = new HashMap<>();
+
+        TranslationValidationResult(String summary) {
+            this.summary = summary;
         }
     }
 
@@ -709,10 +732,32 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         throws Exception {
         JSONObject api = json.getJSONObject("UserSettings")
             .getJSONObject("TranslationApi");
+        boolean hasSplitRetryCounts = api.has("NetworkRetryCount")
+            || api.has("ResultRepairCount");
+        int networkRetryCount = hasSplitRetryCounts
+            ? api.optInt(
+                "NetworkRetryCount",
+                ConfigStore.DEFAULT_NETWORK_RETRY_COUNT
+            )
+            : api.optInt(
+                "RetryCount",
+                ConfigStore.DEFAULT_NETWORK_RETRY_COUNT
+            );
+        int resultRepairCount = hasSplitRetryCounts
+            ? api.optInt(
+                "ResultRepairCount",
+                ConfigStore.DEFAULT_RESULT_REPAIR_COUNT
+            )
+            : api.optInt(
+                "RetryCount",
+                ConfigStore.DEFAULT_RESULT_REPAIR_COUNT
+            );
         return new TranslationConfig(
             api.optString("Protocol", "openai").trim().toLowerCase(Locale.ROOT),
             api.optString("BaseUrl", "").trim(),
             api.optString("Model", "").trim(),
+            networkRetryCount,
+            resultRepairCount,
             "",
             "",
             ""
@@ -814,39 +859,144 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
             String sceneJson = new String(requestJson, StandardCharsets.UTF_8);
             JSONObject scene = new JSONObject(sceneJson);
+
+            String targetLanguage = scene.getString("target_lang");
+
+            if (targetLanguage.trim().isEmpty()) {
+                throw new IllegalArgumentException("target_lang is empty");
+            }
+
+            if (scene.has("retry_seqs")) {
+                throw new IllegalArgumentException(
+                    "retry_seqs is reserved for internal translation retries"
+                );
+            }
+
             Map<Integer, String> expectedTexts = collectExpectedTexts(scene);
             Set<String> protectedLabels = collectProtectedLabels(scene);
+            Map<Integer, String> acceptedTranslations = new HashMap<>();
+            Set<Integer> pendingSeqs = new HashSet<>(expectedTexts.keySet());
+            Map<Integer, String> lastRejectedReasons = new HashMap<>();
+            String acceptedSummary = null;
+            int resultRepairsUsed = 0;
+            boolean partialRetry = false;
 
-            JSONObject apiRequest;
-            if ("openai".equals(config.protocol)) {
-                apiRequest = buildOpenAIRequest(config, sceneJson);
-            } else if ("anthropic".equals(config.protocol)) {
-                apiRequest = buildAnthropicRequest(config, sceneJson);
-            } else {
-                throw new IllegalArgumentException(
-                    "unsupported API protocol: " + config.protocol
+            while (true) {
+                String currentSceneJson = partialRetry
+                    ? buildRetrySceneJson(scene, pendingSeqs)
+                    : sceneJson;
+
+                JSONObject apiRequest;
+                if ("openai".equals(config.protocol)) {
+                    apiRequest = buildOpenAIRequest(config, currentSceneJson);
+                } else if ("anthropic".equals(config.protocol)) {
+                    apiRequest = buildAnthropicRequest(config, currentSceneJson);
+                } else {
+                    throw new IllegalArgumentException(
+                        "unsupported API protocol: " + config.protocol
+                    );
+                }
+
+                HttpResult httpResult = postJsonWithRetry(
+                    config,
+                    apiRequest.toString()
                 );
-            }
+                if (httpResult.statusCode < 200
+                    || httpResult.statusCode >= 300) {
+                    return errorBytes(
+                        "http",
+                        httpResult.statusCode,
+                        redactSecret(httpResult.body, config.apiKey)
+                    );
+                }
 
-            HttpResult httpResult = postJson(config, apiRequest.toString());
-            if (httpResult.statusCode < 200 || httpResult.statusCode >= 300) {
-                return errorBytes(
-                    "http",
-                    httpResult.statusCode,
-                    redactSecret(httpResult.body, config.apiKey)
+                try {
+                    JSONObject translationResult = "openai".equals(config.protocol)
+                        ? extractOpenAIResult(httpResult.body)
+                        : extractAnthropicResult(httpResult.body);
+
+                    Map<Integer, String> pendingTexts = selectExpectedTexts(
+                        expectedTexts,
+                        pendingSeqs
+                    );
+                    TranslationValidationResult validation =
+                        validateTranslationResult(
+                            translationResult,
+                            pendingTexts,
+                            protectedLabels,
+                            acceptedSummary == null
+                        );
+
+                    if (acceptedSummary == null) {
+                        acceptedSummary = validation.summary;
+                    }
+
+                    acceptedTranslations.putAll(
+                        validation.acceptedTranslations
+                    );
+                    pendingSeqs.removeAll(
+                        validation.acceptedTranslations.keySet()
+                    );
+                    lastRejectedReasons = validation.rejectedReasons;
+                } catch (Exception e) {
+                    if (resultRepairsUsed >= config.resultRepairCount) {
+                        throw e;
+                    }
+
+                    resultRepairsUsed++;
+                    XposedBridge.log(
+                        "[HousamoTrans] Repairing translation result after "
+                            + e.getClass().getSimpleName()
+                            + ": "
+                            + redactSecret(safeMessage(e), config.apiKey)
+                            + " (repair "
+                            + resultRepairsUsed
+                            + "/"
+                            + config.resultRepairCount
+                            + ")"
+                    );
+                    waitBeforeRetry(resultRepairsUsed);
+                    continue;
+                }
+
+                if (pendingSeqs.isEmpty()) {
+                    JSONObject completeResult = buildCompleteTranslationResult(
+                        acceptedSummary,
+                        expectedTexts,
+                        acceptedTranslations
+                    );
+                    return successBytes(
+                        completeResult,
+                        config,
+                        targetLanguage
+                    );
+                }
+
+                if (resultRepairsUsed >= config.resultRepairCount) {
+                    throw new IllegalArgumentException(
+                        "translation validation failed for seqs "
+                            + formatSeqs(pendingSeqs)
+                            + ": "
+                            + formatRejectedReasons(
+                                pendingSeqs,
+                                lastRejectedReasons
+                            )
+                    );
+                }
+
+                resultRepairsUsed++;
+                partialRetry = true;
+                XposedBridge.log(
+                    "[HousamoTrans] Repairing invalid translation seqs="
+                        + formatSeqs(pendingSeqs)
+                        + " (repair "
+                        + resultRepairsUsed
+                        + "/"
+                        + config.resultRepairCount
+                        + ")"
                 );
+                waitBeforeRetry(resultRepairsUsed);
             }
-
-            JSONObject translationResult = "openai".equals(config.protocol)
-                ? extractOpenAIResult(httpResult.body)
-                : extractAnthropicResult(httpResult.body);
-
-            validateTranslationResult(
-                translationResult,
-                expectedTexts,
-                protectedLabels
-            );
-            return successBytes(translationResult);
         } catch (Exception e) {
             String message = redactSecret(safeMessage(e), config.apiKey);
             XposedBridge.log(
@@ -870,10 +1020,106 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         if (config.model.isEmpty()) {
             throw new IllegalArgumentException("Model is empty");
         }
+        if (config.networkRetryCount < 0
+            || config.networkRetryCount > ConfigStore.MAX_TRANSLATION_RETRY_COUNT) {
+            throw new IllegalArgumentException(
+                "NetworkRetryCount must be an integer from 0 to "
+                    + ConfigStore.MAX_TRANSLATION_RETRY_COUNT
+            );
+        }
+        if (config.resultRepairCount < 0
+            || config.resultRepairCount > ConfigStore.MAX_TRANSLATION_RETRY_COUNT) {
+            throw new IllegalArgumentException(
+                "ResultRepairCount must be an integer from 0 to "
+                    + ConfigStore.MAX_TRANSLATION_RETRY_COUNT
+            );
+        }
         if (config.systemPrompt.isEmpty()) {
             throw new IllegalArgumentException("system prompt is empty");
         }
         new JSONObject(config.responseSchema);
+    }
+
+    private static HttpResult postJsonWithRetry(
+        TranslationConfig config,
+        String body
+    ) throws Exception {
+        int retriesUsed = 0;
+
+        while (true) {
+            try {
+                HttpResult result = postJson(config, body);
+                if (!isRetryableHttpStatus(result.statusCode)
+                    || retriesUsed >= config.networkRetryCount) {
+                    return result;
+                }
+
+                XposedBridge.log(
+                    "[HousamoTrans] Retrying translation request after HTTP "
+                        + result.statusCode
+                        + " (retry "
+                        + (retriesUsed + 1)
+                        + "/"
+                        + config.networkRetryCount
+                        + ")"
+                );
+            } catch (IOException e) {
+                if (!isRetryableNetworkException(e)
+                    || retriesUsed >= config.networkRetryCount) {
+                    throw e;
+                }
+
+                XposedBridge.log(
+                    "[HousamoTrans] Retrying translation request after "
+                        + e.getClass().getSimpleName()
+                        + ": "
+                        + redactSecret(safeMessage(e), config.apiKey)
+                        + " (retry "
+                        + (retriesUsed + 1)
+                        + "/"
+                        + config.networkRetryCount
+                        + ")"
+                );
+            }
+
+            retriesUsed++;
+            waitBeforeRetry(retriesUsed);
+        }
+    }
+
+    private static boolean isRetryableHttpStatus(int statusCode) {
+        return statusCode == 408
+            || statusCode == 429
+            || (statusCode >= 500 && statusCode <= 599);
+    }
+
+    private static boolean isRetryableNetworkException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException
+                || current instanceof SocketException
+                || current instanceof UnknownHostException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static void waitBeforeRetry(int retryNumber)
+        throws InterruptedException {
+        int exponent = Math.min(Math.max(retryNumber - 1, 0), 3);
+        long delayMs = Math.min(
+            HTTP_RETRY_BASE_DELAY_MS * (1L << exponent),
+            HTTP_RETRY_MAX_DELAY_MS
+        );
+
+        try {
+            Thread.sleep(delayMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw e;
+        }
     }
 
     private static HttpResult postJson(TranslationConfig config, String body)
@@ -977,28 +1223,79 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static JSONObject extractOpenAIResult(String body) throws Exception {
         JSONObject response = new JSONObject(body);
         JSONArray choices = response.getJSONArray("choices");
-        if (choices.length() == 0) {
-            throw new IllegalArgumentException("OpenAI response has no choices");
+        if (choices.length() != 1) {
+            throw new IllegalArgumentException("OpenAI response must contain exactly one choice");
         }
 
-        JSONObject message = choices.getJSONObject(0).getJSONObject("message");
-        String refusal = message.optString("refusal", "");
-        if (!refusal.isEmpty()) {
-            throw new IllegalArgumentException("model refused the request: " + refusal);
+        JSONObject choice = choices.getJSONObject(0);
+
+        String finishReason = choice.optString("finish_reason", "");
+        if (!finishReason.equals("stop")) {
+            throw new IllegalArgumentException(
+                "OpenAI generation did not finish normally: "
+                + (finishReason.isEmpty() ? "<missing>" : finishReason)
+            );
         }
+        JSONObject message = choice.getJSONObject("message");
+
+        if (!message.isNull("refusal")) {
+            String refusal = message.optString("refusal", "");
+            if (!refusal.isEmpty()) {
+                throw new IllegalArgumentException("model refused the request: " + refusal);
+            }
+        }
+
         return parseJsonContent(message.opt("content"), "OpenAI");
     }
 
     private static JSONObject extractAnthropicResult(String body) throws Exception {
         JSONObject response = new JSONObject(body);
+
+        String responseType = response.optString("type", "");
+
+        if (!responseType.equals("message")) {
+            throw new IllegalArgumentException(
+                "Anthropic response type is not 'message': "
+                    + (responseType.isEmpty() ? "<missing>" : responseType)
+            );
+        }
+
+        String stopReason = response.optString("stop_reason", "");
+        if (!stopReason.equals("end_turn")) {
+            throw new IllegalArgumentException(
+                "Anthropic generation did not finish normally: "
+                    + (stopReason.isEmpty() ? "<missing>" : stopReason)
+            );
+        }
+
         JSONArray content = response.getJSONArray("content");
+
+        Object textContent = null;
+        int textBlockCount = 0;
+
         for (int index = 0; index < content.length(); index++) {
             JSONObject block = content.optJSONObject(index);
-            if (block != null && "text".equals(block.optString("type"))) {
-                return parseJsonContent(block.opt("text"), "Anthropic");
+            if (block == null) {
+                throw new IllegalArgumentException(
+                    "Anthropic response content block is not a JSON object"
+                );
+            }
+            Object blockText = block.opt("text");
+            if (block.optString("type", "").equals("text") && blockText instanceof String) {
+                textContent = blockText;
+                textBlockCount++;
+            } else {
+                throw new IllegalArgumentException(
+                    "Anthropic response content block is not a text block"
+                );
             }
         }
-        throw new IllegalArgumentException("Anthropic response has no text block");
+
+        if (textBlockCount != 1) {
+            throw new IllegalArgumentException("Anthropic response must contain exactly one text block");
+        }
+
+        return parseJsonContent(textContent, "Anthropic");
     }
 
     private static JSONObject parseJsonContent(Object content, String provider)
@@ -1071,10 +1368,57 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return labels;
     }
 
-    private static void validateTranslationResult(
+    private static boolean hasSameLineBreakSrc(String source, String translation) {
+        if (source == null || translation == null) {
+            return false;
+        }
+        String sourceBreaks = source.replace("\r\n", "\n").replace("\r", "\n");
+        String translationBreaks = translation.replace("\r\n", "\n").replace("\r", "\n");
+
+        int runLength = 0;
+        ArrayList<Integer> sourceBreakIndices = new ArrayList<>();
+
+        for (int i = 0; i < sourceBreaks.length(); i++) {
+            char c = sourceBreaks.charAt(i);
+            if (c == '\n') {
+                runLength++;
+            } else if (runLength != 0) {
+                sourceBreakIndices.add(runLength);
+                runLength = 0;
+            }
+        }
+        if (runLength != 0) {
+            sourceBreakIndices.add(runLength);
+        }
+
+        runLength = 0;
+        ArrayList<Integer> translationBreakIndices = new ArrayList<>();
+
+        for (int i = 0; i < translationBreaks.length(); i++) {
+            char c = translationBreaks.charAt(i);
+            if (c == '\n') {
+                runLength++;
+            } else if (runLength != 0) {
+                translationBreakIndices.add(runLength);
+                runLength = 0;
+            }
+        }
+        if (runLength != 0) {
+            translationBreakIndices.add(runLength);
+        }
+
+        if (!sourceBreakIndices.equals(translationBreakIndices)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static TranslationValidationResult validateTranslationResult(
         JSONObject result,
         Map<Integer, String> expectedTexts,
-        Set<String> protectedLabels
+        Set<String> protectedLabels,
+        boolean requireSummary
     ) throws Exception {
         if (result.length() != 2
             || !result.has("summary")
@@ -1083,55 +1427,218 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 "translation result must contain only summary and translations"
             );
         }
-        result.getString("summary");
+
+        Object summaryValue = result.get("summary");
+        if (!(summaryValue instanceof String)) {
+            throw new IllegalArgumentException("translation summary must be a string");
+        }
+
+        String summary = (String) summaryValue;
+        if (requireSummary && summary.trim().isEmpty()) {
+            throw new IllegalArgumentException("translation summary is empty");
+        }
 
         JSONArray translations = result.getJSONArray("translations");
-        if (translations.length() != expectedTexts.size()) {
+        TranslationValidationResult validation =
+            new TranslationValidationResult(summary);
+        Set<Integer> returnedSeqs = new HashSet<>();
+
+        for (int index = 0; index < translations.length(); index++) {
+            Object entryValue = translations.opt(index);
+            if (!(entryValue instanceof JSONObject)) {
+                XposedBridge.log(
+                    "[HousamoTrans] Ignoring non-object translation entry at index "
+                        + index
+                );
+                continue;
+            }
+
+            JSONObject translation = (JSONObject) entryValue;
+            int seq;
+            try {
+                seq = requirePositiveInteger(
+                    translation.opt("seq"),
+                    "translated seq"
+                );
+            } catch (Exception e) {
+                XposedBridge.log(
+                    "[HousamoTrans] Ignoring translation entry with invalid seq "
+                        + "at index "
+                        + index
+                        + ": "
+                        + safeMessage(e)
+                );
+                continue;
+            }
+
+            String sourceText = expectedTexts.get(seq);
+            if (sourceText == null) {
+                XposedBridge.log(
+                    "[HousamoTrans] Ignoring unrequested translated seq " + seq
+                );
+                continue;
+            }
+
+            if (!returnedSeqs.add(seq)) {
+                validation.acceptedTranslations.remove(seq);
+                validation.rejectedReasons.put(
+                    seq,
+                    "duplicate translated seq"
+                );
+                continue;
+            }
+
+            try {
+                if (translation.length() != 2
+                    || !translation.has("seq")
+                    || !translation.has("text")) {
+                    throw new IllegalArgumentException(
+                        "translation must contain only seq and text"
+                    );
+                }
+
+                Object textValue = translation.get("text");
+                if (!(textValue instanceof String)) {
+                    throw new IllegalArgumentException(
+                        "translated text must be a string"
+                    );
+                }
+                String translatedText = (String) textValue;
+
+                validateTranslatedText(
+                    seq,
+                    sourceText,
+                    translatedText,
+                    protectedLabels
+                );
+
+                validation.acceptedTranslations.put(seq, translatedText);
+            } catch (Exception e) {
+                validation.rejectedReasons.put(seq, safeMessage(e));
+            }
+        }
+
+        for (Integer seq : expectedTexts.keySet()) {
+            if (!validation.acceptedTranslations.containsKey(seq)
+                && !validation.rejectedReasons.containsKey(seq)) {
+                validation.rejectedReasons.put(seq, "translation is missing");
+            }
+        }
+
+        return validation;
+    }
+
+    private static void validateTranslatedText(
+        int seq,
+        String sourceText,
+        String translatedText,
+        Set<String> protectedLabels
+    ) {
+        if (translatedText.isEmpty()) {
             throw new IllegalArgumentException(
-                "translation count mismatch: expected "
-                    + expectedTexts.size()
-                    + ", got "
-                    + translations.length()
+                "translated text is empty at seq " + seq
             );
         }
 
-        Set<Integer> returnedSeqs = new HashSet<>();
-        for (int index = 0; index < translations.length(); index++) {
-            JSONObject translation = translations.getJSONObject(index);
-            if (translation.length() != 2
-                || !translation.has("seq")
-                || !translation.has("text")) {
-                throw new IllegalArgumentException(
-                    "translations[" + index + "] must contain only seq and text"
-                );
-            }
-
-            Object seqValue = translation.get("seq");
-            if (!(seqValue instanceof Number)) {
-                throw new IllegalArgumentException("translated seq must be an integer");
-            }
-            int seq = requirePositiveInteger(seqValue, "translated seq");
-            String translatedText = translation.getString("text");
-            String sourceText = expectedTexts.get(seq);
-            if (sourceText == null || !returnedSeqs.add(seq)) {
-                throw new IllegalArgumentException(
-                    "unknown or duplicate translated seq: " + seq
-                );
-            }
-
-            for (String label : protectedLabels) {
-                if (countOccurrences(sourceText, label)
-                    != countOccurrences(translatedText, label)) {
-                    throw new IllegalArgumentException(
-                        "protected label count changed at seq " + seq + ": " + label
-                    );
-                }
-            }
+        if (!hasSameLineBreakSrc(sourceText, translatedText)) {
+            throw new IllegalArgumentException(
+                "line break structure changed at seq " + seq
+            );
         }
 
-        if (!returnedSeqs.equals(expectedTexts.keySet())) {
-            throw new IllegalArgumentException("translated seq set does not match input");
+        for (String label : protectedLabels) {
+            if (countOccurrences(sourceText, label)
+                != countOccurrences(translatedText, label)) {
+                throw new IllegalArgumentException(
+                    "protected label count changed at seq " + seq + ": " + label
+                );
+            }
         }
+    }
+
+    private static Map<Integer, String> selectExpectedTexts(
+        Map<Integer, String> expectedTexts,
+        Set<Integer> requestedSeqs
+    ) {
+        Map<Integer, String> selected = new HashMap<>();
+        for (Integer seq : requestedSeqs) {
+            String text = expectedTexts.get(seq);
+            if (text == null) {
+                throw new IllegalArgumentException(
+                    "retry seq is not present in the source scene: " + seq
+                );
+            }
+            selected.put(seq, text);
+        }
+        return selected;
+    }
+
+    private static String buildRetrySceneJson(
+        JSONObject scene,
+        Set<Integer> requestedSeqs
+    ) throws Exception {
+        JSONObject retryScene = new JSONObject(scene.toString());
+        JSONArray retrySeqs = new JSONArray();
+        ArrayList<Integer> orderedSeqs = new ArrayList<>(requestedSeqs);
+        java.util.Collections.sort(orderedSeqs);
+        for (Integer seq : orderedSeqs) {
+            retrySeqs.put(seq);
+        }
+        retryScene.put("retry_seqs", retrySeqs);
+        return retryScene.toString();
+    }
+
+    private static JSONObject buildCompleteTranslationResult(
+        String summary,
+        Map<Integer, String> expectedTexts,
+        Map<Integer, String> acceptedTranslations
+    ) throws Exception {
+        if (summary == null || summary.trim().isEmpty()) {
+            throw new IllegalArgumentException("translation summary is empty");
+        }
+        if (acceptedTranslations.size() != expectedTexts.size()
+            || !acceptedTranslations.keySet().equals(expectedTexts.keySet())) {
+            throw new IllegalArgumentException(
+                "accepted translated seq set does not match input"
+            );
+        }
+
+        ArrayList<Integer> orderedSeqs = new ArrayList<>(expectedTexts.keySet());
+        java.util.Collections.sort(orderedSeqs);
+        JSONArray translations = new JSONArray();
+        for (Integer seq : orderedSeqs) {
+            translations.put(new JSONObject()
+                .put("seq", seq)
+                .put("text", acceptedTranslations.get(seq)));
+        }
+
+        return new JSONObject()
+            .put("summary", summary)
+            .put("translations", translations);
+    }
+
+    private static String formatSeqs(Set<Integer> seqs) {
+        ArrayList<Integer> orderedSeqs = new ArrayList<>(seqs);
+        java.util.Collections.sort(orderedSeqs);
+        return orderedSeqs.toString();
+    }
+
+    private static String formatRejectedReasons(
+        Set<Integer> pendingSeqs,
+        Map<Integer, String> rejectedReasons
+    ) {
+        ArrayList<Integer> orderedSeqs = new ArrayList<>(pendingSeqs);
+        java.util.Collections.sort(orderedSeqs);
+        StringBuilder result = new StringBuilder();
+        for (Integer seq : orderedSeqs) {
+            if (result.length() > 0) {
+                result.append("; ");
+            }
+            result.append(seq)
+                .append('=')
+                .append(rejectedReasons.getOrDefault(seq, "unknown validation error"));
+        }
+        return result.toString();
     }
 
     private static int countOccurrences(String text, String token) {
@@ -1163,8 +1670,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return (int) number;
     }
 
-    private static byte[] successBytes(JSONObject result) {
-        return result.toString().getBytes(StandardCharsets.UTF_8);
+    private static byte[] successBytes(JSONObject result, TranslationConfig config, String targetLanguage) throws Exception {
+        JSONObject f_result = new JSONObject();
+
+        f_result.put("summary", result.getString("summary"));
+        f_result.put("translations", result.getJSONArray("translations"));
+        f_result.put("provider", config.protocol);
+        f_result.put("model", config.model);
+        f_result.put("target_lang", targetLanguage);
+
+        return f_result.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private static byte[] errorBytes(String type, int status, String message) {
@@ -1291,6 +1806,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + sTranslationConfig.protocol
                     + " model="
                     + sTranslationConfig.model
+                    + " networkRetryCount="
+                    + sTranslationConfig.networkRetryCount
+                    + " resultRepairCount="
+                    + sTranslationConfig.resultRepairCount
             );
         } catch (Throwable t) {
             XposedBridge.log(

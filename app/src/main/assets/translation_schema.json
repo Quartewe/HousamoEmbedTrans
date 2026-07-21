@@ -7,7 +7,7 @@
     },
     "translations": {
       "type": "array",
-      "description": "Contains exactly one translated entry for every input text object.",
+      "description": "Contains exactly one translated entry for every input text object in a normal request. When retry_seqs is present, contains exactly one entry for each listed seq and no others.",
       "items": {
         "type": "object",
         "properties": {

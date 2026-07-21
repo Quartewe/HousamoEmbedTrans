@@ -16,7 +16,9 @@
         "TranslationApi": {
             "Protocol": "openai",
             "BaseUrl": "",
-            "Model": ""
+            "Model": "",
+            "NetworkRetryCount": 1,
+            "ResultRepairCount": 1
         },
         "TargetLanguage": "zh-cn"
     },

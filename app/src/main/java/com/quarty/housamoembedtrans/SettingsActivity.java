@@ -46,6 +46,8 @@ public class SettingsActivity extends AppCompatActivity {
     private EditText apiUrl;
     private EditText apiKey;
     private EditText model;
+    private EditText networkRetryCount;
+    private EditText resultRepairCount;
     private MaterialButton queryModelsButton;
     private SwitchMaterial overwriteJson;
     private SwitchMaterial parseOnlyDebug;
@@ -85,6 +87,8 @@ public class SettingsActivity extends AppCompatActivity {
         apiUrl = findViewById(R.id.et_api_url);
         apiKey = findViewById(R.id.et_api_key);
         model = findViewById(R.id.et_model);
+        networkRetryCount = findViewById(R.id.et_network_retry_count);
+        resultRepairCount = findViewById(R.id.et_result_repair_count);
         queryModelsButton = findViewById(R.id.btn_query_models);
         overwriteJson = findViewById(R.id.switch_overwrite_json);
         parseOnlyDebug = findViewById(R.id.switch_parse_only_debug);
@@ -332,6 +336,26 @@ public class SettingsActivity extends AppCompatActivity {
         );
         apiUrl.setText(translationApi.optString("BaseUrl", ""));
         model.setText(translationApi.optString("Model", ""));
+        boolean hasSplitRetryCounts = translationApi.has("NetworkRetryCount")
+            || translationApi.has("ResultRepairCount");
+        networkRetryCount.setText(String.valueOf(hasSplitRetryCounts
+            ? translationApi.optInt(
+                "NetworkRetryCount",
+                ConfigStore.DEFAULT_NETWORK_RETRY_COUNT
+            )
+            : translationApi.optInt(
+                "RetryCount",
+                ConfigStore.DEFAULT_NETWORK_RETRY_COUNT
+            )));
+        resultRepairCount.setText(String.valueOf(hasSplitRetryCounts
+            ? translationApi.optInt(
+                "ResultRepairCount",
+                ConfigStore.DEFAULT_RESULT_REPAIR_COUNT
+            )
+            : translationApi.optInt(
+                "RetryCount",
+                ConfigStore.DEFAULT_RESULT_REPAIR_COUNT
+            )));
 
         apiKey.setText(configStore.loadApiKey());
 
@@ -380,6 +404,8 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private JSONObject buildConfigFromForm(JSONObject config) throws Exception {
+        int parsedNetworkRetryCount = parseRetryCount(networkRetryCount);
+        int parsedResultRepairCount = parseRetryCount(resultRepairCount);
         double parsedHighRelevance = positiveDouble(highRelevance);
         double parsedMidRelevance = positiveDouble(midRelevance);
         double parsedDensityHigh = positiveDouble(densityHigh);
@@ -412,6 +438,9 @@ public class SettingsActivity extends AppCompatActivity {
         translationApi.put("Protocol", selectedCode(apiProtocol, R.array.api_protocol_codes));
         translationApi.put("BaseUrl", textOf(apiUrl));
         translationApi.put("Model", textOf(model));
+        translationApi.remove("RetryCount");
+        translationApi.put("NetworkRetryCount", parsedNetworkRetryCount);
+        translationApi.put("ResultRepairCount", parsedResultRepairCount);
 
         userSettings.put("TargetLanguage", selectedTargetLanguage());
         userSettings.put("OverwriteExistingJson", overwriteJson.isChecked());
@@ -519,6 +548,8 @@ public class SettingsActivity extends AppCompatActivity {
     private void clearErrors() {
         EditText[] fields = {
             customTargetLanguage,
+            networkRetryCount,
+            resultRepairCount,
             highRelevance,
             midRelevance,
             densityHigh,
@@ -577,6 +608,20 @@ public class SettingsActivity extends AppCompatActivity {
             throw e;
         } catch (Exception e) {
             throw new ValidationException(field, R.string.error_positive_integer);
+        }
+    }
+
+    private int parseRetryCount(EditText field) throws ValidationException {
+        try {
+            int value = Integer.parseInt(requireText(field));
+            if (value < 0 || value > ConfigStore.MAX_TRANSLATION_RETRY_COUNT) {
+                throw new NumberFormatException();
+            }
+            return value;
+        } catch (ValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ValidationException(field, R.string.error_retry_count_range);
         }
     }
 

@@ -36,6 +36,7 @@ Context may clarify the source text, but must never be used to rewrite or contra
 - `game_terms`: Terms relevant to this scene. Prefer a non-empty target-language value in a term's `i18n`.
 - `game_terms[].description`: User-supplied supplementary background for understanding and disambiguating a term. Do not treat it as source dialogue or insert its lore into a translation.
 - `protect`: Placeholder mappings for both rich-text markup and runtime parameters. Each `label` appearing in player-visible text must be preserved exactly, character for character. Use `origin` only to understand what that label represents; `origin` itself is not output text.
+- `retry_seqs`: Optional internal repair instruction. When present, use the complete scene as context but return translations only for the listed `seq` values. Do not return translations for any other `seq`. The `summary` must still describe the complete supplied scene.
 
 ## Runtime parameter semantics
 
@@ -79,7 +80,7 @@ The following terms are always-available background because their surface forms 
 `scene_items` contains the scenario in narrative order and may be recursive.
 
 - `type`: Structural item type. Never translate or change it.
-- `seq`: Translation identifier attached to every API `text` object, including every item in a choice branch's `options` array. Return it unchanged so the translated text can be mapped back to its original scene item. Never translate, renumber, omit, or reorder it.
+- `seq`: Translation identifier attached to every API `text` object, including every item in a choice branch's `options` array. Return it unchanged so the translated text can be mapped back to its original scene item. In a normal request, return every input `seq`; when `retry_seqs` is present, return exactly the listed `seq` values. Never translate or renumber it.
 - A `text` item contains `speaker` and `text`:
   - `speaker` identifies who is speaking and is context for choosing voice and register. Do not treat it as dialogue text.
   - A `speaker` value of `mc` identifies the protagonist or a player-selected line. `mc` is an internal identifier: never translate it or emit it as a character name, and do not infer the protagonist's name, gender, or speech style unless the input explicitly provides that information.
