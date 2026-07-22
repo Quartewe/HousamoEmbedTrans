@@ -60,6 +60,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final String USER_FILES_AUTHORITY =
         "com.quarty.housamoembedtrans.userfiles";
     private static final String CONFIG_FILE_NAME = "config.json";
+    private static final String RUNTIME_FILE_NAME = "runtime.json";
     private static final String CHARDICT_FILE_NAME = "chardict.json";
     private static final String GAMETERMS_FILE_NAME = "gameterms.json";
     private static final String PROMPT_FILE_NAME = "prompt.txt";
@@ -208,6 +209,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         String targetLanguage;
         String gameVersion;
         TranslationConfig translationConfig;
+    }
+
+    @FunctionalInterface
+    private interface StartupJsonValidator {
+        void validate(JSONObject json) throws Exception;
     }
 
     private static final class TranslationConfig {
@@ -896,38 +902,85 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         );
     }
 
-    private static StartupConfig parseStartupConfig(String jsonText) throws Exception {
-        JSONObject json = new JSONObject(jsonText);
-        JSONObject runtimeConfigs = json.getJSONObject("RuntimeConfigs");
+    private static StartupConfig parseStartupConfig(
+        JSONObject userConfig,
+        JSONObject runtimeConfig
+    ) throws Exception {
+        JSONObject runtimeConfigs = runtimeConfig.getJSONObject("RuntimeConfigs");
 
         StartupConfig config = new StartupConfig();
         config.rva = Init_RVA(runtimeConfigs);
         config.layout = Init_Layout(runtimeConfigs);
-        config.characterWeight = Init_CharacterWeight(json);
-        config.enablePageRecDebug = Init_EnablePageRecDebug(json);
-        config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(json);
-        config.overwriteExistingJson = Init_OverwriteExistingJson(json);
-        config.targetLanguage = Init_TargetLanguage(json);
-        config.gameVersion = Init_GameVersion(json);
-        config.translationConfig = Init_TranslationConfig(json);
+        config.characterWeight = Init_CharacterWeight(userConfig);
+        config.enablePageRecDebug = Init_EnablePageRecDebug(userConfig);
+        config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(userConfig);
+        config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
+        config.targetLanguage = Init_TargetLanguage(userConfig);
+        config.gameVersion = Init_GameVersion(runtimeConfig);
+        config.translationConfig = Init_TranslationConfig(userConfig);
         return config;
     }
 
     private static StartupConfig loadStartupConfig(Context context) throws Exception {
-        String preferred = readPreferredModuleJson(context, CONFIG_FILE_NAME);
+        JSONObject userConfig = loadStartupJson(
+            context,
+            CONFIG_FILE_NAME,
+            MainHook::validateUserStartupJson
+        );
+        JSONObject runtimeConfig = loadStartupJson(
+            context,
+            RUNTIME_FILE_NAME,
+            MainHook::validateRuntimeStartupJson
+        );
+        return parseStartupConfig(userConfig, runtimeConfig);
+    }
+
+    private static JSONObject loadStartupJson(
+        Context context,
+        String name,
+        StartupJsonValidator validator
+    ) throws Exception {
+        String preferred = readPreferredModuleJson(context, name);
         try {
-            return parseStartupConfig(preferred);
+            JSONObject json = new JSONObject(preferred);
+            validator.validate(json);
+            return json;
         } catch (Exception e) {
             XposedBridge.log(
-                "[HousamoTrans] Preferred config.json is invalid; "
+                "[HousamoTrans] Preferred "
+                    + name
+                    + " is invalid; "
                     + "retrying the bundled default ("
                     + e.getClass().getSimpleName()
                     + ": "
                     + e.getMessage()
                     + ")"
             );
-            return parseStartupConfig(readModuleAsset(CONFIG_FILE_NAME));
+            JSONObject json = new JSONObject(readModuleAsset(name));
+            validator.validate(json);
+            return json;
         }
+    }
+
+    private static void validateUserStartupJson(JSONObject json) throws Exception {
+        if (json.getString("Version").trim().isEmpty()) {
+            throw new IllegalArgumentException("config.Version must not be empty");
+        }
+        Init_CharacterWeight(json);
+        Init_EnablePageRecDebug(json);
+        Init_EnableParseOnlyDebug(json);
+        Init_OverwriteExistingJson(json);
+        Init_TargetLanguage(json);
+        Init_TranslationConfig(json);
+    }
+
+    private static void validateRuntimeStartupJson(JSONObject json) throws Exception {
+        if (Init_GameVersion(json).trim().isEmpty()) {
+            throw new IllegalArgumentException("runtime.GameVersion must not be empty");
+        }
+        JSONObject runtimeConfigs = json.getJSONObject("RuntimeConfigs");
+        Init_RVA(runtimeConfigs);
+        Init_Layout(runtimeConfigs);
     }
 
     private static JSONObject buildOpenAIRequest(

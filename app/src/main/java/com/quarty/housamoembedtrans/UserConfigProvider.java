@@ -40,14 +40,16 @@ public final class UserConfigProvider extends ContentProvider {
     private static final String MODULE_PACKAGE = "com.quarty.housamoembedtrans";
     private static final String TARGET_PACKAGE = "jp.co.lifewonders.housamo";
     private static final int CONFIG = 1;
-    private static final int CHARDICT = 2;
-    private static final int GAMETERMS = 3;
-    private static final int SCENE = 4;
+    private static final int RUNTIME = 2;
+    private static final int CHARDICT = 3;
+    private static final int GAMETERMS = 4;
+    private static final int SCENE = 5;
 
     private static final UriMatcher URI_MATCHER = new UriMatcher(UriMatcher.NO_MATCH);
 
     static {
         URI_MATCHER.addURI(AUTHORITY, ConfigStore.CONFIG_FILE_NAME, CONFIG);
+        URI_MATCHER.addURI(AUTHORITY, ConfigStore.RUNTIME_FILE_NAME, RUNTIME);
         URI_MATCHER.addURI(AUTHORITY, ConfigStore.CHARDICT_FILE_NAME, CHARDICT);
         URI_MATCHER.addURI(AUTHORITY, ConfigStore.GAMETERMS_FILE_NAME, GAMETERMS);
         URI_MATCHER.addURI(AUTHORITY, SceneStore.DIRECTORY_NAME + "/*", SCENE);
@@ -73,7 +75,6 @@ public final class UserConfigProvider extends ContentProvider {
         if (URI_MATCHER.match(uri) == SCENE) {
             return openSceneFile(uri, mode);
         }
-
         if (!"r".equals(mode)) {
             throw new FileNotFoundException("user resources are read-only");
         }
@@ -153,6 +154,8 @@ public final class UserConfigProvider extends ContentProvider {
         switch (URI_MATCHER.match(uri)) {
             case CONFIG:
                 return ConfigStore.CONFIG_FILE_NAME;
+            case RUNTIME:
+                return ConfigStore.RUNTIME_FILE_NAME;
             case CHARDICT:
                 return ConfigStore.CHARDICT_FILE_NAME;
             case GAMETERMS:

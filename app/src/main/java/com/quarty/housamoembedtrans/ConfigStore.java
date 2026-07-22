@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 final class ConfigStore {
 
     static final String CONFIG_FILE_NAME = "config.json";
+    static final String RUNTIME_FILE_NAME = "runtime.json";
     static final String CHARDICT_FILE_NAME = "chardict.json";
     static final String GAMETERMS_FILE_NAME = "gameterms.json";
     static final int DEFAULT_NETWORK_RETRY_COUNT = 1;
@@ -77,7 +78,15 @@ final class ConfigStore {
     }
 
     void save(JSONObject config) throws IOException {
-        saveJson(CONFIG_FILE_NAME, config);
+        try {
+            JSONObject normalized = normalizeConfig(config);
+            validateConfig(normalized);
+            saveJson(CONFIG_FILE_NAME, normalized);
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("could not validate config.json", e);
+        }
     }
 
     String loadApiKey() {
@@ -101,8 +110,12 @@ final class ConfigStore {
 
         if (hasAtomicFile(userFile)) {
             try {
-                JSONObject json = readJson(atomicFile.openRead());
+                JSONObject source = readJson(atomicFile.openRead());
+                JSONObject json = normalizeResource(name, source);
                 validateResource(name, json);
+                if (CONFIG_FILE_NAME.equals(name) && !isCanonicalConfig(source)) {
+                    saveJson(CONFIG_FILE_NAME, json);
+                }
                 return new JsonLoadResult(json, true, false);
             } catch (Exception ignored) {
                 return new JsonLoadResult(loadBundledJson(name), false, true);
@@ -146,8 +159,12 @@ final class ConfigStore {
         }
 
         try {
-            JSONObject json = readJson(atomicFile.openRead());
+            JSONObject source = readJson(atomicFile.openRead());
+            JSONObject json = normalizeResource(name, source);
             validateResource(name, json);
+            if (CONFIG_FILE_NAME.equals(name) && !isCanonicalConfig(source)) {
+                saveJson(CONFIG_FILE_NAME, json);
+            }
             return file;
         } catch (Exception ignored) {
             return null;
@@ -215,6 +232,8 @@ final class ConfigStore {
     private static void validateResource(String name, JSONObject json) throws Exception {
         if (CONFIG_FILE_NAME.equals(name)) {
             validateConfig(json);
+        } else if (RUNTIME_FILE_NAME.equals(name)) {
+            validateRuntime(json);
         } else if (CHARDICT_FILE_NAME.equals(name)) {
             validateCharacterDictionary(json);
         } else if (GAMETERMS_FILE_NAME.equals(name)) {
@@ -223,7 +242,7 @@ final class ConfigStore {
     }
 
     private static void validateConfig(JSONObject config) throws Exception {
-        requireNonEmptyString(config, "GameVersion", "config");
+        requireNonEmptyString(config, "Version", "config");
 
         JSONObject userSettings = config.getJSONObject("UserSettings");
         userSettings.getBoolean("EnablePageRecDebug");
@@ -290,10 +309,42 @@ final class ConfigStore {
                 "CharacterWeight.TextLowScore must be >= TextMentionedScore"
             );
         }
+    }
+
+    private static void validateRuntime(JSONObject config) throws Exception {
+        requireNonEmptyString(config, "GameVersion", "runtime");
 
         JSONObject runtime = config.getJSONObject("RuntimeConfigs");
         runtime.getJSONObject("RVA");
         runtime.getJSONObject("Layout");
+    }
+
+    private JSONObject normalizeResource(String name, JSONObject json) throws Exception {
+        return CONFIG_FILE_NAME.equals(name) ? normalizeConfig(json) : json;
+    }
+
+    private JSONObject normalizeConfig(JSONObject config) throws Exception {
+        String version = config.has("Version")
+            ? requireNonEmptyString(config, "Version", "config")
+            : requireNonEmptyString(
+                loadBundledJson(CONFIG_FILE_NAME),
+                "Version",
+                "config"
+            );
+
+        JSONObject userSettings = new JSONObject(
+            config.getJSONObject("UserSettings").toString()
+        );
+        JSONObject normalized = new JSONObject();
+        normalized.put("Version", version);
+        normalized.put("UserSettings", userSettings);
+        return normalized;
+    }
+
+    private static boolean isCanonicalConfig(JSONObject config) {
+        return config.length() == 2
+            && config.has("Version")
+            && config.has("UserSettings");
     }
 
     private static void validateOptionalRetryCount(JSONObject translationApi, String key)
@@ -406,6 +457,7 @@ final class ConfigStore {
 
     private static void requireSupportedName(String name) {
         if (!CONFIG_FILE_NAME.equals(name)
+            && !RUNTIME_FILE_NAME.equals(name)
             && !CHARDICT_FILE_NAME.equals(name)
             && !GAMETERMS_FILE_NAME.equals(name)) {
             throw new IllegalArgumentException("unsupported module resource: " + name);
