@@ -24,7 +24,7 @@ import java.util.Set;
 public final class SceneStore {
 
     public static final String DIRECTORY_NAME = "scenes";
-    public static final String SCHEMA_ASSET_NAME = "scene_schema.json";
+    public static final String SCHEMA_ASSET_PATH = "schema/scene_schema.json";
     public static final int MAX_SCENE_BYTES = 32 * 1024 * 1024;
     private static final int MAX_FILE_NAME_BYTES = 240;
     private static final String DELETED_SCENES_FILE_NAME = "scene_deletions.json";
@@ -81,7 +81,7 @@ public final class SceneStore {
         );
         try {
             JSONObject schema = new JSONObject(new String(
-                readAll(this.context.getAssets().open(SCHEMA_ASSET_NAME)),
+                readAll(this.context.getAssets().open(SCHEMA_ASSET_PATH)),
                 StandardCharsets.UTF_8
             ));
             schemaValidator = new JsonSchemaValidator(schema);

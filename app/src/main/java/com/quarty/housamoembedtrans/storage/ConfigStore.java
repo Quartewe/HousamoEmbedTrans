@@ -26,6 +26,7 @@ public final class ConfigStore {
     public static final int DEFAULT_NETWORK_RETRY_COUNT = 1;
     public static final int DEFAULT_RESULT_REPAIR_COUNT = 1;
     public static final int MAX_TRANSLATION_RETRY_COUNT = 5;
+    private static final String TERM_ASSET_DIRECTORY = "term/";
     private static final String PREFS_NAME = "housamo_trans_prefs";
     private static final String KEY_API_KEY = "api_key";
 
@@ -127,7 +128,9 @@ public final class ConfigStore {
 
     public JSONObject loadBundledJson(String name) throws Exception {
         requireSupportedName(name);
-        JSONObject json = readJson(context.getAssets().open(name));
+        JSONObject json = readJson(
+            context.getAssets().open(bundledAssetPath(name))
+        );
         validateResource(name, json);
         return json;
     }
@@ -465,5 +468,13 @@ public final class ConfigStore {
             && !GAMETERMS_FILE_NAME.equals(name)) {
             throw new IllegalArgumentException("unsupported module resource: " + name);
         }
+    }
+
+    private static String bundledAssetPath(String name) {
+        if (CHARDICT_FILE_NAME.equals(name)
+            || GAMETERMS_FILE_NAME.equals(name)) {
+            return TERM_ASSET_DIRECTORY + name;
+        }
+        return name;
     }
 }

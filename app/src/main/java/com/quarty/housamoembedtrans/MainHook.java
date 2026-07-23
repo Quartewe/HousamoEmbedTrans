@@ -68,6 +68,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final String GAMETERMS_FILE_NAME = "gameterms.json";
     private static final String PROMPT_FILE_NAME = "prompt.txt";
     private static final String TRANSLATION_SCHEMA_FILE_NAME = "translation_schema.json";
+    private static final String TERM_ASSET_DIRECTORY = "term/";
+    private static final String SCHEMA_ASSET_DIRECTORY = "schema/";
     private static final String FAILED_API_DIRECTORY_NAME = "failed";
     private static final String FAILED_API_FILE_PREFIX = "api_failed_";
     private static final int HTTP_CONNECT_TIMEOUT_MS = 30_000;
@@ -396,15 +398,28 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         // 获取模块 APK 路径并读取 assets 目录下的指定文件内容
         try (ZipFile zip = new ZipFile(sModulePath)) {
             
-            ZipEntry entry = zip.getEntry("assets/" + name);
+            String assetPath = bundledAssetPath(name);
+            ZipEntry entry = zip.getEntry("assets/" + assetPath);
             if (entry == null) {
-                throw new FileNotFoundException("assets/" + name);
+                throw new FileNotFoundException("assets/" + assetPath);
             }
 
             try (InputStream input = zip.getInputStream(entry)) {
                 return readUtf8(input);
             }
         }
+    }
+
+    private static String bundledAssetPath(String name) {
+        if (CHARDICT_FILE_NAME.equals(name)
+            || GAMETERMS_FILE_NAME.equals(name)
+            || PROMPT_FILE_NAME.equals(name)) {
+            return TERM_ASSET_DIRECTORY + name;
+        }
+        if (TRANSLATION_SCHEMA_FILE_NAME.equals(name)) {
+            return SCHEMA_ASSET_DIRECTORY + name;
+        }
+        return name;
     }
 
     private static String readPreferredModuleJson(Context context, String name)
