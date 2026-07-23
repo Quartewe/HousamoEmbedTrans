@@ -1,6 +1,9 @@
 package com.quarty.housamoembedtrans;
 
 import com.bytedance.shadowhook.ShadowHook;
+import com.quarty.housamoembedtrans.bridge.UserConfigProvider;
+import com.quarty.housamoembedtrans.storage.ConfigStore;
+import com.quarty.housamoembedtrans.storage.SceneStore;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XposedBridge;

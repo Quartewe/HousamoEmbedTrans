@@ -1,4 +1,4 @@
-package com.quarty.housamoembedtrans;
+package com.quarty.housamoembedtrans.storage;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

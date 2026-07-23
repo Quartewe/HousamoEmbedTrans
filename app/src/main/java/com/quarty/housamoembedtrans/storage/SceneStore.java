@@ -1,4 +1,4 @@
-package com.quarty.housamoembedtrans;
+package com.quarty.housamoembedtrans.storage;
 
 import android.content.Context;
 import android.util.AtomicFile;
@@ -21,22 +21,22 @@ import java.util.List;
 import java.util.Set;
 
 /** Stores schema-valid scene JSON files under the module app's files/scenes directory. */
-final class SceneStore {
+public final class SceneStore {
 
-    static final String DIRECTORY_NAME = "scenes";
-    static final String SCHEMA_ASSET_NAME = "scene_schema.json";
-    static final int MAX_SCENE_BYTES = 32 * 1024 * 1024;
+    public static final String DIRECTORY_NAME = "scenes";
+    public static final String SCHEMA_ASSET_NAME = "scene_schema.json";
+    public static final int MAX_SCENE_BYTES = 32 * 1024 * 1024;
     private static final int MAX_FILE_NAME_BYTES = 240;
     private static final String DELETED_SCENES_FILE_NAME = "scene_deletions.json";
     private static final String DELETED_SCENES_KEY = "files";
     private static final Object DELETION_LOCK = new Object();
     private static final String TAG = "HET.SceneStore";
 
-    static final class ValidatedScene {
-        final String sceneName;
-        final String fileName;
-        final byte[] bytes;
-        final List<String> languages;
+    public static final class ValidatedScene {
+        public final String sceneName;
+        public final String fileName;
+        public final byte[] bytes;
+        public final List<String> languages;
 
         ValidatedScene(
             String sceneName,
@@ -53,10 +53,10 @@ final class SceneStore {
         }
     }
 
-    static final class SceneInfo {
-        final String sceneName;
-        final String fileName;
-        final List<String> languages;
+    public static final class SceneInfo {
+        public final String sceneName;
+        public final String fileName;
+        public final List<String> languages;
 
         SceneInfo(ValidatedScene scene) {
             sceneName = scene.sceneName;
@@ -71,7 +71,7 @@ final class SceneStore {
     private final File deletedScenesFile;
     private final JsonSchemaValidator schemaValidator;
 
-    SceneStore(Context context) {
+    public SceneStore(Context context) {
         this.context = context.getApplicationContext();
         sceneDirectory = new File(this.context.getFilesDir(), DIRECTORY_NAME);
         incomingDirectory = new File(sceneDirectory, ".incoming");
@@ -90,13 +90,13 @@ final class SceneStore {
         }
     }
 
-    ValidatedScene importScene(InputStream input) throws Exception {
+    public ValidatedScene importScene(InputStream input) throws Exception {
         ValidatedScene scene = validate(readAll(input));
         save(scene);
         return scene;
     }
 
-    ValidatedScene validate(byte[] sourceBytes) throws Exception {
+    public ValidatedScene validate(byte[] sourceBytes) throws Exception {
         if (sourceBytes == null || sourceBytes.length == 0) {
             throw new IllegalArgumentException("scene file is empty");
         }
@@ -130,7 +130,7 @@ final class SceneStore {
         );
     }
 
-    synchronized void save(ValidatedScene scene) throws IOException {
+    public synchronized void save(ValidatedScene scene) throws IOException {
         ensureDirectories();
         ValidatedScene existing = null;
         try {
@@ -148,7 +148,10 @@ final class SceneStore {
         clearSceneDeletion(scene.fileName);
     }
 
-    synchronized ValidatedScene removeLanguage(String fileName, String language)
+    public synchronized ValidatedScene removeLanguage(
+        String fileName,
+        String language
+    )
         throws Exception {
         if (!isSimpleSceneFileName(fileName)) {
             throw new IllegalArgumentException("invalid scene file name");
@@ -188,7 +191,7 @@ final class SceneStore {
         return updated;
     }
 
-    synchronized void deleteScene(String fileName) throws IOException {
+    public synchronized void deleteScene(String fileName) throws IOException {
         if (!isSimpleSceneFileName(fileName)) {
             throw new IllegalArgumentException("invalid scene file name");
         }
@@ -197,7 +200,10 @@ final class SceneStore {
         new AtomicFile(new File(sceneDirectory, fileName)).delete();
     }
 
-    synchronized void acceptIncoming(File temporaryFile, String expectedFileName)
+    public synchronized void acceptIncoming(
+        File temporaryFile,
+        String expectedFileName
+    )
         throws Exception {
         try {
             ValidatedScene scene;
@@ -216,12 +222,12 @@ final class SceneStore {
         }
     }
 
-    File createIncomingFile() throws IOException {
+    public File createIncomingFile() throws IOException {
         ensureDirectories();
         return File.createTempFile("scene-", ".json.tmp", incomingDirectory);
     }
 
-    List<ValidatedScene> listValidScenes() {
+    public List<ValidatedScene> listValidScenes() {
         Set<String> names = candidateFileNames();
         List<String> sortedNames = new ArrayList<>(names);
         Collections.sort(sortedNames);
@@ -240,7 +246,7 @@ final class SceneStore {
         return scenes;
     }
 
-    List<SceneInfo> listSceneInfos() {
+    public List<SceneInfo> listSceneInfos() {
         Set<String> names = candidateFileNames();
         List<String> sortedNames = new ArrayList<>(names);
         Collections.sort(sortedNames);
@@ -259,7 +265,7 @@ final class SceneStore {
         return scenes;
     }
 
-    List<String> listValidFileNames() {
+    public List<String> listValidFileNames() {
         List<SceneInfo> scenes = listSceneInfos();
         List<String> names = new ArrayList<>(scenes.size());
         for (SceneInfo scene : scenes) {
@@ -268,7 +274,7 @@ final class SceneStore {
         return names;
     }
 
-    List<String> listDeletedFileNames() {
+    public List<String> listDeletedFileNames() {
         synchronized (DELETION_LOCK) {
             try {
                 List<String> names = new ArrayList<>(readDeletedFileNamesLocked());
@@ -281,7 +287,7 @@ final class SceneStore {
         }
     }
 
-    File getValidSceneFile(String fileName) {
+    public File getValidSceneFile(String fileName) {
         if (isSceneDeleted(fileName)) {
             return null;
         }
@@ -506,7 +512,7 @@ final class SceneStore {
         }
     }
 
-    static String fileNameForScene(String sceneName) {
+    public static String fileNameForScene(String sceneName) {
         byte[] utf8 = sceneName.getBytes(StandardCharsets.UTF_8);
         StringBuilder safe = new StringBuilder(utf8.length + 5);
         for (byte raw : utf8) {
@@ -526,7 +532,7 @@ final class SceneStore {
         return safe.toString();
     }
 
-    static boolean isSimpleSceneFileName(String fileName) {
+    public static boolean isSimpleSceneFileName(String fileName) {
         if (fileName == null
             || !fileName.endsWith(".json")
             || fileName.length() > MAX_FILE_NAME_BYTES) {

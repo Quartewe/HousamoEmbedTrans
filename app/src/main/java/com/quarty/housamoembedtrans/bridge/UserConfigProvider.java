@@ -1,4 +1,7 @@
-package com.quarty.housamoembedtrans;
+package com.quarty.housamoembedtrans.bridge;
+
+import com.quarty.housamoembedtrans.storage.ConfigStore;
+import com.quarty.housamoembedtrans.storage.SceneStore;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
@@ -29,12 +32,13 @@ import java.util.concurrent.Executors;
  */
 public final class UserConfigProvider extends ContentProvider {
 
-    static final String AUTHORITY = "com.quarty.housamoembedtrans.userfiles";
-    static final String METHOD_GET_API_KEY = "get_api_key";
-    static final String METHOD_LIST_SCENES = "list_scenes";
-    static final String RESULT_API_KEY = "api_key";
-    static final String RESULT_SCENES = "scenes";
-    static final String RESULT_DELETED_SCENES = "deleted_scenes";
+    public static final String AUTHORITY =
+        "com.quarty.housamoembedtrans.userfiles";
+    public static final String METHOD_GET_API_KEY = "get_api_key";
+    public static final String METHOD_LIST_SCENES = "list_scenes";
+    public static final String RESULT_API_KEY = "api_key";
+    public static final String RESULT_SCENES = "scenes";
+    public static final String RESULT_DELETED_SCENES = "deleted_scenes";
 
     private static final String TAG = "HET.UserFiles";
     private static final String MODULE_PACKAGE = "com.quarty.housamoembedtrans";

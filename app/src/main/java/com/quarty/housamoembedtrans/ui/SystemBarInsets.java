@@ -1,4 +1,4 @@
-package com.quarty.housamoembedtrans;
+package com.quarty.housamoembedtrans.ui;
 
 import android.view.View;
 

@@ -1,4 +1,4 @@
-package com.quarty.housamoembedtrans;
+package com.quarty.housamoembedtrans.storage;
 
 import android.content.Context;
 import android.util.AtomicFile;
@@ -17,22 +17,22 @@ import java.nio.charset.StandardCharsets;
  * Stores user-editable JSON resources in the module app's private files directory.
  * Bundled assets remain immutable defaults and are used whenever no user file exists.
  */
-final class ConfigStore {
+public final class ConfigStore {
 
-    static final String CONFIG_FILE_NAME = "config.json";
-    static final String RUNTIME_FILE_NAME = "runtime.json";
-    static final String CHARDICT_FILE_NAME = "chardict.json";
-    static final String GAMETERMS_FILE_NAME = "gameterms.json";
-    static final int DEFAULT_NETWORK_RETRY_COUNT = 1;
-    static final int DEFAULT_RESULT_REPAIR_COUNT = 1;
-    static final int MAX_TRANSLATION_RETRY_COUNT = 5;
+    public static final String CONFIG_FILE_NAME = "config.json";
+    public static final String RUNTIME_FILE_NAME = "runtime.json";
+    public static final String CHARDICT_FILE_NAME = "chardict.json";
+    public static final String GAMETERMS_FILE_NAME = "gameterms.json";
+    public static final int DEFAULT_NETWORK_RETRY_COUNT = 1;
+    public static final int DEFAULT_RESULT_REPAIR_COUNT = 1;
+    public static final int MAX_TRANSLATION_RETRY_COUNT = 5;
     private static final String PREFS_NAME = "housamo_trans_prefs";
     private static final String KEY_API_KEY = "api_key";
 
-    static class JsonLoadResult {
-        final JSONObject json;
-        final boolean userOverride;
-        final boolean invalidUserOverride;
+    public static class JsonLoadResult {
+        public final JSONObject json;
+        public final boolean userOverride;
+        public final boolean invalidUserOverride;
 
         JsonLoadResult(
             JSONObject json,
@@ -45,8 +45,8 @@ final class ConfigStore {
         }
     }
 
-    static final class LoadResult extends JsonLoadResult {
-        final JSONObject config;
+    public static final class LoadResult extends JsonLoadResult {
+        public final JSONObject config;
 
         LoadResult(
             JSONObject config,
@@ -60,11 +60,11 @@ final class ConfigStore {
 
     private final Context context;
 
-    ConfigStore(Context context) {
+    public ConfigStore(Context context) {
         this.context = context.getApplicationContext();
     }
 
-    LoadResult load() throws Exception {
+    public LoadResult load() throws Exception {
         JsonLoadResult result = loadJson(CONFIG_FILE_NAME);
         return new LoadResult(
             result.json,
@@ -73,11 +73,11 @@ final class ConfigStore {
         );
     }
 
-    JSONObject loadBundledDefault() throws Exception {
+    public JSONObject loadBundledDefault() throws Exception {
         return loadBundledJson(CONFIG_FILE_NAME);
     }
 
-    void save(JSONObject config) throws IOException {
+    public void save(JSONObject config) throws IOException {
         try {
             JSONObject normalized = normalizeConfig(config);
             validateConfig(normalized);
@@ -89,12 +89,12 @@ final class ConfigStore {
         }
     }
 
-    String loadApiKey() {
+    public String loadApiKey() {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_API_KEY, "");
     }
 
-    void saveApiKey(String apiKey) throws IOException {
+    public void saveApiKey(String apiKey) throws IOException {
         boolean saved = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_API_KEY, apiKey == null ? "" : apiKey)
@@ -104,7 +104,7 @@ final class ConfigStore {
         }
     }
 
-    JsonLoadResult loadJson(String name) throws Exception {
+    public JsonLoadResult loadJson(String name) throws Exception {
         File userFile = getUserFile(name);
         AtomicFile atomicFile = new AtomicFile(userFile);
 
@@ -125,14 +125,14 @@ final class ConfigStore {
         return new JsonLoadResult(loadBundledJson(name), false, false);
     }
 
-    JSONObject loadBundledJson(String name) throws Exception {
+    public JSONObject loadBundledJson(String name) throws Exception {
         requireSupportedName(name);
         JSONObject json = readJson(context.getAssets().open(name));
         validateResource(name, json);
         return json;
     }
 
-    void saveJson(String name, JSONObject json) throws IOException {
+    public void saveJson(String name, JSONObject json) throws IOException {
         try {
             saveBytes(
                 name,
@@ -143,7 +143,7 @@ final class ConfigStore {
         }
     }
 
-    void deleteUserFile(String name) throws IOException {
+    public void deleteUserFile(String name) throws IOException {
         new AtomicFile(getUserFile(name)).delete();
     }
 
@@ -151,7 +151,7 @@ final class ConfigStore {
      * Returns an existing and syntactically valid user override, or null.
      * The provider uses this to avoid exposing a corrupt override to the game.
      */
-    File getValidUserFile(String name) {
+    public File getValidUserFile(String name) {
         File file = getUserFile(name);
         AtomicFile atomicFile = new AtomicFile(file);
         if (!hasAtomicFile(file)) {
@@ -171,12 +171,13 @@ final class ConfigStore {
         }
     }
 
-    File getUserFile(String name) {
+    public File getUserFile(String name) {
         requireSupportedName(name);
         return new File(context.getFilesDir(), name);
     }
 
-    static void validateCharacterDictionary(JSONObject dictionary) throws Exception {
+    public static void validateCharacterDictionary(JSONObject dictionary)
+        throws Exception {
         if (dictionary.length() == 0) {
             throw new IllegalArgumentException("character dictionary must not be empty");
         }
@@ -196,7 +197,8 @@ final class ConfigStore {
         }
     }
 
-    static void validateCharacterRecord(String name, JSONObject record) throws Exception {
+    public static void validateCharacterRecord(String name, JSONObject record)
+        throws Exception {
         String[] arrayFields = {
             "alias",
             "school",
@@ -376,7 +378,8 @@ final class ConfigStore {
         );
     }
 
-    static void validateGameTermDictionary(JSONObject dictionary) throws Exception {
+    public static void validateGameTermDictionary(JSONObject dictionary)
+        throws Exception {
         if (dictionary.length() == 0) {
             throw new IllegalArgumentException("game term dictionary must not be empty");
         }
@@ -397,7 +400,7 @@ final class ConfigStore {
         }
     }
 
-    static void validateGameTermRecord(String name, JSONObject record)
+    public static void validateGameTermRecord(String name, JSONObject record)
         throws Exception {
         String[] stringFields = {"en", "zh-tw", "zh-cn", "description"};
         for (String field : stringFields) {

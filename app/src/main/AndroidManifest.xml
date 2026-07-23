@@ -20,24 +20,24 @@
 
         <!-- 设置入口 Activity -->
         <activity
-            android:name=".CharacterDictionaryActivity"
+            android:name=".ui.CharacterDictionaryActivity"
             android:exported="false"
             android:label="@string/chardict_title"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".GameTermsActivity"
+            android:name=".ui.GameTermsActivity"
             android:exported="false"
             android:label="@string/gameterms_title"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".SceneFilesActivity"
+            android:name=".ui.SceneFilesActivity"
             android:exported="false"
             android:label="@string/scene_files_title" />
 
         <activity
-            android:name=".SettingsActivity"
+            android:name=".ui.SettingsActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -47,7 +47,7 @@
         </activity>
 
         <provider
-            android:name=".UserConfigProvider"
+            android:name=".bridge.UserConfigProvider"
             android:authorities="com.quarty.housamoembedtrans.userfiles"
             android:exported="true"
             android:grantUriPermissions="true" />

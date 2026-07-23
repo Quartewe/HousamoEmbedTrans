@@ -1,4 +1,7 @@
-package com.quarty.housamoembedtrans;
+package com.quarty.housamoembedtrans.ui;
+
+import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.storage.ConfigStore;
 
 import android.content.Context;
 import android.os.Bundle;

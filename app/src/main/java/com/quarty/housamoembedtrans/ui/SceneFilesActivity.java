@@ -1,4 +1,7 @@
-package com.quarty.housamoembedtrans;
+package com.quarty.housamoembedtrans.ui;
+
+import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.storage.SceneStore;
 
 import android.content.ContentResolver;
 import android.content.Intent;

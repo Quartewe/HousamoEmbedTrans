@@ -7,15 +7,15 @@ find_package(shadowhook REQUIRED CONFIG)
 # Source files
 add_library(housamo_trans SHARED
     src/main/jni/init.cpp
-    src/main/jni/hook.cpp
-    src/main/jni/ilcpp_reader.cpp
     src/main/jni/init_config.cpp
-    src/main/jni/page_rec.cpp
-    src/main/jni/text_ac.cpp
-    src/main/jni/scene_builder.cpp
-    src/main/jni/scenario_catcher.cpp
-    src/main/jni/data_manager.cpp
-    src/main/jni/json_handler.cpp
+    src/main/jni/runtime/hook.cpp
+    src/main/jni/runtime/ilcpp_reader.cpp
+    src/main/jni/data/data_manager.cpp
+    src/main/jni/data/text_ac.cpp
+    src/main/jni/scene/page_rec.cpp
+    src/main/jni/scene/scenario_catcher.cpp
+    src/main/jni/scene/scene_builder.cpp
+    src/main/jni/io/json_handler.cpp
 )
 
 # Header file paths

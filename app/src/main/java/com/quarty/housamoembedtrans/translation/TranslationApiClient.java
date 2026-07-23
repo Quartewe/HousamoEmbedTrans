@@ -1,4 +1,4 @@
-package com.quarty.housamoembedtrans;
+package com.quarty.housamoembedtrans.translation;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -16,7 +16,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /** Small REST client used by the settings UI to discover provider model IDs. */
-final class TranslationApiClient {
+public final class TranslationApiClient {
 
     private static final int CONNECT_TIMEOUT_MS = 30_000;
     private static final int READ_TIMEOUT_MS = 60_000;
@@ -25,7 +25,7 @@ final class TranslationApiClient {
     private TranslationApiClient() {
     }
 
-    static List<String> listModels(
+    public static List<String> listModels(
         String protocol,
         String configuredBaseUrl,
         String apiKey
