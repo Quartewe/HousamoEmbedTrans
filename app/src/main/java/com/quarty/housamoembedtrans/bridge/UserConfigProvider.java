@@ -10,12 +10,10 @@ import android.content.Intent;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
-import android.os.Process;
 import android.util.Log;
 
 import java.io.File;
@@ -32,17 +30,7 @@ import java.util.concurrent.Executors;
  */
 public final class UserConfigProvider extends ContentProvider {
 
-    public static final String AUTHORITY =
-        "com.quarty.housamoembedtrans.userfiles";
-    public static final String METHOD_GET_API_KEY = "get_api_key";
-    public static final String METHOD_LIST_SCENES = "list_scenes";
-    public static final String RESULT_API_KEY = "api_key";
-    public static final String RESULT_SCENES = "scenes";
-    public static final String RESULT_DELETED_SCENES = "deleted_scenes";
-
     private static final String TAG = "HET.UserFiles";
-    private static final String MODULE_PACKAGE = "com.quarty.housamoembedtrans";
-    private static final String TARGET_PACKAGE = "jp.co.lifewonders.housamo";
     private static final int CONFIG = 1;
     private static final int RUNTIME = 2;
     private static final int CHARDICT = 3;
@@ -52,11 +40,31 @@ public final class UserConfigProvider extends ContentProvider {
     private static final UriMatcher URI_MATCHER = new UriMatcher(UriMatcher.NO_MATCH);
 
     static {
-        URI_MATCHER.addURI(AUTHORITY, ConfigStore.CONFIG_FILE_NAME, CONFIG);
-        URI_MATCHER.addURI(AUTHORITY, ConfigStore.RUNTIME_FILE_NAME, RUNTIME);
-        URI_MATCHER.addURI(AUTHORITY, ConfigStore.CHARDICT_FILE_NAME, CHARDICT);
-        URI_MATCHER.addURI(AUTHORITY, ConfigStore.GAMETERMS_FILE_NAME, GAMETERMS);
-        URI_MATCHER.addURI(AUTHORITY, SceneStore.DIRECTORY_NAME + "/*", SCENE);
+        URI_MATCHER.addURI(
+            HetBridgeContract.USER_FILES_AUTHORITY,
+            ConfigStore.CONFIG_FILE_NAME,
+            CONFIG
+        );
+        URI_MATCHER.addURI(
+            HetBridgeContract.USER_FILES_AUTHORITY,
+            ConfigStore.RUNTIME_FILE_NAME,
+            RUNTIME
+        );
+        URI_MATCHER.addURI(
+            HetBridgeContract.USER_FILES_AUTHORITY,
+            ConfigStore.CHARDICT_FILE_NAME,
+            CHARDICT
+        );
+        URI_MATCHER.addURI(
+            HetBridgeContract.USER_FILES_AUTHORITY,
+            ConfigStore.GAMETERMS_FILE_NAME,
+            GAMETERMS
+        );
+        URI_MATCHER.addURI(
+            HetBridgeContract.USER_FILES_AUTHORITY,
+            SceneStore.DIRECTORY_NAME + "/*",
+            SCENE
+        );
     }
 
     private ConfigStore configStore;
@@ -105,17 +113,20 @@ public final class UserConfigProvider extends ContentProvider {
     public Bundle call(String method, String arg, Bundle extras) {
         enforceReadCaller();
         Bundle result = new Bundle();
-        if (METHOD_GET_API_KEY.equals(method)) {
-            result.putString(RESULT_API_KEY, configStore.loadApiKey());
+        if (HetBridgeContract.METHOD_GET_API_KEY.equals(method)) {
+            result.putString(
+                HetBridgeContract.RESULT_API_KEY,
+                configStore.loadApiKey()
+            );
             return result;
         }
-        if (METHOD_LIST_SCENES.equals(method)) {
+        if (HetBridgeContract.METHOD_LIST_SCENES.equals(method)) {
             result.putStringArrayList(
-                RESULT_SCENES,
+                HetBridgeContract.RESULT_SCENES,
                 new ArrayList<>(sceneStore.listValidFileNames())
             );
             result.putStringArrayList(
-                RESULT_DELETED_SCENES,
+                HetBridgeContract.RESULT_DELETED_SCENES,
                 new ArrayList<>(sceneStore.listDeletedFileNames())
             );
             return result;
@@ -223,25 +234,11 @@ public final class UserConfigProvider extends ContentProvider {
     }
 
     private void enforceReadCaller() {
-        int callerUid = Binder.getCallingUid();
-        if (callerUid == Process.myUid()) {
-            return;
-        }
-
-        String[] packages = providerContext()
-            .getPackageManager()
-            .getPackagesForUid(callerUid);
-
-        if (packages != null) {
-            for (String packageName : packages) {
-                if (TARGET_PACKAGE.equals(packageName)
-                    || MODULE_PACKAGE.equals(packageName)) {
-                    return;
-                }
-            }
-        }
-
-        throw new SecurityException("caller is not allowed to read module user files");
+        CallerVerifier.enforceAllowedCaller(
+            providerContext(),
+            HetBridgeContract.TARGET_PACKAGE,
+            HetBridgeContract.MODULE_PACKAGE
+        );
     }
 
     private void grantTargetReadAccess(Context context) {
@@ -256,11 +253,15 @@ public final class UserConfigProvider extends ContentProvider {
         for (String name : names) {
             Uri uri = new Uri.Builder()
                 .scheme("content")
-                .authority(AUTHORITY)
+                .authority(HetBridgeContract.USER_FILES_AUTHORITY)
                 .appendPath(name)
                 .build();
             try {
-                context.grantUriPermission(TARGET_PACKAGE, uri, flags);
+                context.grantUriPermission(
+                    HetBridgeContract.TARGET_PACKAGE,
+                    uri,
+                    flags
+                );
             } catch (RuntimeException e) {
                 Log.w(TAG, "Could not grant target read access to " + name, e);
             }
@@ -268,12 +269,12 @@ public final class UserConfigProvider extends ContentProvider {
 
         Uri scenes = new Uri.Builder()
             .scheme("content")
-            .authority(AUTHORITY)
+            .authority(HetBridgeContract.USER_FILES_AUTHORITY)
             .appendPath(SceneStore.DIRECTORY_NAME)
             .build();
         try {
             context.grantUriPermission(
-                TARGET_PACKAGE,
+                HetBridgeContract.TARGET_PACKAGE,
                 scenes,
                 flags
                     | Intent.FLAG_GRANT_WRITE_URI_PERMISSION

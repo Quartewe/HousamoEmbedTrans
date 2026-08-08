@@ -1,7 +1,7 @@
 package com.quarty.housamoembedtrans;
 
 import com.bytedance.shadowhook.ShadowHook;
-import com.quarty.housamoembedtrans.bridge.UserConfigProvider;
+import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.storage.ConfigStore;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 
@@ -475,13 +475,13 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         try {
             Bundle result = context.getContentResolver().call(
                 USER_FILES_AUTHORITY,
-                UserConfigProvider.METHOD_GET_API_KEY,
+                HetBridgeContract.METHOD_GET_API_KEY,
                 null,
                 null
             );
             return result == null
                 ? ""
-                : result.getString(UserConfigProvider.RESULT_API_KEY, "");
+                : result.getString(HetBridgeContract.RESULT_API_KEY, "");
         } catch (RuntimeException e) {
             XposedBridge.log(
                 "[HousamoTrans] Could not read API key from module provider: "
@@ -541,17 +541,17 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         try {
             Bundle result = context.getContentResolver().call(
                 USER_FILES_AUTHORITY,
-                UserConfigProvider.METHOD_LIST_SCENES,
+                HetBridgeContract.METHOD_LIST_SCENES,
                 null,
                 null
             );
             ArrayList<String> listed = result == null
                 ? null
-                : result.getStringArrayList(UserConfigProvider.RESULT_SCENES);
+                : result.getStringArrayList(HetBridgeContract.RESULT_SCENES);
             ArrayList<String> deletedList = result == null
                 ? null
                 : result.getStringArrayList(
-                    UserConfigProvider.RESULT_DELETED_SCENES
+                    HetBridgeContract.RESULT_DELETED_SCENES
                 );
             Set<String> mirrored = listed == null
                 ? new HashSet<>()
