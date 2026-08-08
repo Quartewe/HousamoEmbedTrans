@@ -169,8 +169,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
             int rejected = 0;
             StringBuilder details = new StringBuilder();
             for (Uri uri : uris) {
-                try {
-                    InputStream input = getContentResolver().openInputStream(uri);
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
                     if (input == null) {
                         throw new IOException("document could not be opened");
                     }
