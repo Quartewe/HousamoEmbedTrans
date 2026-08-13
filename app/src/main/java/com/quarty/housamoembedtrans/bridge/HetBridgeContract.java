@@ -13,6 +13,8 @@ public final class HetBridgeContract {
     public static final int ENQUEUE_RESULT_CREATED = 1;
     public static final int ENQUEUE_RESULT_EXISTING = 0;
     public static final int ENQUEUE_RESULT_RETRYABLE_PERSISTENCE = -1;
+    public static final int ENQUEUE_RESULT_DUPLICATE_REJECTED = -2;
+    public static final int ENQUEUE_RESULT_EXECUTION_NOT_SETTLED = -3;
     public static final int PROTOCOL_VERSION = 1;
 
     public static final String METHOD_GET_API_KEY = "get_api_key";

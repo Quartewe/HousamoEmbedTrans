@@ -35,6 +35,7 @@ android {
 
     buildFeatures {
         prefab = true
+        aidl = true
     }
 
     // 设置、字典与 scene 文件管理由已安装的 HET Activity 提供。
