@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://housamo-embed-trans.local/schema/scene-context-index.json",
+  "title": "Housamo Embed Trans scene context index",
+  "type": "object",
+  "required": [
+    "version",
+    "active_context_id",
+    "active_group_id",
+    "contexts",
+    "groups"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "active_context_id": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/id" }
+      ]
+    },
+    "active_group_id": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/id" }
+      ]
+    },
+    "contexts": { "$ref": "#/$defs/fileMap" },
+    "groups": { "$ref": "#/$defs/fileMap" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "fileMap": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 6,
+        "maxLength": 69,
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}\\.json$"
+      }
+    }
+  }
+}

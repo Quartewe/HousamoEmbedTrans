@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://housamo-embed-trans.local/schema/scene-context-group.json",
+  "title": "Housamo Embed Trans scene context group",
+  "type": "object",
+  "required": [
+    "version",
+    "id",
+    "storage_name",
+    "display_name",
+    "revision",
+    "created_at",
+    "updated_at",
+    "contexts",
+    "summary"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "$ref": "#/$defs/id" },
+    "storage_name": { "$ref": "#/$defs/storageName" },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "created_at": { "type": "integer", "minimum": 0 },
+    "updated_at": { "type": "integer", "minimum": 0 },
+    "contexts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contextEntry" }
+    },
+    "summary": { "$ref": "#/$defs/summaryContainer" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "storageName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+    },
+    "contextEntry": {
+      "type": "object",
+      "required": ["context_entry_id", "context_id"],
+      "properties": {
+        "context_entry_id": { "$ref": "#/$defs/id" },
+        "context_id": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "summaryContainer": {
+      "type": "object",
+      "propertyNames": { "type": "string", "minLength": 1, "maxLength": 64 },
+      "additionalProperties": { "$ref": "#/$defs/summaryLanguage" }
+    },
+    "summaryLanguage": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "final": { "$ref": "#/$defs/finalSummary" },
+        "current": { "$ref": "#/$defs/currentSummary" },
+        "manual": { "$ref": "#/$defs/manualSummary" }
+      },
+      "additionalProperties": false
+    },
+    "finalSummary": {
+      "type": "object",
+      "required": ["text", "source_hash", "updated_at"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "source_hash": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "currentSummary": {
+      "type": "object",
+      "required": ["text", "source_hash", "updated_at", "cutoff"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "source_hash": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "integer", "minimum": 0 },
+        "cutoff": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "manualSummary": {
+      "type": "object",
+      "required": ["text", "updated_at"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}
