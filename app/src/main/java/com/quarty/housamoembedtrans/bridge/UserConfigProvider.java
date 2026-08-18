@@ -123,11 +123,11 @@ public final class UserConfigProvider extends ContentProvider {
         if (HetBridgeContract.METHOD_LIST_SCENES.equals(method)) {
             result.putStringArrayList(
                 HetBridgeContract.RESULT_SCENES,
-                new ArrayList<>(sceneStore.listValidFileNames())
+                new ArrayList<>(sceneStore.listValidSceneNames())
             );
             result.putStringArrayList(
                 HetBridgeContract.RESULT_DELETED_SCENES,
-                new ArrayList<>(sceneStore.listDeletedFileNames())
+                new ArrayList<>(sceneStore.listDeletedSceneNames())
             );
             return result;
         }
@@ -183,14 +183,17 @@ public final class UserConfigProvider extends ContentProvider {
     private ParcelFileDescriptor openSceneFile(Uri uri, String mode)
         throws FileNotFoundException {
         String fileName = uri.getLastPathSegment();
-        if (!SceneStore.isSimpleSceneFileName(fileName)) {
+        final String sceneName;
+        try {
+            sceneName = SceneStore.sceneNameForFileName(fileName);
+        } catch (IllegalArgumentException e) {
             throw new FileNotFoundException("invalid scene file name");
         }
 
         if ("r".equals(mode)) {
-            File file = sceneStore.getValidSceneFile(fileName);
+            File file = sceneStore.getValidSceneFileByName(sceneName);
             if (file == null) {
-                throw new FileNotFoundException("no valid scene named " + fileName);
+                throw new FileNotFoundException("no valid SceneName " + sceneName);
             }
             return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
         }
@@ -217,9 +220,9 @@ public final class UserConfigProvider extends ContentProvider {
                     }
                     sceneWriter.execute(() -> {
                         try {
-                            sceneStore.acceptIncoming(temporaryFile, fileName);
+                            sceneStore.acceptIncoming(temporaryFile, sceneName);
                         } catch (Exception e) {
-                            Log.w(TAG, "Rejected incoming scene " + fileName, e);
+                            Log.w(TAG, "Rejected incoming scene " + sceneName, e);
                         }
                     });
                 }

@@ -225,14 +225,15 @@ public final class SceneFilesActivity extends AppCompatActivity {
                 Map<String, Uri> existing = listDocuments(treeUri);
                 for (SceneStore.ValidatedScene scene : scenes) {
                     try {
-                        Uri documentUri = existing.get(scene.fileName);
+                        String fileName = SceneStore.fileNameForScene(scene.sceneName);
+                        Uri documentUri = existing.get(fileName);
                         if (documentUri == null) {
                             Uri parent = parentDocumentUri(treeUri);
                             documentUri = DocumentsContract.createDocument(
                                 getContentResolver(),
                                 parent,
                                 "application/json",
-                                scene.fileName
+                                fileName
                             );
                         }
                         if (documentUri == null) {
@@ -250,7 +251,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
                         exported++;
                     } catch (Exception e) {
                         failed++;
-                        appendFailure(details, scene.fileName, safeMessage(e));
+                        appendFailure(details, scene.sceneName, safeMessage(e));
                     }
                 }
             } catch (Exception e) {
@@ -340,12 +341,12 @@ public final class SceneFilesActivity extends AppCompatActivity {
         SceneStore.SceneInfo previousScene = selectedScene();
         String wantedFileName = preferredFileName;
         if (wantedFileName == null && previousScene != null) {
-            wantedFileName = previousScene.fileName;
+            wantedFileName = previousScene.sceneName;
         }
 
         String wantedLanguage = preferredLanguage;
         if (wantedLanguage == null && previousScene != null
-            && previousScene.fileName.equals(wantedFileName)) {
+            && previousScene.sceneName.equals(wantedFileName)) {
             wantedLanguage = selectedLanguage();
         }
 
@@ -356,7 +357,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
             sceneFileLabels.add(getString(R.string.scene_files_empty));
         } else {
             for (SceneStore.SceneInfo scene : scenes) {
-                sceneFileLabels.add(scene.fileName);
+                sceneFileLabels.add(scene.sceneName);
             }
         }
         sceneFileAdapter.notifyDataSetChanged();
@@ -421,7 +422,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
             return -1;
         }
         for (int index = 0; index < scenes.size(); index++) {
-            if (fileName.equals(scenes.get(index).fileName)) {
+            if (fileName.equals(scenes.get(index).sceneName)) {
                 return index;
             }
         }
@@ -440,12 +441,12 @@ public final class SceneFilesActivity extends AppCompatActivity {
             .setMessage(getString(
                 R.string.delete_scene_language_message,
                 language,
-                scene.fileName
+                scene.sceneName
             ))
             .setNegativeButton(R.string.cancel_action, null)
             .setPositiveButton(
                 R.string.delete_scene_language,
-                (dialog, which) -> deleteLanguage(scene.fileName, language)
+                (dialog, which) -> deleteLanguage(scene.sceneName, language)
             )
             .show();
     }
@@ -487,13 +488,13 @@ public final class SceneFilesActivity extends AppCompatActivity {
             .setTitle(R.string.delete_scene_file_title)
             .setMessage(getString(
                 R.string.delete_scene_file_message,
-                scene.fileName
+                scene.sceneName
             ))
             .setNegativeButton(R.string.cancel_action, null)
             .setPositiveButton(
                 R.string.delete_scene_file,
                 (dialog, which) -> deleteFile(
-                    scene.fileName,
+                    scene.sceneName,
                     preferredFileName
                 )
             )
@@ -507,7 +508,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         int neighborIndex = selectedIndex + 1 < scenes.size()
             ? selectedIndex + 1
             : selectedIndex - 1;
-        return scenes.get(neighborIndex).fileName;
+        return scenes.get(neighborIndex).sceneName;
     }
 
     private void deleteFile(String fileName, String preferredFileName) {

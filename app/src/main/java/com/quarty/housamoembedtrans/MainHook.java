@@ -553,18 +553,19 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 : result.getStringArrayList(
                     HetBridgeContract.RESULT_DELETED_SCENES
                 );
-            Set<String> mirrored = listed == null
+            Set<String> mirroredSceneNames = listed == null
                 ? new HashSet<>()
                 : new HashSet<>(listed);
-            Set<String> deleted = deletedList == null
+            Set<String> deletedSceneNames = deletedList == null
                 ? new HashSet<>()
                 : new HashSet<>(deletedList);
 
             int deletedCount = 0;
-            for (String fileName : deleted) {
-                if (!SceneStore.isSimpleSceneFileName(fileName)) {
+            for (String sceneName : deletedSceneNames) {
+                if (!SceneStore.isValidSceneName(sceneName)) {
                     continue;
                 }
+                String fileName = SceneStore.fileNameForScene(sceneName);
                 File localFile = new File(targetSceneDirectory, fileName);
                 if (localFile.isFile()
                     || new File(localFile.getPath() + ".bak").isFile()) {
@@ -572,13 +573,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     deletedCount++;
                 }
             }
-            mirrored.removeAll(deleted);
+            mirroredSceneNames.removeAll(deletedSceneNames);
 
             int pulled = 0;
-            for (String fileName : mirrored) {
-                if (!SceneStore.isSimpleSceneFileName(fileName)) {
+            for (String sceneName : mirroredSceneNames) {
+                if (!SceneStore.isValidSceneName(sceneName)) {
                     continue;
                 }
+                String fileName = SceneStore.fileNameForScene(sceneName);
                 try (InputStream input = context.getContentResolver()
                     .openInputStream(sceneUri(fileName))) {
                     if (input == null) {
@@ -592,7 +594,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 } catch (Exception e) {
                     XposedBridge.log(
                         "[HousamoTrans] Could not pull scene "
-                            + fileName
+                            + sceneName
                             + ": "
                             + e.getClass().getSimpleName()
                     );
@@ -605,8 +607,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             );
             if (localFiles != null) {
                 for (File file : localFiles) {
-                    if (mirrored.contains(file.getName())
-                        || deleted.contains(file.getName())) {
+                    final String sceneName;
+                    try {
+                        sceneName = SceneStore.sceneNameForFileName(file.getName());
+                    } catch (IllegalArgumentException e) {
+                        continue;
+                    }
+                    if (mirroredSceneNames.contains(sceneName)
+                        || deletedSceneNames.contains(sceneName)) {
                         continue;
                     }
                     try (InputStream input = new FileInputStream(file)) {
@@ -616,7 +624,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     } catch (Exception e) {
                         XposedBridge.log(
                             "[HousamoTrans] Could not push scene "
-                                + file.getName()
+                                + sceneName
                                 + ": "
                                 + e.getClass().getSimpleName()
                         );
