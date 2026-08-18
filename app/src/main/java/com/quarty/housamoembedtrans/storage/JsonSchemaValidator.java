@@ -6,6 +6,8 @@ import org.json.JSONObject;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Small JSON Schema Draft 2020-12 validator for the keywords used by
@@ -100,12 +102,36 @@ final class JsonSchemaValidator {
             throw error(path, "must be " + type);
         }
 
+        if (value instanceof Number) {
+            validateNumber((Number) value, schema, path);
+        }
+
         if (value instanceof JSONObject) {
             validateObject((JSONObject) value, schema, path, depth + 1);
         } else if (value instanceof JSONArray) {
             validateArray((JSONArray) value, schema, path, depth + 1);
         } else if (value instanceof String) {
             validateString((String) value, schema, path);
+        }
+    }
+
+    private static void validateNumber(
+        Number value,
+        JSONObject schema,
+        String path
+    ) throws ValidationException {
+        double number = value.doubleValue();
+        if (schema.has("minimum") && number < schema.optDouble("minimum")) {
+            throw error(
+                path,
+                "must be greater than or equal to " + schema.optDouble("minimum")
+            );
+        }
+        if (schema.has("maximum") && number > schema.optDouble("maximum")) {
+            throw error(
+                path,
+                "must be less than or equal to " + schema.optDouble("maximum")
+            );
         }
     }
 
@@ -123,6 +149,21 @@ final class JsonSchemaValidator {
                     throw error(path, "is missing required field " + key);
                 }
             }
+        }
+
+        int minProperties = schema.optInt("minProperties", -1);
+        if (minProperties >= 0 && object.length() < minProperties) {
+            throw error(
+                path,
+                "must contain at least " + minProperties + " propertie(s)"
+            );
+        }
+        int maxProperties = schema.optInt("maxProperties", -1);
+        if (maxProperties >= 0 && object.length() > maxProperties) {
+            throw error(
+                path,
+                "must contain no more than " + maxProperties + " propertie(s)"
+            );
         }
 
         JSONObject properties = schema.optJSONObject("properties");
@@ -222,14 +263,29 @@ final class JsonSchemaValidator {
         JSONObject schema,
         String path
     ) throws ValidationException {
+        int length = value.codePointCount(0, value.length());
         int minLength = schema.optInt("minLength", -1);
-        if (minLength >= 0 && value.length() < minLength) {
+        if (minLength >= 0 && length < minLength) {
             throw error(path, "must contain at least " + minLength + " character(s)");
         }
 
         int maxLength = schema.optInt("maxLength", -1);
-        if (maxLength >= 0 && value.length() > maxLength) {
+        if (maxLength >= 0 && length > maxLength) {
             throw error(path, "must contain no more than " + maxLength + " characters");
+        }
+
+        String pattern = schema.optString("pattern", "");
+        if (!pattern.isEmpty()) {
+            final boolean matches;
+            try {
+                // JSON Schema pattern is a search, not an implicit whole-string match.
+                matches = Pattern.compile(pattern).matcher(value).find();
+            } catch (PatternSyntaxException e) {
+                throw error(path, "has an invalid pattern");
+            }
+            if (!matches) {
+                throw error(path, "does not match required pattern " + pattern);
+            }
         }
     }
 
