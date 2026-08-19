@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -25,10 +26,18 @@ public final class ConfigStore {
     public static final String GAMETERMS_FILE_NAME = "gameterms.json";
     public static final int DEFAULT_NETWORK_RETRY_COUNT = 1;
     public static final int DEFAULT_RESULT_REPAIR_COUNT = 1;
+    public static final boolean DEFAULT_ENABLE_STREAMING_REPAIR = false;
+    public static final int DEFAULT_REPAIR_GRADIENT_COUNT = 3;
+    public static final boolean DEFAULT_USE_FULL_SCENE_FOR_REPAIR = true;
+    public static final int MIN_REPAIR_GRADIENT_COUNT = 2;
+    public static final int MAX_REPAIR_GRADIENT_COUNT = 8;
+    public static final String DEFAULT_THINKING_STRENGTH = "none";
+    public static final int DEFAULT_CONTEXT_LENGTH = 16000;
     public static final int MAX_TRANSLATION_RETRY_COUNT = 5;
     private static final String TERM_ASSET_DIRECTORY = "term/";
     private static final String PREFS_NAME = "housamo_trans_prefs";
     private static final String KEY_API_KEY = "api_key";
+    private static final Object CONFIG_ACCESS_LOCK = new Object();
 
     public static class JsonLoadResult {
         public final JSONObject json;
@@ -59,6 +68,17 @@ public final class ConfigStore {
         }
     }
 
+    /** Consistent config and API-key snapshot for one translation attempt. */
+    public static final class TranslationConfigSnapshot {
+        public final JSONObject config;
+        public final String apiKey;
+
+        private TranslationConfigSnapshot(JSONObject config, String apiKey) {
+            this.config = config;
+            this.apiKey = apiKey == null ? "" : apiKey;
+        }
+    }
+
     private final Context context;
 
     public ConfigStore(Context context) {
@@ -66,6 +86,12 @@ public final class ConfigStore {
     }
 
     public LoadResult load() throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            return loadConfigUnlocked();
+        }
+    }
+
+    private LoadResult loadConfigUnlocked() throws Exception {
         JsonLoadResult result = loadJson(CONFIG_FILE_NAME);
         return new LoadResult(
             result.json,
@@ -74,34 +100,59 @@ public final class ConfigStore {
         );
     }
 
+    /** Reads config JSON and API key under one process-local snapshot lock. */
+    public TranslationConfigSnapshot loadTranslationConfigSnapshot()
+        throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            LoadResult result = loadConfigUnlocked();
+            return new TranslationConfigSnapshot(
+                result.config,
+                loadApiKeyUnlocked()
+            );
+        }
+    }
+
     public JSONObject loadBundledDefault() throws Exception {
         return loadBundledJson(CONFIG_FILE_NAME);
     }
 
     public void save(JSONObject config) throws IOException {
-        try {
-            JSONObject normalized = normalizeConfig(config);
-            validateConfig(normalized);
-            saveJson(CONFIG_FILE_NAME, normalized);
-        } catch (IOException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IOException("could not validate config.json", e);
+        synchronized (CONFIG_ACCESS_LOCK) {
+            try {
+                JSONObject normalized = normalizeConfig(config);
+                validateConfig(normalized);
+                saveJson(CONFIG_FILE_NAME, normalized);
+            } catch (IOException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new IOException("could not validate config.json", e);
+            }
         }
     }
 
     public String loadApiKey() {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            return loadApiKeyUnlocked();
+        }
+    }
+
+    private String loadApiKeyUnlocked() {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_API_KEY, "");
     }
 
     public void saveApiKey(String apiKey) throws IOException {
-        boolean saved = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_API_KEY, apiKey == null ? "" : apiKey)
-            .commit();
-        if (!saved) {
-            throw new IOException("could not persist API key");
+        synchronized (CONFIG_ACCESS_LOCK) {
+            boolean saved = context.getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+                .edit()
+                .putString(KEY_API_KEY, apiKey == null ? "" : apiKey)
+                .commit();
+            if (!saved) {
+                throw new IOException("could not persist API key");
+            }
         }
     }
 
@@ -359,17 +410,34 @@ public final class ConfigStore {
         }
 
         Object value = translationApi.get(key);
-        if (!(value instanceof Number)) {
+        int retryCount;
+        try {
+            retryCount = requireInt(value, key);
+        } catch (IllegalArgumentException e) {
             throw invalidRetryCount(key);
         }
+        if (retryCount < 0 || retryCount > MAX_TRANSLATION_RETRY_COUNT) {
+            throw invalidRetryCount(key);
+        }
+    }
 
-        double retryCount = ((Number) value).doubleValue();
-        if (!Double.isFinite(retryCount)
-            || retryCount != Math.rint(retryCount)
-            || retryCount < 0
-            || retryCount > MAX_TRANSLATION_RETRY_COUNT) {
-            throw invalidRetryCount(key);
+    private static int requireInt(Object value, String key) {
+        if (!(value instanceof Number)
+            || value instanceof Double
+            || value instanceof Float) {
+            throw new IllegalArgumentException(key + " must be an integer");
         }
+        BigInteger parsed;
+        try {
+            parsed = new BigInteger(value.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(key + " must be an integer", e);
+        }
+        if (parsed.compareTo(BigInteger.valueOf(Integer.MIN_VALUE)) < 0
+            || parsed.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
+            throw new IllegalArgumentException(key + " must be an integer");
+        }
+        return parsed.intValue();
     }
 
     private static IllegalArgumentException invalidRetryCount(String key) {
