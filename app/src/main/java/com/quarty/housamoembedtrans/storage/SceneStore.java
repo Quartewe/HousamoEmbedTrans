@@ -36,6 +36,154 @@ public final class SceneStore {
     /** Process-local delete intents; intentionally never persisted. */
     private static final SceneDeletionIntentRegistry PROCESS_DELETION_INTENTS =
         new SceneDeletionIntentRegistry();
+    private static final MutationAdmission MUTATION_ADMISSION =
+        new MutationAdmission();
+
+    public static final class MutationAdmission {
+        private final Object lock = new Object();
+        private int activeExternalMutations;
+        private int activeInternalMutations;
+        private boolean fullSyncActive;
+
+        private MutationAdmission() {}
+
+        public final class ExternalMutationRejectedException extends IOException {
+            ExternalMutationRejectedException() {
+                super("scene mutation rejected while full sync is active");
+            }
+        }
+
+        public final class MutationLease implements AutoCloseable {
+            private boolean closed;
+
+            private MutationLease() {}
+
+            @Override
+            public void close() {
+                synchronized (lock) {
+                    if (closed) return;
+                    closed = true;
+                    activeExternalMutations--;
+                    lock.notifyAll();
+                }
+            }
+        }
+
+        public final class FullSyncLease implements AutoCloseable {
+            private final MutationAdmission owner = MutationAdmission.this;
+            private boolean closed;
+
+            private FullSyncLease() {}
+
+            public void saveRawSceneSnapshot(
+                SceneStore store,
+                RawSceneSnapshot snapshot
+            ) throws IOException {
+                owner.enterInternal(this);
+                try {
+                    if (store == null) {
+                        throw new IllegalArgumentException("SceneStore is null");
+                    }
+                    store.saveRawSceneSnapshotInternal(snapshot);
+                } finally {
+                    owner.leaveInternal();
+                }
+            }
+
+            public boolean clearMatchingDeletionIntent(
+                SceneStore store,
+                String sceneName,
+                long token
+            ) throws IOException {
+                owner.enterInternal(this);
+                try {
+                    if (store == null) {
+                        throw new IllegalArgumentException("SceneStore is null");
+                    }
+                    return store.clearMatchingDeletionIntentInternal(
+                        sceneName,
+                        token
+                    );
+                } finally {
+                    owner.leaveInternal();
+                }
+            }
+
+            @Override
+            public void close() {
+                synchronized (lock) {
+                    if (closed) return;
+                    closed = true;
+                    boolean interrupted = false;
+                    while (activeInternalMutations != 0) {
+                        try {
+                            lock.wait();
+                        } catch (InterruptedException e) {
+                            interrupted = true;
+                        }
+                    }
+                    fullSyncActive = false;
+                    lock.notifyAll();
+                    if (interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        }
+
+        private void enterInternal(FullSyncLease lease) throws IOException {
+            synchronized (lock) {
+                if (lease == null
+                    || lease.owner != this
+                    || lease.closed
+                    || !fullSyncActive) {
+                    throw new IOException("full-sync write lease is closed");
+                }
+                activeInternalMutations++;
+            }
+        }
+
+        private void leaveInternal() {
+            synchronized (lock) {
+                activeInternalMutations--;
+                lock.notifyAll();
+            }
+        }
+
+        private MutationLease beginExternalMutation() throws ExternalMutationRejectedException {
+            synchronized (lock) {
+                if (fullSyncActive) {
+                    throw new ExternalMutationRejectedException();
+                }
+                activeExternalMutations++;
+                return new MutationLease();
+            }
+        }
+
+        private FullSyncLease beginFullSync() throws IOException {
+            synchronized (lock) {
+                if (fullSyncActive) {
+                    throw new IOException("another full sync is already active");
+                }
+                fullSyncActive = true;
+                while (activeExternalMutations != 0) {
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        fullSyncActive = false;
+                        lock.notifyAll();
+                        Thread.currentThread().interrupt();
+                        throw new IOException(e);
+                    }
+                }
+                return new FullSyncLease();
+            }
+        }
+    }
+
+    public static MutationAdmission.FullSyncLease beginFullSyncAdmission() throws IOException {
+        return MUTATION_ADMISSION.beginFullSync();
+    }
 
     public static final class ValidatedScene {
         public final String sceneName;
@@ -143,9 +291,14 @@ public final class SceneStore {
         private FileOutputStream output;
         private boolean committed;
         private boolean closed;
+        private MutationAdmission.MutationLease admissionLease;
 
-        private RawSceneWriteSession(String sceneName) throws IOException {
+        private RawSceneWriteSession(
+            String sceneName,
+            MutationAdmission.MutationLease admissionLease
+        ) throws IOException {
             this.sceneName = requireSceneName(sceneName);
+            this.admissionLease = admissionLease;
             atomicFile = new AtomicFile(
                 new File(sceneDirectory, fileNameForScene(this.sceneName))
             );
@@ -153,6 +306,7 @@ public final class SceneStore {
                 ensureDirectories();
                 output = atomicFile.startWrite();
             } catch (IOException e) {
+                releaseAdmission();
                 throw new RawSceneWriteFailure(
                     RawSceneWriteFailureKind.START,
                     e
@@ -213,6 +367,7 @@ public final class SceneStore {
                 output = null;
                 committed = true;
                 closed = true;
+                releaseAdmission();
             } catch (RuntimeException e) {
                 throw new RawSceneWriteFailure(
                     RawSceneWriteFailureKind.COMMIT,
@@ -227,9 +382,20 @@ public final class SceneStore {
                 return;
             }
             closed = true;
-            if (output != null) {
-                atomicFile.failWrite(output);
-                output = null;
+            try {
+                if (output != null) {
+                    atomicFile.failWrite(output);
+                    output = null;
+                }
+            } finally {
+                releaseAdmission();
+            }
+        }
+
+        private synchronized void releaseAdmission() {
+            if (admissionLease != null) {
+                admissionLease.close();
+                admissionLease = null;
             }
         }
 
@@ -248,7 +414,17 @@ public final class SceneStore {
     /** Opens a raw staging session without parsing Scene JSON or schema. */
     public RawSceneWriteSession beginRawSceneWrite(String sceneName)
         throws IOException {
-        return new RawSceneWriteSession(requireSceneName(sceneName));
+        MutationAdmission.MutationLease lease =
+            MUTATION_ADMISSION.beginExternalMutation();
+        try {
+            return new RawSceneWriteSession(requireSceneName(sceneName), lease);
+        } catch (IOException e) {
+            lease.close();
+            throw e;
+        } catch (RuntimeException e) {
+            lease.close();
+            throw e;
+        }
     }
 
     /** Convenience single-file raw write for callers with an already bounded body. */
@@ -323,9 +499,17 @@ public final class SceneStore {
     }
 
     public ValidatedScene importScene(InputStream input) throws Exception {
-        ValidatedScene scene = validate(IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES));
-        save(scene);
-        return scene;
+        MutationAdmission.MutationLease lease =
+            MUTATION_ADMISSION.beginExternalMutation();
+        try {
+            ValidatedScene scene = validate(
+                IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES)
+            );
+            saveInternal(scene);
+            return scene;
+        } finally {
+            lease.close();
+        }
     }
 
     /**
@@ -443,6 +627,18 @@ public final class SceneStore {
     /** Atomically publishes a previously validated raw snapshot without normalization. */
     public synchronized void saveRawSceneSnapshot(RawSceneSnapshot snapshot)
         throws IOException {
+        MutationAdmission.MutationLease lease =
+            MUTATION_ADMISSION.beginExternalMutation();
+        try {
+            saveRawSceneSnapshotInternal(snapshot);
+        } finally {
+            lease.close();
+        }
+    }
+
+    private synchronized void saveRawSceneSnapshotInternal(
+        RawSceneSnapshot snapshot
+    ) throws IOException {
         if (snapshot == null) {
             throw new IllegalArgumentException("snapshot is null");
         }
@@ -551,6 +747,17 @@ public final class SceneStore {
     }
 
     public synchronized void save(ValidatedScene scene) throws IOException {
+        MutationAdmission.MutationLease lease =
+            MUTATION_ADMISSION.beginExternalMutation();
+        try {
+            saveInternal(scene);
+        } finally {
+            lease.close();
+        }
+    }
+
+    private synchronized void saveInternal(ValidatedScene scene)
+        throws IOException {
         if (scene == null) {
             throw new IllegalArgumentException("scene is null");
         }
@@ -574,6 +781,20 @@ public final class SceneStore {
     }
 
     public synchronized ValidatedScene removeLanguage(
+        String sceneName,
+        String language
+    )
+        throws Exception {
+        MutationAdmission.MutationLease lease =
+            MUTATION_ADMISSION.beginExternalMutation();
+        try {
+            return removeLanguageInternal(sceneName, language);
+        } finally {
+            lease.close();
+        }
+    }
+
+    private synchronized ValidatedScene removeLanguageInternal(
         String sceneName,
         String language
     )
@@ -608,11 +829,22 @@ public final class SceneStore {
         if (!updated.sceneName.equals(sceneName)) {
             throw new IOException("scene name changed while removing language");
         }
-        save(updated);
+        saveInternal(updated);
         return updated;
     }
 
     public synchronized void deleteScene(String sceneName) throws IOException {
+        MutationAdmission.MutationLease lease =
+            MUTATION_ADMISSION.beginExternalMutation();
+        try {
+            deleteSceneInternal(sceneName);
+        } finally {
+            lease.close();
+        }
+    }
+
+    private synchronized void deleteSceneInternal(String sceneName)
+        throws IOException {
         sceneName = requireSceneName(sceneName);
         File file = new File(sceneDirectory, fileNameForScene(sceneName));
         if (PROCESS_DELETION_INTENTS.contains(sceneName)
@@ -632,6 +864,17 @@ public final class SceneStore {
     /** Deletes a game-side mirror without creating an HET delete intent. */
     public synchronized void deleteSceneForSync(String sceneName)
         throws IOException {
+        MutationAdmission.MutationLease lease =
+            MUTATION_ADMISSION.beginExternalMutation();
+        try {
+            deleteSceneForSyncInternal(sceneName);
+        } finally {
+            lease.close();
+        }
+    }
+
+    private synchronized void deleteSceneForSyncInternal(String sceneName)
+        throws IOException {
         sceneName = requireSceneName(sceneName);
         File file = new File(sceneDirectory, fileNameForScene(sceneName));
         if (!IoUtils.atomicFileExists(file)) {
@@ -648,7 +891,9 @@ public final class SceneStore {
         String expectedSceneName
     )
         throws Exception {
+        MutationAdmission.MutationLease lease = null;
         try {
+            lease = MUTATION_ADMISSION.beginExternalMutation();
             ValidatedScene scene;
             try (InputStream input = new java.io.FileInputStream(temporaryFile)) {
                 scene = validate(IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES));
@@ -660,9 +905,15 @@ public final class SceneStore {
                         + ", not requested SceneName " + expectedSceneName
                 );
             }
-            save(scene);
+            saveInternal(scene);
         } finally {
-            temporaryFile.delete();
+            try {
+                if (lease != null) {
+                    lease.close();
+                }
+            } finally {
+                temporaryFile.delete();
+            }
         }
     }
 
@@ -743,13 +994,16 @@ public final class SceneStore {
     }
 
     /** Clears an intent only after the peer has acknowledged DELETE_SCENE. */
-    public void clearSceneDeletionIntent(String sceneName) {
+    private void clearSceneDeletionIntent(String sceneName) {
         sceneName = requireSceneName(sceneName);
         PROCESS_DELETION_INTENTS.clear(sceneName);
     }
 
     /** Clears only the intent token captured by a completed operation. */
-    public boolean clearMatchingDeletionIntent(String sceneName, long token) {
+    private boolean clearMatchingDeletionIntentInternal(
+        String sceneName,
+        long token
+    ) {
         sceneName = requireSceneName(sceneName);
         return PROCESS_DELETION_INTENTS.clearMatching(sceneName, token);
     }

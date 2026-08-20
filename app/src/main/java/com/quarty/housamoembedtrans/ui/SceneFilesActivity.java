@@ -1,16 +1,20 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
+import com.quarty.housamoembedtrans.runtime.SceneSyncUiVisibility;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -36,27 +40,47 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** UI for importing, exporting, and deleting schema-valid scene data. */
+/** UI for schema-valid scene files and process-local Scene Sync state. */
 public final class SceneFilesActivity extends AppCompatActivity {
+    private static final String TAG = "SceneFilesActivity";
+
+    private final SceneSyncRuntimeState runtimeState =
+        SceneSyncRuntimeState.getInstance();
+    private final SceneSyncUiVisibility.ActivityFlag visibilityFlag =
+        SceneSyncUiVisibility.newSceneFilesFlag();
+    private final List<SceneStore.SceneInfo> scenes = new ArrayList<>();
+    private final List<String> sceneFileLabels = new ArrayList<>();
+    private final List<String> sceneLanguages = new ArrayList<>();
+    private final ExecutorService ioExecutor =
+        Executors.newSingleThreadExecutor();
 
     private SceneStore sceneStore;
     private TextView summary;
     private TextView lastResult;
+    private TextView runtimeStatus;
+    private TextView refreshScope;
+    private TextView refreshResult;
+    private TextView lastSyncSummary;
     private MaterialButton importButton;
     private MaterialButton exportButton;
     private MaterialButton deleteLanguageButton;
     private MaterialButton deleteFileButton;
+    private MaterialButton refreshButton;
+    private MaterialButton conflictsButton;
+    private Typeface conflictsButtonTypeface;
     private Spinner sceneFileSpinner;
     private Spinner sceneLanguageSpinner;
     private ArrayAdapter<String> sceneFileAdapter;
     private ArrayAdapter<String> sceneLanguageAdapter;
-    private final List<SceneStore.SceneInfo> scenes = new ArrayList<>();
-    private final List<String> sceneFileLabels = new ArrayList<>();
-    private final List<String> sceneLanguages = new ArrayList<>();
-    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<String[]> importLauncher;
     private ActivityResultLauncher<Uri> exportLauncher;
+    private SceneSyncRuntimeState.Snapshot runtimeSnapshot =
+        runtimeState.getSnapshot();
+    private SceneSyncRuntimeState.Listener runtimeListener;
     private boolean busy = true;
+    private boolean refreshRequestPending;
+    private boolean started;
+    private int lifecycleGeneration;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,10 +95,17 @@ public final class SceneFilesActivity extends AppCompatActivity {
         sceneStore = new SceneStore(this);
         summary = findViewById(R.id.tv_scene_summary);
         lastResult = findViewById(R.id.tv_scene_last_result);
+        runtimeStatus = findViewById(R.id.tv_scene_sync_runtime_status);
+        refreshScope = findViewById(R.id.tv_scene_sync_refresh_scope);
+        refreshResult = findViewById(R.id.tv_scene_sync_refresh_result);
+        lastSyncSummary = findViewById(R.id.tv_scene_sync_last_summary);
         importButton = findViewById(R.id.btn_import_scenes);
         exportButton = findViewById(R.id.btn_export_scenes);
         deleteLanguageButton = findViewById(R.id.btn_delete_scene_language);
         deleteFileButton = findViewById(R.id.btn_delete_scene_file);
+        refreshButton = findViewById(R.id.btn_refresh_scene_sync);
+        conflictsButton = findViewById(R.id.btn_scene_conflicts);
+        conflictsButtonTypeface = conflictsButton.getTypeface();
         sceneFileSpinner = findViewById(R.id.spinner_scene_file);
         sceneLanguageSpinner = findViewById(R.id.spinner_scene_language);
 
@@ -118,6 +149,10 @@ public final class SceneFilesActivity extends AppCompatActivity {
             view -> confirmDeleteLanguage()
         );
         deleteFileButton.setOnClickListener(view -> confirmDeleteFile());
+        refreshButton.setOnClickListener(view -> requestSceneRefresh());
+        conflictsButton.setOnClickListener(view -> startActivity(
+            new Intent(this, SceneConflictsActivity.class)
+        ));
         sceneFileSpinner.setOnItemSelectedListener(
             new AdapterView.OnItemSelectedListener() {
                 @Override
@@ -154,8 +189,238 @@ public final class SceneFilesActivity extends AppCompatActivity {
                 }
             }
         );
+        renderRuntimeSnapshot(runtimeSnapshot);
         updateActionState();
         refreshScenesAsync();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        started = true;
+        int generation = ++lifecycleGeneration;
+        runtimeListener = changed -> runOnUiThread(() -> {
+            if (!started
+                || lifecycleGeneration != generation
+                || isFinishing()
+                || isDestroyed()) {
+                return;
+            }
+            acceptRuntimeSnapshot(changed);
+        });
+        visibilityFlag.setVisible(true);
+        runtimeState.addListener(runtimeListener);
+    }
+
+    @Override
+    protected void onStop() {
+        started = false;
+        lifecycleGeneration++;
+        SceneSyncRuntimeState.Listener listener = runtimeListener;
+        runtimeListener = null;
+        runtimeState.removeListener(listener);
+        visibilityFlag.setVisible(false);
+        super.onStop();
+    }
+
+    private void acceptRuntimeSnapshot(
+        SceneSyncRuntimeState.Snapshot changed
+    ) {
+        if (changed == null || isFinishing() || isDestroyed()) {
+            return;
+        }
+        runtimeSnapshot = changed;
+        renderRuntimeSnapshot(changed);
+        updateActionState();
+    }
+
+    private void renderRuntimeSnapshot(
+        SceneSyncRuntimeState.Snapshot snapshot
+    ) {
+        String service = getString(
+            snapshot.serviceAvailable
+                ? R.string.scene_sync_service_ready
+                : R.string.scene_sync_service_unavailable
+        );
+        String game = getString(
+            snapshot.gamePortAvailable
+                ? R.string.scene_sync_game_online
+                : R.string.scene_sync_game_offline
+        );
+        runtimeStatus.setText(getString(
+            R.string.scene_files_runtime_status,
+            service,
+            game,
+            phaseLabel(snapshot.phase),
+            snapshot.activeApiJobs
+        ));
+
+        boolean localOnly = !snapshot.serviceAvailable
+            || !snapshot.gamePortAvailable;
+        refreshScope.setText(
+            localOnly
+                ? R.string.scene_files_refresh_scope_local
+                : R.string.scene_files_refresh_scope_online
+        );
+        if (refreshRequestPending) {
+            refreshResult.setText(R.string.scene_files_refreshing_local);
+        } else {
+            refreshResult.setText(getString(
+                R.string.scene_files_last_refresh,
+                refreshOutcomeLabel(snapshot)
+            ));
+        }
+
+        int pendingConflicts = snapshot.pendingConflictCount;
+        conflictsButton.setText(getString(
+            R.string.scene_files_conflicts_button,
+            pendingConflicts
+        ));
+        conflictsButton.setTypeface(
+            conflictsButtonTypeface,
+            pendingConflicts > 0 ? Typeface.BOLD : Typeface.NORMAL
+        );
+        renderSceneSummaries(snapshot.sceneSummaries);
+    }
+
+    private String phaseLabel(SceneSyncRuntimeState.Phase phase) {
+        if (phase == null) {
+            return getString(R.string.scene_sync_phase_idle);
+        }
+        switch (phase) {
+            case FULL_SYNC:
+                return getString(R.string.scene_sync_phase_full_sync);
+            case MANUAL_REFRESH:
+                return getString(R.string.scene_sync_phase_refresh);
+            case MANUAL_APPLY:
+                return getString(R.string.scene_sync_phase_manual_apply);
+            case IDLE:
+            default:
+                return getString(R.string.scene_sync_phase_idle);
+        }
+    }
+
+    private String refreshOutcomeLabel(
+        SceneSyncRuntimeState.Snapshot snapshot
+    ) {
+        boolean localOnly = !snapshot.serviceAvailable
+            || !snapshot.gamePortAvailable;
+        if (localOnly
+            && snapshot.lastAction
+                == SceneSyncRuntimeState.Action.MANUAL_REFRESH) {
+            if (snapshot.lastOutcome == SceneSyncRuntimeState.Outcome.FAILED) {
+                return getString(R.string.scene_files_refresh_failed);
+            }
+            if (snapshot.lastOutcome
+                == SceneSyncRuntimeState.Outcome.UNAVAILABLE) {
+                return getString(R.string.scene_files_refresh_unavailable);
+            }
+            return getString(R.string.scene_files_refresh_local_only);
+        }
+        if (snapshot.lastAction == SceneSyncRuntimeState.Action.LOCAL_REFRESH) {
+            if (snapshot.lastOutcome == SceneSyncRuntimeState.Outcome.STARTED) {
+                return getString(R.string.scene_files_refreshing_local);
+            }
+            if (snapshot.lastOutcome == SceneSyncRuntimeState.Outcome.FAILED) {
+                return getString(R.string.scene_files_refresh_failed);
+            }
+            return getString(R.string.scene_files_refresh_local_only);
+        }
+        if (snapshot.lastAction
+            != SceneSyncRuntimeState.Action.MANUAL_REFRESH) {
+            return getString(R.string.scene_files_refresh_ready);
+        }
+
+        switch (snapshot.lastOutcome) {
+            case STARTED:
+                return getString(R.string.scene_files_refresh_started);
+            case BUSY:
+                return getString(R.string.scene_files_refresh_busy);
+            case DEFERRED:
+                return getString(R.string.scene_files_refresh_deferred);
+            case LOCAL_ONLY:
+                return getString(R.string.scene_files_refresh_local_only);
+            case SUCCEEDED:
+                return getString(R.string.scene_files_refresh_succeeded);
+            case NEEDS_ATTENTION:
+                return getString(
+                    R.string.scene_files_refresh_needs_attention
+                );
+            case FAILED:
+                return getString(R.string.scene_files_refresh_failed);
+            case UNAVAILABLE:
+                return getString(R.string.scene_files_refresh_unavailable);
+            case NONE:
+            default:
+                return getString(R.string.scene_files_refresh_ready);
+        }
+    }
+
+    private void renderSceneSummaries(
+        List<SceneSyncRuntimeState.SceneSummary> sceneSummaries
+    ) {
+        if (sceneSummaries.isEmpty()) {
+            lastSyncSummary.setText(
+                R.string.scene_files_last_summary_empty
+            );
+            return;
+        }
+
+        StringBuilder readable = new StringBuilder();
+        for (SceneSyncRuntimeState.SceneSummary scene : sceneSummaries) {
+            if (readable.length() > 0) {
+                readable.append('\n');
+            }
+            readable.append(getString(
+                R.string.scene_files_sync_summary_item,
+                scene.sceneName,
+                directionLabel(scene.direction),
+                statusLabel(scene.status)
+            ));
+        }
+        lastSyncSummary.setText(readable.toString());
+    }
+
+    private String directionLabel(
+        SceneSyncRuntimeState.Direction direction
+    ) {
+        switch (direction) {
+            case GAME_TO_HET:
+                return getString(
+                    R.string.scene_files_direction_game_to_het
+                );
+            case HET_TO_GAME:
+                return getString(
+                    R.string.scene_files_direction_het_to_game
+                );
+            case BIDIRECTIONAL:
+                return getString(
+                    R.string.scene_files_direction_bidirectional
+                );
+            case LOCAL:
+                return getString(R.string.scene_files_direction_local);
+            case UNKNOWN:
+            default:
+                return getString(R.string.scene_files_direction_unknown);
+        }
+    }
+
+    private String statusLabel(SceneSyncRuntimeState.Status status) {
+        switch (status) {
+            case PROCESSED:
+                return getString(R.string.scene_files_status_processed);
+            case DELETED:
+                return getString(R.string.scene_files_status_deleted);
+            case NEEDS_ATTENTION:
+                return getString(
+                    R.string.scene_files_status_needs_attention
+                );
+            case NOT_PROCESSED:
+            default:
+                return getString(
+                    R.string.scene_files_status_not_processed
+                );
+        }
     }
 
     private void importScenes(List<Uri> uris) {
@@ -323,11 +588,109 @@ public final class SceneFilesActivity extends AppCompatActivity {
     private void refreshScenesAsync() {
         setBusy(true);
         ioExecutor.execute(() -> {
-            List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
-            runOnUiThread(() -> {
-                if (!isFinishing() && !isDestroyed()) {
-                    updateScenes(refreshedScenes, null, null);
+            try {
+                List<SceneStore.SceneInfo> refreshedScenes =
+                    sceneStore.listSceneInfos();
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        updateScenes(refreshedScenes, null, null);
+                        setBusy(false);
+                    }
+                });
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not load local Scene list", e);
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
                     setBusy(false);
+                    showResult(
+                        getString(R.string.scene_files_local_refresh_failed),
+                        ""
+                    );
+                });
+            }
+        });
+    }
+
+    private void requestSceneRefresh() {
+        if (!canRequestSceneRefresh()) {
+            return;
+        }
+
+        SceneStore.SceneInfo selected = selectedScene();
+        String preferredSceneName = selected == null
+            ? null
+            : selected.sceneName;
+        String preferredLanguage = selectedLanguage();
+        refreshRequestPending = true;
+        renderRuntimeSnapshot(runtimeSnapshot);
+        updateActionState();
+
+        ioExecutor.execute(() -> {
+            final List<SceneStore.SceneInfo> refreshedScenes;
+            try {
+                refreshedScenes = sceneStore.listSceneInfos();
+            } catch (RuntimeException e) {
+                Log.e(
+                    TAG,
+                    "Could not reload local Scenes before manual refresh",
+                    e
+                );
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    refreshRequestPending = false;
+                    renderRuntimeSnapshot(runtimeSnapshot);
+                    refreshResult.setText(getString(
+                        R.string.scene_files_last_refresh,
+                        getString(
+                            R.string.scene_files_local_refresh_failed
+                        )
+                    ));
+                    updateActionState();
+                    Toast.makeText(
+                        this,
+                        R.string.scene_files_local_refresh_failed,
+                        Toast.LENGTH_LONG
+                    ).show();
+                });
+                return;
+            }
+
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                updateScenes(
+                    refreshedScenes,
+                    preferredSceneName,
+                    preferredLanguage
+                );
+
+                boolean requestFailed = false;
+                try {
+                    runtimeState.requestRefresh();
+                } catch (RuntimeException e) {
+                    requestFailed = true;
+                    Log.e(TAG, "Could not request Scene Sync refresh", e);
+                }
+
+                refreshRequestPending = false;
+                runtimeSnapshot = runtimeState.getSnapshot();
+                renderRuntimeSnapshot(runtimeSnapshot);
+                updateActionState();
+                if (requestFailed) {
+                    refreshResult.setText(getString(
+                        R.string.scene_files_last_refresh,
+                        getString(R.string.scene_files_refresh_failed)
+                    ));
+                    Toast.makeText(
+                        this,
+                        R.string.scene_files_refresh_failed,
+                        Toast.LENGTH_LONG
+                    ).show();
                 }
             });
         });
@@ -335,18 +698,18 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
     private void updateScenes(
         List<SceneStore.SceneInfo> refreshedScenes,
-        String preferredFileName,
+        String preferredSceneName,
         String preferredLanguage
     ) {
         SceneStore.SceneInfo previousScene = selectedScene();
-        String wantedFileName = preferredFileName;
-        if (wantedFileName == null && previousScene != null) {
-            wantedFileName = previousScene.sceneName;
+        String wantedSceneName = preferredSceneName;
+        if (wantedSceneName == null && previousScene != null) {
+            wantedSceneName = previousScene.sceneName;
         }
 
         String wantedLanguage = preferredLanguage;
         if (wantedLanguage == null && previousScene != null
-            && previousScene.sceneName.equals(wantedFileName)) {
+            && previousScene.sceneName.equals(wantedSceneName)) {
             wantedLanguage = selectedLanguage();
         }
 
@@ -362,7 +725,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         }
         sceneFileAdapter.notifyDataSetChanged();
 
-        int selectedIndex = indexOfScene(wantedFileName);
+        int selectedIndex = indexOfScene(wantedSceneName);
         sceneFileSpinner.setSelection(selectedIndex < 0 ? 0 : selectedIndex, false);
         summary.setText(getString(R.string.scene_files_summary, scenes.size()));
         updateLanguageChoices(wantedLanguage);
@@ -388,15 +751,25 @@ public final class SceneFilesActivity extends AppCompatActivity {
         updateActionState();
     }
 
+    private boolean canRequestSceneRefresh() {
+        return !busy
+            && !refreshRequestPending
+            && runtimeSnapshot.phase == SceneSyncRuntimeState.Phase.IDLE
+            && runtimeSnapshot.activeApiJobs == 0;
+    }
+
     private void updateActionState() {
         boolean hasScene = selectedScene() != null;
         boolean hasLanguage = selectedLanguage() != null;
-        importButton.setEnabled(!busy);
-        exportButton.setEnabled(!busy && !scenes.isEmpty());
-        sceneFileSpinner.setEnabled(!busy && hasScene);
-        sceneLanguageSpinner.setEnabled(!busy && hasLanguage);
-        deleteLanguageButton.setEnabled(!busy && hasLanguage);
-        deleteFileButton.setEnabled(!busy && hasScene);
+        boolean localUiBusy = busy || refreshRequestPending;
+        importButton.setEnabled(!localUiBusy);
+        exportButton.setEnabled(!localUiBusy && !scenes.isEmpty());
+        sceneFileSpinner.setEnabled(!localUiBusy && hasScene);
+        sceneLanguageSpinner.setEnabled(!localUiBusy && hasLanguage);
+        deleteLanguageButton.setEnabled(!localUiBusy && hasLanguage);
+        deleteFileButton.setEnabled(!localUiBusy && hasScene);
+        refreshButton.setEnabled(canRequestSceneRefresh());
+        conflictsButton.setEnabled(true);
     }
 
     private SceneStore.SceneInfo selectedScene() {
@@ -417,12 +790,12 @@ public final class SceneFilesActivity extends AppCompatActivity {
             : null;
     }
 
-    private int indexOfScene(String fileName) {
-        if (fileName == null) {
+    private int indexOfScene(String sceneName) {
+        if (sceneName == null) {
             return -1;
         }
         for (int index = 0; index < scenes.size(); index++) {
-            if (fileName.equals(scenes.get(index).sceneName)) {
+            if (sceneName.equals(scenes.get(index).sceneName)) {
                 return index;
             }
         }
@@ -451,22 +824,22 @@ public final class SceneFilesActivity extends AppCompatActivity {
             .show();
     }
 
-    private void deleteLanguage(String fileName, String language) {
+    private void deleteLanguage(String sceneName, String language) {
         setBusy(true);
         ioExecutor.execute(() -> {
             try {
-                sceneStore.removeLanguage(fileName, language);
+                sceneStore.removeLanguage(sceneName, language);
                 List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) {
                         return;
                     }
-                    updateScenes(refreshedScenes, fileName, null);
+                    updateScenes(refreshedScenes, sceneName, null);
                     setBusy(false);
                     showResult(getString(
                         R.string.scene_language_deleted,
                         language,
-                        fileName
+                        sceneName
                     ), "");
                 });
             } catch (Exception e) {
@@ -481,7 +854,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
             return;
         }
 
-        String preferredFileName = neighboringFileName(
+        String preferredSceneName = neighboringSceneName(
             sceneFileSpinner.getSelectedItemPosition()
         );
         new MaterialAlertDialogBuilder(this)
@@ -495,13 +868,13 @@ public final class SceneFilesActivity extends AppCompatActivity {
                 R.string.delete_scene_file,
                 (dialog, which) -> deleteFile(
                     scene.sceneName,
-                    preferredFileName
+                    preferredSceneName
                 )
             )
             .show();
     }
 
-    private String neighboringFileName(int selectedIndex) {
+    private String neighboringSceneName(int selectedIndex) {
         if (scenes.size() <= 1 || selectedIndex < 0) {
             return null;
         }
@@ -511,21 +884,21 @@ public final class SceneFilesActivity extends AppCompatActivity {
         return scenes.get(neighborIndex).sceneName;
     }
 
-    private void deleteFile(String fileName, String preferredFileName) {
+    private void deleteFile(String sceneName, String preferredSceneName) {
         setBusy(true);
         ioExecutor.execute(() -> {
             try {
-                sceneStore.deleteScene(fileName);
+                sceneStore.deleteScene(sceneName);
                 List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) {
                         return;
                     }
-                    updateScenes(refreshedScenes, preferredFileName, null);
+                    updateScenes(refreshedScenes, preferredSceneName, null);
                     setBusy(false);
                     showResult(getString(
                         R.string.scene_file_deleted,
-                        fileName
+                        sceneName
                     ), "");
                 });
             } catch (Exception e) {
@@ -587,6 +960,12 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        started = false;
+        lifecycleGeneration++;
+        SceneSyncRuntimeState.Listener listener = runtimeListener;
+        runtimeListener = null;
+        runtimeState.removeListener(listener);
+        visibilityFlag.close();
         ioExecutor.shutdownNow();
         super.onDestroy();
     }
