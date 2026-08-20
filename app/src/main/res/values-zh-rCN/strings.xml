@@ -76,6 +76,23 @@
     <string name="custom_target_language">自定义语言代码</string>
     <string name="custom_target_language_hint">仅在下拉框选择“自定义”时使用，例如 ja 或 fr。</string>
 
+    <string name="manage_rejected_api_results">查看被拒收的 API 结果</string>
+    <string name="rejected_api_results_title">被拒收的 API 结果</string>
+    <string name="rejected_api_results_intro">失去写回资格的 API 返回内容会集中归档在这里，不会被自动清理；请手动删除记录。</string>
+    <string name="rejected_api_results_count">已归档 %1$d 条记录</string>
+    <string name="rejected_api_results_empty">当前没有已归档的被拒收 API 结果。</string>
+    <string name="rejected_api_results_load_failed">无法读取被拒收的 API 结果：%1$s</string>
+    <string name="rejected_api_result_kind_line">%1$s · %2$s</string>
+    <string name="rejected_api_result_request_line">request：%1$s</string>
+    <string name="rejected_api_result_reason_line">原因：%1$s</string>
+    <string name="rejected_api_result_view_payload">查看原始 payload</string>
+    <string name="rejected_api_result_empty_payload">（空 payload）</string>
+    <string name="rejected_api_result_truncated">显示已截断；存储记录未改变</string>
+    <string name="rejected_api_result_delete">删除</string>
+    <string name="rejected_api_result_delete_title">删除这条记录？</string>
+    <string name="rejected_api_result_delete_message">原始 API payload 将被永久删除，无法撤销。</string>
+    <string name="rejected_api_result_deleted">记录已删除。</string>
+
     <string name="chardict_settings">角色字典</string>
     <string name="expand_chardict_section">展开角色字典</string>
     <string name="chardict_summary_loading">正在读取角色字典…</string>

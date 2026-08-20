@@ -43,6 +43,11 @@
             android:label="@string/scene_conflicts_title" />
 
         <activity
+            android:name=".ui.RejectedApiResultsActivity"
+            android:exported="false"
+            android:label="@string/rejected_api_results_title" />
+
+        <activity
             android:name=".ui.SettingsActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">

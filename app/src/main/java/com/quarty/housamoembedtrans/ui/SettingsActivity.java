@@ -262,6 +262,11 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.btn_manage_scene_files).setOnClickListener(view -> {
             startActivity(new Intent(this, SceneFilesActivity.class));
         });
+        findViewById(R.id.btn_manage_rejected_api_results).setOnClickListener(
+            view -> startActivity(
+                new Intent(this, RejectedApiResultsActivity.class)
+            )
+        );
     }
 
     @Override

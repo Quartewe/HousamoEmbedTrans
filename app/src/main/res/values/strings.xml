@@ -76,6 +76,23 @@
     <string name="custom_target_language">Custom language code</string>
     <string name="custom_target_language_hint">Used only when Custom is selected, for example ja or fr.</string>
 
+    <string name="manage_rejected_api_results">View rejected API results</string>
+    <string name="rejected_api_results_title">Rejected API results</string>
+    <string name="rejected_api_results_intro">API results that lost write-back eligibility are archived here. They are never auto-cleaned; delete records manually.</string>
+    <string name="rejected_api_results_count">%1$d archived record(s)</string>
+    <string name="rejected_api_results_empty">No rejected API results are archived.</string>
+    <string name="rejected_api_results_load_failed">Could not load rejected API results: %1$s</string>
+    <string name="rejected_api_result_kind_line">%1$s · %2$s</string>
+    <string name="rejected_api_result_request_line">request: %1$s</string>
+    <string name="rejected_api_result_reason_line">Reason: %1$s</string>
+    <string name="rejected_api_result_view_payload">View raw payload</string>
+    <string name="rejected_api_result_empty_payload">(empty payload)</string>
+    <string name="rejected_api_result_truncated">output truncated for display; the stored record is unchanged</string>
+    <string name="rejected_api_result_delete">Delete</string>
+    <string name="rejected_api_result_delete_title">Delete this record?</string>
+    <string name="rejected_api_result_delete_message">The raw API payload will be permanently removed. This action cannot be undone.</string>
+    <string name="rejected_api_result_deleted">Record deleted.</string>
+
     <string name="chardict_settings">Character dictionary</string>
     <string name="expand_chardict_section">Expand character dictionary</string>
     <string name="chardict_summary_loading">Loading character dictionary…</string>
