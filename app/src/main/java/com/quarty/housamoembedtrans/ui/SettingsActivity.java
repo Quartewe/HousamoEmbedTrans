@@ -1,11 +1,16 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.ConfigStore;
+import com.quarty.housamoembedtrans.storage.ApiConcurrencySettings;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 import com.quarty.housamoembedtrans.translation.TranslationApiClient;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
@@ -36,6 +41,8 @@ import java.util.concurrent.Executors;
  */
 public class SettingsActivity extends AppCompatActivity {
 
+    private static final int REQUEST_NOTIFICATION_PERMISSION = 1001;
+
     private ConfigStore configStore;
     private SceneStore sceneStore;
     private JSONObject currentConfig;
@@ -51,6 +58,7 @@ public class SettingsActivity extends AppCompatActivity {
     private EditText apiUrl;
     private EditText apiKey;
     private EditText model;
+    private EditText apiConcurrency;
     private EditText networkRetryCount;
     private EditText resultRepairCount;
     private MaterialButton queryModelsButton;
@@ -79,6 +87,35 @@ public class SettingsActivity extends AppCompatActivity {
         bindSections();
         bindActions();
         loadConfig();
+        ensureNotificationPermission();
+    }
+
+    private void ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+            || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
+            TranslationStatusNotification.refresh(this);
+            return;
+        }
+
+        requestPermissions(
+            new String[] {Manifest.permission.POST_NOTIFICATIONS},
+            REQUEST_NOTIFICATION_PERMISSION
+        );
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+        int requestCode,
+        String[] permissions,
+        int[] grantResults
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_NOTIFICATION_PERMISSION
+            && grantResults.length > 0
+            && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            TranslationStatusNotification.refresh(this);
+        }
     }
 
     private void bindViews() {
@@ -93,6 +130,7 @@ public class SettingsActivity extends AppCompatActivity {
         apiUrl = findViewById(R.id.et_api_url);
         apiKey = findViewById(R.id.et_api_key);
         model = findViewById(R.id.et_model);
+        apiConcurrency = findViewById(R.id.et_api_concurrency);
         networkRetryCount = findViewById(R.id.et_network_retry_count);
         resultRepairCount = findViewById(R.id.et_result_repair_count);
         queryModelsButton = findViewById(R.id.btn_query_models);
@@ -345,6 +383,15 @@ public class SettingsActivity extends AppCompatActivity {
         );
         apiUrl.setText(translationApi.optString("BaseUrl", ""));
         model.setText(translationApi.optString("Model", ""));
+        JSONObject executionApi = userSettings.optJSONObject("Api");
+        apiConcurrency.setText(String.valueOf(
+            executionApi != null
+                ? executionApi.optInt(
+                    "max_concurrent_requests",
+                    ApiConcurrencySettings.DEFAULT_API_CONCURRENCY
+                )
+                : ApiConcurrencySettings.DEFAULT_API_CONCURRENCY
+        ));
         boolean hasSplitRetryCounts = translationApi.has("NetworkRetryCount")
             || translationApi.has("ResultRepairCount");
         networkRetryCount.setText(String.valueOf(hasSplitRetryCounts
@@ -418,6 +465,7 @@ public class SettingsActivity extends AppCompatActivity {
     private JSONObject buildConfigFromForm(JSONObject config) throws Exception {
         int parsedNetworkRetryCount = parseRetryCount(networkRetryCount);
         int parsedResultRepairCount = parseRetryCount(resultRepairCount);
+        int parsedApiConcurrency = parseApiConcurrency(apiConcurrency);
         double parsedHighRelevance = positiveDouble(highRelevance);
         double parsedMidRelevance = positiveDouble(midRelevance);
         double parsedDensityHigh = positiveDouble(densityHigh);
@@ -453,6 +501,12 @@ public class SettingsActivity extends AppCompatActivity {
         translationApi.remove("RetryCount");
         translationApi.put("NetworkRetryCount", parsedNetworkRetryCount);
         translationApi.put("ResultRepairCount", parsedResultRepairCount);
+        JSONObject apiSettings = userSettings.optJSONObject("Api");
+        if (apiSettings == null) {
+            apiSettings = new JSONObject();
+            userSettings.put("Api", apiSettings);
+        }
+        apiSettings.put("max_concurrent_requests", parsedApiConcurrency);
 
         userSettings.put("TargetLanguage", selectedTargetLanguage());
         userSettings.put("OverwriteExistingJson", overwriteJson.isChecked());
@@ -564,6 +618,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void clearErrors() {
         EditText[] fields = {
             customTargetLanguage,
+            apiConcurrency,
             networkRetryCount,
             resultRepairCount,
             highRelevance,
@@ -638,6 +693,22 @@ public class SettingsActivity extends AppCompatActivity {
             throw e;
         } catch (Exception e) {
             throw new ValidationException(field, R.string.error_retry_count_range);
+        }
+    }
+
+    private int parseApiConcurrency(EditText field)
+        throws ValidationException {
+        try {
+            return ApiConcurrencySettings.normalize(
+                Integer.parseInt(requireText(field))
+            );
+        } catch (ValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ValidationException(
+                field,
+                R.string.error_api_concurrency_range
+            );
         }
     }
 

@@ -21,6 +21,9 @@
             "NetworkRetryCount": 1,
             "ResultRepairCount": 1
         },
+        "Api": {
+            "max_concurrent_requests": 2
+        },
         "TargetLanguage": "zh-cn"
     }
 }

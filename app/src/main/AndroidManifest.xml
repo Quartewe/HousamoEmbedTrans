@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <queries>
         <package android:name="jp.co.lifewonders.housamo" />
@@ -56,6 +57,10 @@
             android:authorities="com.quarty.housamoembedtrans.userfiles"
             android:exported="true"
             android:grantUriPermissions="true" />
+
+        <receiver
+            android:name=".runtime.TranslationControlReceiver"
+            android:exported="false" />
 
         <!-- LSPosed 模块标记 -->
         <meta-data

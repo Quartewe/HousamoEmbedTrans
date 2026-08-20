@@ -3,6 +3,43 @@
     <string name="app_name">Housamo Embed Trans</string>
     <string name="xposed_description">AI translation prefetch for Tokyo Afterschool Summoners</string>
 
+    <string name="notification_channel_name">HET status</string>
+    <string name="notification_channel_description">Translation and Scene Sync progress and runtime controls</string>
+    <string name="notification_job_errors_channel_name">HET job errors</string>
+    <string name="notification_job_errors_channel_description">One-time notifications for failed Translation/Summary jobs</string>
+    <string name="notification_summary_failed_title">Summary job failed</string>
+    <string name="notification_summary_failed_generic">The summary job could not be completed. Open the queue for details.</string>
+    <string name="notification_summary_failed_subtitle">Summary job · %1$s</string>
+    <string name="notification_translation_failed_title">Translation job failed</string>
+    <string name="notification_translation_failed_generic">The translation job could not be completed. Open the queue for details.</string>
+    <string name="notification_translation_failed_subtitle">Translation job</string>
+    <string name="notification_translation_title">HET status</string>
+    <string name="notification_translating_scene">Translating: %1$s</string>
+    <string name="notification_elapsed_time">Elapsed time</string>
+    <string name="notification_waiting">Waiting for a scene to translate</string>
+    <string name="notification_capture_paused">New scene capture is paused</string>
+    <string name="notification_translation_succeeded">Translation completed: %1$s</string>
+    <string name="notification_translation_failed">Translation failed: %1$s</string>
+    <string name="notification_translation_needs_user_action">Translation needs your action</string>
+    <string name="notification_startup_failed_title">HET startup failed</string>
+    <string name="notification_startup_failed">The background service could not finish starting. Open the queue to review tasks.</string>
+    <string name="notification_startup_failed_subtitle">Startup failed</string>
+    <string name="notification_action_view_startup_failure">View startup failure</string>
+    <string name="notification_finished_duration">Duration %1$s</string>
+    <string name="notification_action_pause_capture">Pause new captures</string>
+    <string name="notification_action_resume_capture">Resume capture</string>
+    <string name="notification_action_manage_queue">Order queued tasks (%1$d)</string>
+    <string name="notification_action_manage_failed_jobs">Review failed translation tasks (%1$d)</string>
+    <string name="notification_action_manage_queue_with_failures">Order %1$d queued and review %2$d failed task(s)</string>
+    <string name="notification_queued_jobs_waiting">%1$d queued task(s) are waiting for your order</string>
+    <string name="notification_failed_jobs_waiting">%1$d failed translation task(s) are waiting for your decision</string>
+    <string name="notification_recovery_waiting_with_failures">%1$d queued task(s) and %2$d failed task(s) are waiting for your decision</string>
+    <string name="notification_action_view_queue_repair">View queue recovery</string>
+    <string name="notification_repairing_damaged_jobs">Trying to repair damaged translation-job files…</string>
+    <string name="notification_action_view_scene_sync">View Scene Sync</string>
+    <string name="notification_action_view_scene_conflicts">View Scene conflicts</string>
+    <string name="notification_action_scene_conflicts">Review Scene conflicts (%1$d)</string>
+
     <string name="settings_title">Translation settings</string>
     <string name="back_action">Back</string>
     <string name="settings_subtitle">Configure the API, target language, scene capture, and advanced matching parameters.</string>
@@ -22,6 +59,8 @@
     <string name="api_key_storage_hint">Stored separately and never written to config.json.</string>
     <string name="model">Model</string>
     <string name="model_input_hint">Enter a model ID manually, or query the current provider and select one.</string>
+    <string name="api_concurrency">API concurrency limit</string>
+    <string name="api_concurrency_hint">Maximum concurrent Translation and Summary API requests. Valid range: 1 to 8.</string>
     <string name="network_retry_count">Network retry count</string>
     <string name="network_retry_count_hint">Additional attempts after connection failures, timeouts, or retryable HTTP statuses. 0 disables network retries; allowed range: 0–5.</string>
     <string name="result_repair_count">Result repair count</string>
@@ -284,10 +323,13 @@
     <string name="collapse_capture_section">Collapse capture settings</string>
     <string name="expand_character_weight_section">Expand character relevance weights</string>
 
+    <string name="notification_action_review_contexts">Review contexts/groups</string>
+
     <string name="error_required">Required</string>
     <string name="error_positive_number">Enter a finite number greater than 0</string>
     <string name="error_positive_integer">Enter an integer of at least 1</string>
     <string name="error_retry_count_range">Enter an integer from 0 to 5</string>
+    <string name="error_api_concurrency_range">Enter an integer from 1 to 8</string>
     <string name="error_high_less_than_mid">High relevance must be greater than or equal to mid relevance</string>
     <string name="error_low_less_than_mentioned">Low text score must be greater than or equal to mentioned text score</string>
 </resources>

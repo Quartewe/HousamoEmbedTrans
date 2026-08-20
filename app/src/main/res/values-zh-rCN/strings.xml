@@ -3,6 +3,43 @@
     <string name="app_name">Housamo Embed Trans</string>
     <string name="xposed_description">东京放课后召唤师 AI 翻译预取模块</string>
 
+    <string name="notification_channel_name">HET 状态</string>
+    <string name="notification_channel_description">显示翻译与 Scene Sync 进度及运行时控制</string>
+    <string name="notification_job_errors_channel_name">HET 任务错误</string>
+    <string name="notification_job_errors_channel_description">失败的翻译/摘要任务一次性通知</string>
+    <string name="notification_summary_failed_title">摘要任务失败</string>
+    <string name="notification_summary_failed_generic">摘要任务未能完成，请打开队列查看详情。</string>
+    <string name="notification_summary_failed_subtitle">摘要任务 · %1$s</string>
+    <string name="notification_translation_failed_title">翻译任务失败</string>
+    <string name="notification_translation_failed_generic">翻译任务未能完成，请打开队列查看详情。</string>
+    <string name="notification_translation_failed_subtitle">翻译任务</string>
+    <string name="notification_translation_title">HET 状态</string>
+    <string name="notification_translating_scene">正在翻译：%1$s</string>
+    <string name="notification_elapsed_time">已用时间</string>
+    <string name="notification_waiting">正在等待需要翻译的剧情</string>
+    <string name="notification_capture_paused">已暂停捕获新剧情</string>
+    <string name="notification_translation_succeeded">翻译完成：%1$s</string>
+    <string name="notification_translation_failed">翻译失败：%1$s</string>
+    <string name="notification_translation_needs_user_action">翻译需要你处理</string>
+    <string name="notification_startup_failed_title">HET 启动失败</string>
+    <string name="notification_startup_failed">后台服务未能完成启动，请打开队列查看任务。</string>
+    <string name="notification_startup_failed_subtitle">启动失败</string>
+    <string name="notification_action_view_startup_failure">查看启动失败</string>
+    <string name="notification_finished_duration">用时 %1$s</string>
+    <string name="notification_action_pause_capture">暂停后续捕获</string>
+    <string name="notification_action_resume_capture">继续捕获</string>
+    <string name="notification_action_manage_queue">排列等待任务（%1$d）</string>
+    <string name="notification_action_manage_failed_jobs">处理失败的翻译任务（%1$d）</string>
+    <string name="notification_action_manage_queue_with_failures">排列 %1$d 个等待任务并处理 %2$d 个失败任务</string>
+    <string name="notification_queued_jobs_waiting">有 %1$d 个等待任务需要排列</string>
+    <string name="notification_failed_jobs_waiting">有 %1$d 个失败翻译任务等待处理</string>
+    <string name="notification_recovery_waiting_with_failures">有 %1$d 个等待任务和 %2$d 个失败任务等待处理</string>
+    <string name="notification_action_view_queue_repair">查看队列修复</string>
+    <string name="notification_repairing_damaged_jobs">正在尝试修复损坏的文件…</string>
+    <string name="notification_action_view_scene_sync">查看 Scene Sync</string>
+    <string name="notification_action_view_scene_conflicts">查看剧情冲突</string>
+    <string name="notification_action_scene_conflicts">处理剧情冲突（%1$d）</string>
+
     <string name="settings_title">翻译设置</string>
     <string name="back_action">返回</string>
     <string name="settings_subtitle">配置 API、目标语言、剧情捕获和高级匹配参数。</string>
@@ -22,6 +59,8 @@
     <string name="api_key_storage_hint">单独保存，不会写入 config.json。</string>
     <string name="model">模型</string>
     <string name="model_input_hint">可手动填写模型标识，也可查询当前服务商后选择。</string>
+    <string name="api_concurrency">API 并发上限</string>
+    <string name="api_concurrency_hint">Translation 与 Summary API 请求的最大并发数。有效范围：1 到 8。</string>
     <string name="network_retry_count">网络重试次数</string>
     <string name="network_retry_count_hint">连接失败、超时或可重试 HTTP 状态后的额外请求次数。0 表示不重试，可填写 0–5。</string>
     <string name="result_repair_count">结果修复次数</string>
@@ -284,10 +323,13 @@
     <string name="collapse_capture_section">收起捕获设置</string>
     <string name="expand_character_weight_section">展开角色相关度权重</string>
 
+    <string name="notification_action_review_contexts">审阅上下文/分组</string>
+
     <string name="error_required">此项不能为空</string>
     <string name="error_positive_number">请输入大于 0 的有限数值</string>
     <string name="error_positive_integer">请输入不小于 1 的整数</string>
     <string name="error_retry_count_range">请输入 0 到 5 之间的整数</string>
+    <string name="error_api_concurrency_range">请输入 1 到 8 之间的整数</string>
     <string name="error_high_less_than_mid">高相关阈值不能小于中相关阈值</string>
     <string name="error_low_less_than_mentioned">正文低权重分数不能小于正文提及分数</string>
 </resources>

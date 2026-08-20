@@ -335,6 +335,15 @@ public final class ConfigStore {
             validateOptionalRetryCount(translationApi, "RetryCount");
         }
 
+        JSONObject api = userSettings.optJSONObject("Api");
+        if (api != null) {
+            ApiConcurrencySettings.normalize(
+                api.has("max_concurrent_requests")
+                    ? api.get("max_concurrent_requests")
+                    : null
+            );
+        }
+
         JSONObject weights = userSettings.getJSONObject("CharacterWeight");
         String[] weightFields = {
             "HighRelevance",
@@ -391,10 +400,37 @@ public final class ConfigStore {
         JSONObject userSettings = new JSONObject(
             config.getJSONObject("UserSettings").toString()
         );
+        JSONObject executionApi = userSettings.optJSONObject("Api");
+        if (executionApi == null) {
+            executionApi = new JSONObject();
+            userSettings.put("Api", executionApi);
+        }
+        if (!executionApi.has("max_concurrent_requests")) {
+            executionApi.put(
+                "max_concurrent_requests",
+                ApiConcurrencySettings.DEFAULT_API_CONCURRENCY
+            );
+        }
         JSONObject normalized = new JSONObject();
         normalized.put("Version", version);
         normalized.put("UserSettings", userSettings);
         return normalized;
+    }
+
+    /** Returns the independent global API concurrency limit. */
+    public static int getApiConcurrency(JSONObject userSettings)
+        throws Exception {
+        if (userSettings == null) {
+            return ApiConcurrencySettings.DEFAULT_API_CONCURRENCY;
+        }
+        JSONObject api = userSettings.optJSONObject("Api");
+        return api == null
+            ? ApiConcurrencySettings.DEFAULT_API_CONCURRENCY
+            : ApiConcurrencySettings.normalize(
+                api.has("max_concurrent_requests")
+                    ? api.get("max_concurrent_requests")
+                    : null
+            );
     }
 
     private static boolean isCanonicalConfig(JSONObject config) {

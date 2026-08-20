@@ -122,6 +122,20 @@
 
                     <com.google.android.material.textfield.TextInputLayout
                         style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/api_concurrency"
+                        app:helperText="@string/api_concurrency_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_api_concurrency"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:maxLength="2"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
                         android:hint="@string/network_retry_count"
                         app:helperText="@string/network_retry_count_hint">
 
