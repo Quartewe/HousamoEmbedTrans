@@ -222,7 +222,7 @@ public final class UserConfigProvider extends ContentProvider {
                         try {
                             sceneStore.acceptIncoming(temporaryFile, sceneName);
                         } catch (Exception e) {
-                            Log.w(TAG, "Rejected incoming scene " + sceneName, e);
+                            Log.w(TAG, "Rejected incoming scene " + fileName, e);
                         }
                     });
                 }
