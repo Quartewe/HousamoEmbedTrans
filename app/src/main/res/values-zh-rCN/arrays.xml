@@ -12,4 +12,43 @@
         <item>自定义…</item>
     </string-array>
 
+    <string-array name="thinking_strength_labels">
+        <item>none（关闭思考）</item>
+        <item>minimal</item>
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+        <item>xhigh</item>
+        <item>max</item>
+    </string-array>
+
+    <string-array name="thinking_strength_codes">
+        <item>none</item>
+        <item>minimal</item>
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+        <item>xhigh</item>
+        <item>max</item>
+    </string-array>
+
+    <string-array name="recovery_sort_order_labels">
+        <item>创建时间 · 从旧到新</item>
+        <item>创建时间 · 从新到旧</item>
+        <item>上次开始时间 · 从旧到新</item>
+        <item>上次开始时间 · 从新到旧</item>
+    </string-array>
+
+    <string-array name="scene_conflict_resolution_labels">
+        <item>游戏优先</item>
+        <item>HET 优先</item>
+        <item>每个场景手动选择</item>
+    </string-array>
+
+    <string-array name="scene_conflict_resolution_codes">
+        <item>game</item>
+        <item>het</item>
+        <item>manual</item>
+    </string-array>
+
 </resources>

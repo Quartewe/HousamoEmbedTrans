@@ -29,4 +29,50 @@
         <item>custom</item>
     </string-array>
 
+    <string-array name="thinking_strength_labels">
+        <item>none</item>
+        <item>minimal</item>
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+        <item>xhigh</item>
+        <item>max</item>
+    </string-array>
+
+    <string-array name="thinking_strength_codes">
+        <item>none</item>
+        <item>minimal</item>
+        <item>low</item>
+        <item>medium</item>
+        <item>high</item>
+        <item>xhigh</item>
+        <item>max</item>
+    </string-array>
+
+    <string-array name="recovery_sort_order_labels">
+        <item>Created time · oldest first</item>
+        <item>Created time · newest first</item>
+        <item>Last started time · oldest first</item>
+        <item>Last started time · newest first</item>
+    </string-array>
+
+    <string-array name="recovery_sort_order_codes">
+        <item>created_asc</item>
+        <item>created_desc</item>
+        <item>started_asc</item>
+        <item>started_desc</item>
+    </string-array>
+
+    <string-array name="scene_conflict_resolution_labels">
+        <item>Game priority</item>
+        <item>HET priority</item>
+        <item>Manual per scene</item>
+    </string-array>
+
+    <string-array name="scene_conflict_resolution_codes">
+        <item>game</item>
+        <item>het</item>
+        <item>manual</item>
+    </string-array>
+
 </resources>

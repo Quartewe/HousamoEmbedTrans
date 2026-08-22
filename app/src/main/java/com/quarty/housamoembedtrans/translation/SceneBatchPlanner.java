@@ -6,65 +6,97 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * Pure planning rules for the "Edit all Scenes" batch page.
- *
- * <p>The page keeps only an in-memory draft while the user edits. On the final
- * confirmation it asks this class for one {@link CommitPlan}: which Scene
- * Contexts need their ordered Scene membership rewritten, which Translation
- * Jobs must be created for scenes explicitly marked "send API", and which
- * queued Job mappings must be repaired after the structural edit.</p>
- *
- * <p>This class deliberately has no Android or store dependencies so the
- * draft/commit semantics can be covered by host JUnit tests.</p>
- */
+/** Pure planning rules for the Context-owned "Edit all Scenes" draft. */
 public final class SceneBatchPlanner {
 
     private SceneBatchPlanner() {
         throw new AssertionError("No instances");
     }
 
-    /** Immutable context membership snapshot used by the planner. */
-    public static final class ContextSnapshot {
+    /**
+     * Mutable Context aggregate. Membership and order live here, never on a
+     * Scene. The original revision/list remain the final-commit CAS baseline.
+     */
+    public static final class ContextDraft {
         public final String id;
         public final String displayName;
-        public final List<String> scenes;
+        public final long revision;
+        private final List<String> originalScenes;
+        private final List<String> scenes;
 
-        public ContextSnapshot(String id, List<String> scenes) {
-            this(id, id, scenes);
-        }
-
-        public ContextSnapshot(
+        public ContextDraft(
             String id,
             String displayName,
+            long revision,
             List<String> scenes
         ) {
             if (id == null || id.trim().isEmpty()) {
                 throw new IllegalArgumentException("context id is required");
             }
+            if (revision < 0L) {
+                throw new IllegalArgumentException("context revision is required");
+            }
             this.id = id;
             this.displayName = displayName == null || displayName.trim().isEmpty()
                 ? id
                 : displayName;
-            this.scenes = Collections.unmodifiableList(
-                new ArrayList<>(scenes == null ? Collections.emptyList() : scenes)
+            this.revision = revision;
+            List<String> copy = new ArrayList<>(
+                scenes == null ? Collections.emptyList() : scenes
             );
+            this.originalScenes = Collections.unmodifiableList(
+                new ArrayList<>(copy)
+            );
+            this.scenes = copy;
+        }
+
+        public List<String> getScenes() {
+            return Collections.unmodifiableList(scenes);
+        }
+
+        public List<String> getOriginalScenes() {
+            return originalScenes;
+        }
+
+        public boolean contains(String scene) {
+            return scenes.contains(scene);
+        }
+
+        public boolean addScene(String scene) {
+            if (scene == null || scene.trim().isEmpty() || scenes.contains(scene)) {
+                return false;
+            }
+            scenes.add(scene);
+            return true;
+        }
+
+        public boolean removeScene(String scene) {
+            return scenes.remove(scene);
+        }
+
+        public boolean moveScene(int from, int to) {
+            if (from < 0 || from >= scenes.size()
+                || to < 0 || to >= scenes.size()
+                || from == to) {
+                return false;
+            }
+            String scene = scenes.remove(from);
+            scenes.add(to, scene);
+            return true;
         }
     }
 
-    /** Immutable group membership snapshot used by the planner. */
+    /** Immutable Group membership used to validate one Job history route. */
     public static final class GroupSnapshot {
         public final String id;
         public final String displayName;
         public final List<String> contextIds;
-
-        public GroupSnapshot(String id, List<String> contextIds) {
-            this(id, id, contextIds);
-        }
 
         public GroupSnapshot(
             String id,
@@ -79,12 +111,16 @@ public final class SceneBatchPlanner {
                 ? id
                 : displayName;
             this.contextIds = Collections.unmodifiableList(
-                new ArrayList<>(contextIds == null ? Collections.emptyList() : contextIds)
+                new ArrayList<>(
+                    contextIds == null
+                        ? Collections.emptyList()
+                        : contextIds
+                )
             );
         }
     }
 
-    /** Lightweight persisted Translation Job fact used for de-duplication. */
+    /** Lightweight durable Translation Job fact used only for display/planning. */
     public static final class JobSnapshot {
         public final String requestId;
         public final String scene;
@@ -110,28 +146,25 @@ public final class SceneBatchPlanner {
         }
     }
 
-    /** Mutable in-memory choice for one Scene. */
+    /** Mutable API choice; it does not own Context membership. */
     public static final class SceneDraft {
         private final String scene;
-        private String contextId;
-        private int position;
-        private String groupId;
+        private String historyContextId;
+        private String historyGroupId;
         private boolean sendApi;
 
         SceneDraft(
             String scene,
-            String contextId,
-            int position,
-            String groupId,
+            String historyContextId,
+            String historyGroupId,
             boolean sendApi
         ) {
             if (scene == null || scene.trim().isEmpty()) {
                 throw new IllegalArgumentException("scene is required");
             }
             this.scene = scene;
-            this.contextId = contextId;
-            this.position = position;
-            this.groupId = groupId;
+            this.historyContextId = historyContextId;
+            this.historyGroupId = historyGroupId;
             this.sendApi = sendApi;
         }
 
@@ -139,28 +172,20 @@ public final class SceneBatchPlanner {
             return scene;
         }
 
-        public String getContextId() {
-            return contextId;
+        public String getHistoryContextId() {
+            return historyContextId;
         }
 
-        public void setContextId(String contextId) {
-            this.contextId = contextId;
+        public void setHistoryContextId(String historyContextId) {
+            this.historyContextId = historyContextId;
         }
 
-        public int getPosition() {
-            return position;
+        public String getHistoryGroupId() {
+            return historyGroupId;
         }
 
-        public void setPosition(int position) {
-            this.position = position;
-        }
-
-        public String getGroupId() {
-            return groupId;
-        }
-
-        public void setGroupId(String groupId) {
-            this.groupId = groupId;
+        public void setHistoryGroupId(String historyGroupId) {
+            this.historyGroupId = historyGroupId;
         }
 
         public boolean isSendApi() {
@@ -172,48 +197,46 @@ public final class SceneBatchPlanner {
         }
     }
 
-    /** Immutable page state: local scenes plus current Context/Group/Job facts. */
     public static final class Plan {
+        public final List<String> localScenes;
         public final List<SceneDraft> scenes;
-        public final List<ContextSnapshot> contexts;
+        public final List<ContextDraft> contexts;
         public final List<GroupSnapshot> groups;
         public final List<JobSnapshot> jobs;
 
         Plan(
+            List<String> localScenes,
             List<SceneDraft> scenes,
-            List<ContextSnapshot> contexts,
+            List<ContextDraft> contexts,
             List<GroupSnapshot> groups,
             List<JobSnapshot> jobs
         ) {
-            this.scenes = Collections.unmodifiableList(
-                new ArrayList<>(scenes == null ? Collections.emptyList() : scenes)
+            this.localScenes = Collections.unmodifiableList(
+                new ArrayList<>(localScenes)
             );
-            this.contexts = Collections.unmodifiableList(
-                new ArrayList<>(contexts == null ? Collections.emptyList() : contexts)
-            );
-            this.groups = Collections.unmodifiableList(
-                new ArrayList<>(groups == null ? Collections.emptyList() : groups)
-            );
-            this.jobs = Collections.unmodifiableList(
-                new ArrayList<>(jobs == null ? Collections.emptyList() : jobs)
-            );
+            this.scenes = Collections.unmodifiableList(new ArrayList<>(scenes));
+            this.contexts = Collections.unmodifiableList(new ArrayList<>(contexts));
+            this.groups = Collections.unmodifiableList(new ArrayList<>(groups));
+            this.jobs = Collections.unmodifiableList(new ArrayList<>(jobs));
         }
     }
 
-    /** One Scene Context whose ordered membership must be persisted. */
     public static final class ContextEdit {
         public final String contextId;
+        public final long expectedRevision;
         public final List<String> scenes;
 
-        ContextEdit(String contextId, List<String> scenes) {
+        ContextEdit(
+            String contextId,
+            long expectedRevision,
+            List<String> scenes
+        ) {
             this.contextId = contextId;
-            this.scenes = Collections.unmodifiableList(
-                new ArrayList<>(scenes == null ? Collections.emptyList() : scenes)
-            );
+            this.expectedRevision = expectedRevision;
+            this.scenes = Collections.unmodifiableList(new ArrayList<>(scenes));
         }
     }
 
-    /** One Translation Job to create because the user marked the Scene "send API". */
     public static final class JobCreation {
         public final String scene;
         public final byte[] requestJson;
@@ -232,7 +255,6 @@ public final class SceneBatchPlanner {
         }
     }
 
-    /** The single commit action produced by a confirmed draft. */
     public static final class CommitPlan {
         public final List<ContextEdit> contextEdits;
         public final List<JobCreation> jobCreations;
@@ -244,30 +266,24 @@ public final class SceneBatchPlanner {
             List<ContextReviewPlanner.MappingRewrite> mappingRewrites
         ) {
             this.contextEdits = Collections.unmodifiableList(
-                new ArrayList<>(contextEdits == null ? Collections.emptyList() : contextEdits)
+                new ArrayList<>(contextEdits)
             );
             this.jobCreations = Collections.unmodifiableList(
-                new ArrayList<>(jobCreations == null ? Collections.emptyList() : jobCreations)
+                new ArrayList<>(jobCreations)
             );
             this.mappingRewrites = Collections.unmodifiableList(
-                new ArrayList<>(mappingRewrites == null ? Collections.emptyList() : mappingRewrites)
+                new ArrayList<>(mappingRewrites)
             );
         }
     }
 
-    /** Pure seam so commit planning can stay independent of JSON/Android. */
     public interface RequestFactory {
         byte[] build(String scene) throws Exception;
     }
 
-    /**
-     * Builds the initial page draft. Each Scene keeps its current Context when
-     * it is already a member; otherwise it starts with no history. API sending
-     * is always opt-in.
-     */
     public static Plan createInitialPlan(
         List<String> sceneNames,
-        List<ContextSnapshot> contexts,
+        List<ContextDraft> contexts,
         List<GroupSnapshot> groups,
         List<JobSnapshot> jobs
     ) {
@@ -275,175 +291,136 @@ public final class SceneBatchPlanner {
             sceneNames == null ? Collections.emptyList() : sceneNames
         );
         Collections.sort(names);
-        Map<String, ContextSnapshot> contextById = indexContexts(contexts);
-
-        List<SceneDraft> drafts = new ArrayList<>();
+        List<ContextDraft> contextValues = contexts == null
+            ? Collections.emptyList()
+            : contexts;
+        List<JobSnapshot> jobValues = jobs == null
+            ? Collections.emptyList()
+            : jobs;
+        List<SceneDraft> sceneDrafts = new ArrayList<>();
         for (String scene : names) {
-            String contextId = null;
-            int position = 0;
-            for (ContextSnapshot context : contexts) {
-                int index = context.scenes.indexOf(scene);
-                if (index >= 0) {
-                    contextId = context.id;
-                    position = index;
-                    break;
-                }
-            }
-            JobSnapshot mappedJob = findMappingJob(scene, jobs);
-            if (contextId == null
-                && mappedJob != null
-                && mappedJob.contextId != null
-                && contextById.containsKey(mappedJob.contextId)) {
-                contextId = mappedJob.contextId;
-                position = contextById.get(contextId).scenes.indexOf(scene);
-                if (position < 0) {
-                    position = 0;
-                }
-            }
-            String groupId = null;
-            if (contextId != null
-                && mappedJob != null
-                && contextId.equals(mappedJob.contextId)) {
-                groupId = mappedJob.groupId;
-            }
-            drafts.add(new SceneDraft(scene, contextId, position, groupId, false));
+            JobSnapshot mapped = findMappingJob(scene, jobValues);
+            sceneDrafts.add(new SceneDraft(
+                scene,
+                mapped == null ? null : mapped.contextId,
+                mapped == null ? null : mapped.groupId,
+                false
+            ));
         }
-        return new Plan(drafts, contexts, groups, jobs);
+        return new Plan(
+            names,
+            sceneDrafts,
+            contextValues,
+            groups == null ? Collections.emptyList() : groups,
+            jobValues
+        );
     }
 
-    /**
-     * Returns user-facing validation errors. Empty result means the draft may
-     * be committed.
-     */
     public static List<String> validate(Plan plan) {
         List<String> errors = new ArrayList<>();
         if (plan == null) {
             errors.add("Plan is null");
             return errors;
         }
-        Map<String, ContextSnapshot> contextById = indexContexts(plan.contexts);
+        Map<String, ContextDraft> contextById = indexContexts(plan.contexts);
         Map<String, GroupSnapshot> groupById = indexGroups(plan.groups);
-
-        for (SceneDraft draft : plan.scenes) {
-            if (draft.getContextId() != null
-                && !contextById.containsKey(draft.getContextId())) {
-                errors.add("Scene " + draft.getScene()
-                    + " references unknown context " + draft.getContextId());
-            }
-            if (draft.getGroupId() != null
-                && !groupById.containsKey(draft.getGroupId())) {
-                errors.add("Scene " + draft.getScene()
-                    + " references unknown group " + draft.getGroupId());
-                continue;
-            }
-            if (draft.getContextId() == null && draft.getGroupId() != null) {
-                errors.add("Scene " + draft.getScene()
-                    + " has a group but no context");
-            } else if (draft.getContextId() != null
-                && draft.getGroupId() != null) {
-                GroupSnapshot group = groupById.get(draft.getGroupId());
-                if (group == null || !group.contextIds.contains(draft.getContextId())) {
-                    errors.add("Scene " + draft.getScene()
-                        + " group " + draft.getGroupId()
-                        + " does not contain context " + draft.getContextId());
+        for (ContextDraft context : plan.contexts) {
+            Set<String> seen = new HashSet<>();
+            for (String scene : context.getScenes()) {
+                if (scene == null || scene.trim().isEmpty() || !seen.add(scene)) {
+                    errors.add("Context " + context.id
+                        + " has an empty or duplicate Scene " + scene);
                 }
             }
-            if (draft.getPosition() < 0) {
+        }
+        for (SceneDraft draft : plan.scenes) {
+            String contextId = draft.getHistoryContextId();
+            String groupId = draft.getHistoryGroupId();
+            ContextDraft context = contextById.get(contextId);
+            if (contextId != null && context == null) {
                 errors.add("Scene " + draft.getScene()
-                    + " has a negative position");
+                    + " references unknown history Context " + contextId);
+                continue;
+            }
+            if (context != null && !context.contains(draft.getScene())) {
+                errors.add("Scene " + draft.getScene()
+                    + " is not a member of history Context " + contextId);
+            }
+            if (contextId == null && groupId != null) {
+                errors.add("Scene " + draft.getScene()
+                    + " has a history Group but no Context");
+                continue;
+            }
+            if (groupId != null) {
+                GroupSnapshot group = groupById.get(groupId);
+                if (group == null || !group.contextIds.contains(contextId)) {
+                    errors.add("Scene " + draft.getScene()
+                        + " Group does not contain its history Context");
+                }
             }
         }
         return errors;
     }
 
-    /**
-     * Computes the one-shot commit from the confirmed draft.
-     *
-     * <p>The planner assumes the page's Context selection is the Scene's single
-     * membership for this batch edit. Scenes assigned to a Context are placed in
-     * that Context's ordered list at the chosen insertion position; Scenes with
-     * no history are removed from every Context.</p>
-     */
     public static CommitPlan planCommit(Plan plan, RequestFactory requestFactory)
         throws Exception {
-        if (plan == null) {
-            throw new IllegalArgumentException("plan is null");
+        if (plan == null || requestFactory == null) {
+            throw new IllegalArgumentException("plan and requestFactory are required");
         }
-        if (requestFactory == null) {
-            throw new IllegalArgumentException("requestFactory is null");
-        }
-        List<String> validationErrors = validate(plan);
-        if (!validationErrors.isEmpty()) {
+        List<String> errors = validate(plan);
+        if (!errors.isEmpty()) {
             throw new IllegalArgumentException(
-                "Cannot commit invalid scene batch: " + validationErrors
+                "Cannot commit invalid scene batch: " + errors
             );
         }
 
-        Map<String, List<SceneDraft>> assigned = new LinkedHashMap<>();
-        for (ContextSnapshot context : plan.contexts) {
-            assigned.put(context.id, new ArrayList<>());
-        }
-        for (SceneDraft draft : plan.scenes) {
-            if (draft.getContextId() != null) {
-                List<SceneDraft> members = assigned.get(draft.getContextId());
-                if (members != null) {
-                    members.add(draft);
-                }
-            }
-        }
-
         List<ContextEdit> contextEdits = new ArrayList<>();
-        List<ContextSnapshot> finalContexts = new ArrayList<>();
-        for (ContextSnapshot context : plan.contexts) {
-            List<SceneDraft> members = assigned.get(context.id);
-            members.sort((left, right) -> {
-                int byPosition = Integer.compare(
-                    left.getPosition(),
-                    right.getPosition()
-                );
-                if (byPosition != 0) {
-                    return byPosition;
-                }
-                return left.getScene().compareTo(right.getScene());
-            });
-            List<String> finalSceneNames = new ArrayList<>();
-            for (SceneDraft member : members) {
-                finalSceneNames.add(member.getScene());
-            }
-            finalContexts.add(new ContextSnapshot(
-                context.id,
-                context.displayName,
-                finalSceneNames
-            ));
-            if (!context.scenes.equals(finalSceneNames)) {
-                contextEdits.add(new ContextEdit(context.id, finalSceneNames));
+        for (ContextDraft context : plan.contexts) {
+            if (!context.getOriginalScenes().equals(context.getScenes())) {
+                contextEdits.add(new ContextEdit(
+                    context.id,
+                    context.revision,
+                    context.getScenes()
+                ));
             }
         }
 
         List<JobCreation> jobCreations = new ArrayList<>();
         for (SceneDraft draft : plan.scenes) {
-            if (!draft.isSendApi()) {
-                continue;
-            }
-            if (hasExistingJob(draft.getScene(), plan.jobs)) {
+            if (!draft.isSendApi()
+                || hasExistingJob(draft.getScene(), plan.jobs)) {
                 continue;
             }
             byte[] requestJson = requestFactory.build(draft.getScene());
-            Object historyMapping = draft.getContextId() == null
+            Object mapping = draft.getHistoryContextId() == null
                 ? JSONObject.NULL
                 : HistoryMapping.fromActivePointers(
-                    draft.getContextId(),
-                    draft.getGroupId()
+                    draft.getHistoryContextId(),
+                    draft.getHistoryGroupId()
                 );
             jobCreations.add(new JobCreation(
                 draft.getScene(),
                 requestJson,
-                historyMapping
+                mapping
             ));
         }
 
-        List<ContextReviewPlanner.QueuedJobState> queuedJobs =
+        List<ContextReviewPlanner.ContextSnapshot> finalContexts =
             new ArrayList<>();
+        for (ContextDraft context : plan.contexts) {
+            finalContexts.add(new ContextReviewPlanner.ContextSnapshot(
+                context.id,
+                context.getScenes()
+            ));
+        }
+        List<ContextReviewPlanner.GroupSnapshot> finalGroups = new ArrayList<>();
+        for (GroupSnapshot group : plan.groups) {
+            finalGroups.add(new ContextReviewPlanner.GroupSnapshot(
+                group.id,
+                group.contextIds
+            ));
+        }
+        List<ContextReviewPlanner.QueuedJobState> queuedJobs = new ArrayList<>();
         for (JobSnapshot job : plan.jobs) {
             if ("queued".equals(job.status)) {
                 queuedJobs.add(new ContextReviewPlanner.QueuedJobState(
@@ -454,37 +431,18 @@ public final class SceneBatchPlanner {
                 ));
             }
         }
-        List<ContextReviewPlanner.ContextSnapshot> reviewContexts =
-            new ArrayList<>();
-        for (ContextSnapshot context : finalContexts) {
-            reviewContexts.add(new ContextReviewPlanner.ContextSnapshot(
-                context.id,
-                context.scenes
-            ));
-        }
-        List<ContextReviewPlanner.GroupSnapshot> reviewGroups =
-            new ArrayList<>();
-        for (GroupSnapshot group : plan.groups) {
-            reviewGroups.add(new ContextReviewPlanner.GroupSnapshot(
-                group.id,
-                group.contextIds
-            ));
-        }
-        List<ContextReviewPlanner.MappingRewrite> mappingRewrites =
+        return new CommitPlan(
+            contextEdits,
+            jobCreations,
             ContextReviewPlanner.planMappingRewrites(
-                reviewContexts,
-                reviewGroups,
+                finalContexts,
+                finalGroups,
                 queuedJobs
-            );
-
-        return new CommitPlan(contextEdits, jobCreations, mappingRewrites);
+            )
+        );
     }
 
-    /** Returns true when the Scene already has an active or completed Job. */
-    public static boolean hasExistingJob(
-        String scene,
-        List<JobSnapshot> jobs
-    ) {
+    public static boolean hasExistingJob(String scene, List<JobSnapshot> jobs) {
         if (scene == null || jobs == null) {
             return false;
         }
@@ -503,9 +461,6 @@ public final class SceneBatchPlanner {
         String scene,
         List<JobSnapshot> jobs
     ) {
-        if (jobs == null) {
-            return null;
-        }
         for (JobSnapshot job : jobs) {
             if (scene.equals(job.scene)
                 && job.contextId != null
@@ -516,13 +471,15 @@ public final class SceneBatchPlanner {
         return null;
     }
 
-    private static Map<String, ContextSnapshot> indexContexts(
-        List<ContextSnapshot> contexts
+    private static Map<String, ContextDraft> indexContexts(
+        List<ContextDraft> contexts
     ) {
-        Map<String, ContextSnapshot> result = new LinkedHashMap<>();
-        if (contexts != null) {
-            for (ContextSnapshot context : contexts) {
-                result.put(context.id, context);
+        Map<String, ContextDraft> result = new LinkedHashMap<>();
+        for (ContextDraft context : contexts) {
+            if (result.put(context.id, context) != null) {
+                throw new IllegalArgumentException(
+                    "duplicate Context draft id " + context.id
+                );
             }
         }
         return result;
@@ -532,12 +489,13 @@ public final class SceneBatchPlanner {
         List<GroupSnapshot> groups
     ) {
         Map<String, GroupSnapshot> result = new LinkedHashMap<>();
-        if (groups != null) {
-            for (GroupSnapshot group : groups) {
-                result.put(group.id, group);
+        for (GroupSnapshot group : groups) {
+            if (result.put(group.id, group) != null) {
+                throw new IllegalArgumentException(
+                    "duplicate Group id " + group.id
+                );
             }
         }
         return result;
     }
-
 }

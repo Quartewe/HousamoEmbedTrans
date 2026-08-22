@@ -36,8 +36,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Module settings UI. It edits only user-owned settings while preserving
- * runtime-owned config fields unchanged.
+ * Module settings UI. It edits UserSettings in config.json; game-bound
+ * runtime data lives independently in runtime.json.
  */
 public class SettingsActivity extends AppCompatActivity {
 
@@ -52,16 +52,29 @@ public class SettingsActivity extends AppCompatActivity {
     private TextView gametermsSummary;
     private TextView sceneFilesSummary;
     private Spinner apiProtocol;
+    private Spinner thinkingStrength;
+    private EditText contextLength;
+    private EditText apiConcurrency;
     private Spinner targetLanguagePreset;
     private TextInputLayout customTargetLanguageLayout;
     private EditText customTargetLanguage;
     private EditText apiUrl;
     private EditText apiKey;
     private EditText model;
-    private EditText apiConcurrency;
     private EditText networkRetryCount;
     private EditText resultRepairCount;
+    private SwitchMaterial enableStreamingRepair;
+    private TextInputLayout repairGradientCountLayout;
+    private EditText repairGradientCount;
+    private SwitchMaterial useFullSceneForRepair;
+    private TextView useFullSceneForRepairHint;
     private MaterialButton queryModelsButton;
+    private SwitchMaterial autoRecoverPreviousJobs;
+    private SwitchMaterial summaryAutoRecoverPreviousJobs;
+    private SwitchMaterial enableStartupReview;
+    private Spinner recoverySortOrder;
+    private EditText sceneWorkerCount;
+    private Spinner sceneConflictResolutionMode;
     private SwitchMaterial overwriteJson;
     private SwitchMaterial parseOnlyDebug;
     private SwitchMaterial failedApiResponseDump;
@@ -124,16 +137,49 @@ public class SettingsActivity extends AppCompatActivity {
         gametermsSummary = findViewById(R.id.tv_gameterms_summary);
         sceneFilesSummary = findViewById(R.id.tv_scene_files_summary);
         apiProtocol = findViewById(R.id.spinner_api_protocol);
+        thinkingStrength = findViewById(R.id.spinner_thinking_strength);
+        contextLength = findViewById(R.id.et_context_length);
+        apiConcurrency = findViewById(R.id.et_api_concurrency);
         targetLanguagePreset = findViewById(R.id.spinner_target_language);
         customTargetLanguageLayout = findViewById(R.id.til_custom_target_language);
         customTargetLanguage = findViewById(R.id.et_custom_target_language);
         apiUrl = findViewById(R.id.et_api_url);
         apiKey = findViewById(R.id.et_api_key);
         model = findViewById(R.id.et_model);
-        apiConcurrency = findViewById(R.id.et_api_concurrency);
         networkRetryCount = findViewById(R.id.et_network_retry_count);
         resultRepairCount = findViewById(R.id.et_result_repair_count);
+        enableStreamingRepair = findViewById(
+            R.id.switch_enable_streaming_repair
+        );
+        repairGradientCountLayout = findViewById(
+            R.id.til_repair_gradient_count
+        );
+        repairGradientCount = findViewById(
+            R.id.et_repair_gradient_count
+        );
+        useFullSceneForRepair = findViewById(
+            R.id.switch_use_full_scene_for_repair
+        );
+        useFullSceneForRepairHint = findViewById(
+            R.id.tv_use_full_scene_for_repair_hint
+        );
         queryModelsButton = findViewById(R.id.btn_query_models);
+        autoRecoverPreviousJobs = findViewById(
+            R.id.switch_auto_recover_previous_jobs
+        );
+        summaryAutoRecoverPreviousJobs = findViewById(
+            R.id.switch_summary_auto_recover_previous_jobs
+        );
+        enableStartupReview = findViewById(
+            R.id.switch_enable_startup_review
+        );
+        recoverySortOrder = findViewById(
+            R.id.spinner_recovery_sort_order
+        );
+        sceneWorkerCount = findViewById(R.id.et_scene_worker_count);
+        sceneConflictResolutionMode = findViewById(
+            R.id.spinner_scene_conflict_resolution_mode
+        );
         overwriteJson = findViewById(R.id.switch_overwrite_json);
         parseOnlyDebug = findViewById(R.id.switch_parse_only_debug);
         failedApiResponseDump = findViewById(
@@ -158,11 +204,32 @@ public class SettingsActivity extends AppCompatActivity {
             true
         );
         bindSection(
+            R.id.header_scene_context,
+            R.id.body_scene_context,
+            R.id.arrow_scene_context,
+            R.string.scene_context_settings,
+            false
+        );
+        bindSection(
+            R.id.header_queue,
+            R.id.body_queue,
+            R.id.arrow_queue,
+            R.string.queue_settings,
+            false
+        );
+        bindSection(
             R.id.header_translation,
             R.id.body_translation,
             R.id.arrow_translation,
             R.string.translation_settings,
             true
+        );
+        bindSection(
+            R.id.header_scene_sync,
+            R.id.body_scene_sync,
+            R.id.arrow_scene_sync,
+            R.string.scene_sync_settings,
+            false
         );
         bindSection(
             R.id.header_chardict,
@@ -235,6 +302,12 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.btn_save).setOnClickListener(view -> saveConfig());
         findViewById(R.id.btn_reset).setOnClickListener(view -> confirmReset());
         queryModelsButton.setOnClickListener(view -> queryAvailableModels());
+        autoRecoverPreviousJobs.setOnCheckedChangeListener(
+            (button, checked) -> updateRecoverySortOrderEnabled()
+        );
+        enableStreamingRepair.setOnCheckedChangeListener(
+            (button, checked) -> updateStreamingRepairOptionsEnabled()
+        );
         targetLanguagePreset.setOnItemSelectedListener(
             new AdapterView.OnItemSelectedListener() {
                 @Override
@@ -262,6 +335,18 @@ public class SettingsActivity extends AppCompatActivity {
         findViewById(R.id.btn_manage_scene_files).setOnClickListener(view -> {
             startActivity(new Intent(this, SceneFilesActivity.class));
         });
+        findViewById(R.id.btn_manage_scene_contexts).setOnClickListener(view -> {
+            startActivity(new Intent(this, SceneContextActivity.class));
+        });
+        findViewById(R.id.btn_manage_translation_jobs).setOnClickListener(
+            view -> startActivity(
+                new Intent(this, TranslationQueueActivity.class)
+                    .putExtra(
+                        TranslationQueueActivity.EXTRA_MANAGEMENT_ONLY,
+                        true
+                    )
+            )
+        );
         findViewById(R.id.btn_manage_rejected_api_results).setOnClickListener(
             view -> startActivity(
                 new Intent(this, RejectedApiResultsActivity.class)
@@ -389,6 +474,24 @@ public class SettingsActivity extends AppCompatActivity {
         apiUrl.setText(translationApi.optString("BaseUrl", ""));
         model.setText(translationApi.optString("Model", ""));
         JSONObject executionApi = userSettings.optJSONObject("Api");
+        selectCode(
+            thinkingStrength,
+            R.array.thinking_strength_codes,
+            executionApi != null
+                ? executionApi.optString(
+                    "ThinkingStrength",
+                    ConfigStore.DEFAULT_THINKING_STRENGTH
+                )
+                : ConfigStore.DEFAULT_THINKING_STRENGTH
+        );
+        contextLength.setText(String.valueOf(
+            executionApi != null
+                ? executionApi.optInt(
+                    "context_length",
+                    ConfigStore.DEFAULT_CONTEXT_LENGTH
+                )
+                : ConfigStore.DEFAULT_CONTEXT_LENGTH
+        ));
         apiConcurrency.setText(String.valueOf(
             executionApi != null
                 ? executionApi.optInt(
@@ -417,6 +520,62 @@ public class SettingsActivity extends AppCompatActivity {
                 "RetryCount",
                 ConfigStore.DEFAULT_RESULT_REPAIR_COUNT
             )));
+        enableStreamingRepair.setChecked(
+            translationApi.optBoolean(
+                "EnableStreamingRepair",
+                ConfigStore.DEFAULT_ENABLE_STREAMING_REPAIR
+            )
+        );
+        repairGradientCount.setText(String.valueOf(
+            translationApi.optInt(
+                "RepairGradientCount",
+                ConfigStore.DEFAULT_REPAIR_GRADIENT_COUNT
+            )
+        ));
+        useFullSceneForRepair.setChecked(
+            translationApi.optBoolean(
+                "UseFullSceneForRepair",
+                ConfigStore.DEFAULT_USE_FULL_SCENE_FOR_REPAIR
+            )
+        );
+        updateStreamingRepairOptionsEnabled();
+
+        JSONObject translationQueue = userSettings.optJSONObject(
+            "TranslationQueue"
+        );
+        if (translationQueue == null) {
+            translationQueue = new JSONObject();
+        }
+        autoRecoverPreviousJobs.setChecked(
+            translationQueue.optBoolean(
+                "AutoRecoverPreviousJobs",
+                ConfigStore.DEFAULT_AUTO_RECOVER_PREVIOUS_JOBS
+            )
+        );
+        summaryAutoRecoverPreviousJobs.setChecked(
+            ConfigStore.getSummaryAutoRecoverPreviousJobs(userSettings)
+        );
+        JSONObject contextHistory = userSettings.optJSONObject("ContextHistory");
+        enableStartupReview.setChecked(contextHistory != null
+            && contextHistory.optBoolean("EnableStartupReview", false));
+        selectCode(
+            recoverySortOrder,
+            R.array.recovery_sort_order_codes,
+            translationQueue.optString(
+                "RecoverySortOrder",
+                ConfigStore.DEFAULT_RECOVERY_SORT_ORDER
+            )
+        );
+        updateRecoverySortOrderEnabled();
+
+        sceneWorkerCount.setText(String.valueOf(
+            ConfigStore.getSceneWorkerCount(userSettings)
+        ));
+        selectCode(
+            sceneConflictResolutionMode,
+            R.array.scene_conflict_resolution_codes,
+            ConfigStore.getConflictResolutionMode(userSettings)
+        );
 
         apiKey.setText(configStore.loadApiKey());
 
@@ -470,7 +629,12 @@ public class SettingsActivity extends AppCompatActivity {
     private JSONObject buildConfigFromForm(JSONObject config) throws Exception {
         int parsedNetworkRetryCount = parseRetryCount(networkRetryCount);
         int parsedResultRepairCount = parseRetryCount(resultRepairCount);
+        int parsedContextLength = parseContextLength(contextLength);
         int parsedApiConcurrency = parseApiConcurrency(apiConcurrency);
+        int parsedRepairGradientCount = parseRepairGradientCount(
+            repairGradientCount
+        );
+        int parsedSceneWorkerCount = parseSceneWorkerCount(sceneWorkerCount);
         double parsedHighRelevance = positiveDouble(highRelevance);
         double parsedMidRelevance = positiveDouble(midRelevance);
         double parsedDensityHigh = positiveDouble(densityHigh);
@@ -506,12 +670,94 @@ public class SettingsActivity extends AppCompatActivity {
         translationApi.remove("RetryCount");
         translationApi.put("NetworkRetryCount", parsedNetworkRetryCount);
         translationApi.put("ResultRepairCount", parsedResultRepairCount);
+        translationApi.put(
+            "EnableStreamingRepair",
+            enableStreamingRepair.isChecked()
+        );
+        translationApi.put(
+            "RepairGradientCount",
+            parsedRepairGradientCount
+        );
+        translationApi.put(
+            "UseFullSceneForRepair",
+            useFullSceneForRepair.isChecked()
+        );
+
         JSONObject apiSettings = userSettings.optJSONObject("Api");
         if (apiSettings == null) {
             apiSettings = new JSONObject();
             userSettings.put("Api", apiSettings);
         }
+        apiSettings.put(
+            "ThinkingStrength",
+            selectedCode(
+                thinkingStrength,
+                R.array.thinking_strength_codes
+            )
+        );
+        apiSettings.put("context_length", parsedContextLength);
         apiSettings.put("max_concurrent_requests", parsedApiConcurrency);
+
+        JSONObject translationQueue = userSettings.optJSONObject(
+            "TranslationQueue"
+        );
+        if (translationQueue == null) {
+            translationQueue = new JSONObject();
+            userSettings.put("TranslationQueue", translationQueue);
+        }
+        translationQueue.put(
+            "AutoRecoverPreviousJobs",
+            autoRecoverPreviousJobs.isChecked()
+        );
+
+        userSettings.put("SceneWorkerCount", parsedSceneWorkerCount);
+        JSONObject sceneSync;
+        if (!userSettings.has("SceneSync")) {
+            sceneSync = new JSONObject();
+            userSettings.put("SceneSync", sceneSync);
+        } else {
+            Object rawSceneSync = userSettings.get("SceneSync");
+            if (!(rawSceneSync instanceof JSONObject)) {
+                throw new IllegalArgumentException(
+                    "UserSettings.SceneSync must be an object"
+                );
+            }
+            sceneSync = (JSONObject) rawSceneSync;
+        }
+        sceneSync.put(
+            "ConflictResolutionMode",
+            selectedCode(
+                sceneConflictResolutionMode,
+                R.array.scene_conflict_resolution_codes
+            )
+        );
+        translationQueue.put(
+            "RecoverySortOrder",
+            selectedCode(
+                recoverySortOrder,
+                R.array.recovery_sort_order_codes
+            )
+        );
+
+        JSONObject summaryQueue = userSettings.optJSONObject("SummaryQueue");
+        if (summaryQueue == null) {
+            summaryQueue = new JSONObject();
+            userSettings.put("SummaryQueue", summaryQueue);
+        }
+        summaryQueue.put(
+            "AutoRecoverPreviousJobs",
+            summaryAutoRecoverPreviousJobs.isChecked()
+        );
+
+        JSONObject contextHistory = userSettings.optJSONObject("ContextHistory");
+        if (contextHistory == null) {
+            contextHistory = new JSONObject();
+            userSettings.put("ContextHistory", contextHistory);
+        }
+        contextHistory.put(
+            "EnableStartupReview",
+            enableStartupReview.isChecked()
+        );
 
         userSettings.put("TargetLanguage", selectedTargetLanguage());
         userSettings.put("OverwriteExistingJson", overwriteJson.isChecked());
@@ -532,6 +778,20 @@ public class SettingsActivity extends AppCompatActivity {
         weights.put("LowTermScore", parsedLowTermScore);
 
         return config;
+    }
+
+    private void updateRecoverySortOrderEnabled() {
+        recoverySortOrder.setEnabled(
+            autoRecoverPreviousJobs.isChecked()
+        );
+    }
+
+    private void updateStreamingRepairOptionsEnabled() {
+        boolean enabled = enableStreamingRepair.isChecked();
+        repairGradientCountLayout.setEnabled(enabled);
+        repairGradientCount.setEnabled(enabled);
+        useFullSceneForRepair.setEnabled(enabled);
+        useFullSceneForRepairHint.setEnabled(enabled);
     }
 
     private void confirmReset() {
@@ -623,9 +883,11 @@ public class SettingsActivity extends AppCompatActivity {
     private void clearErrors() {
         EditText[] fields = {
             customTargetLanguage,
+            contextLength,
             apiConcurrency,
             networkRetryCount,
             resultRepairCount,
+            sceneWorkerCount,
             highRelevance,
             midRelevance,
             densityHigh,
@@ -701,6 +963,24 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 
+    private int parseContextLength(EditText field)
+        throws ValidationException {
+        try {
+            int value = Integer.parseInt(requireText(field));
+            if (value < 1 || value > 1_000_000) {
+                throw new NumberFormatException();
+            }
+            return value;
+        } catch (ValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ValidationException(
+                field,
+                R.string.error_context_length_range
+            );
+        }
+    }
+
     private int parseApiConcurrency(EditText field)
         throws ValidationException {
         try {
@@ -713,6 +993,44 @@ public class SettingsActivity extends AppCompatActivity {
             throw new ValidationException(
                 field,
                 R.string.error_api_concurrency_range
+            );
+        }
+    }
+
+    private int parseRepairGradientCount(EditText field)
+        throws ValidationException {
+        try {
+            int value = Integer.parseInt(requireText(field));
+            if (value < ConfigStore.MIN_REPAIR_GRADIENT_COUNT
+                || value > ConfigStore.MAX_REPAIR_GRADIENT_COUNT) {
+                throw new NumberFormatException();
+            }
+            return value;
+        } catch (ValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ValidationException(
+                field,
+                R.string.error_repair_gradient_count_range
+            );
+        }
+    }
+
+    private int parseSceneWorkerCount(EditText field)
+        throws ValidationException {
+        try {
+            int value = Integer.parseInt(requireText(field));
+            if (value < ConfigStore.MIN_SCENE_WORKER_COUNT
+                || value > ConfigStore.MAX_SCENE_WORKER_COUNT) {
+                throw new NumberFormatException();
+            }
+            return value;
+        } catch (ValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ValidationException(
+                field,
+                R.string.error_scene_worker_count_range
             );
         }
     }

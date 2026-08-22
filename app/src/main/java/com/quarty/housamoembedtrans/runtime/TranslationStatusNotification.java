@@ -2,9 +2,12 @@ package com.quarty.housamoembedtrans.runtime;
 
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.ui.SceneConflictsActivity;
+import com.quarty.housamoembedtrans.ui.SceneContextActivity;
 import com.quarty.housamoembedtrans.ui.SceneFilesActivity;
 import com.quarty.housamoembedtrans.ui.SettingsActivity;
+import com.quarty.housamoembedtrans.ui.TranslationQueueActivity;
 import com.quarty.housamoembedtrans.translation.ContextReviewGate;
+import com.quarty.housamoembedtrans.translation.TranslationJobStore;
 
 import android.Manifest;
 import android.app.Notification;
@@ -59,10 +62,21 @@ public final class TranslationStatusNotification {
     private static final String KEY_STARTUP_FAILED_MESSAGE =
         "startup_failed_message";
 
+    /**
+     * Process-local store set by TranslationService once its runtime has been
+     * built. While null (before the background startup coordinator runs), the
+     * foreground notification must stay lightweight and show zero queue state
+     * instead of constructing the store on the main thread.
+     */
+    private static volatile TranslationJobStore statusJobStore;
 
     private TranslationStatusNotification() {
     }
 
+    /** Installs the process-local store used by notification snapshots. */
+    public static void setJobStore(TranslationJobStore store) {
+        statusJobStore = store;
+    }
 
     /**
      * Shows a dedicated user-visible failure state for a failed linear
@@ -317,10 +331,22 @@ public final class TranslationStatusNotification {
         long startedAt = state.getLong(KEY_STARTED_AT, 0L);
         long finishedAt = state.getLong(KEY_FINISHED_AT, System.currentTimeMillis());
         boolean paused = RuntimeControlStore.isCapturePaused(context);
-        int heldQueuedJobCount = 0;
-        int manualRerunCandidateCount = 0;
-        boolean repairingStartupJobs = false;
-        boolean manualStartupRepair = false;
+        TranslationJobStore jobStore = statusJobStore;
+        // The notification may be rebuilt on the service/main thread.  Read
+        // only the store's O(1) in-memory snapshot; durable candidate scans
+        // belong to startup repair or the queue activity's I/O executor.
+        // Before the background startup coordinator builds the store, keep the
+        // foreground notification lightweight and avoid constructing it here.
+        int heldQueuedJobCount = jobStore == null
+            ? 0
+            : jobStore.getHeldQueuedJobCount();
+        int manualRerunCandidateCount = jobStore == null
+            ? 0
+            : jobStore.getManualRerunCandidateCount();
+        boolean repairingStartupJobs = jobStore != null
+            && jobStore.isRepairingStartupJobs();
+        boolean manualStartupRepair = jobStore != null
+            && jobStore.isManualStartupRepairInProgress();
         SceneSyncRuntimeState.Snapshot sceneSync =
             SceneSyncRuntimeState.getInstance().getSnapshot();
         boolean sceneSyncActive =
@@ -710,12 +736,8 @@ public final class TranslationStatusNotification {
     }
 
     private static PendingIntent sceneContextReviewPendingIntent(Context context) {
-        Intent intent = new Intent()
-            .setClassName(
-                context,
-                "com.quarty.housamoembedtrans.ui.SceneContextActivity"
-            )
-            .putExtra("review_mode", true)
+        Intent intent = new Intent(context, SceneContextActivity.class)
+            .putExtra(SceneContextActivity.EXTRA_REVIEW_MODE, true)
             .addFlags(
                 Intent.FLAG_ACTIVITY_CLEAR_TOP
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -741,11 +763,7 @@ public final class TranslationStatusNotification {
     }
 
     private static PendingIntent queuePendingIntent(Context context) {
-        Intent intent = new Intent()
-            .setClassName(
-                context,
-                "com.quarty.housamoembedtrans.ui.TranslationQueueActivity"
-            )
+        Intent intent = new Intent(context, TranslationQueueActivity.class)
             .addFlags(
                 Intent.FLAG_ACTIVITY_CLEAR_TOP
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP

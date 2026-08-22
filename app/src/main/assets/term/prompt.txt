@@ -39,6 +39,19 @@ Context may clarify the source text, but must never be used to rewrite or contra
 - `game_version`: Game version associated with the extracted scene. It is metadata.
 - `raw_lang`: Language of the source text.
 - `target_lang`: Required language and regional variant of the translation. Apply the exact code rules and `i18n` mapping above.
+- `previous_context`: Optional history selected by HET. It may contain a compressed older prefix plus raw recent scene summaries, and may include group-level context. Use it only to disambiguate the current scene; do not translate or echo it.
+  - `previous_context.group_summary` (optional string): A compressed cumulative summary of earlier Scene Contexts before the immediately preceding context. It is a true summary, not a list of scene entries.
+  - `previous_context.prior_contexts` (optional array): Contexts in the group that are not covered by `group_summary`, in group order. Each entry is `{context_id, source, summary?, scenes?, manual_description?}`.
+    - `source` is one of `manual`, `final`, `current`, `lossless`.
+    - `manual` and `final` contain only `summary`.
+    - `current` contains `summary` and, when the snapshot does not cover the entire context, `scenes` for the uncovered suffix.
+    - `lossless` contains only `scenes`.
+    - `scenes[]` items are `{scene, summary}`, where `summary` is the complete target-language Scene Summary of that scene.
+    - `manual_description` (optional) is user-supplied context for that Scene Context.
+  - `previous_context.last_context_summary` (optional object): Same self-describing shape as a `prior_contexts` entry, but no `context_id`; it represents the Scene Context immediately before the current context when a compressed group prefix exists.
+  - `previous_context.current_context_summary` (optional object): Same self-describing shape, but only for the current Scene Context before the current scene. `source` is one of `manual`, `current`, `lossless`; `current` may include `scenes` as the recent retention window of complete Scene Summaries.
+  - `previous_context.current_manual_description` (optional string): User-supplied description of the current Scene Context. Send it whenever present; it does not replace any summary.
+- `request_context_summary`: Internal boolean. When true, also return `context_summary`: a cumulative target-language summary of `previous_context` together with the entire current scene. When absent or false, omit `context_summary`.
 - `character.mc`: Context for the player protagonist. It is separate from relevance-ranked characters and is not itself a relevance score.
 - `character.high_weight`: Characters highly relevant to this scene.
 - `character.low_weight`: Characters with weaker but potentially useful relevance. Weight indicates relevance, not reliability.
@@ -59,6 +72,7 @@ Context may clarify the source text, but must never be used to rewrite or contra
   - `required_line_breaks.leading`, `internal_runs`, and `trailing` describe actual line-break runs.
   - `required_escape_sequences` maps each required literal escape sequence to its exact occurrence count.
   - `required_protected_labels`, when present, maps every required placeholder label to its exact occurrence count; use `protect` to understand those labels.
+- `internal_repair_instruction.protect`: The exact subset of placeholder mappings used by the requested `retry_seqs`. Prefer this subset when repairing, even when the complete scene context also contains a larger root-level `protect` array.
 
 ## Runtime parameter semantics
 
@@ -132,4 +146,20 @@ The following terms are always-available background because their surface forms 
 
 ## Output behavior
 
-Follow the response JSON Schema supplied with the API request exactly. In a repair request, copy the supplied input `summary` unchanged into the response. Return only the schema-conforming result, with no Markdown fences, commentary, explanations, or restatement of the input.
+Return newline-delimited JSON (NDJSON). Every event must occupy exactly one physical output line. Do not wrap the events in an array or object, and do not use Markdown fences, commentary, explanations, blank prose, or a leading/trailing preamble.
+
+For a normal request, emit events in this exact workflow:
+
+1. Emit exactly one summary event before any translation:
+   `{"type":"summary","summary":"..."}`.
+   When `request_context_summary` is true, add `"context_summary":"..."` to this event.
+2. Emit exactly one translation event for every input `seq`, in strictly increasing `seq` order:
+   `{"type":"translation","seq":1,"text":"..."}`.
+3. Emit exactly one final event:
+   `{"type":"complete"}`.
+
+For an internal repair request, the JSON inside `internal_repair_instruction` supplies `summary`, `retry_seqs`, and `retry_feedback`. Emit only the requested translation events in strictly increasing `seq` order, followed by `{"type":"complete"}`. Do not emit a new summary event and do not return any seq absent from `retry_seqs`.
+
+All line breaks inside JSON string values must be JSON-escaped. An actual line break separates NDJSON events and must never appear unescaped inside `summary`, `context_summary`, or translated `text`.
+
+`summary` always describes only the current complete scene. `context_summary`, when requested, is separate and cumulative. Failure to produce `context_summary` must never be compensated for by placing cumulative history into `summary`.

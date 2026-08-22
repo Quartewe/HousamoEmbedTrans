@@ -37,6 +37,38 @@ public final class PersistentApiJobStore {
         SHA256_HEX
     }
 
+    /** Family callback used by request-first crash repair. */
+    @FunctionalInterface
+    public interface RequestIdentityVerifier {
+        void verify(String requestId, byte[] requestBytes) throws Exception;
+    }
+
+    public enum RequestFirstStatus {
+        COMPLETE,
+        STATE_MISSING,
+        REQUEST_INVALID
+    }
+
+    /** Detached result of inspecting request.json before mutable state.json. */
+    public static final class RequestFirstInspection {
+        public final RequestFirstStatus status;
+        public final byte[] requestBytes;
+        public final JSONObject state;
+        public final Exception invalidRequest;
+
+        private RequestFirstInspection(
+            RequestFirstStatus status,
+            byte[] requestBytes,
+            JSONObject state,
+            Exception invalidRequest
+        ) {
+            this.status = status;
+            this.requestBytes = requestBytes;
+            this.state = state;
+            this.invalidRequest = invalidRequest;
+        }
+    }
+
     private final File root;
     private final RequestIdFormat requestIdFormat;
     private final int maxRequestBytes;
@@ -163,6 +195,53 @@ public final class PersistentApiJobStore {
             left.getName().compareTo(right.getName())
         );
         return directories;
+    }
+
+    /**
+     * Classifies the common request-first admission crash window. A missing or
+     * semantically invalid immutable request is returned as REQUEST_INVALID;
+     * an I/O failure while reading an existing file is propagated so callers
+     * retry instead of deleting potentially valid work.
+     */
+    public RequestFirstInspection inspectRequestFirst(
+        File jobDirectory,
+        RequestIdentityVerifier verifier
+    ) throws IOException {
+        if (jobDirectory == null || !jobDirectory.isDirectory()) {
+            throw new IOException("job directory does not exist");
+        }
+        if (verifier == null) {
+            throw new IllegalArgumentException("request verifier is required");
+        }
+        File requestFile = new File(jobDirectory, REQUEST_FILE_NAME);
+        if (!io.exists(requestFile)) {
+            return new RequestFirstInspection(
+                RequestFirstStatus.REQUEST_INVALID,
+                null,
+                null,
+                new IOException("request.json is missing")
+            );
+        }
+        byte[] requestBytes = readRequest(jobDirectory);
+        try {
+            verifier.verify(jobDirectory.getName(), requestBytes);
+        } catch (Exception e) {
+            return new RequestFirstInspection(
+                RequestFirstStatus.REQUEST_INVALID,
+                requestBytes,
+                null,
+                e
+            );
+        }
+        JSONObject state = readState(jobDirectory);
+        return new RequestFirstInspection(
+            state == null
+                ? RequestFirstStatus.STATE_MISSING
+                : RequestFirstStatus.COMPLETE,
+            requestBytes,
+            state,
+            null
+        );
     }
 
     public byte[] readRequest(File jobDirectory) throws IOException {

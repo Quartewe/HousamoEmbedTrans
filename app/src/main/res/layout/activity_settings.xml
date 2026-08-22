@@ -120,6 +120,33 @@
                             android:maxLines="1" />
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <TextView
+                        style="@style/Widget.HET.FieldLabel"
+                        android:text="@string/thinking_strength" />
+
+                    <Spinner
+                        android:id="@+id/spinner_thinking_strength"
+                        style="@style/Widget.HET.Spinner"
+                        android:entries="@array/thinking_strength_labels" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/thinking_strength_hint" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/context_length"
+                        app:helperText="@string/context_length_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_context_length"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:maxLength="7"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
                     <com.google.android.material.textfield.TextInputLayout
                         style="@style/Widget.HET.TextInputLayout"
                         android:hint="@string/api_concurrency"
@@ -162,6 +189,42 @@
                             android:maxLines="1" />
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_enable_streaming_repair"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/enable_streaming_repair" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/enable_streaming_repair_hint" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/til_repair_gradient_count"
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/repair_gradient_count"
+                        app:helperText="@string/repair_gradient_count_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_repair_gradient_count"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:maxLength="1"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_use_full_scene_for_repair"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/use_full_scene_for_repair" />
+
+                    <TextView
+                        android:id="@+id/tv_use_full_scene_for_repair_hint"
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/use_full_scene_for_repair_hint" />
+
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_query_models"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -169,6 +232,203 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
                         android:text="@string/query_models" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_scene_sync"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/expand_scene_sync_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/scene_sync_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_scene_sync"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_collapsed" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_scene_sync"
+                    style="@style/Widget.HET.SectionBody"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.HET.TextInputLayout"
+                        android:hint="@string/scene_worker_count"
+                        app:helperText="@string/scene_worker_count_hint">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_scene_worker_count"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number"
+                            android:maxLength="1"
+                            android:maxLines="1" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        style="@style/Widget.HET.FieldLabel"
+                        android:text="@string/scene_conflict_resolution_mode" />
+
+                    <Spinner
+                        android:id="@+id/spinner_scene_conflict_resolution_mode"
+                        style="@style/Widget.HET.Spinner"
+                        android:entries="@array/scene_conflict_resolution_labels" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/scene_conflict_resolution_mode_hint" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_scene_context"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/expand_scene_context_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/scene_context_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_scene_context"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_collapsed" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_scene_context"
+                    style="@style/Widget.HET.SectionBody"
+                    android:visibility="gone">
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_enable_startup_review"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="@string/enable_startup_review" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/enable_startup_review_hint" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_manage_scene_contexts"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/manage_scene_contexts" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.HET.SectionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/header_queue"
+                    style="@style/Widget.HET.SectionHeader"
+                    android:contentDescription="@string/expand_queue_section">
+
+                    <TextView
+                        style="@style/Widget.HET.SectionTitle"
+                        android:text="@string/queue_settings" />
+
+                    <TextView
+                        android:id="@+id/arrow_queue"
+                        style="@style/Widget.HET.SectionArrow"
+                        android:text="@string/indicator_collapsed" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/body_queue"
+                    style="@style/Widget.HET.SectionBody"
+                    android:visibility="gone">
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_auto_recover_previous_jobs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:text="@string/auto_recover_previous_jobs" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/auto_recover_previous_jobs_hint" />
+
+                    <TextView
+                        style="@style/Widget.HET.FieldLabel"
+                        android:text="@string/recovery_sort_order" />
+
+                    <Spinner
+                        android:id="@+id/spinner_recovery_sort_order"
+                        style="@style/Widget.HET.Spinner"
+                        android:entries="@array/recovery_sort_order_labels" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/recovery_sort_order_hint" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_manage_translation_jobs"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/open_translation_job_management" />
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_summary_auto_recover_previous_jobs"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:minHeight="48dp"
+                        android:text="@string/summary_auto_recover_previous_jobs" />
+
+                    <TextView
+                        style="@style/Widget.HET.HelperText"
+                        android:text="@string/summary_auto_recover_previous_jobs_hint" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_manage_rejected_api_results"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/manage_rejected_api_results" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -317,14 +577,6 @@
                             android:inputType="text"
                             android:maxLines="1" />
                     </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_manage_rejected_api_results"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/manage_rejected_api_results" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

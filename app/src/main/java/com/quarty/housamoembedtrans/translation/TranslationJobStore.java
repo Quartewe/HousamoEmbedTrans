@@ -3,6 +3,7 @@ package com.quarty.housamoembedtrans.translation;
 import com.quarty.housamoembedtrans.storage.HistoryMapping;
 import com.quarty.housamoembedtrans.storage.PersistentApiJobStore;
 import com.quarty.housamoembedtrans.storage.SceneStore;
+import com.quarty.housamoembedtrans.storage.SceneContextStore;
 import com.quarty.housamoembedtrans.util.IoUtils;
 import com.quarty.housamoembedtrans.util.JobValidator;
 import com.quarty.housamoembedtrans.storage.TranslationSchemaValidator;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -257,7 +259,7 @@ public final class TranslationJobStore {
     }
 
     private static final int FORMAT_VERSION = 1;
-    private static final int MAX_REQUEST_BYTES = 32 * 1024 * 1024;
+    public static final int MAX_REQUEST_BYTES = 32 * 1024 * 1024;
     private static final int MAX_STATE_BYTES = 64 * 1024;
     private static final int MAX_PROGRESS_BYTES = 32 * 1024 * 1024;
     private static final int MAX_RESULT_BYTES = 32 * 1024 * 1024;
@@ -277,6 +279,9 @@ public final class TranslationJobStore {
     /** Durable cross-store admission marker.  A marked job is never claimable. */
     private static final String HISTORY_MEMBERSHIP_PENDING_FIELD =
         "history_membership_pending";
+    /** Durable hold used until an outer Review journal has committed. */
+    private static final String REVIEW_PUBLICATION_PENDING_FIELD =
+        "review_publication_pending";
 
     private static TranslationJobStore instance;
 
@@ -342,6 +347,8 @@ public final class TranslationJobStore {
         new LinkedHashMap<>();
     /** Durable jobs waiting for the Context membership side of admission. */
     private final Set<String> historyMembershipPendingIds = new HashSet<>();
+    /** Durable Review admissions not publishable before the outer commit. */
+    private final Set<String> reviewPublicationPendingIds = new HashSet<>();
     private final LinkedHashMap<String, SceneValidationWait>
         sceneValidationWaits = new LinkedHashMap<>();
     private final PriorityQueue<QueuedJobRef> pendingQueue =
@@ -360,6 +367,7 @@ public final class TranslationJobStore {
     private long startupRepairGeneration;
     private boolean preparedForServiceStart;
     private boolean startupAutoRecover;
+    private boolean recoveryDecisionOpen;
     private boolean startupRecoveryCommitted;
     private RecoverySortOrder startupRecoverySortOrder =
         RecoverySortOrder.CREATED_ASC;
@@ -372,6 +380,11 @@ public final class TranslationJobStore {
             instance = new TranslationJobStore(context);
         }
         return instance;
+    }
+
+    /** Root directory used by the Review outer before-image journal. */
+    public File getRootDirectory() {
+        return jobRoot;
     }
 
     private TranslationJobStore(Context context) {
@@ -397,6 +410,7 @@ public final class TranslationJobStore {
      */
     public synchronized void beginServiceStart() {
         preparedForServiceStart = false;
+        recoveryDecisionOpen = false;
         startupRecoveryCommitted = false;
         repairingStartupJobs = false;
         initialAutoSyncFinished = false;
@@ -407,6 +421,7 @@ public final class TranslationJobStore {
         startupReadyJobs.clear();
         sceneValidationWaits.clear();
         historyMembershipPendingIds.clear();
+        reviewPublicationPendingIds.clear();
         manualRerunCandidateIds.clear();
         startupManualCandidateIds.clear();
         startupAdmissionOrder.clear();
@@ -429,6 +444,15 @@ public final class TranslationJobStore {
         boolean autoRecover,
         RecoverySortOrder sortOrder
     ) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            prepareForServiceStartLocked(autoRecover, sortOrder)
+        );
+    }
+
+    private long prepareForServiceStartLocked(
+        boolean autoRecover,
+        RecoverySortOrder sortOrder
+    ) throws Exception {
         if (sortOrder == null) {
             throw new IllegalArgumentException("sortOrder cannot be null");
         }
@@ -441,6 +465,7 @@ public final class TranslationJobStore {
                     : startupRepairGeneration + 1L;
             repairGeneration = startupRepairGeneration;
             preparedForServiceStart = false;
+            recoveryDecisionOpen = false;
             startupRecoveryCommitted = false;
             jobStore.ensureRoot();
             pendingQueue.clear();
@@ -449,6 +474,7 @@ public final class TranslationJobStore {
             manualRerunCandidateIds.clear();
             startupManualCandidateIds.clear();
             historyMembershipPendingIds.clear();
+            reviewPublicationPendingIds.clear();
             startupRepairCandidates.clear();
             startupReadyJobs.clear();
             sceneValidationWaits.clear();
@@ -471,6 +497,11 @@ public final class TranslationJobStore {
                 if (startupAdmissionOrder.containsKey(requestId)) {
                     try {
                         JSONObject admittedState = readState(jobDirectory);
+                        releaseRecoveredReviewPublicationHoldLocked(
+                            jobDirectory,
+                            requestId,
+                            admittedState
+                        );
                         syncHistoryMembershipPendingLocked(
                             requestId,
                             admittedState
@@ -514,6 +545,12 @@ public final class TranslationJobStore {
                     );
                     continue;
                 }
+
+                releaseRecoveredReviewPublicationHoldLocked(
+                    jobDirectory,
+                    requestId,
+                    state
+                );
 
                 String status = state.optString("status", "");
                 final long queueSequence;
@@ -611,7 +648,8 @@ public final class TranslationJobStore {
 
     /** Whether the fixed startup snapshot still needs a manual decision. */
     public synchronized boolean isManualRecoveryDecisionPending() {
-        return !startupRecoveryCommitted
+        return recoveryDecisionOpen
+            && !startupRecoveryCommitted
             && (!heldQueuedJobs.isEmpty()
                 || !startupManualCandidateIds.isEmpty()
                 || repairingStartupJobs);
@@ -619,6 +657,14 @@ public final class TranslationJobStore {
 
     public synchronized boolean isRepairingStartupJobs() {
         return repairingStartupJobs;
+    }
+
+    /** Opens Translation recovery selection after the Review gate. */
+    public synchronized void openRecoveryDecision() {
+        if (preparedForServiceStart) {
+            recoveryDecisionOpen = true;
+            notifyQueueListener();
+        }
     }
 
     /** Returns the number of process-local Scene Validation Wait entries. */
@@ -1297,6 +1343,7 @@ public final class TranslationJobStore {
         try {
             synchronized (this) {
                 requirePreparedLocked();
+                requireRecoveryDecisionOpenLocked();
                 requireStartupRepairCompleteLocked();
 
             Set<String> selectedIds = new HashSet<>();
@@ -1458,6 +1505,7 @@ public final class TranslationJobStore {
     public void cancelHeldQueuedJobs() throws Exception {
         synchronized (this) {
             requirePreparedLocked();
+            requireRecoveryDecisionOpenLocked();
             requireStartupRepairCompleteLocked();
             if (heldQueuedJobs.isEmpty()
                 && (startupRecoveryCommitted
@@ -1507,14 +1555,15 @@ public final class TranslationJobStore {
     }
 
     public ClaimedJob claimNextQueuedJob() throws Exception {
-        ClaimedJob claimedJob;
-        synchronized (this) {
-            requirePreparedLocked();
-            if (!startupRecoveryCommitted) {
-                return null;
+        ClaimedJob claimedJob = SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                requirePreparedLocked();
+                if (!startupRecoveryCommitted) {
+                    return null;
+                }
+                return claimNextQueuedJobLocked();
             }
-            claimedJob = claimNextQueuedJobLocked();
-        }
+        });
         notifyQueueListener();
         return claimedJob;
     }
@@ -1606,24 +1655,25 @@ public final class TranslationJobStore {
         String requestId,
         byte[] resultJson
     ) throws Exception {
-        if (resultJson == null || resultJson.length == 0) {
-            throw new IllegalArgumentException(
-                "translation result cannot be empty"
+        synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
+            if (resultJson == null || resultJson.length == 0) {
+                throw new IllegalArgumentException(
+                    "translation result cannot be empty"
+                );
+            }
+            JSONObject result = JobValidator.parseJsonObject(
+                resultJson,
+                MAX_RESULT_BYTES,
+                "result"
             );
-        }
-        JSONObject result = JobValidator.parseJsonObject(
-            resultJson,
-            MAX_RESULT_BYTES,
-            "result"
-        );
 
-        synchronized (this) {
-            validateRequestId(requestId);
-            File jobDirectory = requireJobDirectoryLocked(requestId);
-            JSONObject state = requireRunningStateLocked(
-                jobDirectory,
-                requestId
-            );
+            synchronized (this) {
+                validateRequestId(requestId);
+                File jobDirectory = requireJobDirectoryLocked(requestId);
+                JSONObject state = requireRunningStateLocked(
+                    jobDirectory,
+                    requestId
+                );
 
             byte[] requestBytes = readRequest(jobDirectory);
             JSONObject requestJson = JobValidator.parseJsonObject(
@@ -1646,7 +1696,8 @@ public final class TranslationJobStore {
             state.put("updated_at", System.currentTimeMillis());
             writeState(jobDirectory, state);
             removeJobFromIndexesLocked(requestId);
-            manualRerunCandidateIds.remove(requestId);
+                manualRerunCandidateIds.remove(requestId);
+            }
         }
         notifyQueueListener();
     }
@@ -1655,24 +1706,25 @@ public final class TranslationJobStore {
         String requestId,
         byte[] errorJson
     ) throws Exception {
-        if (errorJson == null || errorJson.length == 0) {
-            throw new IllegalArgumentException(
-                "translation error cannot be empty"
+        synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
+            if (errorJson == null || errorJson.length == 0) {
+                throw new IllegalArgumentException(
+                    "translation error cannot be empty"
+                );
+            }
+            JobValidator.parseJsonObject(
+                errorJson,
+                MAX_RESULT_BYTES,
+                "translation error"
             );
-        }
-        JobValidator.parseJsonObject(
-            errorJson,
-            MAX_RESULT_BYTES,
-            "translation error"
-        );
 
-        synchronized (this) {
-            validateRequestId(requestId);
-            File jobDirectory = requireJobDirectoryLocked(requestId);
-            JSONObject state = requireRunningStateLocked(
-                jobDirectory,
-                requestId
-            );
+            synchronized (this) {
+                validateRequestId(requestId);
+                File jobDirectory = requireJobDirectoryLocked(requestId);
+                JSONObject state = requireRunningStateLocked(
+                    jobDirectory,
+                    requestId
+                );
 
             IoUtils.writeAtomically(
                 new File(jobDirectory, ERROR_FILE_NAME),
@@ -1698,10 +1750,11 @@ public final class TranslationJobStore {
             state.put("updated_at", System.currentTimeMillis());
             writeState(jobDirectory, state);
             removeJobFromIndexesLocked(requestId);
-            if (sceneValidation) {
-                manualRerunCandidateIds.remove(requestId);
-            } else {
-                manualRerunCandidateIds.add(requestId);
+                if (sceneValidation) {
+                    manualRerunCandidateIds.remove(requestId);
+                } else {
+                    manualRerunCandidateIds.add(requestId);
+                }
             }
         }
         notifyQueueListener();
@@ -1952,6 +2005,40 @@ public final class TranslationJobStore {
             right.getRequestId()
         ));
         return result;
+    }
+
+    /**
+     * Returns whether durable work for {@code scene} is already queued,
+     * running, or waiting for terminal delivery as completed work.
+     *
+     * <p>The check participates in the shared Scene/Job root lock so callers
+     * can use it immediately before admission without a check-then-create
+     * race. Failed, canceled, and damaged records deliberately do not occupy
+     * the per-Scene slot.</p>
+     */
+    public boolean hasActiveOrCompletedJobForScene(String scene)
+        throws Exception {
+        if (scene == null || scene.trim().isEmpty()) {
+            throw new IllegalArgumentException("scene is required");
+        }
+        return SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                for (File directory : jobStore.listValidJobDirectories()) {
+                    JSONObject state = readState(directory);
+                    if (state == null
+                        || !scene.equals(state.optString("scene", ""))) {
+                        continue;
+                    }
+                    String status = state.optString("status", "");
+                    if (STATUS_QUEUED.equals(status)
+                        || STATUS_RUNNING.equals(status)
+                        || STATUS_COMPLETED.equals(status)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
     }
 
     /** Synchronous terminal preflight used immediately before native input. */
@@ -2675,6 +2762,65 @@ public final class TranslationJobStore {
         Object historyMapping,
         boolean historyMembershipPending
     ) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            createQueuedJobUnderRoot(
+                requestId,
+                requestInput,
+                overwrite,
+                historyMapping,
+                historyMembershipPending
+            )
+        );
+    }
+
+    /**
+     * Persists a queued Job for an outer Review transaction without publishing
+     * it to the in-memory dispatch queue. The caller must invoke
+     * {@link #publishReviewTransactionAdmissions(List)} only after its durable
+     * journal has committed.
+     */
+    public boolean createQueuedJobForReviewTransaction(
+        String requestId,
+        InputStream requestInput,
+        Object historyMapping
+    ) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            createQueuedJobUnderRoot(
+                requestId,
+                requestInput,
+                false,
+                historyMapping,
+                false,
+                true
+            )
+        );
+    }
+
+    private boolean createQueuedJobUnderRoot(
+        String requestId,
+        InputStream requestInput,
+        boolean overwrite,
+        Object historyMapping,
+        boolean historyMembershipPending
+    ) throws Exception {
+        return createQueuedJobUnderRoot(
+            requestId,
+            requestInput,
+            overwrite,
+            historyMapping,
+            historyMembershipPending,
+            false
+        );
+    }
+
+    private boolean createQueuedJobUnderRoot(
+        String requestId,
+        InputStream requestInput,
+        boolean overwrite,
+        Object historyMapping,
+        boolean historyMembershipPending,
+        boolean deferReviewPublication
+    ) throws Exception {
         if (requestInput == null) {
             throw new IllegalArgumentException("Request input cannot be null");
         }
@@ -2838,6 +2984,9 @@ public final class TranslationJobStore {
                     if (membershipPending) {
                         state.put(HISTORY_MEMBERSHIP_PENDING_FIELD, true);
                     }
+                    if (deferReviewPublication) {
+                        state.put(REVIEW_PUBLICATION_PENDING_FIELD, true);
+                    }
 
                     boolean queueCommitted = preparedForServiceStart
                         && startupRecoveryCommitted;
@@ -2849,7 +2998,10 @@ public final class TranslationJobStore {
 
                     writeState(jobDirectory, state);
                     syncHistoryMembershipPendingLocked(requestId, state);
-                    if (queueCommitted && !membershipPending) {
+                    syncReviewPublicationPendingLocked(requestId, state);
+                    if (queueCommitted
+                        && !membershipPending
+                        && !deferReviewPublication) {
                         addPendingJobLocked(requestId, queueSequence);
                     } else if (!queueCommitted) {
                         startupAdmissionOrder.put(
@@ -2866,13 +3018,121 @@ public final class TranslationJobStore {
             }
         }
 
-        if (created || repaired) {
+        if ((created || repaired) && !deferReviewPublication) {
             notifyQueueListener();
         }
         if (payloadConflict != null) {
             throw payloadConflict;
         }
         return created;
+    }
+
+    /**
+     * Publishes Jobs admitted under an outer Review transaction after that
+     * transaction's journal has committed. Failures keep the durable hold for
+     * startup recovery and are returned to the caller; already-published ids
+     * are idempotent successes.
+     */
+    public List<String> publishReviewTransactionAdmissions(
+        List<String> requestIds
+    ) throws Exception {
+        List<String> failures = new ArrayList<>();
+        final boolean[] changed = new boolean[] { false };
+        SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                for (String requestId : requestIds == null
+                    ? Collections.<String>emptyList()
+                    : requestIds) {
+                    try {
+                        validateRequestId(requestId);
+                        File directory = requireJobDirectoryLocked(requestId);
+                        JSONObject state = readState(directory);
+                        if (state == null) {
+                            throw new IllegalStateException(
+                                "translation state is missing requestId="
+                                    + requestId
+                            );
+                        }
+                        syncReviewPublicationPendingLocked(requestId, state);
+                        if (!state.optBoolean(
+                            REVIEW_PUBLICATION_PENDING_FIELD,
+                            false
+                        )) {
+                            continue;
+                        }
+                        state.remove(REVIEW_PUBLICATION_PENDING_FIELD);
+                        state.put("updated_at", System.currentTimeMillis());
+                        long sequence = readOptionalQueueSequence(
+                            state,
+                            requestId
+                        );
+                        if (STATUS_QUEUED.equals(
+                            state.optString("status", "")
+                        )) {
+                            if (preparedForServiceStart
+                                && startupRecoveryCommitted) {
+                                if (sequence <= 0L) {
+                                    sequence = allocateQueueSequenceLocked();
+                                    state.put("queue_sequence", sequence);
+                                }
+                            } else {
+                                if (!startupAdmissionOrder.containsKey(
+                                    requestId
+                                )) {
+                                    startupAdmissionOrder.put(
+                                        requestId,
+                                        (long) startupAdmissionOrder.size()
+                                    );
+                                }
+                            }
+                        }
+                        writeState(directory, state);
+                        syncReviewPublicationPendingLocked(requestId, state);
+                        if (STATUS_QUEUED.equals(
+                                state.optString("status", "")
+                            )
+                            && preparedForServiceStart
+                            && startupRecoveryCommitted) {
+                            addPendingJobLocked(requestId, sequence);
+                        }
+                        changed[0] = true;
+                    } catch (Exception failure) {
+                        failures.add(requestId);
+                    }
+                }
+            }
+            return null;
+        });
+        if (changed[0]) {
+            notifyQueueListener();
+        }
+        return failures;
+    }
+
+    /**
+     * Drops only process-local indexes for Review admissions whose outer
+     * journal was successfully rolled back. The journal owns directory
+     * deletion/restoration; this method must never mutate durable files.
+     */
+    public void discardRolledBackReviewAdmissions(List<String> requestIds)
+        throws Exception {
+        SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                for (String requestId : requestIds == null
+                    ? Collections.<String>emptyList()
+                    : requestIds) {
+                    validateRequestId(requestId);
+                    if (jobStore.jobDirectory(requestId).exists()) {
+                        throw new IllegalStateException(
+                            "rolled-back Translation admission still exists: "
+                                + requestId
+                        );
+                    }
+                    removeJobFromIndexesLocked(requestId);
+                }
+            }
+            return null;
+        });
     }
 
     /**
@@ -2938,7 +3198,23 @@ public final class TranslationJobStore {
      * Clears a successful Context membership append and publishes the Job to
      * the unified dispatch queue when its recovery boundary is open.
      */
-    public synchronized void completeHistoryMembershipAdmission(
+    public void completeHistoryMembershipAdmission(
+        String requestId,
+        Object historyMapping
+    ) throws Exception {
+        SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                completeHistoryMembershipAdmissionLocked(
+                    requestId,
+                    historyMapping
+                );
+            }
+            return null;
+        });
+        notifyQueueListener();
+    }
+
+    private void completeHistoryMembershipAdmissionLocked(
         String requestId,
         Object historyMapping
     ) throws Exception {
@@ -3004,7 +3280,6 @@ public final class TranslationJobStore {
             }
             addPendingJobLocked(requestId, sequence);
         }
-        notifyQueueListener();
     }
 
     private static boolean sameHistoryMapping(Object left, Object right) {
@@ -3034,27 +3309,37 @@ public final class TranslationJobStore {
         String requestId,
         Object historyMapping
     ) throws Exception {
-        synchronized (this) {
-            validateRequestId(requestId);
-            File jobDirectory = requireJobDirectoryLocked(requestId);
-            JSONObject state = readState(jobDirectory);
-            if (state == null) {
-                throw new IllegalStateException(
-                    "translation state is missing requestId=" + requestId
-                );
+        SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                rewriteHistoryMappingLocked(requestId, historyMapping);
             }
-            if (state.optBoolean(HISTORY_MEMBERSHIP_PENDING_FIELD, false)) {
-                throw new AdmissionException(
-                    "history_membership_pending",
-                    "Translation mapping is frozen until Context membership "
-                        + "compensation completes: "
-                        + requestId
-                );
-            }
-            TranslationJobHistoryMapping.rewrite(state, historyMapping);
-            state.put("updated_at", System.currentTimeMillis());
-            writeState(jobDirectory, state);
+            return null;
+        });
+    }
+
+    private void rewriteHistoryMappingLocked(
+        String requestId,
+        Object historyMapping
+    ) throws Exception {
+        validateRequestId(requestId);
+        File jobDirectory = requireJobDirectoryLocked(requestId);
+        JSONObject state = readState(jobDirectory);
+        if (state == null) {
+            throw new IllegalStateException(
+                "translation state is missing requestId=" + requestId
+            );
         }
+        if (state.optBoolean(HISTORY_MEMBERSHIP_PENDING_FIELD, false)) {
+            throw new AdmissionException(
+                "history_membership_pending",
+                "Translation mapping is frozen until Context membership "
+                    + "compensation completes: "
+                    + requestId
+            );
+        }
+        TranslationJobHistoryMapping.rewrite(state, historyMapping);
+        state.put("updated_at", System.currentTimeMillis());
+        writeState(jobDirectory, state);
     }
 
     private boolean requeueQueuedJobAtTailLocked(
@@ -3629,7 +3914,8 @@ public final class TranslationJobStore {
             || heldQueuedJobs.containsKey(requestId)
             || startupReadyJobs.containsKey(requestId)
             || isStartupRepairCandidateLocked(requestId)
-            || historyMembershipPendingIds.contains(requestId)) {
+            || historyMembershipPendingIds.contains(requestId)
+            || reviewPublicationPendingIds.contains(requestId)) {
             return false;
         }
         addPendingJobLocked(requestId, queueSequence);
@@ -3646,6 +3932,47 @@ public final class TranslationJobStore {
         } else {
             historyMembershipPendingIds.remove(requestId);
         }
+    }
+
+    private void syncReviewPublicationPendingLocked(
+        String requestId,
+        JSONObject state
+    ) {
+        if (state != null
+            && state.optBoolean(REVIEW_PUBLICATION_PENDING_FIELD, false)) {
+            reviewPublicationPendingIds.add(requestId);
+        } else {
+            reviewPublicationPendingIds.remove(requestId);
+        }
+    }
+
+    /**
+     * Startup runs after SceneContextStore has resolved the outer Review
+     * journal. A surviving publication marker therefore belongs to a
+     * committed Job whose process-local publication was interrupted.
+     */
+    private void releaseRecoveredReviewPublicationHoldLocked(
+        File jobDirectory,
+        String requestId,
+        JSONObject state
+    ) throws Exception {
+        syncReviewPublicationPendingLocked(requestId, state);
+        if (state == null || !state.optBoolean(
+            REVIEW_PUBLICATION_PENDING_FIELD,
+            false
+        )) {
+            return;
+        }
+        state.remove(REVIEW_PUBLICATION_PENDING_FIELD);
+        state.put("updated_at", System.currentTimeMillis());
+        try {
+            writeState(jobDirectory, state);
+        } catch (Exception failure) {
+            state.put(REVIEW_PUBLICATION_PENDING_FIELD, true);
+            syncReviewPublicationPendingLocked(requestId, state);
+            throw failure;
+        }
+        syncReviewPublicationPendingLocked(requestId, state);
     }
 
     private boolean isStartupRepairCandidateLocked(String requestId) {
@@ -3682,6 +4009,7 @@ public final class TranslationJobStore {
         sceneValidationWaits.remove(requestId);
         manualRerunCandidateIds.remove(requestId);
         historyMembershipPendingIds.remove(requestId);
+        reviewPublicationPendingIds.remove(requestId);
         startupManualCandidateIds.remove(requestId);
         startupAdmissionOrder.remove(requestId);
         startupRepairCandidates.removeIf(candidate ->
@@ -3897,7 +4225,8 @@ public final class TranslationJobStore {
         String requestId,
         long queueSequence
     ) {
-        if (historyMembershipPendingIds.contains(requestId)) {
+        if (historyMembershipPendingIds.contains(requestId)
+            || reviewPublicationPendingIds.contains(requestId)) {
             return;
         }
         if (!pendingRequestIds.add(requestId)) {
@@ -3986,6 +4315,14 @@ public final class TranslationJobStore {
         if (!preparedForServiceStart) {
             throw new IllegalStateException(
                 "Translation job store has not been prepared"
+            );
+        }
+    }
+
+    private void requireRecoveryDecisionOpenLocked() {
+        if (!recoveryDecisionOpen) {
+            throw new IllegalStateException(
+                "Translation recovery decision is not open"
             );
         }
     }

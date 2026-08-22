@@ -5,6 +5,10 @@
         "EnableParseOnlyDebug": false,
         "EnableFailedApiResponseDump": false,
         "OverwriteExistingJson": false,
+        "SceneWorkerCount": 4,
+        "SceneSync": {
+            "ConflictResolutionMode": "manual"
+        },
         "CharacterWeight": {
             "HighRelevance": 4.0,
             "MidRelevance": 3.0,
@@ -18,11 +22,32 @@
             "Protocol": "openai",
             "BaseUrl": "",
             "Model": "",
-            "NetworkRetryCount": 1,
-            "ResultRepairCount": 1
+            "NetworkRetryCount": 3,
+            "ResultRepairCount": 3,
+            "EnableStreamingRepair": false,
+            "RepairGradientCount": 3,
+            "UseFullSceneForRepair": true
         },
         "Api": {
+            "ThinkingStrength": "none",
+            "context_length": 16000,
             "max_concurrent_requests": 2
+        },
+        "TranslationQueue": {
+            "AutoRecoverPreviousJobs": false,
+            "RecoverySortOrder": "created_asc"
+        },
+        "SummaryQueue": {
+            "AutoRecoverPreviousJobs": false
+        },
+        "ContextHistory": {
+            "EnableAutoCompression": false,
+            "ContinueAutoSummaryAfterManual": false,
+            "EnableStartupReview": false,
+            "DefaultRecentPercent": 30,
+            "DefaultRecentSceneLimit": 10,
+            "ContextSummaryRetryCount": 1,
+            "GroupSummaryRetryCount": 1
         },
         "TargetLanguage": "zh-cn"
     }

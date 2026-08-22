@@ -1,14 +1,14 @@
 package com.quarty.housamoembedtrans.storage;
 
+import com.quarty.housamoembedtrans.util.IoUtils;
+
 import android.content.Context;
 import android.util.AtomicFile;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
@@ -31,9 +31,27 @@ public final class ConfigStore {
     public static final boolean DEFAULT_USE_FULL_SCENE_FOR_REPAIR = true;
     public static final int MIN_REPAIR_GRADIENT_COUNT = 2;
     public static final int MAX_REPAIR_GRADIENT_COUNT = 8;
+    public static final boolean DEFAULT_AUTO_RECOVER_PREVIOUS_JOBS = false;
+    public static final boolean DEFAULT_SUMMARY_AUTO_RECOVER_PREVIOUS_JOBS = false;
+    public static final boolean DEFAULT_ENABLE_STARTUP_REVIEW = false;
+    public static final String DEFAULT_RECOVERY_SORT_ORDER = "created_asc";
     public static final String DEFAULT_THINKING_STRENGTH = "none";
     public static final int DEFAULT_CONTEXT_LENGTH = 16000;
     public static final int MAX_TRANSLATION_RETRY_COUNT = 5;
+    public static final int DEFAULT_SCENE_WORKER_COUNT =
+        SceneSyncSettings.DEFAULT_SCENE_WORKER_COUNT;
+    public static final int MIN_SCENE_WORKER_COUNT =
+        SceneSyncSettings.MIN_SCENE_WORKER_COUNT;
+    public static final int MAX_SCENE_WORKER_COUNT =
+        SceneSyncSettings.MAX_SCENE_WORKER_COUNT;
+    public static final String DEFAULT_CONFLICT_RESOLUTION_MODE =
+        SceneSyncSettings.DEFAULT_CONFLICT_RESOLUTION_MODE;
+    public static final String CONFLICT_MODE_GAME =
+        SceneSyncSettings.CONFLICT_MODE_GAME;
+    public static final String CONFLICT_MODE_HET =
+        SceneSyncSettings.CONFLICT_MODE_HET;
+    public static final String CONFLICT_MODE_MANUAL =
+        SceneSyncSettings.CONFLICT_MODE_MANUAL;
     private static final String TERM_ASSET_DIRECTORY = "term/";
     private static final String PREFS_NAME = "housamo_trans_prefs";
     private static final String KEY_API_KEY = "api_key";
@@ -160,7 +178,7 @@ public final class ConfigStore {
         File userFile = getUserFile(name);
         AtomicFile atomicFile = new AtomicFile(userFile);
 
-        if (hasAtomicFile(userFile)) {
+        if (IoUtils.atomicFileExists(userFile)) {
             try {
                 JSONObject source = readJson(atomicFile.openRead());
                 JSONObject json = normalizeResource(name, source);
@@ -188,8 +206,8 @@ public final class ConfigStore {
 
     public void saveJson(String name, JSONObject json) throws IOException {
         try {
-            saveBytes(
-                name,
+            IoUtils.writeAtomically(
+                getUserFile(name),
                 (json.toString(2) + "\n").getBytes(StandardCharsets.UTF_8)
             );
         } catch (Exception e) {
@@ -208,7 +226,7 @@ public final class ConfigStore {
     public File getValidUserFile(String name) {
         File file = getUserFile(name);
         AtomicFile atomicFile = new AtomicFile(file);
-        if (!hasAtomicFile(file)) {
+        if (!IoUtils.atomicFileExists(file)) {
             return null;
         }
 
@@ -316,6 +334,8 @@ public final class ConfigStore {
         }
         userSettings.getBoolean("OverwriteExistingJson");
         requireNonEmptyString(userSettings, "TargetLanguage", "UserSettings");
+        getSceneWorkerCount(userSettings);
+        getConflictResolutionMode(userSettings);
 
         JSONObject translationApi = userSettings.getJSONObject("TranslationApi");
         String protocol = translationApi.getString("Protocol").trim();
@@ -334,9 +354,66 @@ public final class ConfigStore {
         } else {
             validateOptionalRetryCount(translationApi, "RetryCount");
         }
+        requireBoolean(
+            translationApi,
+            "EnableStreamingRepair",
+            "UserSettings.TranslationApi"
+        );
+        requireBoolean(
+            translationApi,
+            "UseFullSceneForRepair",
+            "UserSettings.TranslationApi"
+        );
+        validateRepairGradientCount(translationApi);
+
+        JSONObject translationQueue =
+            userSettings.getJSONObject("TranslationQueue");
+        Object autoRecover = translationQueue.get(
+            "AutoRecoverPreviousJobs"
+        );
+        if (!(autoRecover instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                "UserSettings.TranslationQueue.AutoRecoverPreviousJobs "
+                    + "must be a boolean"
+            );
+        }
+        String recoverySortOrder = translationQueue.getString(
+            "RecoverySortOrder"
+        );
+        if (!isRecoverySortOrder(recoverySortOrder)) {
+            throw new IllegalArgumentException(
+                "UserSettings.TranslationQueue.RecoverySortOrder "
+                    + "must be created_asc, created_desc, "
+                    + "started_asc, or started_desc"
+            );
+        }
+
+        JSONObject summaryQueue = userSettings.optJSONObject("SummaryQueue");
+        if (summaryQueue != null) {
+            Object summaryAutoRecover = summaryQueue.get(
+                "AutoRecoverPreviousJobs"
+            );
+            if (!(summaryAutoRecover instanceof Boolean)) {
+                throw new IllegalArgumentException(
+                    "UserSettings.SummaryQueue.AutoRecoverPreviousJobs "
+                        + "must be a boolean"
+                );
+            }
+        }
 
         JSONObject api = userSettings.optJSONObject("Api");
         if (api != null) {
+            String thinkingStrength = api.getString("ThinkingStrength");
+            if (!isValidThinkingStrength(thinkingStrength)) {
+                throw new IllegalArgumentException(
+                    "UserSettings.Api.ThinkingStrength must be one of "
+                        + "none, minimal, low, medium, high, xhigh, max"
+                );
+            }
+            requirePositiveInt(
+                api.get("context_length"),
+                "UserSettings.Api.context_length"
+            );
             ApiConcurrencySettings.normalize(
                 api.has("max_concurrent_requests")
                     ? api.get("max_concurrent_requests")
@@ -400,10 +477,45 @@ public final class ConfigStore {
         JSONObject userSettings = new JSONObject(
             config.getJSONObject("UserSettings").toString()
         );
+        JSONObject translationApi = userSettings.optJSONObject(
+            "TranslationApi"
+        );
+        if (translationApi != null) {
+            if (!translationApi.has("EnableStreamingRepair")) {
+                translationApi.put(
+                    "EnableStreamingRepair",
+                    DEFAULT_ENABLE_STREAMING_REPAIR
+                );
+            }
+            if (!translationApi.has("RepairGradientCount")) {
+                translationApi.put(
+                    "RepairGradientCount",
+                    DEFAULT_REPAIR_GRADIENT_COUNT
+                );
+            }
+            if (!translationApi.has("UseFullSceneForRepair")) {
+                translationApi.put(
+                    "UseFullSceneForRepair",
+                    DEFAULT_USE_FULL_SCENE_FOR_REPAIR
+                );
+            }
+        }
         JSONObject executionApi = userSettings.optJSONObject("Api");
         if (executionApi == null) {
             executionApi = new JSONObject();
             userSettings.put("Api", executionApi);
+        }
+        if (!executionApi.has("ThinkingStrength")) {
+            executionApi.put(
+                "ThinkingStrength",
+                DEFAULT_THINKING_STRENGTH
+            );
+        }
+        if (!executionApi.has("context_length")) {
+            executionApi.put(
+                "context_length",
+                DEFAULT_CONTEXT_LENGTH
+            );
         }
         if (!executionApi.has("max_concurrent_requests")) {
             executionApi.put(
@@ -411,10 +523,133 @@ public final class ConfigStore {
                 ApiConcurrencySettings.DEFAULT_API_CONCURRENCY
             );
         }
+        JSONObject translationQueue;
+        if (!userSettings.has("TranslationQueue")) {
+            translationQueue = new JSONObject();
+            userSettings.put("TranslationQueue", translationQueue);
+        } else {
+            translationQueue = userSettings.optJSONObject(
+                "TranslationQueue"
+            );
+        }
+        if (translationQueue != null
+            && !translationQueue.has("AutoRecoverPreviousJobs")) {
+            translationQueue.put(
+                "AutoRecoverPreviousJobs",
+                DEFAULT_AUTO_RECOVER_PREVIOUS_JOBS
+            );
+        }
+        if (translationQueue != null
+            && !translationQueue.has("RecoverySortOrder")) {
+            translationQueue.put(
+                "RecoverySortOrder",
+                DEFAULT_RECOVERY_SORT_ORDER
+            );
+        }
+        JSONObject summaryQueue;
+        if (!userSettings.has("SummaryQueue")) {
+            summaryQueue = new JSONObject();
+            userSettings.put("SummaryQueue", summaryQueue);
+        } else {
+            Object rawSummaryQueue = userSettings.get("SummaryQueue");
+            if (!(rawSummaryQueue instanceof JSONObject)) {
+                throw new IllegalArgumentException(
+                    "UserSettings.SummaryQueue must be an object"
+                );
+            }
+            summaryQueue = (JSONObject) rawSummaryQueue;
+        }
+        if (!summaryQueue.has("AutoRecoverPreviousJobs")) {
+            summaryQueue.put(
+                "AutoRecoverPreviousJobs",
+                DEFAULT_SUMMARY_AUTO_RECOVER_PREVIOUS_JOBS
+            );
+        }
+        JSONObject contextHistory = userSettings.optJSONObject("ContextHistory");
+        if (contextHistory == null) {
+            contextHistory = new JSONObject();
+            userSettings.put("ContextHistory", contextHistory);
+        }
+        if (!contextHistory.has("EnableAutoCompression")) {
+            contextHistory.put("EnableAutoCompression", false);
+        }
+        if (!contextHistory.has("ContinueAutoSummaryAfterManual")) {
+            contextHistory.put("ContinueAutoSummaryAfterManual", false);
+        }
+        if (!contextHistory.has("EnableStartupReview")) {
+            contextHistory.put(
+                "EnableStartupReview",
+                DEFAULT_ENABLE_STARTUP_REVIEW
+            );
+        }
+        normalizeSceneSyncSettings(userSettings);
         JSONObject normalized = new JSONObject();
         normalized.put("Version", version);
         normalized.put("UserSettings", userSettings);
         return normalized;
+    }
+
+    /**
+     * Applies the Scene Sync defaults in-place while rejecting malformed
+     * values.  Unknown UserSettings members remain untouched.
+     */
+    public static void normalizeSceneSyncSettings(JSONObject userSettings)
+        throws Exception {
+        if (userSettings == null) {
+            throw new IllegalArgumentException("UserSettings must be an object");
+        }
+
+        if (!userSettings.has("SceneWorkerCount")) {
+            userSettings.put(
+                "SceneWorkerCount",
+                DEFAULT_SCENE_WORKER_COUNT
+            );
+        } else {
+            userSettings.put(
+                "SceneWorkerCount",
+                SceneSyncSettings.normalizeWorkerCount(
+                    userSettings.get("SceneWorkerCount")
+                )
+            );
+        }
+
+        JSONObject sceneSync;
+        if (!userSettings.has("SceneSync")) {
+            sceneSync = new JSONObject();
+            userSettings.put("SceneSync", sceneSync);
+        } else {
+            Object rawSceneSync = userSettings.get("SceneSync");
+            if (!(rawSceneSync instanceof JSONObject)) {
+                throw new IllegalArgumentException(
+                    "UserSettings.SceneSync must be an object"
+                );
+            }
+            sceneSync = (JSONObject) rawSceneSync;
+        }
+
+        if (!sceneSync.has("ConflictResolutionMode")) {
+            sceneSync.put(
+                "ConflictResolutionMode",
+                DEFAULT_CONFLICT_RESOLUTION_MODE
+            );
+        } else {
+            sceneSync.put(
+                "ConflictResolutionMode",
+                SceneSyncSettings.normalizeConflictResolutionMode(
+                    sceneSync.get("ConflictResolutionMode")
+                )
+            );
+        }
+    }
+
+    /** Returns the validated worker count from a startup settings snapshot. */
+    public static int getSceneWorkerCount(JSONObject userSettings)
+        throws Exception {
+        return userSettings != null && userSettings.has("SceneWorkerCount")
+            ? SceneSyncSettings.normalizeWorkerCount(
+                userSettings.get("SceneWorkerCount")
+            )
+            : DEFAULT_SCENE_WORKER_COUNT;
     }
 
     /** Returns the independent global API concurrency limit. */
@@ -433,10 +668,96 @@ public final class ConfigStore {
             );
     }
 
+    /** Returns the validated conflict mode from a startup settings snapshot. */
+    public static String getConflictResolutionMode(JSONObject userSettings)
+        throws Exception {
+        if (userSettings == null || !userSettings.has("SceneSync")) {
+            return DEFAULT_CONFLICT_RESOLUTION_MODE;
+        }
+        Object rawSceneSync = userSettings.get("SceneSync");
+        if (!(rawSceneSync instanceof JSONObject)) {
+            throw new IllegalArgumentException(
+                "UserSettings.SceneSync must be an object"
+            );
+        }
+        JSONObject sceneSync = (JSONObject) rawSceneSync;
+        return sceneSync.has("ConflictResolutionMode")
+            ? SceneSyncSettings.normalizeConflictResolutionMode(
+                sceneSync.get("ConflictResolutionMode")
+            )
+            : DEFAULT_CONFLICT_RESOLUTION_MODE;
+    }
+
+    /** Returns the Summary recovery setting; defaults to false. */
+    public static boolean getSummaryAutoRecoverPreviousJobs(
+        JSONObject userSettings
+    ) {
+        if (userSettings == null) {
+            return DEFAULT_SUMMARY_AUTO_RECOVER_PREVIOUS_JOBS;
+        }
+        JSONObject summaryQueue = userSettings.optJSONObject("SummaryQueue");
+        return summaryQueue == null
+            ? DEFAULT_SUMMARY_AUTO_RECOVER_PREVIOUS_JOBS
+            : summaryQueue.optBoolean(
+                "AutoRecoverPreviousJobs",
+                DEFAULT_SUMMARY_AUTO_RECOVER_PREVIOUS_JOBS
+            );
+    }
+
     private static boolean isCanonicalConfig(JSONObject config) {
-        return config.length() == 2
-            && config.has("Version")
-            && config.has("UserSettings");
+        if (config.length() != 2
+            || !config.has("Version")
+            || !config.has("UserSettings")) {
+            return false;
+        }
+        JSONObject userSettings = config.optJSONObject("UserSettings");
+        JSONObject translationApi = userSettings == null
+            ? null
+            : userSettings.optJSONObject("TranslationApi");
+        JSONObject translationQueue = userSettings == null
+            ? null
+            : userSettings.optJSONObject("TranslationQueue");
+        JSONObject summaryQueue = userSettings == null
+            ? null
+            : userSettings.optJSONObject("SummaryQueue");
+        JSONObject executionApi = userSettings == null
+            ? null
+            : userSettings.optJSONObject("Api");
+        return translationApi != null
+            && translationApi.has("EnableStreamingRepair")
+            && translationApi.has("RepairGradientCount")
+            && translationApi.has("UseFullSceneForRepair")
+            && translationQueue != null
+            && translationQueue.has("AutoRecoverPreviousJobs")
+            && translationQueue.has("RecoverySortOrder")
+            && summaryQueue != null
+            && summaryQueue.has("AutoRecoverPreviousJobs")
+            && executionApi != null
+            && executionApi.has("ThinkingStrength")
+            && executionApi.has("context_length")
+            && executionApi.has("max_concurrent_requests")
+            && userSettings.has("SceneWorkerCount")
+            && userSettings.optJSONObject("SceneSync") != null
+            && userSettings.optJSONObject("SceneSync").has(
+                "ConflictResolutionMode"
+            );
+    }
+
+    private static boolean isRecoverySortOrder(String value) {
+        return "created_asc".equals(value)
+            || "created_desc".equals(value)
+            || "started_asc".equals(value)
+            || "started_desc".equals(value);
+    }
+
+    private static boolean isValidThinkingStrength(String value) {
+        return "none".equals(value)
+            || "minimal".equals(value)
+            || "low".equals(value)
+            || "medium".equals(value)
+            || "high".equals(value)
+            || "xhigh".equals(value)
+            || "max".equals(value);
     }
 
     private static void validateOptionalRetryCount(JSONObject translationApi, String key)
@@ -445,16 +766,45 @@ public final class ConfigStore {
             return;
         }
 
-        Object value = translationApi.get(key);
         int retryCount;
         try {
-            retryCount = requireInt(value, key);
+            retryCount = requireInt(translationApi.get(key), key);
         } catch (IllegalArgumentException e) {
             throw invalidRetryCount(key);
         }
         if (retryCount < 0 || retryCount > MAX_TRANSLATION_RETRY_COUNT) {
             throw invalidRetryCount(key);
         }
+    }
+
+    private static void validateRepairGradientCount(JSONObject translationApi)
+        throws Exception {
+        int count;
+        try {
+            count = requireInt(
+                translationApi.get("RepairGradientCount"),
+                "RepairGradientCount"
+            );
+        } catch (IllegalArgumentException e) {
+            throw invalidRepairGradientCount();
+        }
+        if (count < MIN_REPAIR_GRADIENT_COUNT
+            || count > MAX_REPAIR_GRADIENT_COUNT) {
+            throw invalidRepairGradientCount();
+        }
+    }
+
+    private static int requirePositiveInt(Object value, String key) {
+        int parsed;
+        try {
+            parsed = requireInt(value, key);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(key + " must be positive", e);
+        }
+        if (parsed <= 0) {
+            throw new IllegalArgumentException(key + " must be positive");
+        }
+        return parsed;
     }
 
     private static int requireInt(Object value, String key) {
@@ -474,6 +824,30 @@ public final class ConfigStore {
             throw new IllegalArgumentException(key + " must be an integer");
         }
         return parsed.intValue();
+    }
+
+    private static IllegalArgumentException invalidRepairGradientCount() {
+        return new IllegalArgumentException(
+            "UserSettings.TranslationApi.RepairGradientCount "
+                + "must be an integer from "
+                + MIN_REPAIR_GRADIENT_COUNT
+                + " to "
+                + MAX_REPAIR_GRADIENT_COUNT
+        );
+    }
+
+    private static boolean requireBoolean(
+        JSONObject object,
+        String key,
+        String path
+    ) throws Exception {
+        Object value = object.get(key);
+        if (!(value instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                path + "." + key + " must be a boolean"
+            );
+        }
+        return (Boolean) value;
     }
 
     private static IllegalArgumentException invalidRetryCount(String key) {
@@ -531,37 +905,11 @@ public final class ConfigStore {
         return value;
     }
 
-    private static boolean hasAtomicFile(File file) {
-        return file.isFile() || new File(file.getPath() + ".bak").isFile();
-    }
-
-    private void saveBytes(String name, byte[] data) throws IOException {
-        AtomicFile atomicFile = new AtomicFile(getUserFile(name));
-        FileOutputStream output = null;
-
-        try {
-            output = atomicFile.startWrite();
-            output.write(data);
-            atomicFile.finishWrite(output);
-        } catch (IOException e) {
-            if (output != null) {
-                atomicFile.failWrite(output);
-            }
-            throw e;
-        }
-    }
-
     private static JSONObject readJson(InputStream input) throws Exception {
-        try (InputStream source = input;
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
-            int read;
-
-            while ((read = source.read(buffer)) != -1) {
-                output.write(buffer, 0, read);
-            }
-
-            return new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
+        try (InputStream source = input) {
+            return new JSONObject(
+                IoUtils.readUtf8Limited(source, -1)
+            );
         }
     }
 
