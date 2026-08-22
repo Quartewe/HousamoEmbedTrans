@@ -4,8 +4,10 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.SceneSyncUiVisibility;
+import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.ConflictStore;
 import com.quarty.housamoembedtrans.storage.SceneStore;
+import com.quarty.housamoembedtrans.translation.TranslationService;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -130,6 +132,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         runtimeListener = null;
         runtimeState.removeListener(listener);
         visibilityFlag.setVisible(false);
+        TranslationStatusNotification.refresh(this);
         super.onStop();
     }
 
@@ -153,11 +156,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
     }
 
     private void ensureTranslationService() {
-        Intent intent = new Intent()
-            .setClassName(
-                this,
-                "com.quarty.housamoembedtrans.translation.TranslationService"
-            )
+        Intent intent = new Intent(this, TranslationService.class)
             .setPackage(getPackageName())
             .setAction(HetBridgeContract.ACTION_START_TRANSLATION_SERVICE);
         try {

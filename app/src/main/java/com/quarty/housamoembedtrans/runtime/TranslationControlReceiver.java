@@ -23,11 +23,10 @@ public final class TranslationControlReceiver extends BroadcastReceiver {
         }
 
         boolean paused = RuntimeControlStore.toggleCapturePaused(context);
-        Intent serviceIntent = new Intent()
-            .setClassName(
-                context.getApplicationContext(),
-                "com.quarty.housamoembedtrans.translation.TranslationService"
-            )
+        Intent serviceIntent = new Intent(
+            context.getApplicationContext(),
+            com.quarty.housamoembedtrans.translation.TranslationService.class
+        )
             .setAction(HetBridgeContract.ACTION_SET_CAPTURE_PAUSED)
             .putExtra(HetBridgeContract.EXTRA_CAPTURE_PAUSED, paused);
         try {

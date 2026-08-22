@@ -3,6 +3,7 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.SceneSyncUiVisibility;
+import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 
 import android.content.ContentResolver;
@@ -220,6 +221,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         runtimeListener = null;
         runtimeState.removeListener(listener);
         visibilityFlag.setVisible(false);
+        TranslationStatusNotification.refresh(this);
         super.onStop();
     }
 
