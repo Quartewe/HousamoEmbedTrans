@@ -153,6 +153,7 @@ bool make_runtime_config(
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
     const CharacterWeightConfig& character_weight,
+    int scene_worker_count,
     const std::string& target_lang,
     bool enable_page_rec_debug,
     bool parse_only_debug,
@@ -172,6 +173,11 @@ bool make_runtime_config(
         LOGE("make_runtime_config failed: invalid layout config");
         return false;
     }
+    if (scene_worker_count < 1 || scene_worker_count > 4) {
+        LOGE("make_runtime_config failed: scene_worker_count=%d is outside 1..4",
+             scene_worker_count);
+        return false;
+    }
     if (target_lang.empty()) {
         LOGE("make_runtime_config failed: target_lang is empty");
         return false;
@@ -183,13 +189,15 @@ bool make_runtime_config(
     out->rva = java_rva;
     out->layout = java_layout;
     out->character_weight = character_weight;
+    out->scene_worker_count = scene_worker_count;
     out->target_lang = target_lang;
     out->enable_page_rec_debug = enable_page_rec_debug;
     out->parse_only_debug = parse_only_debug;
     out->overwrite_existing = overwrite_existing;
     out->base_dir = base_dir;
     LOGI("character weight config: high_relevance=%.3f mid_relevance=%.3f density_high=%.3f"
-         " text_low_score=%.3f text_mentioned_score=%.3f related_num=%d low_term_score=%d target_lang=%s"
+         " text_low_score=%.3f text_mentioned_score=%.3f related_num=%d low_term_score=%d"
+         " scene_worker_count=%d target_lang=%s"
          " parse_only_debug=%d overwrite_existing=%d base_dir=%s",
          out->character_weight.high_relevance,
          out->character_weight.mid_relevance,
@@ -198,6 +206,7 @@ bool make_runtime_config(
          out->character_weight.text_mentioned_score,
          out->character_weight.related_num,
          out->character_weight.low_term_score,
+         out->scene_worker_count,
          out->target_lang.c_str(),
          out->parse_only_debug ? 1 : 0,
          out->overwrite_existing ? 1 : 0,

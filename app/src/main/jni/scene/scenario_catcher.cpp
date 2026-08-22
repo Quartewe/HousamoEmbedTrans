@@ -1481,11 +1481,7 @@ private:
     };
 
     int WorkerCount() const {
-        int count = static_cast<int>(std::thread::hardware_concurrency());
-        if (count <= 0) {
-            count = 2;
-        }
-        return std::min(count, 4);
+        return g_runtime_config.scene_worker_count;
     }
 
     void StartWorkers() {

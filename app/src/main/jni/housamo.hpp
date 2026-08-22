@@ -187,6 +187,7 @@ struct RuntimeConfig {
     RvaConfig rva;
     LayoutConfig layout;
     CharacterWeightConfig character_weight;
+    int scene_worker_count = 4;
     std::string target_lang;
     std::string base_dir;
     bool overwrite_existing = false;
@@ -420,6 +421,7 @@ bool make_runtime_config(
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
     const CharacterWeightConfig& character_weight,
+    int scene_worker_count,
     const std::string& target_lang,
     bool enable_page_rec_debug,
     bool parse_only_debug,

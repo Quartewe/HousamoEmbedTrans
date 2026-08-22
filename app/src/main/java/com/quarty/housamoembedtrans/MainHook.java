@@ -4,6 +4,7 @@ import com.bytedance.shadowhook.ShadowHook;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.storage.ConfigStore;
 import com.quarty.housamoembedtrans.storage.SceneStore;
+import com.quarty.housamoembedtrans.storage.SceneSyncStartupSnapshot;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XposedBridge;
@@ -208,6 +209,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         RVA rva;
         Layout layout;
         CharacterWeight characterWeight;
+        int sceneWorkerCount;
+        SceneSyncStartupSnapshot sceneSyncSnapshot;
         boolean enablePageRecDebug;
         boolean enableParseOnlyDebug;
         boolean overwriteExistingJson;
@@ -938,6 +941,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         config.rva = Init_RVA(runtimeConfigs);
         config.layout = Init_Layout(runtimeConfigs);
         config.characterWeight = Init_CharacterWeight(userConfig);
+        JSONObject userSettings = userConfig.getJSONObject("UserSettings");
+        config.sceneSyncSnapshot = SceneSyncStartupSnapshot.of(
+            ConfigStore.getSceneWorkerCount(userSettings)
+        );
+        config.sceneWorkerCount = config.sceneSyncSnapshot.getSceneWorkerCount();
         config.enablePageRecDebug = Init_EnablePageRecDebug(userConfig);
         config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(userConfig);
         config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
@@ -997,6 +1005,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Init_EnableParseOnlyDebug(json);
         Init_OverwriteExistingJson(json);
         Init_TargetLanguage(json);
+        ConfigStore.normalizeSceneSyncSettings(json.getJSONObject("UserSettings"));
         Init_TranslationConfig(json);
     }
 
@@ -2375,6 +2384,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 startup.rva,
                 startup.layout,
                 startup.characterWeight,
+                startup.sceneWorkerCount,
                 startup.enablePageRecDebug,
                 startup.enableParseOnlyDebug,
                 startup.overwriteExistingJson,
@@ -2390,6 +2400,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + startup.gameVersion
                     + " targetLanguage="
                     + startup.targetLanguage
+                    + " sceneWorkerCount="
+                    + startup.sceneWorkerCount
                     + " parseOnlyDebug="
                     + startup.enableParseOnlyDebug
                     + " protocol="
@@ -2422,6 +2434,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         RVA rva,
         Layout layout,
         CharacterWeight characterWeight,
+        int sceneWorkerCount,
         boolean enablePageRecDebug,
         boolean enableParseOnlyDebug,
         boolean overwriteExistingJson,
