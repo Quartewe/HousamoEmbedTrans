@@ -34,7 +34,9 @@ std::string PathForLog(const std::string& scene_name);
 
 namespace translation_dispatcher {
 
-bool Submit(std::shared_ptr<const TranslationRequest> request);
+bool Submit(
+    std::shared_ptr<const TranslationRequest> request,
+    std::uint64_t captured_epoch);
 void ClearOnPause();
 
 std::shared_ptr<const TranslationRequest> TakePendingRequest(

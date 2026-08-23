@@ -18,6 +18,12 @@ static bool IsCapturePaused() {
     return stop_reason.load(std::memory_order_acquire) == StopReason::user_pause;
 }
 
+static bool IsSceneBuilderEpochCurrent(std::uint64_t captured_epoch) {
+    return !IsCapturePaused()
+        && captured_epoch == capture_pause_epoch.load(
+            std::memory_order_acquire);
+}
+
 class SceneBuilder {
 public:
     void Start() {
@@ -26,15 +32,26 @@ public:
 
     void Submit(
         ScenarioParseResult result,
-        het::scene_sync::SceneProductionLease production_lease) {
+        het::scene_sync::SceneProductionLease production_lease,
+        std::uint64_t captured_epoch) {
         Scene scene;
 
         const size_t item_count = result.scene_items.size();
         const size_t protect_count = result.protect.size();
 
         {
+            // The transition mutex makes the epoch check and the dedupe
+            // snapshot one admission point with SetCapturePaused.  A parse
+            // result from an older generation must not seed latest_scene_
+            // after pause/resume and suppress the first scene of E+1.
+            std::lock_guard<std::mutex> transition_lock(
+                capture_transition_mutex);
+            if (!IsSceneBuilderEpochCurrent(captured_epoch)) {
+                return;
+            }
             std::lock_guard<std::mutex> lock(mutex_);
             if (latest_scene_ &&
+                latest_epoch_ == captured_epoch &&
                 result.scene == latest_scene_->scene &&
                 g_runtime_config.target_lang == latest_scene_->target_lang &&
                 item_count == latest_scene_->scene_items.size() &&
@@ -72,13 +89,35 @@ public:
         auto scene_ptr = std::make_shared<const Scene>(std::move(scene));
 
         {
+            // Build work is intentionally outside both locks.  Recheck the
+            // carried epoch immediately before publishing dedupe state so a
+            // pause that wins during CharacterBuild/TermBuild cannot leave
+            // an old-generation latest_scene_.
+            std::lock_guard<std::mutex> transition_lock(
+                capture_transition_mutex);
+            if (!IsSceneBuilderEpochCurrent(captured_epoch)) {
+                return;
+            }
             std::lock_guard<std::mutex> lock(mutex_);
+            if (latest_scene_ &&
+                latest_epoch_ == captured_epoch &&
+                scene_ptr->scene == latest_scene_->scene &&
+                scene_ptr->target_lang == latest_scene_->target_lang &&
+                scene_ptr->scene_items.size() == latest_scene_->scene_items.size() &&
+                scene_ptr->protect.size() == latest_scene_->protect.size()) {
+                LOGW("[SceneBuilder] built scene became duplicate during processing, items=%zu protect=%zu",
+                    item_count,
+                    protect_count);
+                return;
+            }
             latest_scene_ = scene_ptr;
+            latest_epoch_ = captured_epoch;
         }
 
         SubmitCapturedScene(
             scene_ptr,
-            std::move(production_lease));
+            std::move(production_lease),
+            captured_epoch);
     }
 
 private:
@@ -317,16 +356,19 @@ private:
 private:
     std::mutex mutex_;
     std::shared_ptr<const Scene> latest_scene_;
+    std::uint64_t latest_epoch_ = 0;
 };
 
 static SceneBuilder g_scene_builder;
 
 void SubmitScenarioParseResult(
     ScenarioParseResult result,
-    het::scene_sync::SceneProductionLease production_lease) {
+    het::scene_sync::SceneProductionLease production_lease,
+    std::uint64_t captured_epoch) {
     g_scene_builder.Submit(
         std::move(result),
-        std::move(production_lease));
+        std::move(production_lease),
+        captured_epoch);
 }
 
 void StartSceneBuilder() {

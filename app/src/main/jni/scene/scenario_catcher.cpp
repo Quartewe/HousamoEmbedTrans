@@ -1,6 +1,5 @@
 #include "housamo.hpp"
 #include "native_translation_pipeline.hpp"
-#include "../io/translation_pipeline_internal.hpp"
 
 #include <algorithm>
 #include <mutex>
@@ -15,14 +14,26 @@
 
 std::atomic<StopReason> stop_reason{StopReason::none};
 std::atomic<std::uint64_t> capture_pause_epoch{0};
+std::mutex capture_transition_mutex;
+static std::mutex caught_mutex;
+// Keep the capture generation with each de-duplication marker.  A worker
+// from an older generation may finish after pause has cleared the map and a
+// newer generation has inserted the same scenario key.  Epoch matching keeps
+// the old worker from erasing the newer marker on a late parse failure.
+static std::unordered_map<uintptr_t, std::uint64_t> caught_scenarios;
 
 void SetCapturePaused(bool paused) {
+    std::lock_guard<std::mutex> transition_lock(capture_transition_mutex);
     if (paused) {
         // Publish the pause latch before advancing the admission boundary.
         // A producer cannot capture the new epoch while the pause is still
         // unpublished, so the queue-side checks reject work crossing it.
         stop_reason.store(StopReason::user_pause, std::memory_order_release);
         capture_pause_epoch.fetch_add(1, std::memory_order_acq_rel);
+        {
+            std::lock_guard<std::mutex> caught_lock(caught_mutex);
+            caught_scenarios.clear();
+        }
     } else {
         // Resuming does not create a new producer generation; it only opens
         // the current one after the pause-side queue clears have completed.
@@ -30,7 +41,6 @@ void SetCapturePaused(bool paused) {
     }
     if (paused) {
         ClearNativeTranslationPipelineOnPause();
-        het::translation::translation_dispatcher::ClearOnPause();
         ClearPageRecOnPause();
     }
     NotifyNativeTranslationPipelineStopChanged();
@@ -119,12 +129,16 @@ struct PageParseResult {
     std::vector<SceneItem> scene_items;
 };
 
-static std::mutex caught_mutex;
-static std::unordered_set<uintptr_t> caught_scenarios;
-
-static void ForgetCaughtScenario(uintptr_t scenario_key) {
+static void ForgetCaughtScenario(
+    uintptr_t scenario_key,
+    std::uint64_t captured_epoch) {
+    std::lock_guard<std::mutex> transition_lock(capture_transition_mutex);
     std::lock_guard<std::mutex> lock(caught_mutex);
-    caught_scenarios.erase(scenario_key);
+    auto found = caught_scenarios.find(scenario_key);
+    if (found != caught_scenarios.end()
+        && found->second == captured_epoch) {
+        caught_scenarios.erase(found);
+    }
 }
 
 template <typename T>
@@ -1761,12 +1775,25 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 bool CatchScenario(
     void* scenario_data,
     const std::string& entry_label,
-    het::scene_sync::SceneProductionLease production_lease) {
+    het::scene_sync::SceneProductionLease production_lease,
+    std::uint64_t captured_epoch) {
     uintptr_t scenario_key = reinterpret_cast<uintptr_t>(scenario_data);
 
     {
+        std::lock_guard<std::mutex> transition_lock(capture_transition_mutex);
         std::lock_guard<std::mutex> lock(caught_mutex);
-        if (!caught_scenarios.insert(scenario_key).second) {
+        // Check the captured generation before installing the de-duplication
+        // marker.  A worker from E may finish after pause has cleared the
+        // markers and resume has opened E+1; allowing it to insert here would
+        // poison the new generation even though the old work is discarded
+        // below.
+        if (stop_reason.load(std::memory_order_acquire)
+                == StopReason::user_pause
+            || capture_pause_epoch.load(std::memory_order_acquire)
+                != captured_epoch) {
+            return true;
+        }
+        if (!caught_scenarios.emplace(scenario_key, captured_epoch).second) {
             LOGD("[ScenarioCatcher] scenario already caught entry=%s data=%p",
                  entry_label.c_str(),
                  scenario_data);
@@ -1779,7 +1806,7 @@ bool CatchScenario(
         LOGE("[ScenarioCatcher] failed to parse labels entry=%s data=%p",
              entry_label.c_str(),
              scenario_data);
-        ForgetCaughtScenario(scenario_key);
+        ForgetCaughtScenario(scenario_key, captured_epoch);
         return false;
     }
 
@@ -1799,13 +1826,23 @@ bool CatchScenario(
 
     if (output.status != ScenarioParseStatus::ok) {
         LOGE("[ScenarioCatcher] failed to parse scene entry=%s", entry_label.c_str());
-        ForgetCaughtScenario(scenario_key);
+        ForgetCaughtScenario(scenario_key, captured_epoch);
         return false;
     }
 
+    {
+        std::lock_guard<std::mutex> transition_lock(capture_transition_mutex);
+        if (stop_reason.load(std::memory_order_acquire)
+                == StopReason::user_pause
+            || capture_pause_epoch.load(std::memory_order_acquire)
+                != captured_epoch) {
+            return true;
+        }
+    }
     StartSceneBuilder();
     SubmitScenarioParseResult(
         std::move(output.result),
-        std::move(production_lease));
+        std::move(production_lease),
+        captured_epoch);
     return true;
 }

@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <cstdint>
 
 #include "scene_production_policy.hpp"
 
@@ -9,10 +10,13 @@ struct Scene;
 enum class SceneFileStatus;
 
 SceneFileStatus GetSceneFileStatus(const std::string& scene_name);
-bool SubmitExistingScene(const std::string& scene_name);
+bool SubmitExistingScene(
+    const std::string& scene_name,
+    std::uint64_t captured_epoch);
 void SubmitCapturedScene(
     std::shared_ptr<const Scene> scene,
-    het::scene_sync::SceneProductionLease production_lease);
+    het::scene_sync::SceneProductionLease production_lease,
+    std::uint64_t captured_epoch);
 void NotifyNativeTranslationPipelineStopChanged();
 void ClearNativeTranslationPipelineOnPause();
 

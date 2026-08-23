@@ -29,6 +29,12 @@ bool IsPaused() {
         == StopReason::user_pause;
 }
 
+bool IsCaptureEpochCurrent(std::uint64_t captured_epoch) {
+    return !IsPaused()
+        && captured_epoch == capture_pause_epoch.load(
+            std::memory_order_acquire);
+}
+
 class NativeTranslationPipeline {
 public:
 #ifdef HET_NATIVE_TRANSLATION_PIPELINE_TEST
@@ -51,9 +57,14 @@ public:
     }
 
     void ClearOnPause() {
-        std::lock_guard<std::mutex> lock(scene_mutex_);
-        scene_queue_.clear();
-        scene_cv_.notify_all();
+        {
+            std::lock_guard<std::mutex> lock(scene_mutex_);
+            scene_queue_.clear();
+            scene_cv_.notify_all();
+        }
+        // Dispatcher owns its own queue mutex; never hold scene_mutex_ while
+        // entering that implementation seam.
+        translation_dispatcher::ClearOnPause();
     }
 
     SceneFileStatus GetFileStatusForTarget(
@@ -94,8 +105,10 @@ public:
         return GetFileStatusForTarget(scene_name, g_runtime_config.target_lang);
     }
 
-    bool SubmitExisting(const std::string& scene_name) {
-        if (scene_name.empty()) {
+    bool SubmitExisting(
+        const std::string& scene_name,
+        std::uint64_t captured_epoch) {
+        if (scene_name.empty() || !IsCaptureEpochCurrent(captured_epoch)) {
             return false;
         }
 
@@ -130,8 +143,12 @@ public:
                 scene_name.c_str());
             return true;
         }
+        if (!IsCaptureEpochCurrent(captured_epoch)) {
+            return false;
+        }
         const bool submitted = translation_dispatcher::Submit(
-            std::make_shared<const TranslationRequest>(std::move(request)));
+            std::make_shared<const TranslationRequest>(std::move(request)),
+            captured_epoch);
         if (!submitted) {
             LOGE(
                 "[NativeTranslationPipeline] Dispatcher rejected existing scene=%s",
@@ -143,33 +160,34 @@ public:
     struct CapturedWork {
         std::shared_ptr<const Scene> scene;
         het::scene_sync::SceneProductionLease production_lease;
+        std::uint64_t captured_epoch = 0;
     };
 
     void SubmitCaptured(
         std::shared_ptr<const Scene> scene,
-        het::scene_sync::SceneProductionLease production_lease) {
-        const std::uint64_t captured_epoch = capture_pause_epoch.load(
-            std::memory_order_acquire);
+        het::scene_sync::SceneProductionLease production_lease,
+        std::uint64_t captured_epoch) {
         if (!scene
             || scene->scene.empty()
             || !production_lease.allowed()
-            || IsPaused()) {
+            || !IsCaptureEpochCurrent(captured_epoch)) {
             return;
         }
         StartSceneWorker();
         {
+            std::lock_guard<std::mutex> transition_lock(
+                capture_transition_mutex);
             std::lock_guard<std::mutex> lock(scene_mutex_);
             // Pause clearing and queue insertion share this mutex.  The
             // epoch closes the old admission generation even when a stale
             // producer is delayed until after pause and resume.
-            if (IsPaused()
-                || captured_epoch
-                    != capture_pause_epoch.load(std::memory_order_acquire)) {
+            if (!IsCaptureEpochCurrent(captured_epoch)) {
                 return;
             }
             scene_queue_.push_back(CapturedWork{
                 std::move(scene),
-                std::move(production_lease)
+                std::move(production_lease),
+                captured_epoch
             });
         }
         scene_cv_.notify_one();
@@ -438,7 +456,7 @@ private:
 
     void ProcessCaptured(CapturedWork work) {
         const std::shared_ptr<const Scene>& scene = work.scene;
-        if (!scene || IsPaused()) {
+        if (!scene || !IsCaptureEpochCurrent(work.captured_epoch)) {
             return;
         }
         std::string scene_json;
@@ -456,17 +474,36 @@ private:
             return;
         }
 
-        const SceneCommitResult committed = scene_store::Commit(
-            scene->scene,
-            scene_json,
-            g_runtime_config.overwrite_existing,
-            &error);
+        if (!IsCaptureEpochCurrent(work.captured_epoch)) {
+            return;
+        }
+
+        SceneCommitResult committed;
+        {
+            // Pause transition and the formal Scene commit share one
+            // linearization mutex: an old epoch either commits entirely
+            // before pause, or is rejected before touching the Scene.
+            std::lock_guard<std::mutex> transition_lock(
+                capture_transition_mutex);
+            if (!IsCaptureEpochCurrent(work.captured_epoch)) {
+                return;
+            }
+            committed = scene_store::Commit(
+                scene->scene,
+                scene_json,
+                g_runtime_config.overwrite_existing,
+                &error);
+        }
         if (committed == SceneCommitResult::failed) {
             LOGE(
                 "[NativeTranslationPipeline] Could not commit scene=%s path=%s reason=%s",
                 scene->scene.c_str(),
                 scene_store::PathForLog(scene->scene).c_str(),
                 error.c_str());
+            return;
+        }
+
+        if (!IsCaptureEpochCurrent(work.captured_epoch)) {
             return;
         }
 
@@ -494,12 +531,14 @@ private:
                 scene_json.size());
         }
 
-        if (g_runtime_config.parse_only_debug || IsPaused()) {
+        if (g_runtime_config.parse_only_debug
+            || !IsCaptureEpochCurrent(work.captured_epoch)) {
             return;
         }
         if (!translation_dispatcher::Submit(
                 std::make_shared<const TranslationRequest>(
-                    std::move(request)))) {
+                    std::move(request)),
+                work.captured_epoch)) {
             LOGE(
                 "[NativeTranslationPipeline] Dispatcher rejected scene=%s",
                 scene->scene.c_str());
@@ -563,16 +602,20 @@ SceneFileStatus GetSceneFileStatus(const std::string& scene_name) {
     return GetPipeline().GetFileStatus(scene_name);
 }
 
-bool SubmitExistingScene(const std::string& scene_name) {
-    return GetPipeline().SubmitExisting(scene_name);
+bool SubmitExistingScene(
+    const std::string& scene_name,
+    std::uint64_t captured_epoch) {
+    return GetPipeline().SubmitExisting(scene_name, captured_epoch);
 }
 
 void SubmitCapturedScene(
     std::shared_ptr<const Scene> scene,
-    het::scene_sync::SceneProductionLease production_lease) {
+    het::scene_sync::SceneProductionLease production_lease,
+    std::uint64_t captured_epoch) {
     GetPipeline().SubmitCaptured(
         std::move(scene),
-        std::move(production_lease));
+        std::move(production_lease),
+        captured_epoch);
 }
 
 bool HandleCompletedTranslation(

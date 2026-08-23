@@ -20,12 +20,18 @@ static void* StubInitText = nullptr;
 static void* StubFindScenarioData = nullptr;
 
 static void* HookFindScenarioData(void* self, void* label, void* method) {
+    // Sample once at the capture admission boundary.  Every downstream
+    // path compares this token; none is allowed to create a replacement epoch.
+    const std::uint64_t captured_epoch = capture_pause_epoch.load(
+        std::memory_order_acquire);
     void* scenario_data = nullptr;
     if (RawFindScenarioData) {
         scenario_data = RawFindScenarioData(self, label, method);
     }
 
-    if (stop_reason.load(std::memory_order_acquire) == StopReason::user_pause) {
+    if (stop_reason.load(std::memory_order_acquire) == StopReason::user_pause
+        || captured_epoch != capture_pause_epoch.load(
+            std::memory_order_acquire)) {
         LOGI("[FindScenarioData] user pause, skipping scenario catch");
         return scenario_data;
     }
@@ -64,7 +70,7 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
             LOGI("[FindScenarioData] scene file already complete, skipping scene=%s", scene_name.c_str());
             return scenario_data;
         case SceneFileStatus::pending:
-            if (!SubmitExistingScene(scene_name)) {
+            if (!SubmitExistingScene(scene_name, captured_epoch)) {
                 LOGE("[FindScenarioData] failed to post existing scene to api scene=%s", scene_name.c_str());
             }
             return scenario_data;
@@ -89,7 +95,8 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
     if (!CatchScenario(
             scenario_data,
             entry_label,
-            std::move(production_lease))) {
+            std::move(production_lease),
+            captured_epoch)) {
         LOGE("[FindScenarioData] failed to catch scenario scene=%s entry=%s",
              scene_name.c_str(), entry_label.c_str());
     }

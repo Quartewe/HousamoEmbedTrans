@@ -257,6 +257,7 @@ public:
 struct PendingSubmission {
     std::shared_ptr<const TranslationRequest> request;
     std::string request_id;
+    std::uint64_t captured_epoch = 0;
     uint32_t retry_count = 0;
     Clock::time_point next_attempt_at = Clock::now();
     uint64_t queue_sequence = 0;
@@ -278,9 +279,9 @@ public:
     explicit Dispatcher(SubmissionBridge& bridge, bool start_worker = true)
         : bridge_(bridge), start_worker_(start_worker) {}
 
-    bool Submit(std::shared_ptr<const TranslationRequest> request) {
-        const std::uint64_t captured_epoch = capture_pause_epoch.load(
-            std::memory_order_acquire);
+    bool Submit(
+        std::shared_ptr<const TranslationRequest> request,
+        std::uint64_t captured_epoch) {
         if (!request || request->payload_json.empty()) {
             return false;
         }
@@ -292,6 +293,7 @@ public:
         }
         auto pending = std::make_shared<PendingSubmission>();
         pending->request = std::move(request);
+        pending->captured_epoch = captured_epoch;
         pending->next_attempt_at = Clock::now();
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);
@@ -424,8 +426,6 @@ private:
         if (!pending) {
             return;
         }
-        const std::uint64_t captured_epoch = capture_pause_epoch.load(
-            std::memory_order_acquire);
         if (IsPaused()) {
             return;
         }
@@ -442,7 +442,7 @@ private:
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);
             if (IsPaused()
-                || captured_epoch
+                || pending->captured_epoch
                     != capture_pause_epoch.load(std::memory_order_acquire)) {
                 return;
             }
@@ -475,7 +475,9 @@ private:
     }
 
     void Process(const std::shared_ptr<PendingSubmission>& pending) {
-        if (!pending || !pending->request || IsPaused()) {
+        if (!pending || !pending->request || IsPaused()
+            || pending->captured_epoch
+                != capture_pause_epoch.load(std::memory_order_acquire)) {
             return;
         }
         const TranslationRequest& request = *pending->request;
@@ -513,20 +515,36 @@ private:
             }
             pending->request_id = resolution.request_id;
         }
-        if (IsPaused()) {
-            return;
-        }
-
-        RegisterPending(pending->request_id, pending->request);
-        // Once the request has crossed the HET admission bridge it remains in
-        // pending_requests_ across capture pause.  The terminal callback path
-        // owns its eventual removal/receipt, so pause must not erase it here.
         std::string submission_json;
-        if (!bridge_.Submit(
+        bool bridge_submit_ok = false;
+        {
+            // The final epoch check, native pending registration, and Java
+            // admission form one transition boundary.  SetCapturePaused()
+            // takes this mutex before clearing the old generation, so an old
+            // worker either completes the bridge admission before pause or is
+            // rejected without leaving a pending marker behind.  Once Submit
+            // returns success, pending_requests_ intentionally survives a
+            // later pause for terminal-result redelivery.
+            std::lock_guard<std::mutex> transition_lock(
+                capture_transition_mutex);
+            if (IsPaused()
+                || pending->captured_epoch
+                    != capture_pause_epoch.load(
+                        std::memory_order_acquire)) {
+                return;
+            }
+            RegisterPending(pending->request_id, pending->request);
+            bridge_submit_ok = bridge_.Submit(
                 pending->request_id,
                 request.payload_json,
-                &submission_json)) {
-            RemovePendingIfSame(pending->request_id, pending->request);
+                &submission_json);
+            if (!bridge_submit_ok) {
+                RemovePendingIfSame(
+                    pending->request_id,
+                    pending->request);
+            }
+        }
+        if (!bridge_submit_ok) {
             LOGE(
                 "[TranslationDispatcher] Submit JNI bridge invocation failed permanently scene=%s requestId=%s",
                 request.scene_name.c_str(),
@@ -606,8 +624,10 @@ Dispatcher& GetDispatcher() {
 
 #if !defined(HET_TRANSLATION_DISPATCHER_TEST)
 
-bool Submit(std::shared_ptr<const TranslationRequest> request) {
-    return GetDispatcher().Submit(std::move(request));
+bool Submit(
+    std::shared_ptr<const TranslationRequest> request,
+    std::uint64_t captured_epoch) {
+    return GetDispatcher().Submit(std::move(request), captured_epoch);
 }
 
 std::shared_ptr<const TranslationRequest> TakePendingRequest(

@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <functional>
 #include <atomic>
+#include <mutex>
 #include <memory>
 #include <utility>
 
@@ -34,6 +35,11 @@ extern std::atomic<StopReason> stop_reason;
 // pause must not be able to enqueue after that pause has been cleared and the
 // capture has resumed.
 extern std::atomic<std::uint64_t> capture_pause_epoch;
+// Serializes pause/resume transitions with captured-scene admission and the
+// native formal Scene commit.  All participants acquire this before the
+// scene queue mutex, so pause cannot clear a new generation behind an old
+// producer or let an old worker commit after the boundary.
+extern std::mutex capture_transition_mutex;
 
 bool BeginSceneSyncHold();
 bool ReplaceBlockedScenes(const std::vector<std::string>& scene_names);
@@ -410,7 +416,8 @@ void StartSceneBuilder();
 // bool SubmitToQuestRewriter(const std::string& entry_label);
 void SubmitScenarioParseResult(
     ScenarioParseResult result,
-    het::scene_sync::SceneProductionLease production_lease);
+    het::scene_sync::SceneProductionLease production_lease,
+    std::uint64_t captured_epoch);
 
 // 检验类
 bool IsJsonManagerReady();
@@ -431,7 +438,8 @@ bool CommandExamine(void* pageData, const std::string& source);
 bool CatchScenario(
     void* scenario_data,
     const std::string& entry_label,
-    het::scene_sync::SceneProductionLease production_lease);
+    het::scene_sync::SceneProductionLease production_lease,
+    std::uint64_t captured_epoch);
 std::vector<AcHit> AcScan(const std::string& text);
 bool FindCharacterItem(const std::string& name, CharacterItem* out);
 bool FindGameTerm(const std::string& term, GameTerm* out);
