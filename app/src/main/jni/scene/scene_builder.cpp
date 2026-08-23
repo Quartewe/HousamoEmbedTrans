@@ -1,5 +1,7 @@
 #include "housamo.hpp"
 
+#include "native_translation_pipeline.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <mutex>
@@ -22,7 +24,9 @@ public:
         LOGI("[SceneBuilder] workers started");
     }
 
-    void Submit(ScenarioParseResult result) {
+    void Submit(
+        ScenarioParseResult result,
+        het::scene_sync::SceneProductionLease production_lease) {
         Scene scene;
 
         const size_t item_count = result.scene_items.size();
@@ -72,7 +76,9 @@ public:
             latest_scene_ = scene_ptr;
         }
 
-        SubmitToJsonHandler(scene_ptr);
+        SubmitCapturedScene(
+            scene_ptr,
+            std::move(production_lease));
     }
 
 private:
@@ -315,8 +321,12 @@ private:
 
 static SceneBuilder g_scene_builder;
 
-void SubmitScenarioParseResult(ScenarioParseResult result) {
-    g_scene_builder.Submit(std::move(result));
+void SubmitScenarioParseResult(
+    ScenarioParseResult result,
+    het::scene_sync::SceneProductionLease production_lease) {
+    g_scene_builder.Submit(
+        std::move(result),
+        std::move(production_lease));
 }
 
 void StartSceneBuilder() {

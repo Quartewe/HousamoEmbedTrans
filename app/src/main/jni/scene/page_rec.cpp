@@ -31,6 +31,7 @@ struct PageEvent {
     void* command_list = nullptr;
     int page_no = -1;
     std::string source;
+    std::uint64_t capture_epoch = 0;
 };
 
 struct PageJob {
@@ -375,6 +376,19 @@ void NotifyPageRecStopChanged() {
     page_cv.notify_all();
 }
 
+void ClearPageRecOnPause() {
+    {
+        std::lock_guard<std::mutex> lock(event_mutex);
+        event_queue.clear();
+    }
+    {
+        std::lock_guard<std::mutex> lock(page_mutex);
+        page_queue.clear();
+        seen_pages.clear();
+    }
+    NotifyPageRecStopChanged();
+}
+
 static bool ProcessPageJob(const PageJob& job, ProcessPageResult* out = nullptr) {
     if (out == nullptr) {
         return false;
@@ -405,6 +419,11 @@ static void PageEventWorker() {
 
             if (IsCapturePaused()) {
                 event_queue.clear();
+                {
+                    std::lock_guard<std::mutex> page_lock(page_mutex);
+                    page_queue.clear();
+                    seen_pages.clear();
+                }
                 event_cv.wait(lock, [] {
                     return !IsCapturePaused();
                 });
@@ -419,6 +438,11 @@ static void PageEventWorker() {
 
         {
             std::lock_guard<std::mutex> lock(page_mutex);
+            if (IsCapturePaused()
+                || event.capture_epoch
+                    != capture_pause_epoch.load(std::memory_order_acquire)) {
+                continue;
+            }
             auto res = seen_pages.insert(key);
             if (!res.second) continue;
 
@@ -452,6 +476,7 @@ static void PageWorker() {
 
             if (IsCapturePaused()) {
                 page_queue.clear();
+                seen_pages.clear();
                 page_cv.wait(lock, [] {
                     return !IsCapturePaused();
                 });
@@ -486,6 +511,8 @@ static void StartPageRecorder() {
 }
 
 bool CommandExamine(void* pageData, const std::string& source) {
+    const std::uint64_t captured_epoch = capture_pause_epoch.load(
+        std::memory_order_acquire);
     if (IsCapturePaused()) {
         return false;
     }
@@ -514,9 +541,15 @@ bool CommandExamine(void* pageData, const std::string& source) {
     event.command_list = command_list;
     event.page_no = page_no;
     event.source = source;
+    event.capture_epoch = captured_epoch;
 
     {
         std::lock_guard<std::mutex> lock(event_mutex);
+        if (IsCapturePaused()
+            || captured_epoch
+                != capture_pause_epoch.load(std::memory_order_acquire)) {
+            return false;
+        }
         event_queue.push_back(event);
     }
     

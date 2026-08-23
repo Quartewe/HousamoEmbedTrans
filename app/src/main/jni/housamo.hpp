@@ -14,6 +14,8 @@
 #include <memory>
 #include <utility>
 
+#include "scene_production_policy.hpp"
+
 // 日志宏
 #define LOG_TAG "HousamoTrans"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -28,6 +30,19 @@ enum class StopReason {
 };
 
 extern std::atomic<StopReason> stop_reason;
+// Monotonic capture admission generation.  A producer that began before a
+// pause must not be able to enqueue after that pause has been cleared and the
+// capture has resumed.
+extern std::atomic<std::uint64_t> capture_pause_epoch;
+
+bool BeginSceneSyncHold();
+bool ReplaceBlockedScenes(const std::vector<std::string>& scene_names);
+void ResetSceneProductionPolicy();
+het::scene_sync::SceneProductionLease EnterSceneProduction(
+    const std::string& scene_name);
+void ReportSceneProductionRejected(
+    const std::string& scene_name,
+    het::scene_sync::RejectReason reason);
 
 enum class SceneFileStatus {
     not_found, // 文件不存在
@@ -393,14 +408,15 @@ void StartSceneBuilder();
 
 // submit 类
 // bool SubmitToQuestRewriter(const std::string& entry_label);
-void SubmitScenarioParseResult(ScenarioParseResult result);
-bool LoadFromExistingScene(std::string entry_label);
-void SubmitToJsonHandler(std::shared_ptr<const Scene> scene);
+void SubmitScenarioParseResult(
+    ScenarioParseResult result,
+    het::scene_sync::SceneProductionLease production_lease);
 
 // 检验类
-SceneFileStatus CheckFileStatus(const std::string& scene_name);
 bool IsJsonManagerReady();
 void NotifyPageRecStopChanged();
+void ClearPageRecOnPause();
+void SetCapturePaused(bool paused);
 void ResumeCapture();
 bool IsAcReady();
 
@@ -412,7 +428,10 @@ bool FindAliasItem(
     const std::string& called,
     std::vector<AliasItem>* out);
 bool CommandExamine(void* pageData, const std::string& source);
-bool CatchScenario(void* scenario_data, const std::string& entry_label);
+bool CatchScenario(
+    void* scenario_data,
+    const std::string& entry_label,
+    het::scene_sync::SceneProductionLease production_lease);
 std::vector<AcHit> AcScan(const std::string& text);
 bool FindCharacterItem(const std::string& name, CharacterItem* out);
 bool FindGameTerm(const std::string& term, GameTerm* out);

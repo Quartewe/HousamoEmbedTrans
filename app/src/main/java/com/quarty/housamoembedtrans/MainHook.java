@@ -2,9 +2,15 @@ package com.quarty.housamoembedtrans;
 
 import com.bytedance.shadowhook.ShadowHook;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
+import com.quarty.housamoembedtrans.bridge.SceneSyncWireCodec;
+import com.quarty.housamoembedtrans.bridge.TranslationServiceClient;
+import com.quarty.housamoembedtrans.translation.GameSceneMirrorSource;
+import com.quarty.housamoembedtrans.translation.IGameScenePort;
+import com.quarty.housamoembedtrans.translation.SceneMirrorExportCoordinator;
 import com.quarty.housamoembedtrans.storage.ConfigStore;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 import com.quarty.housamoembedtrans.storage.SceneSyncStartupSnapshot;
+import com.quarty.housamoembedtrans.util.IoUtils;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XposedBridge;
@@ -14,38 +20,35 @@ import de.robv.android.xposed.IXposedHookZygoteInit;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.os.ParcelFileDescriptor;
+import android.os.RemoteException;
 import android.net.Uri;
-import android.os.Bundle;
-import android.util.AtomicFile;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.InputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipEntry;
 import java.io.File;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * LSPosed 模块入口 — Housamo AI 实时翻译。
@@ -59,33 +62,984 @@ import java.io.File;
 
 public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
-    private static final String TARGET_PACKAGE = "jp.co.lifewonders.housamo";
-    private static final String MODULE_PACKAGE = "com.quarty.housamoembedtrans";
-    private static final String USER_FILES_AUTHORITY =
-        "com.quarty.housamoembedtrans.userfiles";
     private static final String CONFIG_FILE_NAME = "config.json";
     private static final String RUNTIME_FILE_NAME = "runtime.json";
     private static final String CHARDICT_FILE_NAME = "chardict.json";
     private static final String GAMETERMS_FILE_NAME = "gameterms.json";
-    private static final String PROMPT_FILE_NAME = "prompt.txt";
-    private static final String TRANSLATION_SCHEMA_FILE_NAME = "translation_schema.json";
     private static final String TERM_ASSET_DIRECTORY = "term/";
-    private static final String SCHEMA_ASSET_DIRECTORY = "schema/";
-    private static final String FAILED_API_DIRECTORY_NAME = "failed";
-    private static final String FAILED_API_FILE_PREFIX = "api_failed_";
-    private static final int HTTP_CONNECT_TIMEOUT_MS = 30_000;
-    private static final int HTTP_READ_TIMEOUT_MS = 300_000;
-    private static final long HTTP_RETRY_BASE_DELAY_MS = 1_000L;
-    private static final long HTTP_RETRY_MAX_DELAY_MS = 8_000L;
-    private static final int MAX_HTTP_RESPONSE_BYTES = 16 * 1024 * 1024;
-    private static final int ANTHROPIC_MAX_TOKENS = 8_192;
+    private static final long SERVICE_CONNECT_TIMEOUT_MS = 5_000L;
+    private static final int MAX_TRANSLATION_REQUEST_BYTES = 32 * 1024 * 1024;
     private static String sModulePath = null;
     private static boolean s_loaded = false;
     private static boolean s_attach_hook_installed = false;
     private static boolean s_initializing = false;
-    private static volatile TranslationConfig sTranslationConfig;
+    private static volatile TranslationServiceClient sTranslationClient;
+    private static volatile GameScenePort sGameScenePort;
     private static volatile Context sTargetContext;
-    private static volatile File sFailedApiDirectory;
+    private static volatile boolean sOverwriteExistingJson;
+    private static volatile boolean sMissingQuestPatchNativeLogged;
+    private static volatile boolean sMissingSceneResultNativeLogged;
+    private static volatile boolean sMissingFailureNativeLogged;
+    private static final TranslationServiceClient.ResultSink
+        TRANSLATION_RESULT_SINK =
+            new TranslationServiceClient.ResultSink() {
+                @Override
+                public void onQuestPatch(
+                    String requestId,
+                    byte[] patchJson
+                ) {
+                    handleQuestPatch(requestId, patchJson);
+                }
+
+                @Override
+                public void onSceneCompleted(
+                    String requestId,
+                    String scene,
+                    String targetLanguage,
+                    byte[] resultJson
+                ) {
+                    handleSceneResult(
+                        requestId,
+                        scene,
+                        targetLanguage,
+                        resultJson
+                    );
+                }
+
+                @Override
+                public void onTranslationFailed(
+                    String requestId,
+                    String errorType,
+                    String message
+                ) {
+                    handleTranslationFailure(
+                        requestId,
+                        errorType,
+                        message
+                    );
+                }
+            };
+
+    /**
+     * Game-process implementation of the one registered Scene port.  The
+     * adapter is created only after nativeStart and the injected game mirror
+     * store are ready, so a fast Binder registration cannot hit an unloaded
+     * native policy entry point.
+     */
+    private static final class GameScenePort extends IGameScenePort.Stub {
+        private final SceneStore sceneStore;
+        private final SceneMirrorExportCoordinator exportCoordinator;
+        private final AtomicReference<
+            SceneMirrorExportCoordinator.ExportSession
+        > currentExport = new AtomicReference<>();
+        private final AtomicReference<ApplyActivity> currentActivity =
+            new AtomicReference<>();
+        private final Object policyHoldLock = new Object();
+        /** Registration generation currently admitted by TranslationService. */
+        private long activeSceneSyncGeneration;
+        /** One export Binder call between generation admission and hold setup. */
+        private long pendingExportGeneration;
+        /** Generation that most recently acquired the native sync hold. */
+        private long activeHoldGeneration;
+        /** Generation owning the currently published export session. */
+        private long activeExportGeneration;
+        private final int sceneWorkerCount;
+        private GameScenePort(
+            Context context,
+            File sceneDirectory,
+            int sceneWorkerCount
+        )
+            throws Exception {
+            if (sceneWorkerCount < 1 || sceneWorkerCount > 4) {
+                throw new IllegalArgumentException(
+                    "sceneWorkerCount must be between 1 and 4"
+                );
+            }
+            this.sceneWorkerCount = sceneWorkerCount;
+            JSONObject schema = new JSONObject(
+                readModuleAsset(SceneStore.SCHEMA_ASSET_PATH)
+            );
+            SceneStore store = new SceneStore(context, sceneDirectory, schema);
+            this.sceneStore = store;
+            this.exportCoordinator = new SceneMirrorExportCoordinator(
+                new SceneMirrorExportCoordinator.ProductionGate() {
+                    @Override
+                    public boolean beginHold() {
+                        return beginNativeHoldForPendingExport();
+                    }
+
+                    @Override
+                    public void waitForActiveZero() {
+                        nativeWaitForSceneProductionIdle();
+                    }
+                },
+                new GameSceneMirrorSource(store)
+            );
+        }
+
+        @Override
+        public boolean activateSceneSyncGeneration(long generation) {
+            if (generation <= 0L) {
+                return false;
+            }
+            ApplyActivity activityToAbort = null;
+            SceneMirrorExportCoordinator.ExportSession exportToAbort = null;
+            synchronized (policyHoldLock) {
+                // The service owns an opaque per-registration token.  It is
+                // deliberately not compared numerically: a new service
+                // instance may start its sequence again after a process
+                // restart, and a stale Binder must never be admitted merely
+                // because its token happens to be larger or smaller.
+                if (generation == activeSceneSyncGeneration) {
+                    return false;
+                }
+                if (activeSceneSyncGeneration != 0L) {
+                    // Replacing a live registration must clear the complete
+                    // native control-plane policy, even when the previous
+                    // cycle already consumed its export hold.
+                    resetNativeScenePolicyUnconditionally(
+                        "generation activation"
+                    );
+                }
+                activeSceneSyncGeneration = generation;
+                pendingExportGeneration = 0L;
+                if (activeHoldGeneration != 0L) {
+                    activeHoldGeneration = 0L;
+                }
+                if (activeExportGeneration != 0L
+                    && activeExportGeneration != generation) {
+                    exportToAbort = currentExport.getAndSet(null);
+                    activeExportGeneration = 0L;
+                }
+                ApplyActivity current = currentActivity.get();
+                if (current != null && current.generation != generation
+                    && currentActivity.compareAndSet(current, null)) {
+                    activityToAbort = current;
+                }
+            }
+            if (exportToAbort != null) {
+                exportToAbort.abort();
+            }
+            if (activityToAbort != null) {
+                activityToAbort.finish();
+            }
+            return true;
+        }
+
+        @Override
+        public void deactivateSceneSyncGeneration(long generation) {
+            if (generation <= 0L) {
+                return;
+            }
+            ApplyActivity activityToAbort = null;
+            SceneMirrorExportCoordinator.ExportSession exportToAbort = null;
+            synchronized (policyHoldLock) {
+                if (activeSceneSyncGeneration != generation) {
+                    return;
+                }
+                activeSceneSyncGeneration = 0L;
+                pendingExportGeneration = 0L;
+                activeHoldGeneration = 0L;
+                // Deactivation is also the fail-open boundary for a cycle
+                // whose hold was already consumed.  Reset the complete native
+                // policy while the generation token is still exclusively
+                // owned, so a newer generation cannot be cleared by a late
+                // unregister callback.
+                resetNativeScenePolicyUnconditionally(
+                    "generation deactivation"
+                );
+
+                if (activeExportGeneration == generation) {
+                    exportToAbort = currentExport.getAndSet(null);
+                    activeExportGeneration = 0L;
+                }
+
+                ApplyActivity current = currentActivity.get();
+                if (current != null && current.generation == generation
+                    && currentActivity.compareAndSet(current, null)) {
+                    activityToAbort = current;
+                }
+            }
+            if (exportToAbort != null) {
+                exportToAbort.abort();
+            }
+            if (activityToAbort != null) {
+                activityToAbort.finish();
+            }
+        }
+
+        private boolean reserveExportActivity(
+            ApplyActivity activity,
+            long generation
+        ) {
+            synchronized (policyHoldLock) {
+                if (generation <= 0L
+                    || activeSceneSyncGeneration != generation
+                    || pendingExportGeneration != 0L) {
+                    return false;
+                }
+                if (!currentActivity.compareAndSet(null, activity)) {
+                    return false;
+                }
+                pendingExportGeneration = generation;
+                return true;
+            }
+        }
+
+        private void clearPendingExportGeneration(long generation) {
+            synchronized (policyHoldLock) {
+                if (pendingExportGeneration == generation) {
+                    pendingExportGeneration = 0L;
+                }
+            }
+        }
+
+        private boolean beginNativeHoldForPendingExport() {
+            synchronized (policyHoldLock) {
+                if (pendingExportGeneration == 0L
+                    || pendingExportGeneration != activeSceneSyncGeneration) {
+                    return false;
+                }
+                boolean held;
+                try {
+                    held = nativeBeginSceneSyncHold();
+                } catch (UnsatisfiedLinkError e) {
+                    XposedBridge.log(
+                        "[HousamoTrans] Scene policy native hold "
+                            + "is unavailable"
+                    );
+                    return false;
+                }
+                if (held) {
+                    // The native hold becomes owned by this generation at
+                    // the exact moment nativeBegin succeeds.  Deactivation
+                    // can therefore never miss the hold while acceptExport
+                    // is still wiring the session.
+                    activeHoldGeneration = pendingExportGeneration;
+                }
+                return held;
+            }
+        }
+
+        private void resetActiveHoldForGeneration(
+            long generation,
+            String reason
+        ) {
+            synchronized (policyHoldLock) {
+                if (activeHoldGeneration != generation) {
+                    return;
+                }
+                activeHoldGeneration = 0L;
+                resetNativeScenePolicyUnconditionally(reason);
+            }
+        }
+
+        /**
+         * Fail-open cleanup for a lost TranslationService connection.  The
+         * callback has no generation token, so it first invalidates the
+         * current token under the same lock used by activation/beginHold;
+         * this prevents a concurrent export from being reset after a newer
+         * registration has already taken ownership.
+         */
+        private void resetSceneProductionPolicyForConnectionLoss() {
+            SceneMirrorExportCoordinator.ExportSession export;
+            ApplyActivity activity;
+            synchronized (policyHoldLock) {
+                activeSceneSyncGeneration = 0L;
+                pendingExportGeneration = 0L;
+                activeHoldGeneration = 0L;
+                activeExportGeneration = 0L;
+                export = currentExport.getAndSet(null);
+                activity = currentActivity.getAndSet(null);
+                resetNativeScenePolicyUnconditionally(
+                    "TranslationService connection loss"
+                );
+            }
+            if (export != null) {
+                export.abort();
+            }
+            if (activity != null) {
+                activity.finish();
+            }
+        }
+
+        private void resetNativeScenePolicyUnconditionally(String reason) {
+            try {
+                nativeResetSceneProductionPolicy();
+            } catch (UnsatisfiedLinkError e) {
+                XposedBridge.log(
+                    "[HousamoTrans] Native Scene policy reset unavailable "
+                        + "during " + reason
+                );
+            }
+        }
+
+        @Override
+        public ParcelFileDescriptor exportSceneSnapshot(long generation) {
+            ApplyActivity activity = new ApplyActivity(
+                sceneWorkerCount,
+                true,
+                generation
+            );
+            if (!reserveExportActivity(activity, generation)) {
+                activity.finish();
+                return null;
+            }
+            ParcelFileDescriptor[] pipe;
+            try {
+                pipe = ParcelFileDescriptor.createPipe();
+            } catch (IOException e) {
+                clearPendingExportGeneration(generation);
+                currentActivity.compareAndSet(activity, null);
+                activity.finish();
+                XposedBridge.log(
+                    "[HousamoTrans] Could not create Scene export pipe: "
+                        + e.getMessage()
+                );
+                return null;
+            }
+
+            ParcelFileDescriptor readEnd = pipe[0];
+            ParcelFileDescriptor writeEnd = pipe[1];
+            ParcelFileDescriptor.AutoCloseOutputStream output =
+                new ParcelFileDescriptor.AutoCloseOutputStream(writeEnd);
+            ExecutorService writerPool = Executors.newSingleThreadExecutor(
+                runnable -> {
+                    Thread thread = new Thread(
+                        runnable,
+                        "HET-game-scene-export"
+                    );
+                    thread.setDaemon(true);
+                    return thread;
+                }
+            );
+            Executor writerExecutor = command -> {
+                try {
+                    writerPool.execute(() -> {
+                        try {
+                            command.run();
+                        } finally {
+                            writerPool.shutdown();
+                        }
+                    });
+                } catch (RejectedExecutionException e) {
+                    writerPool.shutdownNow();
+                    throw e;
+                }
+            };
+            SceneMirrorExportCoordinator.ExportSession session;
+            try {
+                session = exportCoordinator.acceptExport(
+                    writerExecutor,
+                    output
+                );
+            } catch (RuntimeException e) {
+                clearPendingExportGeneration(generation);
+                resetActiveHoldForGeneration(
+                    generation,
+                    "Scene export acceptance failed"
+                );
+                writerPool.shutdownNow();
+                currentActivity.compareAndSet(activity, null);
+                activity.finish();
+                closeQuietly(readEnd);
+                closeQuietly(writeEnd);
+                XposedBridge.log(
+                    "[HousamoTrans] Could not accept Scene export: "
+                        + e.getClass().getSimpleName()
+                );
+                return null;
+            }
+            if (session == null) {
+                clearPendingExportGeneration(generation);
+                resetActiveHoldForGeneration(
+                    generation,
+                    "Scene export session unavailable"
+                );
+                // acceptExport has already cancelled the queued session.  Let
+                // its wrapper run the session finally block so the coordinator
+                // remains the sole owner of the inFlight release.
+                writerPool.shutdown();
+                currentActivity.compareAndSet(activity, null);
+                activity.finish();
+                try {
+                    output.close();
+                } catch (IOException ignored) {
+                }
+                try {
+                    readEnd.close();
+                } catch (IOException ignored) {
+                }
+                return null;
+            }
+            final SceneMirrorExportCoordinator.ExportSession acceptedSession =
+                session;
+            boolean generationStillCurrent;
+            synchronized (policyHoldLock) {
+                generationStillCurrent =
+                    activeSceneSyncGeneration == generation
+                        && pendingExportGeneration == generation;
+                if (pendingExportGeneration == generation) {
+                    pendingExportGeneration = 0L;
+                }
+                if (generationStillCurrent) {
+                    activeHoldGeneration = generation;
+                    activeExportGeneration = generation;
+                    currentExport.set(acceptedSession);
+                    acceptedSession.setCompletionListener(
+                        () -> {
+                            synchronized (policyHoldLock) {
+                                if (currentExport.compareAndSet(
+                                    acceptedSession,
+                                    null
+                                ) && activeExportGeneration == generation) {
+                                    activeExportGeneration = 0L;
+                                }
+                            }
+                        }
+                    );
+                } else if (activeHoldGeneration == generation) {
+                    // The native hold is acquired before the export session
+                    // is fully published.  If this generation was invalidated
+                    // in that window, clear exactly its hold while retaining
+                    // any pending reservation belonging to a newer token.
+                    activeHoldGeneration = 0L;
+                    resetNativeScenePolicyUnconditionally(
+                        "stale Scene export generation"
+                    );
+                }
+            }
+            if (!generationStillCurrent) {
+                acceptedSession.abort();
+                // The wrapper may still be queued.  A graceful shutdown lets
+                // the cancelled session run its finally block and release
+                // SceneMirrorExportCoordinator.inFlight.
+                writerPool.shutdown();
+                currentActivity.compareAndSet(activity, null);
+                activity.finish();
+                try {
+                    readEnd.close();
+                } catch (IOException ignored) {
+                }
+                return null;
+            }
+            return readEnd;
+        }
+
+        /**
+         * Releases only the native hold acquired by this service generation.
+         * The operation owns this token and may call the method repeatedly;
+         * clearing the token before the JNI call makes the operation idempotent
+         * even when Binder cancellation and lifecycle cleanup race.
+         */
+        @Override
+        public void resetSceneProductionPolicy(long generation) {
+            if (generation <= 0L) {
+                return;
+            }
+            synchronized (policyHoldLock) {
+                if (activeSceneSyncGeneration != generation
+                    || activeHoldGeneration != generation) {
+                    return;
+                }
+                activeHoldGeneration = 0L;
+                try {
+                    nativeResetSceneProductionPolicy();
+                } catch (UnsatisfiedLinkError e) {
+                    XposedBridge.log(
+                        "[HousamoTrans] Native Scene policy reset is "
+                            + "unavailable during export cleanup"
+                    );
+                }
+            }
+        }
+
+        @Override
+        public void completeSceneProductionPolicy(long generation) {
+            if (generation <= 0L) {
+                return;
+            }
+            synchronized (policyHoldLock) {
+                if (activeSceneSyncGeneration == generation
+                    && activeHoldGeneration == generation) {
+                    activeHoldGeneration = 0L;
+                }
+            }
+        }
+
+        @Override
+        public void abortSceneSyncActivity(long generation) {
+            if (generation <= 0L) {
+                return;
+            }
+            SceneMirrorExportCoordinator.ExportSession export = null;
+            synchronized (policyHoldLock) {
+                if (activeSceneSyncGeneration != generation) {
+                    return;
+                }
+                if (activeExportGeneration == generation) {
+                    activeExportGeneration = 0L;
+                    export = currentExport.getAndSet(null);
+                }
+                ApplyActivity activity = currentActivity.get();
+                if (activity != null && activity.generation == generation
+                    && currentActivity.compareAndSet(activity, null)) {
+                    // finish() cancels tasks and closes their endpoints while
+                    // the same lock that guards the generation check is held.
+                    // A REPLACE task that already owns this lock completes
+                    // first; otherwise its pre-native commit check observes
+                    // finished/currentActivity and cannot publish.
+                    activity.finish();
+                }
+            }
+            if (export != null) {
+                export.abort();
+            }
+        }
+
+        @Override
+        public void setCapturePaused(boolean paused) {
+            try {
+                nativeSetCapturePaused(paused);
+            } catch (UnsatisfiedLinkError e) {
+                XposedBridge.log(
+                    "[HousamoTrans] Native capture pause control is unavailable"
+                );
+            }
+        }
+
+        @Override
+        public boolean applySceneChanges(
+            long generation,
+            ParcelFileDescriptor requestReadFd,
+            ParcelFileDescriptor resultWriteFd
+        ) {
+            if (requestReadFd == null || resultWriteFd == null) {
+                closeQuietly(requestReadFd);
+                closeQuietly(resultWriteFd);
+                return false;
+            }
+            ApplyActivity activity;
+            boolean oneShot = false;
+            boolean admitted;
+            synchronized (policyHoldLock) {
+                admitted = generation > 0L
+                    && activeSceneSyncGeneration == generation;
+                activity = currentActivity.get();
+                if (admitted && activity != null
+                    && (activity.generation != generation
+                        || !activity.fullSync)) {
+                    // A one-shot manual apply owns the sole activity until
+                    // its result/abort path finishes.  Do not admit a second
+                    // request only to have the first terminal task cancel it
+                    // underneath.
+                    admitted = false;
+                }
+                if (admitted && activity == null) {
+                    ApplyActivity candidate = new ApplyActivity(
+                        1,
+                        false,
+                        generation
+                    );
+                    if (currentActivity.compareAndSet(null, candidate)) {
+                        activity = candidate;
+                        oneShot = true;
+                    } else {
+                        candidate.finish();
+                        admitted = false;
+                    }
+                }
+            }
+            if (!admitted) {
+                closeQuietly(requestReadFd);
+                closeQuietly(resultWriteFd);
+                return false;
+            }
+            // Activation may have completed immediately after the admission
+            // critical section and detached this identity.  Re-check before
+            // attaching the task; cleanup is identity-CAS only and therefore
+            // cannot clear a newer generation's activity.
+            synchronized (policyHoldLock) {
+                if (activeSceneSyncGeneration != generation
+                    || currentActivity.get() != activity) {
+                    admitted = false;
+                }
+            }
+            if (!admitted) {
+                closeQuietly(requestReadFd);
+                closeQuietly(resultWriteFd);
+                if (oneShot) {
+                    currentActivity.compareAndSet(activity, null);
+                    activity.finish();
+                }
+                return false;
+            }
+            ApplyTask task = new ApplyTask(
+                activity,
+                oneShot,
+                requestReadFd,
+                resultWriteFd
+            );
+            activity.activeTasks.add(task);
+            try {
+                activity.executor.execute(task);
+                return true;
+            } catch (RejectedExecutionException e) {
+                activity.activeTasks.remove(task);
+                task.cancel();
+                if (oneShot) {
+                    currentActivity.compareAndSet(activity, null);
+                    activity.finish();
+                }
+                return false;
+            }
+        }
+
+        private void close() {
+            resetSceneProductionPolicyForConnectionLoss();
+        }
+
+        private void abortCurrentSyncActivity() {
+            SceneMirrorExportCoordinator.ExportSession export;
+            ApplyActivity activity;
+            synchronized (policyHoldLock) {
+                export = currentExport.getAndSet(null);
+                activeExportGeneration = 0L;
+                activity = currentActivity.getAndSet(null);
+            }
+            if (export != null) {
+                export.abort();
+            }
+            if (activity != null) {
+                activity.finish();
+            }
+        }
+
+        private boolean isSceneSyncGenerationCurrent(long generation) {
+            synchronized (policyHoldLock) {
+                return generation > 0L
+                    && activeSceneSyncGeneration == generation;
+            }
+        }
+
+        private final class ApplyActivity {
+            private final boolean fullSync;
+            private final long generation;
+            private final ThreadPoolExecutor executor;
+            private final Set<ApplyTask> activeTasks =
+                ConcurrentHashMap.newKeySet();
+            private final AtomicBoolean finished = new AtomicBoolean();
+
+            private ApplyActivity(
+                int workerCount,
+                boolean fullSync,
+                long generation
+            ) {
+                this.fullSync = fullSync;
+                this.generation = generation;
+                executor = new ThreadPoolExecutor(
+                    workerCount,
+                    workerCount,
+                    0L,
+                    TimeUnit.MILLISECONDS,
+                    new ArrayBlockingQueue<>(workerCount),
+                    runnable -> {
+                        Thread thread = new Thread(
+                            runnable,
+                            "HET-game-scene-apply"
+                        );
+                        thread.setDaemon(true);
+                        return thread;
+                    },
+                    new ThreadPoolExecutor.AbortPolicy()
+                );
+            }
+
+            private void finish() {
+                if (!finished.compareAndSet(false, true)) {
+                    return;
+                }
+                for (ApplyTask task : activeTasks) {
+                    task.cancel();
+                }
+                for (Runnable pending : executor.shutdownNow()) {
+                    if (pending instanceof ApplyTask) {
+                        ((ApplyTask) pending).cancel();
+                    }
+                }
+            }
+        }
+
+        private final class ApplyTask implements Runnable {
+            private final ApplyActivity activity;
+            private final boolean oneShot;
+            private final ParcelFileDescriptor requestReadFd;
+            private final ParcelFileDescriptor resultWriteFd;
+            private final AtomicReference<SceneStore.RawSceneWriteSession>
+                stagedWrite = new AtomicReference<>();
+            private final AtomicBoolean cancelled = new AtomicBoolean();
+
+            private ApplyTask(
+                ApplyActivity activity,
+                boolean oneShot,
+                ParcelFileDescriptor requestReadFd,
+                ParcelFileDescriptor resultWriteFd
+            ) {
+                this.activity = activity;
+                this.oneShot = oneShot;
+                this.requestReadFd = requestReadFd;
+                this.resultWriteFd = resultWriteFd;
+            }
+
+            @Override
+            public void run() {
+                if (cancelled.get()
+                    || !isSceneSyncGenerationCurrent(activity.generation)) {
+                    closeEndpoints();
+                    finishActivityIfTerminal(false);
+                    return;
+                }
+                SceneStore.RawSceneWriteSession write = null;
+                boolean success = false;
+                boolean terminalCommand = false;
+                boolean deleteCommand = false;
+                int resultCode = SceneSyncWireCodec.APPLY_INTERNAL_FAILURE;
+                try (
+                    InputStream input =
+                        new ParcelFileDescriptor.AutoCloseInputStream(
+                            requestReadFd
+                        );
+                    OutputStream output =
+                        new ParcelFileDescriptor.AutoCloseOutputStream(
+                            resultWriteFd
+                        )
+                ) {
+                    try {
+                        SceneSyncWireCodec.ApplyRequest request =
+                            SceneSyncWireCodec.decodeApplyRequest(
+                                input,
+                                (sceneName, bodyLength, body) -> {
+                                    if (cancelled.get()
+                                        || !isSceneSyncGenerationCurrent(
+                                            activity.generation
+                                        )) {
+                                        throw new IOException(
+                                            "Scene apply was cancelled"
+                                        );
+                                    }
+                                    if (stagedWrite.get() != null) {
+                                        throw new SceneSyncWireCodec.ProtocolException(
+                                            "multiple WRITE_SCENE bodies"
+                                        );
+                                    }
+                                    SceneStore.RawSceneWriteSession staged =
+                                        sceneStore.beginRawSceneWrite(sceneName);
+                                    stagedWrite.set(staged);
+                                    staged.copyFrom(body, bodyLength);
+                                }
+                            );
+                        terminalCommand =
+                            request.command.type
+                                == SceneSyncWireCodec.RecordType.REPLACE_BLOCKED_SCENES;
+                        deleteCommand =
+                            request.command.type
+                                == SceneSyncWireCodec.RecordType.DELETE_SCENE;
+                        if (!isSceneSyncGenerationCurrent(activity.generation)) {
+                            throw new IOException(
+                                "Scene apply generation is no longer current"
+                            );
+                        }
+                        switch (request.command.type) {
+                            case WRITE_SCENE:
+                                if (stagedWrite.get() == null) {
+                                    throw new SceneSyncWireCodec.ProtocolException(
+                                        "WRITE_SCENE body is missing"
+                                    );
+                                }
+                                write = stagedWrite.get();
+                                synchronized (policyHoldLock) {
+                                    ensureCommitAllowedLocked();
+                                    write.commit();
+                                }
+                                success = true;
+                                resultCode = SceneSyncWireCodec.APPLY_NONE;
+                                break;
+                            case DELETE_SCENE:
+                                if (stagedWrite.get() != null) {
+                                    throw new SceneSyncWireCodec.ProtocolException(
+                                        "DELETE_SCENE carried a Scene body"
+                                    );
+                                }
+                                synchronized (policyHoldLock) {
+                                    ensureCommitAllowedLocked();
+                                    sceneStore.deleteSceneForSync(
+                                        request.command.sceneName
+                                    );
+                                }
+                                success = true;
+                                resultCode = SceneSyncWireCodec.APPLY_NONE;
+                                break;
+                            case REPLACE_BLOCKED_SCENES:
+                                if (stagedWrite.get() != null) {
+                                    throw new SceneSyncWireCodec.ProtocolException(
+                                        "policy command carried a Scene body"
+                                    );
+                                }
+                                boolean policyUpdated;
+                                synchronized (policyHoldLock) {
+                                    if (activeSceneSyncGeneration
+                                        != activity.generation
+                                        || activity.finished.get()
+                                        || cancelled.get()
+                                        || currentActivity.get() != activity) {
+                                        throw new IOException(
+                                            "Scene policy generation is no "
+                                                + "longer current or was "
+                                                + "aborted"
+                                        );
+                                    }
+                                    try {
+                                        policyUpdated =
+                                            nativeReplaceBlockedScenes(
+                                                request.command.blockedScenes
+                                                    .toArray(new String[0])
+                                            );
+                                    } catch (UnsatisfiedLinkError e) {
+                                        policyUpdated = false;
+                                        XposedBridge.log(
+                                            "[HousamoTrans] Native blocked "
+                                                + "Scene policy update is "
+                                                + "unavailable"
+                                        );
+                                    }
+                                }
+                                if (!policyUpdated) {
+                                    resultCode =
+                                        SceneSyncWireCodec.APPLY_POLICY_UPDATE_FAILED;
+                                } else {
+                                    success = true;
+                                    resultCode = SceneSyncWireCodec.APPLY_NONE;
+                                }
+                                break;
+                            default:
+                                throw new SceneSyncWireCodec.ProtocolException(
+                                    "only WRITE_SCENE, DELETE_SCENE, or "
+                                        + "REPLACE_BLOCKED_SCENES "
+                                        + "is accepted"
+                                );
+                        }
+                    } catch (SceneSyncWireCodec.ProtocolException e) {
+                        resultCode = cancelled.get()
+                            ? SceneSyncWireCodec.APPLY_OPERATION_CANCELED
+                            : SceneSyncWireCodec.APPLY_REQUEST_PROTOCOL_INVALID;
+                    } catch (SceneStore.RawSceneWriteFailure e) {
+                        resultCode = cancelled.get()
+                            ? SceneSyncWireCodec.APPLY_OPERATION_CANCELED
+                            : SceneSyncWireCodec.APPLY_WRITE_FAILED;
+                    } catch (IOException e) {
+                        resultCode = cancelled.get()
+                            ? SceneSyncWireCodec.APPLY_OPERATION_CANCELED
+                            : stagedWrite.get() != null
+                                ? SceneSyncWireCodec.APPLY_WRITE_FAILED
+                                : deleteCommand
+                                    ? SceneSyncWireCodec.APPLY_DELETE_FAILED
+                                : SceneSyncWireCodec.APPLY_REQUEST_STREAM_FAILED;
+                    } catch (RuntimeException e) {
+                        resultCode = SceneSyncWireCodec.APPLY_INTERNAL_FAILURE;
+                        XposedBridge.log(
+                            "[HousamoTrans] Scene apply task failed: "
+                                + e.getClass().getSimpleName()
+                                + ": "
+                                + e.getMessage()
+                        );
+                    } finally {
+                        SceneStore.RawSceneWriteSession staged =
+                            stagedWrite.get();
+                        if (!success && staged != null) {
+                            staged.abort();
+                        }
+                    }
+                    try {
+                        SceneSyncWireCodec.writeApplyResult(
+                            output,
+                            success,
+                            resultCode
+                        );
+                        output.flush();
+                    } catch (IOException e) {
+                        XposedBridge.log(
+                            "[HousamoTrans] Could not return Scene apply result: "
+                                + e.getMessage()
+                        );
+                    }
+                } catch (IOException e) {
+                    // Either endpoint was closed/rejected before a result
+                    // could be emitted; the staged file has already been
+                    // failed above when applicable.
+                    SceneStore.RawSceneWriteSession staged =
+                        stagedWrite.get();
+                    if (staged != null && !success) {
+                        staged.abort();
+                    }
+                } finally {
+                    closeEndpoints();
+                    finishActivityIfTerminal(terminalCommand);
+                }
+            }
+
+            private void finishActivityIfTerminal(boolean terminalCommand) {
+                activity.activeTasks.remove(this);
+                if (oneShot || terminalCommand) {
+                    currentActivity.compareAndSet(activity, null);
+                    activity.finish();
+                }
+            }
+
+            /**
+             * Linearizes the final Scene file side effect with generation
+             * deactivation.  Request-body decoding intentionally happens
+             * outside policyHoldLock; only commit/delete uses this boundary.
+             */
+            private void ensureCommitAllowedLocked() throws IOException {
+                if (activeSceneSyncGeneration != activity.generation
+                    || activity.finished.get()
+                    || cancelled.get()
+                    || currentActivity.get() != activity) {
+                    throw new IOException(
+                        "Scene apply generation is no longer current or was "
+                            + "aborted"
+                    );
+                }
+            }
+
+            private void cancel() {
+                cancelled.set(true);
+                // Close the pipe first: copyFrom may be blocked in the
+                // bounded request body, and its synchronized write-session
+                // monitor must not be needed to unblock that read.
+                closeEndpoints();
+                SceneStore.RawSceneWriteSession staged = stagedWrite.get();
+                if (staged != null) {
+                    staged.abort();
+                }
+            }
+
+            private void closeEndpoints() {
+                closeQuietly(requestReadFd);
+                closeQuietly(resultWriteFd);
+            }
+        }
+    }
+
+    private static void closeQuietly(ParcelFileDescriptor descriptor) {
+        if (descriptor == null) {
+            return;
+        }
+        try {
+            descriptor.close();
+        } catch (IOException ignored) {
+        }
+    }
 
     private static final class RVA {
         long findScenarioData = 0;
@@ -216,136 +1170,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         boolean overwriteExistingJson;
         String targetLanguage;
         String gameVersion;
-        TranslationConfig translationConfig;
     }
 
     @FunctionalInterface
     private interface StartupJsonValidator {
         void validate(JSONObject json) throws Exception;
-    }
-
-    private static final class TranslationConfig {
-        final String protocol;
-        final String apiUrl;
-        final String model;
-        final int networkRetryCount;
-        final int resultRepairCount;
-        final boolean dumpFailedApiResponse;
-        final String apiKey;
-        final String systemPrompt;
-        final String responseSchema;
-
-        TranslationConfig(
-            String protocol,
-            String apiUrl,
-            String model,
-            int networkRetryCount,
-            int resultRepairCount,
-            boolean dumpFailedApiResponse,
-            String apiKey,
-            String systemPrompt,
-            String responseSchema
-        ) {
-            this.protocol = protocol;
-            this.apiUrl = apiUrl;
-            this.model = model;
-            this.networkRetryCount = networkRetryCount;
-            this.resultRepairCount = resultRepairCount;
-            this.dumpFailedApiResponse = dumpFailedApiResponse;
-            this.apiKey = apiKey;
-            this.systemPrompt = systemPrompt;
-            this.responseSchema = responseSchema;
-        }
-
-        TranslationConfig withRuntimeValues(
-            String apiKey,
-            String systemPrompt,
-            String responseSchema
-        ) {
-            return new TranslationConfig(
-                protocol,
-                apiUrl,
-                model,
-                networkRetryCount,
-                resultRepairCount,
-                dumpFailedApiResponse,
-                apiKey,
-                systemPrompt,
-                responseSchema
-            );
-        }
-    }
-
-    private static final class HttpResult {
-        final int statusCode;
-        final String body;
-
-        HttpResult(int statusCode, String body) {
-            this.statusCode = statusCode;
-            this.body = body;
-        }
-    }
-
-    private static final class TranslationValidationResult {
-        final String summary;
-        final Map<Integer, String> acceptedTranslations = new HashMap<>();
-        final Map<Integer, String> rejectedReasons = new HashMap<>();
-
-        TranslationValidationResult(String summary) {
-            this.summary = summary;
-        }
-    }
-
-    private static final class LineBreakProfile {
-        final int leadingCount;
-        final ArrayList<Integer> internalRuns;
-        final int trailingCount;
-
-        LineBreakProfile(
-            int leadingCount,
-            ArrayList<Integer> internalRuns,
-            int trailingCount
-        ) {
-            this.leadingCount = leadingCount;
-            this.internalRuns = internalRuns;
-            this.trailingCount = trailingCount;
-        }
-
-        boolean hasSameStructure(LineBreakProfile other) {
-            return other != null
-                && leadingCount == other.leadingCount
-                && trailingCount == other.trailingCount
-                && internalRuns.equals(other.internalRuns);
-        }
-
-        @Override
-        public String toString() {
-            return "{leading="
-                + leadingCount
-                + ", internal_runs="
-                + internalRuns
-                + ", trailing="
-                + trailingCount
-                + "}";
-        }
-    }
-
-    private static final class TextNormalizationResult {
-        final String text;
-        final boolean removedUnexpectedTrailingLineBreaks;
-        final boolean restoredLiteralTrailingLineBreaks;
-
-        TextNormalizationResult(
-            String text,
-            boolean removedUnexpectedTrailingLineBreaks,
-            boolean restoredLiteralTrailingLineBreaks
-        ) {
-            this.text = text;
-            this.removedUnexpectedTrailingLineBreaks =
-                removedUnexpectedTrailingLineBreaks;
-            this.restoredLiteralTrailingLineBreaks =
-                restoredLiteralTrailingLineBreaks;
-        }
     }
 
     // Tools
@@ -400,7 +1229,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static String readModuleAsset(String name) throws Exception {
         // 获取模块 APK 路径并读取 assets 目录下的指定文件内容
         try (ZipFile zip = new ZipFile(sModulePath)) {
-            
+
             String assetPath = bundledAssetPath(name);
             ZipEntry entry = zip.getEntry("assets/" + assetPath);
             if (entry == null) {
@@ -408,19 +1237,15 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             }
 
             try (InputStream input = zip.getInputStream(entry)) {
-                return readUtf8(input);
+                return IoUtils.readUtf8Limited(input, -1);
             }
         }
     }
 
     private static String bundledAssetPath(String name) {
         if (CHARDICT_FILE_NAME.equals(name)
-            || GAMETERMS_FILE_NAME.equals(name)
-            || PROMPT_FILE_NAME.equals(name)) {
+            || GAMETERMS_FILE_NAME.equals(name)) {
             return TERM_ASSET_DIRECTORY + name;
-        }
-        if (TRANSLATION_SCHEMA_FILE_NAME.equals(name)) {
-            return SCHEMA_ASSET_DIRECTORY + name;
         }
         return name;
     }
@@ -429,7 +1254,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         throws Exception {
         Uri uri = new Uri.Builder()
             .scheme("content")
-            .authority(USER_FILES_AUTHORITY)
+            .authority(HetBridgeContract.USER_FILES_AUTHORITY)
             .appendPath(name)
             .build();
 
@@ -446,7 +1271,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         try (InputStream input = context.getContentResolver().openInputStream(uri)) {
             if (input != null) {
                 XposedBridge.log("[HousamoTrans] Using user override: " + name);
-                return readUtf8(input);
+                return IoUtils.readUtf8Limited(input, -1);
             }
         } catch (Exception e) {
             XposedBridge.log(
@@ -459,285 +1284,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
 
         return readModuleAsset(name);
-    }
-
-    private static String readUtf8(InputStream input) throws Exception {
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
-            int read;
-
-            while ((read = input.read(buffer)) != -1) {
-                output.write(buffer, 0, read);
-            }
-
-            return output.toString(StandardCharsets.UTF_8.name());
-        }
-    }
-
-    private static String readApiKey(Context context) {
-        try {
-            Bundle result = context.getContentResolver().call(
-                USER_FILES_AUTHORITY,
-                HetBridgeContract.METHOD_GET_API_KEY,
-                null,
-                null
-            );
-            return result == null
-                ? ""
-                : result.getString(HetBridgeContract.RESULT_API_KEY, "");
-        } catch (RuntimeException e) {
-            XposedBridge.log(
-                "[HousamoTrans] Could not read API key from module provider: "
-                    + e.getClass().getSimpleName()
-            );
-            return "";
-        }
-    }
-
-    /** Called by Native after a scene file has been committed in the game directory. */
-    private static boolean storeScene(byte[] sceneBytes) {
-        Context context = sTargetContext;
-        if (context == null
-            || sceneBytes == null
-            || sceneBytes.length == 0
-            || sceneBytes.length > SceneStore.MAX_SCENE_BYTES) {
-            return false;
-        }
-
-        try {
-            JSONObject scene = new JSONObject(new String(
-                sceneBytes,
-                StandardCharsets.UTF_8
-            ));
-            String fileName = SceneStore.fileNameForScene(scene.getString("scene"));
-            Uri uri = sceneUri(fileName);
-            try (OutputStream output = context.getContentResolver()
-                .openOutputStream(uri, "wt")) {
-                if (output == null) {
-                    return false;
-                }
-                output.write(sceneBytes);
-                output.flush();
-            }
-            return true;
-        } catch (Exception e) {
-            XposedBridge.log(
-                "[HousamoTrans] Could not mirror generated scene: "
-                    + e.getClass().getSimpleName()
-                    + ": "
-                    + e.getMessage()
-            );
-            return false;
-        }
-    }
-
-    private static void startSceneMirrorSync(Context context, File targetSceneDirectory) {
-        Thread worker = new Thread(
-            () -> syncSceneMirror(context, targetSceneDirectory),
-            "HET-scene-sync"
-        );
-        worker.setDaemon(true);
-        worker.start();
-    }
-
-    private static void syncSceneMirror(Context context, File targetSceneDirectory) {
-        try {
-            Bundle result = context.getContentResolver().call(
-                USER_FILES_AUTHORITY,
-                HetBridgeContract.METHOD_LIST_SCENES,
-                null,
-                null
-            );
-            ArrayList<String> listed = result == null
-                ? null
-                : result.getStringArrayList(HetBridgeContract.RESULT_SCENES);
-            ArrayList<String> deletedList = result == null
-                ? null
-                : result.getStringArrayList(
-                    HetBridgeContract.RESULT_DELETED_SCENES
-                );
-            Set<String> mirroredSceneNames = listed == null
-                ? new HashSet<>()
-                : new HashSet<>(listed);
-            Set<String> deletedSceneNames = deletedList == null
-                ? new HashSet<>()
-                : new HashSet<>(deletedList);
-
-            int deletedCount = 0;
-            for (String sceneName : deletedSceneNames) {
-                if (!SceneStore.isValidSceneName(sceneName)) {
-                    continue;
-                }
-                String fileName = SceneStore.fileNameForScene(sceneName);
-                File localFile = new File(targetSceneDirectory, fileName);
-                if (localFile.isFile()
-                    || new File(localFile.getPath() + ".bak").isFile()) {
-                    new AtomicFile(localFile).delete();
-                    deletedCount++;
-                }
-            }
-            mirroredSceneNames.removeAll(deletedSceneNames);
-
-            int pulled = 0;
-            for (String sceneName : mirroredSceneNames) {
-                if (!SceneStore.isValidSceneName(sceneName)) {
-                    continue;
-                }
-                String fileName = SceneStore.fileNameForScene(sceneName);
-                try (InputStream input = context.getContentResolver()
-                    .openInputStream(sceneUri(fileName))) {
-                    if (input == null) {
-                        continue;
-                    }
-                    writeAtomically(
-                        new File(targetSceneDirectory, fileName),
-                        readBounded(input)
-                    );
-                    pulled++;
-                } catch (Exception e) {
-                    XposedBridge.log(
-                        "[HousamoTrans] Could not pull scene "
-                            + sceneName
-                            + ": "
-                            + e.getClass().getSimpleName()
-                    );
-                }
-            }
-
-            int pushed = 0;
-            File[] localFiles = targetSceneDirectory.listFiles(
-                file -> file.isFile() && file.getName().endsWith(".json")
-            );
-            if (localFiles != null) {
-                for (File file : localFiles) {
-                    final String sceneName;
-                    try {
-                        sceneName = SceneStore.sceneNameForFileName(file.getName());
-                    } catch (IllegalArgumentException e) {
-                        continue;
-                    }
-                    if (mirroredSceneNames.contains(sceneName)
-                        || deletedSceneNames.contains(sceneName)) {
-                        continue;
-                    }
-                    try (InputStream input = new FileInputStream(file)) {
-                        if (storeScene(readBounded(input))) {
-                            pushed++;
-                        }
-                    } catch (Exception e) {
-                        XposedBridge.log(
-                            "[HousamoTrans] Could not push scene "
-                                + sceneName
-                                + ": "
-                                + e.getClass().getSimpleName()
-                        );
-                    }
-                }
-            }
-
-            XposedBridge.log(
-                "[HousamoTrans] Scene mirror synchronized: pulled="
-                    + pulled
-                    + " pushed="
-                    + pushed
-                    + " deleted="
-                    + deletedCount
-            );
-        } catch (Exception e) {
-            XposedBridge.log(
-                "[HousamoTrans] Scene mirror sync failed: "
-                    + e.getClass().getSimpleName()
-                    + ": "
-                    + e.getMessage()
-            );
-        }
-    }
-
-    private static Uri sceneUri(String fileName) {
-        return new Uri.Builder()
-            .scheme("content")
-            .authority(USER_FILES_AUTHORITY)
-            .appendPath(SceneStore.DIRECTORY_NAME)
-            .appendPath(fileName)
-            .build();
-    }
-
-    private static byte[] readBounded(InputStream input) throws IOException {
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
-            int total = 0;
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                total += read;
-                if (total > SceneStore.MAX_SCENE_BYTES) {
-                    throw new IOException("scene file exceeds 32 MiB");
-                }
-                output.write(buffer, 0, read);
-            }
-            return output.toByteArray();
-        }
-    }
-
-    private static void writeAtomically(File file, byte[] bytes) throws IOException {
-        AtomicFile atomicFile = new AtomicFile(file);
-        FileOutputStream output = null;
-        try {
-            output = atomicFile.startWrite();
-            output.write(bytes);
-            atomicFile.finishWrite(output);
-        } catch (IOException e) {
-            if (output != null) {
-                atomicFile.failWrite(output);
-            }
-            throw e;
-        }
-    }
-
-    private static void dumpFailedApiResponse(
-        String sceneName,
-        String responseBody,
-        TranslationConfig config
-    ) {
-        if (!config.dumpFailedApiResponse
-            || sceneName == null
-            || responseBody == null) {
-            return;
-        }
-
-        File directory = sFailedApiDirectory;
-        if (directory == null) {
-            XposedBridge.log(
-                "[HousamoTrans] Failed API response was not saved: "
-                    + "output directory is not initialized"
-            );
-            return;
-        }
-
-        try {
-            if (!directory.isDirectory() && !directory.mkdirs()) {
-                throw new IOException("could not create " + directory);
-            }
-
-            String fileName = FAILED_API_FILE_PREFIX
-                + SceneStore.fileNameForScene(sceneName);
-            File outputFile = new File(directory, fileName);
-            byte[] responseBytes = redactSecret(responseBody, config.apiKey)
-                .getBytes(StandardCharsets.UTF_8);
-            writeAtomically(outputFile, responseBytes);
-            XposedBridge.log(
-                "[HousamoTrans] Failed API response saved path="
-                    + outputFile.getAbsolutePath()
-                    + " bytes="
-                    + responseBytes.length
-            );
-        } catch (Exception e) {
-            XposedBridge.log(
-                "[HousamoTrans] Could not save failed API response: "
-                    + e.getClass().getSimpleName()
-                    + ": "
-                    + safeMessage(e)
-            );
-        }
     }
 
     private static RVA Init_RVA(JSONObject json) throws Exception {
@@ -894,43 +1440,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return json.getString("GameVersion");
     }
 
-    private static TranslationConfig Init_TranslationConfig(JSONObject json)
-        throws Exception {
-        JSONObject userSettings = json.getJSONObject("UserSettings");
-        JSONObject api = userSettings.getJSONObject("TranslationApi");
-        boolean hasSplitRetryCounts = api.has("NetworkRetryCount")
-            || api.has("ResultRepairCount");
-        int networkRetryCount = hasSplitRetryCounts
-            ? api.optInt(
-                "NetworkRetryCount",
-                ConfigStore.DEFAULT_NETWORK_RETRY_COUNT
-            )
-            : api.optInt(
-                "RetryCount",
-                ConfigStore.DEFAULT_NETWORK_RETRY_COUNT
-            );
-        int resultRepairCount = hasSplitRetryCounts
-            ? api.optInt(
-                "ResultRepairCount",
-                ConfigStore.DEFAULT_RESULT_REPAIR_COUNT
-            )
-            : api.optInt(
-                "RetryCount",
-                ConfigStore.DEFAULT_RESULT_REPAIR_COUNT
-            );
-        return new TranslationConfig(
-            api.optString("Protocol", "openai").trim().toLowerCase(Locale.ROOT),
-            api.optString("BaseUrl", "").trim(),
-            api.optString("Model", "").trim(),
-            networkRetryCount,
-            resultRepairCount,
-            userSettings.optBoolean("EnableFailedApiResponseDump", false),
-            "",
-            "",
-            ""
-        );
-    }
-
     private static StartupConfig parseStartupConfig(
         JSONObject userConfig,
         JSONObject runtimeConfig
@@ -951,7 +1460,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
         config.targetLanguage = Init_TargetLanguage(userConfig);
         config.gameVersion = Init_GameVersion(runtimeConfig);
-        config.translationConfig = Init_TranslationConfig(userConfig);
         return config;
     }
 
@@ -1006,7 +1514,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Init_OverwriteExistingJson(json);
         Init_TargetLanguage(json);
         ConfigStore.normalizeSceneSyncSettings(json.getJSONObject("UserSettings"));
-        Init_TranslationConfig(json);
     }
 
     private static void validateRuntimeStartupJson(JSONObject json) throws Exception {
@@ -1018,1268 +1525,450 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Init_Layout(runtimeConfigs);
     }
 
-    private static JSONObject buildOpenAIRequest(
-        TranslationConfig config,
-        String sceneJson
-    ) throws Exception {
-        JSONObject request = new JSONObject();
-        request.put("model", config.model);
-
-        String systemPrompt = config.systemPrompt
-            + "\n\n## Required response JSON Schema\n\n"
-            + config.responseSchema;
-
-        JSONArray messages = new JSONArray();
-        messages.put(new JSONObject()
-            .put("role", "system")
-            .put("content", systemPrompt));
-        messages.put(new JSONObject()
-            .put("role", "user")
-            .put("content", sceneJson));
-        request.put("messages", messages);
-
-        request.put("response_format", new JSONObject()
-            .put("type", "json_object"));
-        return request;
-    }
-
-    private static JSONObject buildAnthropicRequest(
-        TranslationConfig config,
-        String sceneJson
-    ) throws Exception {
-        JSONObject request = new JSONObject();
-        request.put("model", config.model);
-        request.put("max_tokens", ANTHROPIC_MAX_TOKENS);
-        request.put("system", config.systemPrompt);
-        request.put("messages", new JSONArray().put(new JSONObject()
-            .put("role", "user")
-            .put("content", sceneJson)));
-
-        JSONObject format = new JSONObject();
-        format.put("type", "json_schema");
-        format.put("schema", new JSONObject(config.responseSchema));
-        request.put("output_config", new JSONObject().put("format", format));
-        return request;
-    }
-
-    private static byte[] requestTranslation(byte[] requestJson) {
+    /** Deterministically binds a request ID to the exact request bytes. */
+    private static String createTranslationRequestId(byte[] requestJson) {
         if (requestJson == null || requestJson.length == 0) {
-            return errorBytes("input", 0, "request is empty");
+            throw new IllegalArgumentException("request is empty");
         }
 
-        TranslationConfig config = sTranslationConfig;
-        if (config == null) {
-            return errorBytes("config", 0, "translation config is not initialized");
-        }
+        return UUID.nameUUIDFromBytes(requestJson).toString();
+    }
 
-        String sceneName = null;
-        String lastFailedApiResponse = null;
+    /**
+     * New native-pipeline bridge. The request bytes are deliberately opaque:
+     * this method only validates their transport envelope and derives the ID
+     * from those exact bytes.
+     */
+    private static byte[] resolveTranslationRequestId(byte[] requestJson) {
+        if (requestJson == null || requestJson.length == 0) {
+            return errorBytes("input", 0, "request is empty", false);
+        }
+        if (requestJson.length > MAX_TRANSLATION_REQUEST_BYTES) {
+            return errorBytes("input", 0, "request is too large", false);
+        }
 
         try {
-            validateTranslationConfig(config);
-
-            String sceneJson = new String(requestJson, StandardCharsets.UTF_8);
-            JSONObject scene = new JSONObject(sceneJson);
-            sceneName = scene.getString("scene");
-
-            String targetLanguage = scene.getString("target_lang");
-
-            if (targetLanguage.trim().isEmpty()) {
-                throw new IllegalArgumentException("target_lang is empty");
-            }
-
-            if (scene.has("retry_seqs") || scene.has("retry_feedback")) {
-                throw new IllegalArgumentException(
-                    "retry fields are reserved for internal translation retries"
+            String requestId = createTranslationRequestId(requestJson);
+            if (requestId.isEmpty()) {
+                return errorBytes(
+                    "internal",
+                    0,
+                    "request ID resolution returned an empty ID",
+                    false
                 );
             }
-
-            Map<Integer, String> expectedTexts = collectExpectedTexts(scene);
-            Set<String> protectedLabels = collectProtectedLabels(scene);
-            Map<Integer, String> acceptedTranslations = new HashMap<>();
-            Set<Integer> pendingSeqs = new HashSet<>(expectedTexts.keySet());
-            Map<Integer, String> retryReasons = new HashMap<>();
-            String acceptedSummary = null;
-            int resultRepairsUsed = 0;
-            boolean partialRetry = false;
-
-            while (true) {
-                String currentSceneJson = partialRetry
-                    ? buildRetrySceneJson(
-                        scene,
-                        pendingSeqs,
-                        expectedTexts,
-                        retryReasons,
-                        acceptedSummary
-                    )
-                    : sceneJson;
-
-                JSONObject apiRequest;
-                if ("openai".equals(config.protocol)) {
-                    apiRequest = buildOpenAIRequest(config, currentSceneJson);
-                } else if ("anthropic".equals(config.protocol)) {
-                    apiRequest = buildAnthropicRequest(config, currentSceneJson);
-                } else {
-                    throw new IllegalArgumentException(
-                        "unsupported API protocol: " + config.protocol
-                    );
-                }
-
-                HttpResult httpResult = postJsonWithRetry(
-                    config,
-                    apiRequest.toString()
-                );
-                if (httpResult.statusCode < 200
-                    || httpResult.statusCode >= 300) {
-                    dumpFailedApiResponse(sceneName, httpResult.body, config);
-                    return errorBytes(
-                        "http",
-                        httpResult.statusCode,
-                        redactSecret(httpResult.body, config.apiKey)
-                    );
-                }
-
-                try {
-                    JSONObject translationResult = "openai".equals(config.protocol)
-                        ? extractOpenAIResult(httpResult.body)
-                        : extractAnthropicResult(httpResult.body);
-
-                    Map<Integer, String> pendingTexts = selectExpectedTexts(
-                        expectedTexts,
-                        pendingSeqs
-                    );
-                    TranslationValidationResult validation =
-                        validateTranslationResult(
-                            translationResult,
-                            pendingTexts,
-                            protectedLabels,
-                            acceptedSummary == null
-                        );
-
-                    if (acceptedSummary == null) {
-                        acceptedSummary = validation.summary;
-                    }
-
-                    retryReasons.clear();
-                    retryReasons.putAll(validation.rejectedReasons);
-
-                    acceptedTranslations.putAll(
-                        validation.acceptedTranslations
-                    );
-                    pendingSeqs.removeAll(
-                        validation.acceptedTranslations.keySet()
-                    );
-                } catch (Exception e) {
-                    lastFailedApiResponse = httpResult.body;
-                    if (resultRepairsUsed >= config.resultRepairCount) {
-                        throw e;
-                    }
-
-                    resultRepairsUsed++;
-                    XposedBridge.log(
-                        "[HousamoTrans] Repairing translation result after "
-                            + e.getClass().getSimpleName()
-                            + ": "
-                            + redactSecret(safeMessage(e), config.apiKey)
-                            + " (repair "
-                            + resultRepairsUsed
-                            + "/"
-                            + config.resultRepairCount
-                            + ")"
-                    );
-                    waitBeforeRetry(resultRepairsUsed);
-                    continue;
-                }
-
-                if (pendingSeqs.isEmpty()) {
-                    JSONObject completeResult = buildCompleteTranslationResult(
-                        acceptedSummary,
-                        expectedTexts,
-                        acceptedTranslations
-                    );
-                    return successBytes(
-                        completeResult,
-                        config,
-                        targetLanguage
-                    );
-                }
-
-                lastFailedApiResponse = httpResult.body;
-                if (resultRepairsUsed >= config.resultRepairCount) {
-                    throw new IllegalArgumentException(
-                        "translation validation failed for "
-                            + pendingSeqs.size()
-                            + " seqs"
-                    );
-                }
-
-                resultRepairsUsed++;
-                partialRetry = true;
-                XposedBridge.log(
-                    "[HousamoTrans] Repairing invalid translations count="
-                        + pendingSeqs.size()
-                        + " (repair "
-                        + resultRepairsUsed
-                        + "/"
-                        + config.resultRepairCount
-                        + ")"
-                );
-                waitBeforeRetry(resultRepairsUsed);
-            }
+            return new JSONObject()
+                .put("request_id", requestId)
+                .toString()
+                .getBytes(StandardCharsets.UTF_8);
         } catch (Exception e) {
-            dumpFailedApiResponse(sceneName, lastFailedApiResponse, config);
-            String message = redactSecret(safeMessage(e), config.apiKey);
             XposedBridge.log(
-                "[HousamoTrans] Translation request failed: "
+                "[HousamoTrans] Request ID resolution failed: "
                     + e.getClass().getSimpleName()
                     + ": "
-                    + message
+                    + safeMessage(e)
             );
-            return errorBytes("client", 0, message);
+            return errorBytes("internal", 0, safeMessage(e), false);
         }
     }
 
-    private static void validateTranslationConfig(TranslationConfig config)
-        throws Exception {
-        if (!"openai".equals(config.protocol)
-            && !"anthropic".equals(config.protocol)) {
-            throw new IllegalArgumentException(
-                "Protocol must be openai or anthropic"
+    private static byte[] submitTranslation(
+        String requestId,
+        byte[] requestJson
+    ) {
+        if (requestId == null || requestId.isEmpty()) {
+            return errorBytes("input", 0, "requestId is empty", false);
+        }
+
+        if (requestJson == null || requestJson.length == 0) {
+            return errorBytes("input", 0, "request is empty", false);
+        }
+        if (requestJson.length > MAX_TRANSLATION_REQUEST_BYTES) {
+            return errorBytes("input", 0, "request is too large", false);
+        }
+
+        TranslationServiceClient client = sTranslationClient;
+        if (client == null) {
+            return errorBytes(
+                "service",
+                0,
+                "TranslationService client is not initialized",
+                true
             );
         }
-        if (config.model.isEmpty()) {
-            throw new IllegalArgumentException("Model is empty");
-        }
-        if (config.networkRetryCount < 0
-            || config.networkRetryCount > ConfigStore.MAX_TRANSLATION_RETRY_COUNT) {
-            throw new IllegalArgumentException(
-                "NetworkRetryCount must be an integer from 0 to "
-                    + ConfigStore.MAX_TRANSLATION_RETRY_COUNT
-            );
-        }
-        if (config.resultRepairCount < 0
-            || config.resultRepairCount > ConfigStore.MAX_TRANSLATION_RETRY_COUNT) {
-            throw new IllegalArgumentException(
-                "ResultRepairCount must be an integer from 0 to "
-                    + ConfigStore.MAX_TRANSLATION_RETRY_COUNT
-            );
-        }
-        if (config.systemPrompt.isEmpty()) {
-            throw new IllegalArgumentException("system prompt is empty");
-        }
-        new JSONObject(config.responseSchema);
-    }
-
-    private static HttpResult postJsonWithRetry(
-        TranslationConfig config,
-        String body
-    ) throws Exception {
-        int retriesUsed = 0;
-
-        while (true) {
-            try {
-                HttpResult result = postJson(config, body);
-                if (!isRetryableHttpStatus(result.statusCode)
-                    || retriesUsed >= config.networkRetryCount) {
-                    return result;
-                }
-
-                XposedBridge.log(
-                    "[HousamoTrans] Retrying translation request after HTTP "
-                        + result.statusCode
-                        + " (retry "
-                        + (retriesUsed + 1)
-                        + "/"
-                        + config.networkRetryCount
-                        + ")"
-                );
-            } catch (IOException e) {
-                if (!isRetryableNetworkException(e)
-                    || retriesUsed >= config.networkRetryCount) {
-                    throw e;
-                }
-
-                XposedBridge.log(
-                    "[HousamoTrans] Retrying translation request after "
-                        + e.getClass().getSimpleName()
-                        + ": "
-                        + redactSecret(safeMessage(e), config.apiKey)
-                        + " (retry "
-                        + (retriesUsed + 1)
-                        + "/"
-                        + config.networkRetryCount
-                        + ")"
-                );
-            }
-
-            retriesUsed++;
-            waitBeforeRetry(retriesUsed);
-        }
-    }
-
-    private static boolean isRetryableHttpStatus(int statusCode) {
-        return statusCode == 408
-            || statusCode == 429
-            || (statusCode >= 500 && statusCode <= 599);
-    }
-
-    private static boolean isRetryableNetworkException(Throwable throwable) {
-        Throwable current = throwable;
-        while (current != null) {
-            if (current instanceof SocketTimeoutException
-                || current instanceof SocketException
-                || current instanceof UnknownHostException) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    private static void waitBeforeRetry(int retryNumber)
-        throws InterruptedException {
-        int exponent = Math.min(Math.max(retryNumber - 1, 0), 3);
-        long delayMs = Math.min(
-            HTTP_RETRY_BASE_DELAY_MS * (1L << exponent),
-            HTTP_RETRY_MAX_DELAY_MS
-        );
 
         try {
-            Thread.sleep(delayMs);
+            /*
+            * 保证 native 传回来的 requestId 确实属于这份请求。
+            * 这样不会把 ApiItem A 错误绑定到请求 B。
+            */
+            String expectedRequestId =
+                createTranslationRequestId(requestJson);
+
+            if (!expectedRequestId.equals(requestId)) {
+                return errorBytes(
+                    "input",
+                    0,
+                    "requestId does not match request payload",
+                    false
+                );
+            }
+
+            if (!client.start()) {
+                return errorBytes(
+                    "service",
+                    0,
+                    "could not start TranslationService",
+                    true
+                );
+            }
+
+            client.bind();
+
+            if (!client.awaitConnected(SERVICE_CONNECT_TIMEOUT_MS)) {
+                return errorBytes(
+                    "service",
+                    0,
+                    "TranslationService did not connect within "
+                        + SERVICE_CONNECT_TIMEOUT_MS
+                        + " ms",
+                    true
+                );
+            }
+
+            boolean created = client.enqueue(
+                requestId,
+                requestJson,
+                sOverwriteExistingJson
+            );
+
+            JSONObject accepted = new JSONObject()
+                .put("accepted", true)
+                .put("request_id", requestId)
+                .put("created", created);
+
+            XposedBridge.log(
+                "[HousamoTrans] Translation task accepted requestId="
+                    + requestId
+                    + " created="
+                    + created
+            );
+
+            return accepted
+                .toString()
+                .getBytes(StandardCharsets.UTF_8);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw e;
+
+            return errorBytes(
+                "service",
+                0,
+                "interrupted while waiting for TranslationService",
+                true
+            );
+        } catch (RemoteException e) {
+            XposedBridge.log(
+                "[HousamoTrans] TranslationService Binder submission failed: "
+                    + e.getClass().getSimpleName()
+                    + ": "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "service",
+                0,
+                safeMessage(e),
+                true
+            );
+        } catch (IOException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Translation request pipe/storage failed: "
+                    + e.getClass().getSimpleName()
+                    + ": "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "storage",
+                0,
+                safeMessage(e),
+                true
+            );
+        } catch (TranslationServiceClient.ClientClosedException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Translation client is permanently closed: "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "internal",
+                0,
+                safeMessage(e),
+                false
+            );
+        } catch (TranslationServiceClient.AdmissionRejectedException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Translation admission rejected disposition="
+                    + e.getDisposition()
+                    + ": "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                e.getDisposition(),
+                0,
+                safeMessage(e),
+                false
+            );
+        } catch (TranslationServiceClient.ServiceUnavailableException e) {
+            XposedBridge.log(
+                "[HousamoTrans] TranslationService is temporarily unavailable: "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "service",
+                0,
+                safeMessage(e),
+                true
+            );
+        } catch (IllegalArgumentException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Translation request was rejected: "
+                    + e.getClass().getSimpleName()
+                    + ": "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "input",
+                0,
+                safeMessage(e),
+                false
+            );
+        } catch (SecurityException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Translation request permission denied: "
+                    + e.getClass().getSimpleName()
+                    + ": "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "permission",
+                0,
+                safeMessage(e),
+                false
+            );
+        } catch (IllegalStateException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Unexpected translation client state: "
+                    + e.getClass().getSimpleName()
+                    + ": "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "internal",
+                0,
+                safeMessage(e),
+                false
+            );
+        } catch (RuntimeException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Unexpected translation submission failure: "
+                    + e.getClass().getSimpleName()
+                    + ": "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "internal",
+                0,
+                safeMessage(e),
+                false
+            );
+        } catch (Exception e) {
+            XposedBridge.log(
+                "[HousamoTrans] Unexpected checked translation submission failure: "
+                    + e.getClass().getSimpleName()
+                    + ": "
+                    + safeMessage(e)
+            );
+            return errorBytes(
+                "internal",
+                0,
+                safeMessage(e),
+                false
+            );
         }
     }
 
-    private static HttpResult postJson(TranslationConfig config, String body)
-        throws Exception {
-        URL url = new URL(resolveApiEndpoint(config));
-        String scheme = url.getProtocol();
-        if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) {
-            throw new IllegalArgumentException("API URL must use http or https");
-        }
+    private static void handleQuestPatch(
+        String requestId,
+        byte[] patchJson
+    ) {
+        // Quest patches are intentionally best-effort and ignored by the
+        // terminal-result delivery path.  Reading the PFD still happens in
+        // TranslationServiceClient so the Binder transport is drained, but
+        // no native or Scene write is performed here.
+        XposedBridge.log(
+            "[HousamoTrans] Ignoring Quest patch requestId=" + requestId
+        );
+    }
 
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+    private static void handleSceneResult(
+        String requestId,
+        String scene,
+        String targetLanguage,
+        byte[] resultJson
+    ) {
         try {
-            connection.setRequestMethod("POST");
-            connection.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
-            connection.setReadTimeout(HTTP_READ_TIMEOUT_MS);
-            connection.setInstanceFollowRedirects(false);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            connection.setRequestProperty("User-Agent", "HousamoEmbedTrans/1.0");
-
-            if ("openai".equals(config.protocol)) {
-                if (!config.apiKey.isEmpty()) {
-                    connection.setRequestProperty(
-                        "Authorization",
-                        "Bearer " + config.apiKey
-                    );
-                }
-            } else {
-                if (!config.apiKey.isEmpty()) {
-                    connection.setRequestProperty("x-api-key", config.apiKey);
-                }
-                connection.setRequestProperty("anthropic-version", "2023-06-01");
+            TranslationServiceClient client = sTranslationClient;
+            if (client == null
+                || !client.preflightTerminal(requestId, "completed")) {
+                XposedBridge.log(
+                    "[HousamoTrans] Ignoring completion without matching "
+                        + "pending terminal requestId=" + requestId
+                );
+                return;
             }
-
-            byte[] requestBytes = body.getBytes(StandardCharsets.UTF_8);
-            connection.setFixedLengthStreamingMode(requestBytes.length);
-            try (OutputStream output = connection.getOutputStream()) {
-                output.write(requestBytes);
+            // Keep the persisted Scene identity outside the result body.  The
+            // native bridge validates both values before it can apply a
+            // terminal result or create its receipt.
+            boolean accepted = nativeApplySceneResult(
+                requestId,
+                scene,
+                targetLanguage,
+                resultJson
+            );
+            if (!accepted) {
+                XposedBridge.log(
+                    "[HousamoTrans] Native rejected completion requestId="
+                        + requestId
+                );
+                return;
             }
+            if (!client.acknowledgeTerminal(requestId, "completed")) {
+                XposedBridge.log(
+                    "[HousamoTrans] Completion ACK was not persisted "
+                        + "requestId=" + requestId
+                );
+                return;
+            }
+            nativeAcknowledgeTranslationTerminal(requestId, "completed");
+            XposedBridge.log(
+                "[HousamoTrans] Applied Scene result requestId="
+                    + requestId
+                    + " scene="
+                    + scene
+                    + " targetLang="
+                    + targetLanguage
+            );
+        } catch (UnsatisfiedLinkError e) {
+            if (!sMissingSceneResultNativeLogged) {
+                sMissingSceneResultNativeLogged = true;
+                XposedBridge.log(
+                    "[HousamoTrans] Final scene callback reached Java, "
+                        + "but the native result bridge is unavailable; "
+                        + "the terminal remains pending for retry"
+                );
+            }
+        } catch (RemoteException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Completion preflight/ACK Binder call failed "
+                    + "requestId=" + requestId + ": " + safeMessage(e)
+            );
+        } catch (RuntimeException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Final scene callback failed requestId="
+                    + requestId
+                    + ": "
+                    + safeMessage(e)
+            );
+        }
+    }
 
-            int statusCode = connection.getResponseCode();
-            InputStream responseStream = statusCode >= 400
-                ? connection.getErrorStream()
-                : connection.getInputStream();
-            String responseBody = responseStream == null
-                ? ""
-                : readHttpBody(responseStream);
-            return new HttpResult(statusCode, responseBody);
+    private static void handleTranslationFailure(
+        String requestId,
+        String errorType,
+        String message
+    ) {
+        try {
+            TranslationServiceClient client = sTranslationClient;
+            if (client == null
+                || !client.preflightTerminal(requestId, "failed")) {
+                XposedBridge.log(
+                    "[HousamoTrans] Ignoring failure without matching "
+                        + "pending terminal requestId=" + requestId
+                );
+                return;
+            }
+            boolean accepted = nativeOnTranslationFailed(
+                requestId,
+                errorType,
+                message
+            );
+            if (accepted && client.acknowledgeTerminal(requestId, "failed")) {
+                nativeAcknowledgeTranslationTerminal(requestId, "failed");
+                XposedBridge.log(
+                    "[HousamoTrans] Failure ACK persisted requestId="
+                        + requestId
+                );
+            }
+        } catch (UnsatisfiedLinkError e) {
+            if (!sMissingFailureNativeLogged) {
+                sMissingFailureNativeLogged = true;
+                XposedBridge.log(
+                    "[HousamoTrans] Failure callback reached Java, "
+                        + "but the native failure bridge is unavailable; "
+                        + "the terminal remains pending for retry"
+                );
+            }
+        } catch (RemoteException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Failure preflight/ACK Binder call failed "
+                    + "requestId=" + requestId + ": " + safeMessage(e)
+            );
+        } catch (RuntimeException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Native failure callback failed requestId="
+                    + requestId
+                    + ": "
+                    + safeMessage(e)
+            );
         } finally {
-            connection.disconnect();
-        }
-    }
-
-    private static String resolveApiEndpoint(TranslationConfig config) {
-        String baseUrl = config.apiUrl.trim();
-        if (baseUrl.isEmpty()) {
-            baseUrl = "openai".equals(config.protocol)
-                ? "https://api.openai.com/v1"
-                : "https://api.anthropic.com";
-        }
-
-        while (baseUrl.endsWith("/")) {
-            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
-        }
-
-        if ("openai".equals(config.protocol)) {
-            if (baseUrl.endsWith("/chat/completions")) {
-                return baseUrl;
-            }
-            return baseUrl.endsWith("/v1")
-                ? baseUrl + "/chat/completions"
-                : baseUrl + "/v1/chat/completions";
-        }
-
-        if (baseUrl.endsWith("/v1/messages")) {
-            return baseUrl;
-        }
-        return baseUrl.endsWith("/v1")
-            ? baseUrl + "/messages"
-            : baseUrl + "/v1/messages";
-    }
-
-    private static String readHttpBody(InputStream input) throws IOException {
-        try (InputStream source = input;
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
-            int total = 0;
-            int read;
-            while ((read = source.read(buffer)) != -1) {
-                total += read;
-                if (total > MAX_HTTP_RESPONSE_BYTES) {
-                    throw new IOException("API response is larger than 16 MiB");
-                }
-                output.write(buffer, 0, read);
-            }
-            return output.toString(StandardCharsets.UTF_8.name());
-        }
-    }
-
-    private static JSONObject extractOpenAIResult(String body) throws Exception {
-        JSONObject response = new JSONObject(body);
-        JSONArray choices = response.getJSONArray("choices");
-        if (choices.length() != 1) {
-            throw new IllegalArgumentException("OpenAI response must contain exactly one choice");
-        }
-
-        JSONObject choice = choices.getJSONObject(0);
-
-        String finishReason = choice.optString("finish_reason", "");
-        if (!finishReason.equals("stop")) {
-            throw new IllegalArgumentException(
-                "OpenAI generation did not finish normally: "
-                + (finishReason.isEmpty() ? "<missing>" : finishReason)
-            );
-        }
-        JSONObject message = choice.getJSONObject("message");
-
-        if (!message.isNull("refusal")) {
-            String refusal = message.optString("refusal", "");
-            if (!refusal.isEmpty()) {
-                throw new IllegalArgumentException("model refused the request: " + refusal);
-            }
-        }
-
-        return parseJsonContent(message.opt("content"), "OpenAI");
-    }
-
-    private static JSONObject extractAnthropicResult(String body) throws Exception {
-        JSONObject response = new JSONObject(body);
-
-        String responseType = response.optString("type", "");
-
-        if (!responseType.equals("message")) {
-            throw new IllegalArgumentException(
-                "Anthropic response type is not 'message': "
-                    + (responseType.isEmpty() ? "<missing>" : responseType)
-            );
-        }
-
-        String stopReason = response.optString("stop_reason", "");
-        if (!stopReason.equals("end_turn")) {
-            throw new IllegalArgumentException(
-                "Anthropic generation did not finish normally: "
-                    + (stopReason.isEmpty() ? "<missing>" : stopReason)
-            );
-        }
-
-        JSONArray content = response.getJSONArray("content");
-
-        Object textContent = null;
-        int textBlockCount = 0;
-
-        for (int index = 0; index < content.length(); index++) {
-            JSONObject block = content.optJSONObject(index);
-            if (block == null) {
-                throw new IllegalArgumentException(
-                    "Anthropic response content block is not a JSON object"
-                );
-            }
-            Object blockText = block.opt("text");
-            if (block.optString("type", "").equals("text") && blockText instanceof String) {
-                textContent = blockText;
-                textBlockCount++;
-            } else {
-                throw new IllegalArgumentException(
-                    "Anthropic response content block is not a text block"
-                );
-            }
-        }
-
-        if (textBlockCount != 1) {
-            throw new IllegalArgumentException("Anthropic response must contain exactly one text block");
-        }
-
-        return parseJsonContent(textContent, "Anthropic");
-    }
-
-    private static JSONObject parseJsonContent(Object content, String provider)
-        throws Exception {
-        if (content instanceof JSONObject) {
-            return (JSONObject) content;
-        }
-        if (!(content instanceof String) || ((String) content).trim().isEmpty()) {
-            throw new IllegalArgumentException(provider + " response content is empty");
-        }
-        return new JSONObject(((String) content).trim());
-    }
-
-    private static Map<Integer, String> collectExpectedTexts(JSONObject scene)
-        throws Exception {
-        Map<Integer, String> expected = new HashMap<>();
-        collectExpectedTexts(scene, expected);
-        if (expected.isEmpty()) {
-            throw new IllegalArgumentException("scene contains no translatable seq entries");
-        }
-        return expected;
-    }
-
-    private static void collectExpectedTexts(
-        Object value,
-        Map<Integer, String> expected
-    ) throws Exception {
-        if (value instanceof JSONObject) {
-            JSONObject object = (JSONObject) value;
-            if (object.has("seq") && object.has("text")) {
-                Object seqValue = object.get("seq");
-                Object textValue = object.get("text");
-                if (!(seqValue instanceof Number) || !(textValue instanceof String)) {
-                    throw new IllegalArgumentException("seq/text entry has invalid types");
-                }
-
-                int seq = requirePositiveInteger(seqValue, "input seq");
-                if (seq < 1 || expected.put(seq, (String) textValue) != null) {
-                    throw new IllegalArgumentException("duplicate or invalid seq: " + seq);
-                }
-            }
-
-            Iterator<String> keys = object.keys();
-            while (keys.hasNext()) {
-                collectExpectedTexts(object.get(keys.next()), expected);
-            }
-        } else if (value instanceof JSONArray) {
-            JSONArray array = (JSONArray) value;
-            for (int index = 0; index < array.length(); index++) {
-                collectExpectedTexts(array.get(index), expected);
-            }
-        }
-    }
-
-    private static Set<String> collectProtectedLabels(JSONObject scene)
-        throws Exception {
-        Set<String> labels = new HashSet<>();
-        JSONArray protect = scene.optJSONArray("protect");
-        if (protect == null) {
-            return labels;
-        }
-
-        for (int index = 0; index < protect.length(); index++) {
-            JSONObject item = protect.getJSONObject(index);
-            String label = item.getString("label");
-            if (!label.isEmpty()) {
-                labels.add(label);
-            }
-        }
-        return labels;
-    }
-
-    private static TextNormalizationResult normalizeUnexpectedTrailingLineBreaks(
-        String sourceText,
-        String translatedText
-    ) {
-        if (sourceText == null
-            || translatedText == null
-            || endsWithLineBreak(sourceText)
-            || !endsWithLineBreak(translatedText)) {
-            return new TextNormalizationResult(translatedText, false, false);
-        }
-
-        int end = translatedText.length();
-        while (end > 0) {
-            char value = translatedText.charAt(end - 1);
-            if (value != '\r' && value != '\n') {
-                break;
-            }
-            end--;
-        }
-        String normalized = translatedText.substring(0, end);
-        String literalSuffix = trailingLiteralLineBreakSuffix(sourceText);
-        boolean restoredLiteralSuffix = false;
-
-        if (!literalSuffix.isEmpty()
-            && !normalized.endsWith(literalSuffix)
-            && missingEscapesExactlyMatchSuffix(
-                sourceText,
-                normalized,
-                literalSuffix
-            )) {
-            normalized += literalSuffix;
-            restoredLiteralSuffix = true;
-        }
-
-        return new TextNormalizationResult(
-            normalized,
-            true,
-            restoredLiteralSuffix
-        );
-    }
-
-    private static String trailingLiteralLineBreakSuffix(String text) {
-        if (text == null || text.length() < 2) {
-            return "";
-        }
-
-        int start = text.length();
-        while (start >= 2
-            && text.charAt(start - 2) == '\\'
-            && (text.charAt(start - 1) == 'n'
-                || text.charAt(start - 1) == 'r')) {
-            start -= 2;
-        }
-        return start == text.length() ? "" : text.substring(start);
-    }
-
-    private static boolean missingEscapesExactlyMatchSuffix(
-        String sourceText,
-        String translatedText,
-        String sourceSuffix
-    ) {
-        Map<String, Integer> expected = escapedSequenceCounts(sourceText);
-        Map<String, Integer> actual = escapedSequenceCounts(translatedText);
-        Map<String, Integer> suffix = escapedSequenceCounts(sourceSuffix);
-        Set<String> sequences = new HashSet<>();
-        sequences.addAll(expected.keySet());
-        sequences.addAll(actual.keySet());
-        sequences.addAll(suffix.keySet());
-
-        for (String sequence : sequences) {
-            int missing = expected.getOrDefault(sequence, 0)
-                - actual.getOrDefault(sequence, 0);
-            if (missing != suffix.getOrDefault(sequence, 0)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean endsWithLineBreak(String text) {
-        if (text == null || text.isEmpty()) {
-            return false;
-        }
-        char last = text.charAt(text.length() - 1);
-        return last == '\r' || last == '\n';
-    }
-
-    private static LineBreakProfile lineBreakProfile(String text) {
-        String normalized = text == null
-            ? ""
-            : text.replace("\r\n", "\n").replace("\r", "\n");
-
-        int leadingCount = 0;
-        while (leadingCount < normalized.length()
-            && normalized.charAt(leadingCount) == '\n') {
-            leadingCount++;
-        }
-
-        int trailingStart = normalized.length();
-        while (trailingStart > leadingCount
-            && normalized.charAt(trailingStart - 1) == '\n') {
-            trailingStart--;
-        }
-        int trailingCount = normalized.length() - trailingStart;
-
-        ArrayList<Integer> internalRuns = new ArrayList<>();
-        int runLength = 0;
-        for (int index = leadingCount; index < trailingStart; index++) {
-            if (normalized.charAt(index) == '\n') {
-                runLength++;
-            } else if (runLength != 0) {
-                internalRuns.add(runLength);
-                runLength = 0;
-            }
-        }
-        if (runLength != 0) {
-            internalRuns.add(runLength);
-        }
-
-        return new LineBreakProfile(
-            leadingCount,
-            internalRuns,
-            trailingCount
-        );
-    }
-
-    private static Map<String, Integer> escapedSequenceCounts(String text) {
-        Map<String, Integer> counts = new java.util.TreeMap<>();
-        if (text == null) {
-            return counts;
-        }
-
-        for (int index = 0; index < text.length(); index++) {
-            if (text.charAt(index) != '\\') {
-                continue;
-            }
-
-            int end = Math.min(index + 2, text.length());
-            if (index + 5 < text.length()
-                && text.charAt(index + 1) == 'u'
-                && isFourDigitHex(text, index + 2)) {
-                end = index + 6;
-            }
-
-            String sequence = text.substring(index, end);
-            counts.put(sequence, counts.getOrDefault(sequence, 0) + 1);
-            index = end - 1;
-        }
-        return counts;
-    }
-
-    private static boolean isFourDigitHex(String text, int start) {
-        if (start < 0 || start + 4 > text.length()) {
-            return false;
-        }
-        for (int index = start; index < start + 4; index++) {
-            char value = text.charAt(index);
-            boolean hexadecimal = (value >= '0' && value <= '9')
-                || (value >= 'a' && value <= 'f')
-                || (value >= 'A' && value <= 'F');
-            if (!hexadecimal) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static String jsonObjectKeys(JSONObject object) {
-        JSONArray names = object.names();
-        return names == null ? "[]" : names.toString();
-    }
-
-    private static String jsonValueType(Object value) {
-        if (value == null || value == JSONObject.NULL) {
-            return "null";
-        }
-        if (value instanceof JSONObject) {
-            return "object";
-        }
-        if (value instanceof JSONArray) {
-            return "array";
-        }
-        if (value instanceof String) {
-            return "string";
-        }
-        if (value instanceof Number) {
-            return "number";
-        }
-        if (value instanceof Boolean) {
-            return "boolean";
-        }
-        return value.getClass().getSimpleName();
-    }
-
-    private static TranslationValidationResult validateTranslationResult(
-        JSONObject result,
-        Map<Integer, String> expectedTexts,
-        Set<String> protectedLabels,
-        boolean requireSummary
-    ) throws Exception {
-        if (result.length() != 2
-            || !result.has("summary")
-            || !result.has("translations")) {
-            throw new IllegalArgumentException(
-                "translation result keys must be exactly [summary, translations]; actual="
-                    + jsonObjectKeys(result)
-            );
-        }
-
-        Object summaryValue = result.get("summary");
-        if (!(summaryValue instanceof String)) {
-            throw new IllegalArgumentException(
-                "translation summary must be a string; actual_type="
-                    + jsonValueType(summaryValue)
-            );
-        }
-
-        String summary = (String) summaryValue;
-        if (requireSummary && summary.trim().isEmpty()) {
-            throw new IllegalArgumentException("translation summary is empty");
-        }
-
-        Object translationsValue = result.get("translations");
-        if (!(translationsValue instanceof JSONArray)) {
-            throw new IllegalArgumentException(
-                "translation translations must be an array; actual_type="
-                    + jsonValueType(translationsValue)
-            );
-        }
-        JSONArray translations = (JSONArray) translationsValue;
-        TranslationValidationResult validation =
-            new TranslationValidationResult(summary);
-        Set<Integer> returnedSeqs = new HashSet<>();
-        int normalizedTrailingLineBreakCount = 0;
-        int restoredLiteralTrailingLineBreakCount = 0;
-
-        for (int index = 0; index < translations.length(); index++) {
-            Object entryValue = translations.opt(index);
-            if (!(entryValue instanceof JSONObject)) {
-                XposedBridge.log(
-                    "[HousamoTrans] Rejected translation response_index="
-                        + index
-                        + " seq=<unavailable> reason=entry must be an object; actual_type="
-                        + jsonValueType(entryValue)
-                );
-                continue;
-            }
-
-            JSONObject translation = (JSONObject) entryValue;
-            int seq;
-            try {
-                seq = requirePositiveInteger(
-                    translation.opt("seq"),
-                    "translated seq"
-                );
-            } catch (Exception e) {
-                XposedBridge.log(
-                    "[HousamoTrans] Rejected translation response_index="
-                        + index
-                        + " seq=<invalid> reason="
-                        + safeMessage(e)
-                );
-                continue;
-            }
-
-            String sourceText = expectedTexts.get(seq);
-            if (sourceText == null) {
-                XposedBridge.log(
-                    "[HousamoTrans] Rejected translation response_index="
-                        + index
-                        + " seq="
-                        + seq
-                        + " reason=seq was not requested in this attempt"
-                );
-                continue;
-            }
-
-            if (!returnedSeqs.add(seq)) {
-                rejectTranslation(
-                    validation,
-                    index,
-                    seq,
-                    "duplicate translated seq"
-                );
-                continue;
-            }
-
-            try {
-                if (translation.length() != 2
-                    || !translation.has("seq")
-                    || !translation.has("text")) {
-                    throw new IllegalArgumentException(
-                        "translation keys must be exactly [seq, text]; actual="
-                            + jsonObjectKeys(translation)
-                    );
-                }
-
-                Object textValue = translation.get("text");
-                if (!(textValue instanceof String)) {
-                    throw new IllegalArgumentException(
-                        "translated text must be a string; actual_type="
-                            + jsonValueType(textValue)
-                    );
-                }
-                String translatedText = (String) textValue;
-                TextNormalizationResult normalization =
-                    normalizeUnexpectedTrailingLineBreaks(
-                        sourceText,
-                        translatedText
-                    );
-                if (normalization.removedUnexpectedTrailingLineBreaks) {
-                    normalizedTrailingLineBreakCount++;
-                }
-                if (normalization.restoredLiteralTrailingLineBreaks) {
-                    restoredLiteralTrailingLineBreakCount++;
-                }
-
-                validateTranslatedText(
-                    sourceText,
-                    normalization.text,
-                    protectedLabels
-                );
-
-                validation.acceptedTranslations.put(
-                    seq,
-                    normalization.text
-                );
-            } catch (Exception e) {
-                rejectTranslation(
-                    validation,
-                    index,
-                    seq,
-                    safeMessage(e)
-                );
-            }
-        }
-
-        ArrayList<Integer> expectedSeqs = new ArrayList<>(expectedTexts.keySet());
-        java.util.Collections.sort(expectedSeqs);
-        for (Integer seq : expectedSeqs) {
-            if (!validation.acceptedTranslations.containsKey(seq)
-                && !validation.rejectedReasons.containsKey(seq)) {
-                rejectTranslation(
-                    validation,
-                    -1,
-                    seq,
-                    "translation is missing from the response"
-                );
-            }
-        }
-
-        if (normalizedTrailingLineBreakCount > 0) {
             XposedBridge.log(
-                "[HousamoTrans] Normalized unexpected trailing line breaks count="
-                    + normalizedTrailingLineBreakCount
+                "[HousamoTrans] Translation failed requestId="
+                    + requestId
+                    + " type="
+                    + errorType
+                    + " message="
+                    + message
             );
         }
-        if (restoredLiteralTrailingLineBreakCount > 0) {
-            XposedBridge.log(
-                "[HousamoTrans] Restored literal trailing line-break escapes count="
-                    + restoredLiteralTrailingLineBreakCount
-            );
-        }
-
-        return validation;
-    }
-
-    private static void rejectTranslation(
-        TranslationValidationResult validation,
-        int responseIndex,
-        int seq,
-        String reason
-    ) {
-        validation.acceptedTranslations.remove(seq);
-        validation.rejectedReasons.put(seq, reason);
-        XposedBridge.log(
-            "[HousamoTrans] Rejected translation response_index="
-                + (responseIndex >= 0
-                    ? Integer.toString(responseIndex)
-                    : "<missing>")
-                + " seq="
-                + seq
-                + " reason="
-                + reason
-        );
-    }
-
-    private static void validateTranslatedText(
-        String sourceText,
-        String translatedText,
-        Set<String> protectedLabels
-    ) {
-        ArrayList<String> reasons = new ArrayList<>();
-
-        if (translatedText.isEmpty()) {
-            reasons.add("translated text is empty");
-        }
-
-        LineBreakProfile expectedLineBreaks = lineBreakProfile(sourceText);
-        LineBreakProfile actualLineBreaks = lineBreakProfile(translatedText);
-        if (!expectedLineBreaks.hasSameStructure(actualLineBreaks)) {
-            reasons.add(
-                "line break structure changed; expected="
-                    + expectedLineBreaks
-                    + " actual="
-                    + actualLineBreaks
-            );
-        }
-
-        Map<String, Integer> expectedEscapes =
-            escapedSequenceCounts(sourceText);
-        Map<String, Integer> actualEscapes =
-            escapedSequenceCounts(translatedText);
-        if (!expectedEscapes.equals(actualEscapes)) {
-            reasons.add(
-                "escape sequences changed; expected="
-                    + expectedEscapes
-                    + " actual="
-                    + actualEscapes
-            );
-        }
-
-        for (String label : protectedLabels) {
-            int expectedCount = countOccurrences(sourceText, label);
-            int actualCount = countOccurrences(translatedText, label);
-            if (expectedCount != actualCount) {
-                reasons.add(
-                    "protected label count changed; label="
-                        + label
-                        + " expected_count="
-                        + expectedCount
-                        + " actual_count="
-                        + actualCount
-                );
-            }
-        }
-
-        if (!reasons.isEmpty()) {
-            throw new IllegalArgumentException(String.join("; ", reasons));
-        }
-    }
-
-    private static Map<Integer, String> selectExpectedTexts(
-        Map<Integer, String> expectedTexts,
-        Set<Integer> requestedSeqs
-    ) {
-        Map<Integer, String> selected = new HashMap<>();
-        for (Integer seq : requestedSeqs) {
-            String text = expectedTexts.get(seq);
-            if (text == null) {
-                throw new IllegalArgumentException(
-                    "retry seq is not present in the source scene: " + seq
-                );
-            }
-            selected.put(seq, text);
-        }
-        return selected;
-    }
-
-    private static String buildRetrySceneJson(
-        JSONObject scene,
-        Set<Integer> requestedSeqs,
-        Map<Integer, String> expectedTexts,
-        Map<Integer, String> rejectedReasons,
-        String summary
-    ) throws Exception {
-        if (summary == null || summary.trim().isEmpty()) {
-            throw new IllegalArgumentException(
-                "accepted summary is unavailable for translation repair"
-            );
-        }
-
-        JSONObject retryScene = new JSONObject(scene.toString());
-        JSONArray retrySeqs = new JSONArray();
-        ArrayList<Integer> orderedSeqs = new ArrayList<>(requestedSeqs);
-        java.util.Collections.sort(orderedSeqs);
-        for (Integer seq : orderedSeqs) {
-            retrySeqs.put(seq);
-        }
-
-        JSONArray retryProtect = selectRetryProtect(
-            scene,
-            orderedSeqs,
-            expectedTexts
-        );
-        retryScene.put("summary", summary);
-        retryScene.put("protect", retryProtect);
-        retryScene.put("retry_seqs", retrySeqs);
-
-        Set<String> retryProtectedLabels = collectProtectedLabels(retryScene);
-        JSONArray retryFeedback = new JSONArray();
-        for (Integer seq : orderedSeqs) {
-            String sourceText = expectedTexts.get(seq);
-            if (sourceText == null) {
-                throw new IllegalArgumentException(
-                    "retry seq is not present in the source scene: " + seq
-                );
-            }
-
-            String reason = rejectedReasons.get(seq);
-            if (reason == null || reason.trim().isEmpty()) {
-                reason = "translation was not accepted";
-            }
-
-            JSONObject feedback = new JSONObject()
-                .put("seq", seq)
-                .put("reason", reason)
-                .put(
-                    "required_line_breaks",
-                    lineBreakProfileJson(lineBreakProfile(sourceText))
-                )
-                .put(
-                    "required_escape_sequences",
-                    stringCountMapJson(escapedSequenceCounts(sourceText))
-                );
-
-            Map<String, Integer> protectedCounts = new java.util.TreeMap<>();
-            for (String label : retryProtectedLabels) {
-                int count = countOccurrences(sourceText, label);
-                if (count > 0) {
-                    protectedCounts.put(label, count);
-                }
-            }
-            if (!protectedCounts.isEmpty()) {
-                feedback.put(
-                    "required_protected_labels",
-                    stringCountMapJson(protectedCounts)
-                );
-            }
-            retryFeedback.put(feedback);
-        }
-        retryScene.put("retry_feedback", retryFeedback);
-
-        XposedBridge.log(
-            "[HousamoTrans] Built translation repair payload seqs="
-                + orderedSeqs
-                + " protect_tokens="
-                + retryProtect.length()
-                + " summary_included=true"
-        );
-        return retryScene.toString();
-    }
-
-    private static JSONArray selectRetryProtect(
-        JSONObject scene,
-        ArrayList<Integer> orderedSeqs,
-        Map<Integer, String> expectedTexts
-    ) throws Exception {
-        JSONArray selected = new JSONArray();
-        JSONArray protect = scene.optJSONArray("protect");
-        if (protect == null || protect.length() == 0) {
-            return selected;
-        }
-
-        for (int index = 0; index < protect.length(); index++) {
-            JSONObject item = protect.getJSONObject(index);
-            String label = item.getString("label");
-            if (label.isEmpty()) {
-                continue;
-            }
-
-            boolean usedByRetry = false;
-            for (Integer seq : orderedSeqs) {
-                String sourceText = expectedTexts.get(seq);
-                if (sourceText != null && sourceText.contains(label)) {
-                    usedByRetry = true;
-                    break;
-                }
-            }
-            if (usedByRetry) {
-                selected.put(new JSONObject(item.toString()));
-            }
-        }
-        return selected;
-    }
-
-    private static JSONObject lineBreakProfileJson(LineBreakProfile profile)
-        throws Exception {
-        JSONArray internalRuns = new JSONArray();
-        for (Integer run : profile.internalRuns) {
-            internalRuns.put(run);
-        }
-        return new JSONObject()
-            .put("leading", profile.leadingCount)
-            .put("internal_runs", internalRuns)
-            .put("trailing", profile.trailingCount);
-    }
-
-    private static JSONObject stringCountMapJson(
-        Map<String, Integer> counts
-    ) throws Exception {
-        JSONObject object = new JSONObject();
-        ArrayList<String> keys = new ArrayList<>(counts.keySet());
-        java.util.Collections.sort(keys);
-        for (String key : keys) {
-            object.put(key, counts.get(key));
-        }
-        return object;
-    }
-
-    private static JSONObject buildCompleteTranslationResult(
-        String summary,
-        Map<Integer, String> expectedTexts,
-        Map<Integer, String> acceptedTranslations
-    ) throws Exception {
-        if (summary == null || summary.trim().isEmpty()) {
-            throw new IllegalArgumentException("translation summary is empty");
-        }
-        if (acceptedTranslations.size() != expectedTexts.size()
-            || !acceptedTranslations.keySet().equals(expectedTexts.keySet())) {
-            throw new IllegalArgumentException(
-                "accepted translated seq set does not match input"
-            );
-        }
-
-        ArrayList<Integer> orderedSeqs = new ArrayList<>(expectedTexts.keySet());
-        java.util.Collections.sort(orderedSeqs);
-        JSONArray translations = new JSONArray();
-        for (Integer seq : orderedSeqs) {
-            translations.put(new JSONObject()
-                .put("seq", seq)
-                .put("text", acceptedTranslations.get(seq)));
-        }
-
-        return new JSONObject()
-            .put("summary", summary)
-            .put("translations", translations);
-    }
-
-    private static int countOccurrences(String text, String token) {
-        if (token.isEmpty()) {
-            return 0;
-        }
-
-        int count = 0;
-        int offset = 0;
-        while ((offset = text.indexOf(token, offset)) >= 0) {
-            count++;
-            offset += token.length();
-        }
-        return count;
-    }
-
-    private static int requirePositiveInteger(Object value, String label) {
-        if (!(value instanceof Number)) {
-            throw new IllegalArgumentException(label + " must be an integer");
-        }
-
-        double number = ((Number) value).doubleValue();
-        if (!Double.isFinite(number)
-            || number < 1.0
-            || number > Integer.MAX_VALUE
-            || number != Math.rint(number)) {
-            throw new IllegalArgumentException(label + " must be a positive integer");
-        }
-        return (int) number;
-    }
-
-    private static byte[] successBytes(JSONObject result, TranslationConfig config, String targetLanguage) throws Exception {
-        JSONObject f_result = new JSONObject();
-
-        f_result.put("summary", result.getString("summary"));
-        f_result.put("translations", result.getJSONArray("translations"));
-        f_result.put("provider", config.protocol);
-        f_result.put("model", config.model);
-        f_result.put("target_lang", targetLanguage);
-
-        return f_result.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private static byte[] errorBytes(String type, int status, String message) {
+        return errorBytes(
+            type,
+            status,
+            message,
+            "service".equals(type) || "storage".equals(type)
+        );
+    }
+
+    private static byte[] errorBytes(
+        String type,
+        int status,
+        String message,
+        boolean retryable
+    ) {
         try {
             JSONObject error = new JSONObject();
             error.put("type", type);
             error.put("status", status);
             error.put("message", truncate(message, 4096));
+            error.put("retryable", retryable);
             return new JSONObject()
                 .put("error", error)
                 .toString()
                 .getBytes(StandardCharsets.UTF_8);
         } catch (Exception ignored) {
-            return "{\"error\":{\"type\":\"internal\",\"status\":0}}"
+            return ("{\"error\":{\"type\":\"internal\","
+                + "\"status\":0,\"message\":\"failed to encode bridge error\","
+                + "\"retryable\":false}}")
                 .getBytes(StandardCharsets.UTF_8);
         }
     }
@@ -2293,18 +1982,67 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             : value.substring(0, maxLength);
     }
 
-    private static String redactSecret(String value, String secret) {
-        if (value == null || secret == null || secret.isEmpty()) {
-            return value;
-        }
-        return value.replace(secret, "[REDACTED]");
-    }
-
     private static String safeMessage(Throwable throwable) {
         String message = throwable.getMessage();
         return message == null || message.trim().isEmpty()
             ? throwable.getClass().getSimpleName()
             : message;
+    }
+
+    /**
+     * Native Scene production rejection side-channel.  The native hook only
+     * calls this after validating the canonical AdvScenarioData.Name; the
+     * client deliberately treats the Binder report as best effort.
+     */
+    private static void reportSceneProductionRejected(
+        String sceneName,
+        int reasonCode
+    ) {
+        TranslationServiceClient client = sTranslationClient;
+        if (client != null) {
+            client.reportSceneProductionRejected(sceneName, reasonCode);
+        }
+    }
+
+    /** Binder death/unregister fail-open callback for the game native policy. */
+    private static void resetSceneProductionPolicySafely() {
+        GameScenePort gameScenePort = sGameScenePort;
+        if (gameScenePort != null) {
+            gameScenePort.resetSceneProductionPolicyForConnectionLoss();
+            return;
+        }
+        try {
+            nativeResetSceneProductionPolicy();
+        } catch (UnsatisfiedLinkError e) {
+            // The service may die before nativeStart/library load; there is
+            // no native policy to reset in that startup window.
+            XposedBridge.log(
+                "[HousamoTrans] Native Scene policy reset unavailable before "
+                    + "library initialization"
+            );
+        }
+    }
+
+    /**
+     * Binder loss terminates only the current mirror stream.  The port stays
+     * usable for a later registration after the client binds again; native
+     * policy reset is handled separately by the client callback.
+     */
+    private static void abortGameSceneExportSafely() {
+        GameScenePort gameScenePort = sGameScenePort;
+        if (gameScenePort != null) {
+            gameScenePort.abortCurrentSyncActivity();
+        }
+    }
+
+    /**
+     * Host-test seam for the initialization-failure cleanup identity check.
+     * The static client field must be cleared only when it still references the
+     * client that failed to initialize; a replacement client (if one ever
+     * appears) must not be torn down by an older failure path.
+     */
+    static boolean isSameClient(Object stored, Object current) {
+        return stored == current;
     }
 
     private static void installApplicationEntry(LoadPackageParam lpparam) {
@@ -2340,6 +2078,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         sTargetContext = applicationContext != null
             ? applicationContext
             : context;
+
         if (applicationContext == null) {
             XposedBridge.log(
                 "[HousamoTrans] Application context is not ready during attach; "
@@ -2348,16 +2087,27 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
 
         try {
+            // Read and validate the complete startup snapshot before opening
+            // the HET connection.  The connection and native side therefore
+            // observe one immutable worker choice for this game process.
+            StartupConfig startup = loadStartupConfig(context);
+            sOverwriteExistingJson = startup.overwriteExistingJson;
+            TranslationServiceClient client =
+                new TranslationServiceClient(
+                    sTargetContext,
+                    XposedBridge::log,
+                    TRANSLATION_RESULT_SINK,
+                    startup.sceneSyncSnapshot,
+                    null,
+                    MainHook::resetSceneProductionPolicySafely,
+                    MainHook::abortGameSceneExportSafely
+                );
+            sTranslationClient = client;
+            client.start();
+            client.bind();
+
             XposedBridge.log(
                 "[HousamoTrans] Target application attached, initializing ShadowHook..."
-            );
-
-            StartupConfig startup = loadStartupConfig(context);
-
-            sTranslationConfig = startup.translationConfig.withRuntimeValues(
-                readApiKey(context),
-                readModuleAsset(PROMPT_FILE_NAME),
-                readModuleAsset(TRANSLATION_SCHEMA_FILE_NAME)
             );
 
             String chardictJson = readPreferredModuleJson(context, CHARDICT_FILE_NAME);
@@ -2368,14 +2118,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 .build());
             XposedBridge.log("[HousamoTrans] ShadowHook init ok");
 
-            new File(baseDir).mkdirs();
+            IoUtils.ensureDirectory(new File(baseDir));
             File targetSceneDirectory = new File(baseDir, SceneStore.DIRECTORY_NAME);
-            targetSceneDirectory.mkdirs();
-            sFailedApiDirectory = new File(
-                targetSceneDirectory,
-                FAILED_API_DIRECTORY_NAME
-            );
-            startSceneMirrorSync(sTargetContext, targetSceneDirectory);
+            IoUtils.ensureDirectory(targetSceneDirectory);
             System.loadLibrary("housamo_trans");
             XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
 
@@ -2393,6 +2138,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 gametermsJson,
                 baseDir
             );
+            // Bind may have completed earlier, but no Game Scene port is
+            // registered until native policy, the injected mirror directory,
+            // and the adapter are all ready.
+            GameScenePort gameScenePort = new GameScenePort(
+                sTargetContext,
+                targetSceneDirectory,
+                startup.sceneWorkerCount
+            );
+            sGameScenePort = gameScenePort;
+            client.setGameScenePort(gameScenePort);
 
             s_loaded = true;
             XposedBridge.log(
@@ -2404,18 +2159,21 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + startup.sceneWorkerCount
                     + " parseOnlyDebug="
                     + startup.enableParseOnlyDebug
-                    + " protocol="
-                    + sTranslationConfig.protocol
-                    + " model="
-                    + sTranslationConfig.model
-                    + " networkRetryCount="
-                    + sTranslationConfig.networkRetryCount
-                    + " resultRepairCount="
-                    + sTranslationConfig.resultRepairCount
-                    + " failedApiResponseDump="
-                    + sTranslationConfig.dumpFailedApiResponse
+                    + " apiOwner=het-service"
             );
         } catch (Throwable t) {
+            TranslationServiceClient client = sTranslationClient;
+            GameScenePort gameScenePort = sGameScenePort;
+            sGameScenePort = null;
+            if (isSameClient(sTranslationClient, client)) {
+                sTranslationClient = null;
+            }
+            if (gameScenePort != null) {
+                gameScenePort.close();
+            }
+            if (client != null) {
+                client.close();
+            }
             XposedBridge.log(
                 "[HousamoTrans] FATAL: Initialization failed: "
                     + t.getClass().getSimpleName()
@@ -2444,6 +2202,48 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         String baseDir
     );
 
+    /** Native Scene Production Policy control-plane seam for the game port. */
+    private static native boolean nativeBeginSceneSyncHold();
+
+    private static native void nativeWaitForSceneProductionIdle();
+
+    private static native boolean nativeReplaceBlockedScenes(
+        String[] sceneNames
+    );
+
+    private static native void nativeResetSceneProductionPolicy();
+
+    private static native void nativeSetCapturePaused(boolean paused);
+
+    /*
+     * Native terminal callback bridge.  The implementations live in
+     * translation_callback_bridge.cpp; callers still catch UnsatisfiedLinkError
+     * so a partially deployed native library leaves the terminal persisted for
+     * later reattachment instead of acknowledging it prematurely.
+     */
+    private static native void nativeApplyQuestPatch(
+        String requestId,
+        byte[] patchJson
+    );
+
+    private static native boolean nativeApplySceneResult(
+        String requestId,
+        String scene,
+        String targetLanguage,
+        byte[] resultJson
+    );
+
+    private static native boolean nativeOnTranslationFailed(
+        String requestId,
+        String errorType,
+        String message
+    );
+
+    private static native boolean nativeAcknowledgeTranslationTerminal(
+        String requestId,
+        String terminalKind
+    );
+
     @Override
     public void initZygote(StartupParam startupParam) {
         sModulePath = startupParam.modulePath;
@@ -2452,8 +2252,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     @Override
     public void handleLoadPackage(LoadPackageParam lpparam) {
-        if (!TARGET_PACKAGE.equals(lpparam.packageName)
-            || !TARGET_PACKAGE.equals(lpparam.processName)) {
+        if (!HetBridgeContract.TARGET_PACKAGE.equals(lpparam.packageName)
+            || !HetBridgeContract.TARGET_PACKAGE.equals(lpparam.processName)) {
             return;
         }
 

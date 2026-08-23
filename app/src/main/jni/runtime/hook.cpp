@@ -1,6 +1,10 @@
-#include <cstdint>
+#include "native_translation_pipeline.hpp"
 #include "housamo.hpp"
+#include "io/scene_identity.hpp"
 #include "shadowhook.h"
+
+#include <cstdint>
+#include <utility>
 
 using RawFuncPtr = void (*)(void* self, void* pageData, void* method);
 using RawFindScenarioDataPtr = void* (*)(void* self, void* label, void* method);
@@ -38,25 +42,57 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
         return scenario_data;
     }
 
-    switch (CheckFileStatus(entry_label)) {
+    const auto& scenario_layout = g_runtime_config.layout.adv_scenario_data;
+    const std::string scene_name = read_il2cpp_string(
+        read_ptr(scenario_data, scenario_layout.name));
+    if (!het::translation::scene_identity::IsValid(scene_name)) {
+        // SceneName is sourced from AdvScenarioData.Name.  Do not use the
+        // FindScenarioData entry label as a policy identity or report value.
+        LOGW(
+            "[FindScenarioData] invalid scenario scene name entry=%s",
+            entry_label.c_str());
+        return scenario_data;
+    }
+
+    // Existing complete/pending files are still sent to the API as before.
+    // The production lease only gates a genuinely new capture path.
+    switch (GetSceneFileStatus(scene_name)) {
         case SceneFileStatus::complete:
         //     if (!SubmitToQuestRewriter(entry_label)) {
         //         LOGE("[FindScenarioData] failed to rewrite scene to quest entry=%s", entry_label.c_str());
         //     }
-            LOGI("[FindScenarioData] scene file already complete, skipping entry=%s", entry_label.c_str());
+            LOGI("[FindScenarioData] scene file already complete, skipping scene=%s", scene_name.c_str());
             return scenario_data;
         case SceneFileStatus::pending:
-            if (!LoadFromExistingScene(entry_label)) {
-                LOGE("[FindScenarioData] failed to post existing scene to api entry=%s", entry_label.c_str());
+            if (!SubmitExistingScene(scene_name)) {
+                LOGE("[FindScenarioData] failed to post existing scene to api scene=%s", scene_name.c_str());
             }
             return scenario_data;
         case SceneFileStatus::not_found:
-            if (!CatchScenario(scenario_data, entry_label)) {
-                LOGE("[FindScenarioData] failed to catch scenario entry=%s", entry_label.c_str());
-            }
-            return scenario_data;
+            break;
     }
 
+    auto production_lease = EnterSceneProduction(scene_name);
+    if (!production_lease.allowed()) {
+        if (production_lease.reason()
+            != het::scene_sync::RejectReason::invalid_scene_name) {
+            ReportSceneProductionRejected(scene_name, production_lease.reason());
+        }
+        LOGI(
+            "[FindScenarioData] Scene production rejected scene=%s reason=%d",
+            scene_name.c_str(),
+            static_cast<int>(production_lease.reason())
+        );
+        return scenario_data;
+    }
+
+    if (!CatchScenario(
+            scenario_data,
+            entry_label,
+            std::move(production_lease))) {
+        LOGE("[FindScenarioData] failed to catch scenario scene=%s entry=%s",
+             scene_name.c_str(), entry_label.c_str());
+    }
     return scenario_data;
 }
 

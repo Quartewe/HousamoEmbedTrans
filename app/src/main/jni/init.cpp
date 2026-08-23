@@ -289,14 +289,16 @@ bool InitJniBridge(JNIEnv* env, jclass main_hook_class) {
         return false;
     }
 
-    jmethodID request_method = env->GetStaticMethodID(
+    jmethodID resolve_request_id_method = env->GetStaticMethodID(
         global_class,
-        "requestTranslation",
+        "resolveTranslationRequestId",
         "([B)[B"
     );
 
-    if (!request_method) {
-        LOGE("MainHook.requestTranslation(byte[]) not found");
+    if (!resolve_request_id_method) {
+        LOGE(
+            "MainHook.resolveTranslationRequestId(byte[]) not found"
+        );
 
         if (env->ExceptionCheck()) {
             env->ExceptionClear();
@@ -306,14 +308,35 @@ bool InitJniBridge(JNIEnv* env, jclass main_hook_class) {
         return false;
     }
 
-    jmethodID store_scene_method = env->GetStaticMethodID(
+    jmethodID submit_translation_method = env->GetStaticMethodID(
         global_class,
-        "storeScene",
-        "([B)Z"
+        "submitTranslation",
+        "(Ljava/lang/String;[B)[B"
     );
 
-    if (!store_scene_method) {
-        LOGE("MainHook.storeScene(byte[]) not found");
+    if (!submit_translation_method) {
+        LOGE(
+            "MainHook.submitTranslation(String, byte[]) not found"
+        );
+
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+
+        env->DeleteGlobalRef(global_class);
+        return false;
+    }
+
+    jmethodID report_scene_rejected_method = env->GetStaticMethodID(
+        global_class,
+        "reportSceneProductionRejected",
+        "(Ljava/lang/String;I)V"
+    );
+
+    if (!report_scene_rejected_method) {
+        LOGE(
+            "MainHook.reportSceneProductionRejected(String, int) not found"
+        );
 
         if (env->ExceptionCheck()) {
             env->ExceptionClear();
@@ -324,12 +347,74 @@ bool InitJniBridge(JNIEnv* env, jclass main_hook_class) {
     }
 
     // 所有查找都成功后再发布，避免留下半初始化状态
+    g_java_bridge.resolve_request_id_method = resolve_request_id_method;
+    g_java_bridge.submit_translation_method = submit_translation_method;
+    g_java_bridge.report_scene_rejected_method = report_scene_rejected_method;
     g_java_bridge.main_hook_class = global_class;
-    g_java_bridge.request_api_method = request_method;
-    g_java_bridge.store_scene_method = store_scene_method;
-
     LOGI("JNI bridge initialized");
     return true;
+}
+
+void ReportSceneProductionRejected(
+    const std::string& scene_name,
+    het::scene_sync::RejectReason reason
+) {
+    const int reason_code = static_cast<int>(reason);
+    if ((reason_code != 1 && reason_code != 2)
+        || scene_name.empty()
+        || !g_java_bridge.jvm
+        || !g_java_bridge.main_hook_class
+        || !g_java_bridge.report_scene_rejected_method) {
+        return;
+    }
+
+    JNIEnv* env = nullptr;
+    bool attached_here = false;
+    const jint env_status = g_java_bridge.jvm->GetEnv(
+        reinterpret_cast<void**>(&env),
+        JNI_VERSION_1_6
+    );
+    if (env_status != JNI_OK) {
+        if (env_status != JNI_EDETACHED
+            || g_java_bridge.jvm->AttachCurrentThread(&env, nullptr)
+                != JNI_OK) {
+            LOGW(
+                "[ScenePolicy] could not attach rejection-report thread scene=%s",
+                scene_name.c_str()
+            );
+            return;
+        }
+        attached_here = true;
+    }
+
+    jstring scene = env->NewStringUTF(scene_name.c_str());
+    if (scene == nullptr) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        if (attached_here) {
+            g_java_bridge.jvm->DetachCurrentThread();
+        }
+        return;
+    }
+
+    env->CallStaticVoidMethod(
+        g_java_bridge.main_hook_class,
+        g_java_bridge.report_scene_rejected_method,
+        scene,
+        static_cast<jint>(reason_code)
+    );
+    if (env->ExceptionCheck()) {
+        LOGW(
+            "[ScenePolicy] Java rejection report failed scene=%s",
+            scene_name.c_str()
+        );
+        env->ExceptionClear();
+    }
+    env->DeleteLocalRef(scene);
+    if (attached_here) {
+        g_java_bridge.jvm->DetachCurrentThread();
+    }
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -404,4 +489,84 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) { // JNI_OnLoad�
     LOGI("JNI_OnLoad called");
     // std::thread(InitThread).detach(); (已移交给Java层调用nativeStart函数来启动线程)
     return JNI_VERSION_1_6;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_quarty_housamoembedtrans_MainHook_nativeBeginSceneSyncHold(
+    JNIEnv*,
+    jclass
+) {
+    return BeginSceneSyncHold() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_quarty_housamoembedtrans_MainHook_nativeWaitForSceneProductionIdle(
+    JNIEnv*,
+    jclass
+) {
+    het::scene_sync::g_scene_production_policy.WaitForActiveZero();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_quarty_housamoembedtrans_MainHook_nativeReplaceBlockedScenes(
+    JNIEnv* env,
+    jclass,
+    jobjectArray scene_names
+) {
+    if (env == nullptr || scene_names == nullptr) {
+        ResetSceneProductionPolicy();
+        return JNI_FALSE;
+    }
+
+    const jsize count = env->GetArrayLength(scene_names);
+    if (count < 0 || count > 65536) {
+        ResetSceneProductionPolicy();
+        return JNI_FALSE;
+    }
+
+    std::vector<std::string> names;
+    names.reserve(static_cast<size_t>(count));
+    for (jsize index = 0; index < count; ++index) {
+        jstring value = static_cast<jstring>(
+            env->GetObjectArrayElement(scene_names, index)
+        );
+        if (value == nullptr) {
+            if (env->ExceptionCheck()) {
+                env->ExceptionClear();
+            }
+            ResetSceneProductionPolicy();
+            return JNI_FALSE;
+        }
+        const char* utf = env->GetStringUTFChars(value, nullptr);
+        if (utf == nullptr) {
+            if (env->ExceptionCheck()) {
+                env->ExceptionClear();
+            }
+            env->DeleteLocalRef(value);
+            ResetSceneProductionPolicy();
+            return JNI_FALSE;
+        }
+        names.emplace_back(utf);
+        env->ReleaseStringUTFChars(value, utf);
+        env->DeleteLocalRef(value);
+    }
+
+    return ReplaceBlockedScenes(names) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_quarty_housamoembedtrans_MainHook_nativeResetSceneProductionPolicy(
+    JNIEnv*,
+    jclass
+) {
+    ResetSceneProductionPolicy();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_quarty_housamoembedtrans_MainHook_nativeSetCapturePaused(
+    JNIEnv*,
+    jclass,
+    jboolean paused
+) {
+    SetCapturePaused(paused == JNI_TRUE);
 }

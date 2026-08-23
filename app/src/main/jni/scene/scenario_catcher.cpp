@@ -1,4 +1,6 @@
 #include "housamo.hpp"
+#include "native_translation_pipeline.hpp"
+#include "../io/translation_pipeline_internal.hpp"
 
 #include <algorithm>
 #include <mutex>
@@ -12,11 +14,32 @@
 #include <thread>
 
 std::atomic<StopReason> stop_reason{StopReason::none};
+std::atomic<std::uint64_t> capture_pause_epoch{0};
 
-void ResumeCapture() {
-    stop_reason.store(StopReason::none, std::memory_order_release);
+void SetCapturePaused(bool paused) {
+    if (paused) {
+        // Publish the pause latch before advancing the admission boundary.
+        // A producer cannot capture the new epoch while the pause is still
+        // unpublished, so the queue-side checks reject work crossing it.
+        stop_reason.store(StopReason::user_pause, std::memory_order_release);
+        capture_pause_epoch.fetch_add(1, std::memory_order_acq_rel);
+    } else {
+        // Resuming does not create a new producer generation; it only opens
+        // the current one after the pause-side queue clears have completed.
+        stop_reason.store(StopReason::none, std::memory_order_release);
+    }
+    if (paused) {
+        ClearNativeTranslationPipelineOnPause();
+        het::translation::translation_dispatcher::ClearOnPause();
+        ClearPageRecOnPause();
+    }
+    NotifyNativeTranslationPipelineStopChanged();
     NotifyPageRecStopChanged();
     // NotifySceneBuilderStopChanged();
+}
+
+void ResumeCapture() {
+    SetCapturePaused(false);
 }
 
 namespace {
@@ -1735,7 +1758,10 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 
 } // namespace
 
-bool CatchScenario(void* scenario_data, const std::string& entry_label) {
+bool CatchScenario(
+    void* scenario_data,
+    const std::string& entry_label,
+    het::scene_sync::SceneProductionLease production_lease) {
     uintptr_t scenario_key = reinterpret_cast<uintptr_t>(scenario_data);
 
     {
@@ -1778,6 +1804,8 @@ bool CatchScenario(void* scenario_data, const std::string& entry_label) {
     }
 
     StartSceneBuilder();
-    SubmitScenarioParseResult(std::move(output.result));
+    SubmitScenarioParseResult(
+        std::move(output.result),
+        std::move(production_lease));
     return true;
 }
