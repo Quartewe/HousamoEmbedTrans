@@ -438,17 +438,24 @@ public final class SceneStore {
                     // diagnostic could be persisted.  The entry remains the
                     // ordered head in DRAINING; an explicit retry can make a
                     // later attempt after the underlying I/O recovers.
-                    stableDrainGeneration = drainGeneration;
-                    drainerActive = false;
-                    lock.notifyAll();
+                    markDrainBlockedStableLocked();
                 }
             }
+        }
+
+        /**
+         * Marks a drain pass as stably blocked while preserving DRAINING.
+         * Requires {@link #lock} to be held.
+         */
+        private void markDrainBlockedStableLocked() {
+            drainerActive = false;
+            markDrainStableLocked();
         }
 
         private void finishDrainIfEmpty(SceneStore store) {
             boolean retry = false;
             boolean poolEmpty = false;
-            boolean poolCheckFailed = false;
+            Exception poolCheckFailure = null;
             long observedAdmissionVersion;
             synchronized (lock) {
                 if (!sameMutationPool(drainingStore, store) || fullSyncActive) {
@@ -474,7 +481,8 @@ public final class SceneStore {
             try {
                 poolEmpty = store.isMutationPoolEmpty();
             } catch (Exception e) {
-                poolCheckFailed = true;
+                poolCheckFailure = e;
+                store.persistMutationPoolDiagnostic(e);
             }
 
             synchronized (lock) {
@@ -501,11 +509,10 @@ public final class SceneStore {
                     drainerActive = false;
                     retry = true;
                     lock.notifyAll();
-                } else if (poolCheckFailed) {
-                    // No durable head diagnostic was possible; retain
-                    // DRAINING and allow the explicit retry seam to recover.
-                    drainerActive = false;
-                    lock.notifyAll();
+                } else if (poolCheckFailure != null) {
+                    // Retain DRAINING and allow the explicit retry seam to
+                    // recover after the underlying I/O failure.
+                    markDrainBlockedStableLocked();
                     return;
                 } else if (!poolEmpty) {
                     drainerActive = false;
