@@ -54,6 +54,8 @@ public final class SceneSyncRuntimeState {
         NONE,
         STARTED,
         DEFERRED,
+        /** A durable Scene mutation is waiting for sync-gate replay. */
+        QUEUED_BEHIND_GATE,
         BUSY,
         LOCAL_ONLY,
         SUCCEEDED,

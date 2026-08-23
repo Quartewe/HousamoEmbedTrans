@@ -20,9 +20,16 @@ public final class HetBridgeContract {
 
     public static final String METHOD_GET_API_KEY = "get_api_key";
     public static final String METHOD_LIST_SCENES = "list_scenes";
+    public static final String METHOD_GET_SCENE_MUTATION_STATUS =
+        "get_scene_mutation_status";
+    public static final String ARG_SCENE_NAME = "scene_name";
     public static final String RESULT_API_KEY = "api_key";
     public static final String RESULT_SCENES = "scenes";
     public static final String RESULT_DELETED_SCENES = "deleted_scenes";
+    public static final String RESULT_MUTATION_STATUS = "mutation_status";
+    public static final String MUTATION_STATUS_COMMITTED = "COMMITTED";
+    public static final String MUTATION_STATUS_DEFERRED = "DEFERRED";
+    public static final String MUTATION_STATUS_UNKNOWN = "UNKNOWN";
 
     private HetBridgeContract() {
         throw new AssertionError("No instances");

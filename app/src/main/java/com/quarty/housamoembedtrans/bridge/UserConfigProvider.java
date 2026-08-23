@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -70,6 +72,12 @@ public final class UserConfigProvider extends ContentProvider {
     private ConfigStore configStore;
     private SceneStore sceneStore;
     private final ExecutorService sceneWriter = Executors.newSingleThreadExecutor();
+    private final Object sceneWriteStatusLock = new Object();
+    private long nextSceneWriteGeneration;
+    private final Map<String, Long> activeSceneWriteGenerations =
+        new HashMap<>();
+    private final Map<String, SceneStore.MutationStatus> sceneWriteStatuses =
+        new HashMap<>();
 
     @Override
     public boolean onCreate() {
@@ -128,6 +136,46 @@ public final class UserConfigProvider extends ContentProvider {
             result.putStringArrayList(
                 HetBridgeContract.RESULT_DELETED_SCENES,
                 new ArrayList<>(sceneStore.listDeletedSceneNames())
+            );
+            return result;
+        }
+        if (HetBridgeContract.METHOD_GET_SCENE_MUTATION_STATUS.equals(method)) {
+            String sceneName = arg;
+            if (extras != null) {
+                String extraScene = extras.getString(
+                    HetBridgeContract.ARG_SCENE_NAME
+                );
+                if (extraScene != null) {
+                    sceneName = extraScene;
+                }
+            }
+            sceneName = SceneStore.requireSceneName(sceneName);
+            SceneStore.MutationStatus status;
+            synchronized (sceneWriteStatusLock) {
+                if (activeSceneWriteGenerations.containsKey(sceneName)) {
+                    status = SceneStore.MutationStatus.UNKNOWN;
+                } else {
+                    status = sceneWriteStatuses.get(sceneName);
+                }
+            }
+            if (status == null || status == SceneStore.MutationStatus.DEFERRED) {
+                SceneStore.MutationStatus durable = sceneStore.getMutationStatus(
+                    sceneName
+                );
+                if (durable == SceneStore.MutationStatus.DEFERRED
+                    || status == null) {
+                    status = durable;
+                } else if (durable == SceneStore.MutationStatus.COMMITTED) {
+                    // A deferred receipt has drained into the formal Scene.
+                    status = durable;
+                    synchronized (sceneWriteStatusLock) {
+                        sceneWriteStatuses.put(sceneName, status);
+                    }
+                }
+            }
+            result.putString(
+                HetBridgeContract.RESULT_MUTATION_STATUS,
+                status.name()
             );
             return result;
         }
@@ -202,6 +250,18 @@ public final class UserConfigProvider extends ContentProvider {
             throw new FileNotFoundException("unsupported scene mode: " + mode);
         }
 
+        final long writeGeneration;
+        synchronized (sceneWriteStatusLock) {
+            writeGeneration = ++nextSceneWriteGeneration;
+            activeSceneWriteGenerations.put(sceneName, writeGeneration);
+            // UNKNOWN covers the processing/failed interval and prevents an
+            // old formal file from being reported as this write's COMMITTED
+            // result before close() has reached the executor.
+            sceneWriteStatuses.put(
+                sceneName,
+                SceneStore.MutationStatus.UNKNOWN
+            );
+        }
         try {
             File temporaryFile = sceneStore.createIncomingFile();
             return ParcelFileDescriptor.open(
@@ -215,24 +275,86 @@ public final class UserConfigProvider extends ContentProvider {
                         if (!temporaryFile.delete()) {
                             Log.w(TAG, "Could not delete failed scene temp " + temporaryFile);
                         }
+                        finishSceneWrite(
+                            sceneName,
+                            writeGeneration,
+                            SceneStore.MutationStatus.UNKNOWN
+                        );
                         Log.w(TAG, "Scene writer closed with an error", error);
                         return;
                     }
-                    sceneWriter.execute(() -> {
-                        try {
-                            sceneStore.acceptIncoming(temporaryFile, sceneName);
-                        } catch (Exception e) {
-                            Log.w(TAG, "Rejected incoming scene " + fileName, e);
-                        }
-                    });
+                    try {
+                        sceneWriter.execute(() -> {
+                            try {
+                                SceneStore.MutationReceipt<Void> receipt =
+                                    sceneStore.acceptIncoming(
+                                        temporaryFile,
+                                        sceneName
+                                    );
+                                if (receipt.disposition
+                                    == SceneStore.MutationDisposition.DEFERRED) {
+                                    Log.i(
+                                        TAG,
+                                        "Incoming scene queued in mutation pool "
+                                            + sceneName
+                                    );
+                                }
+                                finishSceneWrite(
+                                    sceneName,
+                                    writeGeneration,
+                                    receipt.disposition
+                                        == SceneStore.MutationDisposition.DEFERRED
+                                        ? SceneStore.MutationStatus.DEFERRED
+                                        : SceneStore.MutationStatus.COMMITTED
+                                );
+                            } catch (Exception e) {
+                                finishSceneWrite(
+                                    sceneName,
+                                    writeGeneration,
+                                    SceneStore.MutationStatus.UNKNOWN
+                                );
+                                Log.w(TAG, "Rejected incoming scene " + fileName, e);
+                            }
+                        });
+                    } catch (RuntimeException e) {
+                        // Provider teardown can reject the callback after the
+                        // PFD has already closed.  Clear the active token so
+                        // status queries do not remain PROCESSING forever.
+                        finishSceneWrite(
+                            sceneName,
+                            writeGeneration,
+                            SceneStore.MutationStatus.UNKNOWN
+                        );
+                        Log.w(TAG, "Could not schedule incoming scene " + fileName, e);
+                    }
                 }
             );
         } catch (IOException e) {
+            finishSceneWrite(
+                sceneName,
+                writeGeneration,
+                SceneStore.MutationStatus.UNKNOWN
+            );
             FileNotFoundException wrapped = new FileNotFoundException(
                 "could not prepare incoming scene " + fileName
             );
             wrapped.initCause(e);
             throw wrapped;
+        }
+    }
+
+    private void finishSceneWrite(
+        String sceneName,
+        long writeGeneration,
+        SceneStore.MutationStatus status
+    ) {
+        synchronized (sceneWriteStatusLock) {
+            Long active = activeSceneWriteGenerations.get(sceneName);
+            if (active == null || active.longValue() != writeGeneration) {
+                return;
+            }
+            activeSceneWriteGenerations.remove(sceneName);
+            sceneWriteStatuses.put(sceneName, status);
         }
     }
 

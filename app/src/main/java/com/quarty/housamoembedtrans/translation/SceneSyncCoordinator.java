@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.translation;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Single-flight Scene Sync control plane.
@@ -67,11 +68,26 @@ public final class SceneSyncCoordinator implements AutoCloseable {
     }
 
     @FunctionalInterface
+    public interface OperationFinishedListener {
+        void onOperationFinished(SyncOperationKind operationKind);
+    }
+
+    @FunctionalInterface
     public interface FullSyncAction {
         void run(
             PortSnapshot snapshot,
             SyncOperationKind operationKind
         ) throws Exception;
+    }
+
+    /** One-shot completion state for one accepted FULL_SYNC runnable. */
+    private static final class OperationCompletionToken {
+        private final SyncOperationKind operationKind;
+        private final AtomicBoolean signalled = new AtomicBoolean();
+
+        private OperationCompletionToken(SyncOperationKind operationKind) {
+            this.operationKind = operationKind;
+        }
     }
 
     private final Object lock = new Object();
@@ -87,7 +103,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
     private boolean pendingAutoSync;
     private boolean closed;
     private long operationGeneration;
-    private volatile Runnable operationFinishedListener;
+    private volatile OperationFinishedListener operationFinishedListener;
 
     public SceneSyncCoordinator(
         Executor coordinatorExecutor,
@@ -112,7 +128,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
      * or MANUAL_REFRESH state transition has been cleaned up, never while the
      * coordinator lock is held.
      */
-    public void setOperationFinishedListener(Runnable listener) {
+    public void setOperationFinishedListener(OperationFinishedListener listener) {
         operationFinishedListener = listener;
     }
 
@@ -481,18 +497,31 @@ public final class SceneSyncCoordinator implements AutoCloseable {
         if (snapshot == null || operationKind == null) {
             return false;
         }
+        final OperationCompletionToken completion =
+            new OperationCompletionToken(operationKind);
         try {
             coordinatorExecutor.execute(() -> {
+                boolean accepted;
                 synchronized (lock) {
-                    if (closed
+                    accepted = !(closed
                         || operationGeneration != generation
                         || (operationKind == SyncOperationKind.AUTO_FULL_SYNC
                             && state != State.FULL_SYNC)
                         || (operationKind == SyncOperationKind.MANUAL_REFRESH
                             && state != State.MANUAL_REFRESH)
-                        || activePort != snapshot) {
-                        return;
-                    }
+                        || activePort != snapshot);
+                }
+                if (!accepted) {
+                    // The operation was accepted by execute(), even if its
+                    // lifecycle state was invalidated before the runnable
+                    // started.  Finish only the matching old state (if any),
+                    // but still emit one operation-finished wake-up.
+                    finishFullSync(
+                        generation,
+                        snapshot,
+                        completion
+                    );
+                    return;
                 }
                 try {
                     fullSyncAction.run(snapshot, operationKind);
@@ -500,11 +529,16 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                     // The operation owns diagnostics; lifecycle cleanup is in
                     // finally so a failed data plane cannot wedge admission.
                 } finally {
-                    finishFullSync(generation, snapshot, operationKind);
+                    finishFullSync(
+                        generation,
+                        snapshot,
+                        completion
+                    );
                 }
             });
             return true;
         } catch (RuntimeException e) {
+            boolean schedulePending = false;
             synchronized (lock) {
                 if (((operationKind == SyncOperationKind.AUTO_FULL_SYNC
                         && state == State.FULL_SYNC)
@@ -514,8 +548,19 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                     && activePort == snapshot) {
                     state = State.NONE;
                     activePort = null;
+                    if (shouldStartPendingAutoSyncLocked()) {
+                        pendingAutoSync = false;
+                        state = State.FULL_SYNC;
+                        operationGeneration++;
+                        activePort = currentPort;
+                        schedulePending = true;
+                    }
                 }
             }
+            if (schedulePending) {
+                enqueueFullSync();
+            }
+            notifyOperationFinishedOnce(completion);
             return false;
         }
     }
@@ -595,18 +640,24 @@ public final class SceneSyncCoordinator implements AutoCloseable {
             if (schedule) {
                 enqueueFullSync();
             }
-            notifyOperationFinished();
+            notifyOperationFinished(
+                expectedState == State.MANUAL_REFRESH
+                    ? SyncOperationKind.MANUAL_REFRESH
+                    : null
+            );
         }
     }
 
     private void finishFullSync(
         long generation,
         PortSnapshot snapshot,
-        SyncOperationKind operationKind
+        OperationCompletionToken completion
     ) {
         boolean schedule = false;
+        boolean cleaned = false;
         synchronized (lock) {
-            boolean matchingState = operationKind == SyncOperationKind.AUTO_FULL_SYNC
+            boolean matchingState = completion.operationKind
+                == SyncOperationKind.AUTO_FULL_SYNC
                 ? state == State.FULL_SYNC
                 : state == State.MANUAL_REFRESH;
             if (matchingState
@@ -614,8 +665,9 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 && activePort == snapshot) {
                 state = State.NONE;
                 activePort = null;
+                cleaned = true;
             }
-            if (shouldStartPendingAutoSyncLocked()) {
+            if (cleaned && shouldStartPendingAutoSyncLocked()) {
                 pendingAutoSync = false;
                 state = State.FULL_SYNC;
                 operationGeneration++;
@@ -626,16 +678,25 @@ public final class SceneSyncCoordinator implements AutoCloseable {
         if (schedule) {
             enqueueFullSync();
         }
-        notifyOperationFinished();
+        notifyOperationFinishedOnce(completion);
     }
 
-    private void notifyOperationFinished() {
-        Runnable listener = operationFinishedListener;
+    private void notifyOperationFinishedOnce(
+        OperationCompletionToken completion
+    ) {
+        if (completion != null
+            && completion.signalled.compareAndSet(false, true)) {
+            notifyOperationFinished(completion.operationKind);
+        }
+    }
+
+    private void notifyOperationFinished(SyncOperationKind operationKind) {
+        OperationFinishedListener listener = operationFinishedListener;
         if (listener == null) {
             return;
         }
         try {
-            listener.run();
+            listener.onOperationFinished(operationKind);
         } catch (RuntimeException ignored) {
             // A wake-up observer must never corrupt coordinator cleanup.
         }

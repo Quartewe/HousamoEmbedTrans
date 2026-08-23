@@ -859,10 +859,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                                 write = stagedWrite.get();
                                 synchronized (policyHoldLock) {
                                     ensureCommitAllowedLocked();
-                                    write.commit();
+                                    SceneStore.MutationReceipt<Void> receipt =
+                                        write.commit();
+                                    resultCode = receipt.disposition
+                                        == SceneStore.MutationDisposition.DEFERRED
+                                        ? SceneSyncWireCodec.APPLY_DEFERRED
+                                        : SceneSyncWireCodec.APPLY_NONE;
                                 }
                                 success = true;
-                                resultCode = SceneSyncWireCodec.APPLY_NONE;
                                 break;
                             case DELETE_SCENE:
                                 if (stagedWrite.get() != null) {
@@ -872,12 +876,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                                 }
                                 synchronized (policyHoldLock) {
                                     ensureCommitAllowedLocked();
-                                    sceneStore.deleteSceneForSync(
+                                    SceneStore.MutationReceipt<Void> receipt =
+                                        sceneStore.deleteSceneForSync(
                                         request.command.sceneName
-                                    );
+                                        );
+                                    resultCode = receipt.disposition
+                                        == SceneStore.MutationDisposition.DEFERRED
+                                        ? SceneSyncWireCodec.APPLY_DEFERRED
+                                        : SceneSyncWireCodec.APPLY_NONE;
                                 }
                                 success = true;
-                                resultCode = SceneSyncWireCodec.APPLY_NONE;
                                 break;
                             case REPLACE_BLOCKED_SCENES:
                                 if (stagedWrite.get() != null) {

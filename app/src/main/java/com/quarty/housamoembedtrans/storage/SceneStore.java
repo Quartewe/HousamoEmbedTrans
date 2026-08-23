@@ -4,11 +4,13 @@ import com.quarty.housamoembedtrans.util.IoUtils;
 
 import android.content.Context;
 import android.util.AtomicFile;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,28 +26,142 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /** Stores schema-valid scene JSON files under the module app's files/scenes directory. */
 public final class SceneStore {
+
+    private static final String TAG = "HET.SceneStore";
 
     public static final String DIRECTORY_NAME = "scenes";
     public static final String SCHEMA_ASSET_PATH = "schema/scene_schema.json";
     public static final int MAX_SCENE_BYTES = 32 * 1024 * 1024;
     public static final int MAX_SCENE_NAME_BYTES = 235;
+    public static final String MUTATION_POOL_DIRECTORY_NAME =
+        "scene_mutation_pool";
+    private static final String MUTATION_POOL_META_NAME = "meta.json";
+    private static final String MUTATION_POOL_DIAGNOSTIC_NAME =
+        "diagnostic.json";
+    private static final String MUTATION_POOL_ENTRIES_NAME = "entries";
+    private static final String MUTATION_POOL_TEMP_PREFIX = ".incoming-";
+    private static final int MAX_MUTATION_POOL_ENTRIES = 1024;
+    private static final long MAX_MUTATION_POOL_BYTES = 256L * 1024L * 1024L;
     private static final int MAX_FILE_NAME_BYTES = 240;
     /** Process-local delete intents; intentionally never persisted. */
     private static final SceneDeletionIntentRegistry PROCESS_DELETION_INTENTS =
         new SceneDeletionIntentRegistry();
     private static final MutationAdmission MUTATION_ADMISSION =
         new MutationAdmission();
+    private static final Object MUTATION_POOL_SNAPSHOT_LOCK = new Object();
+    private static final Map<String, MutationPoolSnapshot>
+        MUTATION_POOL_SNAPSHOTS = new HashMap<>();
+    /**
+     * Process-local temp-entry ownership.  A second SceneStore instance in
+     * this process may scan the same pool while the first one is writing; it
+     * must not mistake that live temp directory for crash residue.  The
+     * registry is intentionally not durable, so a temp left by a dead process
+     * is cleaned on the next startup.
+     */
+    private static final Object MUTATION_POOL_TEMP_LOCK = new Object();
+    private static final Set<String> ACTIVE_MUTATION_POOL_TEMPS =
+        new HashSet<>();
+
+    private static final class MutationPoolSnapshot {
+        private final int count;
+        private final String diagnostic;
+
+        private MutationPoolSnapshot(int count, String diagnostic) {
+            this.count = count;
+            this.diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+    }
 
     public static final class MutationAdmission {
         private final Object lock = new Object();
         private int activeExternalMutations;
         private int activeInternalMutations;
+        private int pendingDeferredAdmissions;
         private boolean fullSyncActive;
+        private boolean draining;
+        private SceneStore drainingStore;
+        private boolean drainerActive;
+        private long drainGeneration;
+        private long stableDrainGeneration = -1L;
+        /** Changes whenever a writer reserves a deferred append. */
+        private long deferredAdmissionVersion;
+
+        private static final class ExternalAdmission {
+            private final MutationLease lease;
+            private final long deferredSequence;
+            private final boolean deferred;
+
+            private ExternalAdmission(
+                MutationLease lease,
+                long deferredSequence,
+                boolean deferred
+            ) {
+                this.lease = lease;
+                this.deferredSequence = deferredSequence;
+                this.deferred = deferred;
+            }
+        }
 
         private MutationAdmission() {}
+
+        private static boolean sameMutationPool(
+            SceneStore left,
+            SceneStore right
+        ) {
+            return left == right
+                || (left != null
+                    && right != null
+                    && left.mutationPoolSnapshotKey.equals(
+                        right.mutationPoolSnapshotKey
+                    ));
+        }
+
+        private long beginDrainingLocked(SceneStore store) {
+            if (store == null) {
+                throw new IllegalStateException(
+                    "a full-sync owner is required to drain mutations"
+                );
+            }
+            if (drainingStore != null
+                && !sameMutationPool(drainingStore, store)) {
+                throw new IllegalStateException(
+                    "drain owner does not match mutation pool"
+                );
+            }
+            if (!draining) {
+                draining = true;
+                drainGeneration++;
+                stableDrainGeneration = -1L;
+            }
+            drainingStore = store;
+            return drainGeneration;
+        }
+
+        private boolean waitForDrainStable(
+            long generation,
+            SceneStore store
+        ) {
+            boolean interrupted = false;
+            synchronized (lock) {
+                while (stableDrainGeneration < generation) {
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        interrupted = true;
+                    }
+                }
+            }
+            return interrupted;
+        }
+
+        private void markDrainStableLocked() {
+            stableDrainGeneration = drainGeneration;
+            lock.notifyAll();
+        }
 
         public final class ExternalMutationRejectedException extends IOException {
             ExternalMutationRejectedException() {
@@ -55,17 +171,43 @@ public final class SceneStore {
 
         public final class MutationLease implements AutoCloseable {
             private boolean closed;
+            private final boolean deferredReservation;
+            private final SceneStore store;
 
-            private MutationLease() {}
+            private MutationLease(
+                boolean deferredReservation,
+                SceneStore store
+            ) {
+                this.deferredReservation = deferredReservation;
+                this.store = store;
+            }
 
             @Override
             public void close() {
+                boolean wakeDrainer = false;
                 synchronized (lock) {
                     if (closed) return;
                     closed = true;
-                    activeExternalMutations--;
+                    if (deferredReservation) {
+                        pendingDeferredAdmissions--;
+                        wakeDrainer = pendingDeferredAdmissions == 0
+                            && draining
+                            && store != null;
+                    } else {
+                        activeExternalMutations--;
+                        wakeDrainer = activeExternalMutations == 0
+                            && draining
+                            && store != null;
+                    }
                     lock.notifyAll();
                 }
+                if (wakeDrainer) {
+                    ownerStartDrain(store);
+                }
+            }
+
+            private void ownerStartDrain(SceneStore store) {
+                MutationAdmission.this.startDrainIfNeeded(store);
             }
         }
 
@@ -73,9 +215,31 @@ public final class SceneStore {
             private final MutationAdmission owner = MutationAdmission.this;
             private boolean closed;
 
+            public void attachStore(SceneStore store) {
+                synchronized (lock) {
+                    if (closed) {
+                        throw new IllegalStateException(
+                            "full-sync write lease is closed"
+                        );
+                    }
+                    if (store == null) {
+                        throw new IllegalArgumentException(
+                            "SceneStore is null"
+                        );
+                    }
+                    if (drainingStore != null
+                        && !sameMutationPool(drainingStore, store)) {
+                        throw new IllegalStateException(
+                            "full-sync owner does not match mutation pool"
+                        );
+                    }
+                    drainingStore = store;
+                }
+            }
+
             private FullSyncLease() {}
 
-            public void saveRawSceneSnapshot(
+            public MutationReceipt<Void> saveRawSceneSnapshot(
                 SceneStore store,
                 RawSceneSnapshot snapshot
             ) throws IOException {
@@ -85,6 +249,10 @@ public final class SceneStore {
                         throw new IllegalArgumentException("SceneStore is null");
                     }
                     store.saveRawSceneSnapshotInternal(snapshot);
+                    return MutationReceipt.committed(
+                        snapshot == null ? null : snapshot.sceneName,
+                        null
+                    );
                 } finally {
                     owner.leaveInternal();
                 }
@@ -111,10 +279,12 @@ public final class SceneStore {
 
             @Override
             public void close() {
+                SceneStore storeToDrain;
+                long generation;
+                boolean interrupted = false;
                 synchronized (lock) {
                     if (closed) return;
                     closed = true;
-                    boolean interrupted = false;
                     while (activeInternalMutations != 0) {
                         try {
                             lock.wait();
@@ -123,11 +293,18 @@ public final class SceneStore {
                         }
                     }
                     fullSyncActive = false;
+                    storeToDrain = drainingStore;
+                    generation = beginDrainingLocked(storeToDrain);
                     lock.notifyAll();
-                    if (interrupted) {
-                        Thread.currentThread().interrupt();
-                    }
                 }
+                if (storeToDrain != null) {
+                    startDrainIfNeeded(storeToDrain);
+                    interrupted |= waitForDrainStable(
+                        generation,
+                        storeToDrain
+                    );
+                }
+                if (interrupted) Thread.currentThread().interrupt();
             }
         }
 
@@ -150,39 +327,270 @@ public final class SceneStore {
             }
         }
 
-        private MutationLease beginExternalMutation() throws ExternalMutationRejectedException {
+        private ExternalAdmission beginExternalMutation(
+            SceneStore store,
+            DeferredMutation mutation
+        ) throws IOException {
             synchronized (lock) {
-                if (fullSyncActive) {
-                    throw new ExternalMutationRejectedException();
+                if (fullSyncActive || draining) {
+                    if (store == null) {
+                        throw new IllegalArgumentException("SceneStore is null");
+                    }
+                    if (drainingStore != null
+                        && !sameMutationPool(drainingStore, store)) {
+                        throw new IOException(
+                            "Scene mutation uses a different pool root"
+                        );
+                    }
+                    if (drainingStore == null) {
+                        drainingStore = store;
+                    }
+                    pendingDeferredAdmissions++;
+                    deferredAdmissionVersion++;
+                    return new ExternalAdmission(
+                        new MutationLease(true, store),
+                        -1L,
+                        true
+                    );
                 }
                 activeExternalMutations++;
-                return new MutationLease();
+                return new ExternalAdmission(
+                    new MutationLease(false, store),
+                    -1L,
+                    false
+                );
             }
         }
 
-        private FullSyncLease beginFullSync() throws IOException {
+        private boolean beginStartupDrain(SceneStore store) {
+            synchronized (lock) {
+                if (!fullSyncActive) {
+                    if (drainingStore != null
+                        && !sameMutationPool(drainingStore, store)
+                        && drainerActive) {
+                        return false;
+                    }
+                    beginDrainingLocked(store);
+                    return claimDrainerLocked(store);
+                }
+                return false;
+            }
+        }
+
+        private boolean claimDrainerLocked(SceneStore store) {
+            if (!sameMutationPool(drainingStore, store)
+                || !draining
+                || drainerActive) {
+                return false;
+            }
+            drainerActive = true;
+            return true;
+        }
+
+        private void startDrainIfNeeded(SceneStore store) {
+            boolean start;
+            synchronized (lock) {
+                start = !fullSyncActive
+                    && draining
+                    && sameMutationPool(drainingStore, store)
+                    && pendingDeferredAdmissions == 0
+                    && activeExternalMutations == 0
+                    && claimDrainerLocked(store);
+            }
+            if (start) {
+                store.drainDeferredMutations();
+            }
+        }
+
+        private long persistDeferredMutationWithSequence(
+            SceneStore store,
+            DeferredMutation mutation
+        ) throws IOException {
+            // Durable append is serialized under the same global admission
+            // lock for every SceneStore instance.  Each instance still owns
+            // its injected pool directory, but shared production roots cannot
+            // race sequence/meta allocation or capacity accounting.
+            synchronized (lock) {
+                return store.deferMutation(mutation);
+            }
+        }
+
+        private boolean requestDrain(SceneStore store) {
+            synchronized (lock) {
+                if (store == null || fullSyncActive) return false;
+                if (drainingStore != null
+                    && !sameMutationPool(drainingStore, store)
+                    && drainerActive) {
+                    return false;
+                }
+                beginDrainingLocked(store);
+                return claimDrainerLocked(store);
+            }
+        }
+
+        private void finishDrainHeadFailure(
+            SceneStore store
+        ) {
+            synchronized (lock) {
+                if (sameMutationPool(drainingStore, store)) {
+                    // A failed head is a stable result of this drain pass
+                    // even when neither the entry state nor the pool-level
+                    // diagnostic could be persisted.  The entry remains the
+                    // ordered head in DRAINING; an explicit retry can make a
+                    // later attempt after the underlying I/O recovers.
+                    stableDrainGeneration = drainGeneration;
+                    drainerActive = false;
+                    lock.notifyAll();
+                }
+            }
+        }
+
+        private void finishDrainIfEmpty(SceneStore store) {
+            boolean retry = false;
+            boolean poolEmpty = false;
+            boolean poolCheckFailed = false;
+            long observedAdmissionVersion;
+            synchronized (lock) {
+                if (!sameMutationPool(drainingStore, store) || fullSyncActive) {
+                    drainerActive = false;
+                    return;
+                }
+                if (pendingDeferredAdmissions != 0) {
+                    drainerActive = false;
+                    lock.notifyAll();
+                    return;
+                }
+                if (activeExternalMutations != 0) {
+                    drainerActive = false;
+                    lock.notifyAll();
+                    return;
+                }
+                observedAdmissionVersion = deferredAdmissionVersion;
+            }
+
+            // Never hold the global admission lock while touching a pool
+            // directory.  A concurrent deferred append is linearized by the
+            // pending reservation re-check below.
+            try {
+                poolEmpty = store.isMutationPoolEmpty();
+            } catch (Exception e) {
+                poolCheckFailed = true;
+            }
+
+            synchronized (lock) {
+                if (!sameMutationPool(drainingStore, store) || fullSyncActive) {
+                    drainerActive = false;
+                    lock.notifyAll();
+                    return;
+                }
+                if (pendingDeferredAdmissions != 0) {
+                    drainerActive = false;
+                    lock.notifyAll();
+                    return;
+                }
+                if (activeExternalMutations != 0) {
+                    drainerActive = false;
+                    lock.notifyAll();
+                    return;
+                }
+                if (deferredAdmissionVersion != observedAdmissionVersion) {
+                    // A deferred writer reserved and released an append while
+                    // the directory check was outside the admission lock.  Its
+                    // earlier poolEmpty=true observation is stale; run a new
+                    // drain pass before allowing IDLE.
+                    drainerActive = false;
+                    retry = true;
+                    lock.notifyAll();
+                } else if (poolCheckFailed) {
+                    // No durable head diagnostic was possible; retain
+                    // DRAINING and allow the explicit retry seam to recover.
+                    drainerActive = false;
+                    lock.notifyAll();
+                    return;
+                } else if (!poolEmpty) {
+                    drainerActive = false;
+                    retry = true;
+                    lock.notifyAll();
+                } else {
+                    draining = false;
+                    drainingStore = null;
+                    drainerActive = false;
+                    markDrainStableLocked();
+                }
+            }
+            if (retry) {
+                startDrainIfNeeded(store);
+            }
+        }
+
+        private FullSyncLease beginFullSync(SceneStore ownerStore)
+            throws IOException {
+            if (ownerStore == null) {
+                throw new IllegalArgumentException("SceneStore is null");
+            }
+            SceneStore storeToDrain = null;
+            IOException interruptedFailure = null;
+            FullSyncLease lease = null;
+            boolean interrupted = false;
+            long interruptedDrainGeneration = -1L;
             synchronized (lock) {
                 if (fullSyncActive) {
                     throw new IOException("another full sync is already active");
                 }
+                if (draining) {
+                    throw new IOException("deferred Scene mutations are draining");
+                }
                 fullSyncActive = true;
+                drainingStore = ownerStore;
                 while (activeExternalMutations != 0) {
                     try {
                         lock.wait();
                     } catch (InterruptedException e) {
                         fullSyncActive = false;
+                        interrupted = true;
+                        storeToDrain = ownerStore;
+                        interruptedDrainGeneration = beginDrainingLocked(
+                            storeToDrain
+                        );
                         lock.notifyAll();
-                        Thread.currentThread().interrupt();
-                        throw new IOException(e);
+                        interruptedFailure = new IOException(e);
+                        break;
                     }
                 }
-                return new FullSyncLease();
+                if (interruptedFailure == null) {
+                    lease = new FullSyncLease();
+                }
             }
+            if (storeToDrain != null) {
+                startDrainIfNeeded(storeToDrain);
+            }
+            if (interruptedFailure != null) {
+                if (storeToDrain != null) {
+                    interrupted |= waitForDrainStable(
+                        interruptedDrainGeneration,
+                        storeToDrain
+                    );
+                }
+                if (interrupted) Thread.currentThread().interrupt();
+                throw interruptedFailure;
+            }
+            return lease;
         }
     }
 
-    public static MutationAdmission.FullSyncLease beginFullSyncAdmission() throws IOException {
-        return MUTATION_ADMISSION.beginFullSync();
+    public static MutationAdmission.FullSyncLease beginFullSyncAdmission(
+        SceneStore store
+    ) throws IOException {
+        MutationAdmission.FullSyncLease lease = MUTATION_ADMISSION.beginFullSync(
+            store
+        );
+        try {
+            lease.attachStore(store);
+            return lease;
+        } catch (RuntimeException e) {
+            lease.close();
+            throw e;
+        }
     }
 
     public static final class ValidatedScene {
@@ -288,6 +696,8 @@ public final class SceneStore {
     public final class RawSceneWriteSession implements AutoCloseable {
         private final String sceneName;
         private final AtomicFile atomicFile;
+        private final boolean deferred;
+        private final ByteArrayOutputStream deferredOutput;
         private FileOutputStream output;
         private boolean committed;
         private boolean closed;
@@ -295,22 +705,30 @@ public final class SceneStore {
 
         private RawSceneWriteSession(
             String sceneName,
-            MutationAdmission.MutationLease admissionLease
+            MutationAdmission.MutationLease admissionLease,
+            boolean deferred
         ) throws IOException {
             this.sceneName = requireSceneName(sceneName);
             this.admissionLease = admissionLease;
-            atomicFile = new AtomicFile(
-                new File(sceneDirectory, fileNameForScene(this.sceneName))
-            );
-            try {
-                ensureDirectories();
-                output = atomicFile.startWrite();
-            } catch (IOException e) {
-                releaseAdmission();
-                throw new RawSceneWriteFailure(
-                    RawSceneWriteFailureKind.START,
-                    e
+            this.deferred = deferred;
+            if (deferred) {
+                atomicFile = null;
+                deferredOutput = new ByteArrayOutputStream();
+            } else {
+                deferredOutput = null;
+                atomicFile = new AtomicFile(
+                    new File(sceneDirectory, fileNameForScene(this.sceneName))
                 );
+                try {
+                    ensureDirectories();
+                    output = atomicFile.startWrite();
+                } catch (IOException e) {
+                    releaseAdmission();
+                    throw new RawSceneWriteFailure(
+                        RawSceneWriteFailureKind.START,
+                        e
+                    );
+                }
             }
         }
 
@@ -343,7 +761,11 @@ public final class SceneStore {
                     continue;
                 }
                 try {
-                    output.write(buffer, 0, read);
+                    if (deferred) {
+                        deferredOutput.write(buffer, 0, read);
+                    } else {
+                        output.write(buffer, 0, read);
+                    }
                 } catch (IOException e) {
                     throw new RawSceneWriteFailure(
                         RawSceneWriteFailureKind.COPY,
@@ -358,21 +780,40 @@ public final class SceneStore {
         }
 
         /** Publishes the staged file after the surrounding wire request passed. */
-        public synchronized void commit() throws IOException {
+        public synchronized MutationReceipt<Void> commit() throws IOException {
             if (closed || committed) {
                 throw new IOException("raw Scene write session is closed");
             }
             try {
+                if (deferred) {
+                    long sequence = MUTATION_ADMISSION
+                        .persistDeferredMutationWithSequence(
+                        SceneStore.this,
+                        DeferredMutation.put(
+                            sceneName,
+                            deferredOutput.toByteArray()
+                        )
+                    );
+                    committed = true;
+                    closed = true;
+                    releaseAdmission();
+                    return MutationReceipt.deferred(sceneName, sequence);
+                }
                 atomicFile.finishWrite(output);
                 output = null;
                 committed = true;
                 closed = true;
                 releaseAdmission();
+                return MutationReceipt.committed(sceneName, null);
             } catch (RuntimeException e) {
                 throw new RawSceneWriteFailure(
                     RawSceneWriteFailureKind.COMMIT,
                     new IOException("could not commit raw Scene", e)
                 );
+            } finally {
+                if (!committed) {
+                    releaseAdmission();
+                }
             }
         }
 
@@ -414,28 +855,36 @@ public final class SceneStore {
     /** Opens a raw staging session without parsing Scene JSON or schema. */
     public RawSceneWriteSession beginRawSceneWrite(String sceneName)
         throws IOException {
-        MutationAdmission.MutationLease lease =
-            MUTATION_ADMISSION.beginExternalMutation();
+        MutationAdmission.ExternalAdmission admission =
+            MUTATION_ADMISSION.beginExternalMutation(this, null);
         try {
-            return new RawSceneWriteSession(requireSceneName(sceneName), lease);
+            return new RawSceneWriteSession(
+                requireSceneName(sceneName),
+                admission.lease,
+                admission.deferred
+            );
         } catch (IOException e) {
-            lease.close();
+            if (admission.lease != null) {
+                admission.lease.close();
+            }
             throw e;
         } catch (RuntimeException e) {
-            lease.close();
+            if (admission.lease != null) {
+                admission.lease.close();
+            }
             throw e;
         }
     }
 
     /** Convenience single-file raw write for callers with an already bounded body. */
-    public void writeRawSceneAtomically(
+    public MutationReceipt<Void> writeRawSceneAtomically(
         String sceneName,
         InputStream input,
         int bodyLength
     ) throws IOException {
         try (RawSceneWriteSession session = beginRawSceneWrite(sceneName)) {
             session.copyFrom(input, bodyLength);
-            session.commit();
+            return session.commit();
         }
     }
 
@@ -465,6 +914,13 @@ public final class SceneStore {
     private final Context context;
     private final File sceneDirectory;
     private final File incomingDirectory;
+    private final File mutationPoolRoot;
+    private final File mutationPoolEntries;
+    private final String mutationPoolSnapshotKey;
+    private final Object mutationPoolLock = new Object();
+    private volatile int deferredMutationCount;
+    private volatile String deferredMutationDiagnostic = "";
+    private boolean mutationPoolEnumerationFailed;
     private final JsonSchemaValidator schemaValidator;
 
     public SceneStore(Context context) {
@@ -473,6 +929,10 @@ public final class SceneStore {
             new File(
                 requireContext(context).getFilesDir(),
                 DIRECTORY_NAME
+            ),
+            new File(
+                requireContext(context).getFilesDir(),
+                MUTATION_POOL_DIRECTORY_NAME
             ),
             loadSchema(requireContext(context))
         );
@@ -484,31 +944,1011 @@ public final class SceneStore {
         File sceneDirectory,
         JSONObject schema
     ) {
+        this(
+            context,
+            sceneDirectory,
+            new File(
+                parentOrSelf(sceneDirectory),
+                MUTATION_POOL_DIRECTORY_NAME
+            ),
+            schema
+        );
+    }
+
+    private static File parentOrSelf(File directory) {
+        if (directory == null) {
+            throw new IllegalArgumentException("sceneDirectory is null");
+        }
+        File parent = directory.getParentFile();
+        return parent == null ? directory : parent;
+    }
+
+    private static String mutationPoolSnapshotKey(File root) {
+        try {
+            return root.getCanonicalPath();
+        } catch (IOException e) {
+            return root.getAbsolutePath();
+        }
+    }
+
+    private static String mutationPoolTempKey(File temp) {
+        try {
+            return temp.getCanonicalPath();
+        } catch (IOException e) {
+            return temp.getAbsolutePath();
+        }
+    }
+
+    /** Explicit Scene and deferred-pool roots used by host fixtures. */
+    public SceneStore(
+        Context context,
+        File sceneDirectory,
+        File mutationPoolRoot,
+        JSONObject schema
+    ) {
         Context applicationContext = requireContext(context).getApplicationContext();
         this.context = applicationContext != null
             ? applicationContext
             : context;
-        if (sceneDirectory == null || schema == null) {
+        if (sceneDirectory == null || mutationPoolRoot == null || schema == null) {
             throw new IllegalArgumentException(
-                "sceneDirectory and schema cannot be null"
+                "sceneDirectory, mutationPoolRoot, and schema cannot be null"
             );
         }
         this.sceneDirectory = sceneDirectory;
         incomingDirectory = new File(sceneDirectory, ".incoming");
+        this.mutationPoolRoot = mutationPoolRoot;
+        mutationPoolSnapshotKey = mutationPoolSnapshotKey(mutationPoolRoot);
+        mutationPoolEntries = new File(
+            mutationPoolRoot,
+            MUTATION_POOL_ENTRIES_NAME
+        );
         schemaValidator = new JsonSchemaValidator(schema);
+        initializeMutationPool();
     }
 
-    public ValidatedScene importScene(InputStream input) throws Exception {
-        MutationAdmission.MutationLease lease =
-            MUTATION_ADMISSION.beginExternalMutation();
-        try {
-            ValidatedScene scene = validate(
-                IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES)
+    public File getMutationPoolRoot() {
+        return mutationPoolRoot;
+    }
+
+    public int getDeferredMutationCount() {
+        synchronized (mutationPoolLock) {
+            refreshMutationPoolSnapshotLocked();
+            return deferredMutationCount;
+        }
+    }
+
+    /** O(1) snapshot suitable for the foreground notification thread. */
+    public int getDeferredMutationCountSnapshot() {
+        synchronized (MUTATION_POOL_SNAPSHOT_LOCK) {
+            MutationPoolSnapshot snapshot = MUTATION_POOL_SNAPSHOTS.get(
+                mutationPoolSnapshotKey
             );
-            saveInternal(scene);
-            return scene;
+            return snapshot == null ? deferredMutationCount : snapshot.count;
+        }
+    }
+
+    public String getDeferredMutationDiagnosticSnapshot() {
+        synchronized (MUTATION_POOL_SNAPSHOT_LOCK) {
+            MutationPoolSnapshot snapshot = MUTATION_POOL_SNAPSHOTS.get(
+                mutationPoolSnapshotKey
+            );
+            return snapshot == null
+                ? deferredMutationDiagnostic
+                : snapshot.diagnostic;
+        }
+    }
+
+    /** Explicit recovery seam for a head failure or a newly available disk. */
+    public void retryDeferredMutations() {
+        if (MUTATION_ADMISSION.requestDrain(this)) {
+            drainDeferredMutations();
+        }
+    }
+
+    public enum MutationStatus {
+        COMMITTED,
+        DEFERRED,
+        UNKNOWN
+    }
+
+    /**
+     * Query seam for the ContentProvider writer.  A matching durable pool
+     * entry wins over the current formal file, so a caller cannot mistake a
+     * pre-existing Scene for a newly committed write.
+     */
+    public MutationStatus getMutationStatus(String sceneName) {
+        sceneName = requireSceneName(sceneName);
+        synchronized (mutationPoolLock) {
+            try {
+                List<File> entries = mutationEntriesStrict();
+                refreshMutationPoolSnapshotLocked();
+                for (File entry : entries) {
+                    // A matching scene name is not sufficient evidence of a
+                    // durable receipt.  Validate the complete entry shape,
+                    // sequence, payload and operation before reporting
+                    // DEFERRED; damaged pool contents are UNKNOWN.
+                    JSONObject state = readAndValidateMutationState(entry);
+                    if (sceneName.equals(state.optString("scene", ""))) {
+                        return MutationStatus.DEFERRED;
+                    }
+                }
+            } catch (Exception e) {
+                // An unreadable pool cannot prove that this scene's intent
+                // was durably admitted.  DEFERRED is reserved for a durable
+                // receipt (or a matching entry); callers without that receipt
+                // must observe UNKNOWN rather than a false admission.
+                return MutationStatus.UNKNOWN;
+            }
+        }
+        return getValidSceneFileByName(sceneName) == null
+            ? MutationStatus.UNKNOWN
+            : MutationStatus.COMMITTED;
+    }
+
+    private boolean isMutationPoolEmpty() throws IOException {
+        synchronized (mutationPoolLock) {
+            ensureMutationPoolDirectories();
+            refreshMutationPoolSnapshotLocked();
+            return mutationEntriesStrict().isEmpty();
+        }
+    }
+
+    public String getDeferredMutationDiagnostic() {
+        synchronized (mutationPoolLock) {
+            refreshMutationPoolSnapshotLocked();
+            File[] entries = mutationEntries().toArray(new File[0]);
+            if (mutationPoolEnumerationFailed) {
+                return "mutation pool enumeration unavailable";
+            }
+            if (entries.length == 0) {
+                return "";
+            }
+            try {
+                JSONObject state = readMutationState(entries[0]);
+                return state.optString("scene", "")
+                    + " " + state.optString("operation", "")
+                    + " " + state.optString("last_error", "");
+            } catch (Exception e) {
+                return "mutation pool head is damaged: " + e.getMessage();
+            }
+        }
+    }
+
+    private void initializeMutationPool() {
+        boolean hasEntries = false;
+        // Pool recovery writes meta.json.  Serialize that write with the
+        // global append seam so constructing a second SceneStore cannot
+        // rewind metadata while another instance is publishing an entry.
+        synchronized (MUTATION_ADMISSION.lock) {
+            try {
+                synchronized (mutationPoolLock) {
+                    ensureMutationPoolDirectories();
+                    recoverMutationPoolMetaLocked();
+                    hasEntries = !mutationEntriesStrict().isEmpty();
+                    refreshMutationPoolSnapshotLocked();
+                }
+            } catch (Exception e) {
+                // Keep external admission in DRAINING until a later retry can
+                // inspect the pool; never fall back to direct writes after an
+                // uncertain recovery scan.
+                hasEntries = true;
+            }
+        }
+        if (hasEntries && MUTATION_ADMISSION.beginStartupDrain(this)) {
+            drainDeferredMutations();
+        }
+    }
+
+    private void refreshMutationPoolSnapshotLocked() {
+        List<File> entries = mutationEntries();
+        if (mutationPoolEnumerationFailed) {
+            deferredMutationDiagnostic =
+                "mutation pool enumeration unavailable";
+            publishMutationPoolSnapshotLocked();
+            return;
+        }
+        deferredMutationCount = entries.size();
+        if (entries.isEmpty()) {
+            deferredMutationDiagnostic = "";
+            publishMutationPoolSnapshotLocked();
+            return;
+        }
+        try {
+            JSONObject state = readMutationState(entries.get(0));
+            deferredMutationDiagnostic = state.optString("scene", "")
+                + " " + state.optString("operation", "")
+                + " " + state.optString("last_error", "");
+        } catch (Exception e) {
+            deferredMutationDiagnostic =
+                "mutation pool head is damaged: " + safeError(e);
+        }
+        publishMutationPoolSnapshotLocked();
+    }
+
+    private void publishMutationPoolSnapshotLocked() {
+        synchronized (MUTATION_POOL_SNAPSHOT_LOCK) {
+            MUTATION_POOL_SNAPSHOTS.put(
+                mutationPoolSnapshotKey,
+                new MutationPoolSnapshot(
+                    deferredMutationCount,
+                    deferredMutationDiagnostic
+                )
+            );
+        }
+    }
+
+    private void ensureMutationPoolDirectories() throws IOException {
+        IoUtils.ensureDirectory(mutationPoolRoot);
+        IoUtils.ensureDirectory(mutationPoolEntries);
+    }
+
+    private void recoverMutationPoolMetaLocked() throws IOException {
+        long maxSequence = 0L;
+        for (File entry : mutationEntriesStrict()) {
+            try {
+                JSONObject state = readAndValidateMutationState(entry);
+                maxSequence = Math.max(
+                    maxSequence,
+                    state.getLong("sequence")
+                );
+            } catch (Exception e) {
+                // Do not rewrite metadata from an entry whose sequence cannot
+                // be proved.  The entry remains the durable head diagnostic.
+                throw new IOException(
+                    "deferred mutation entry cannot prove its sequence",
+                    e
+                );
+            }
+        }
+        long nextSequence = readMutationPoolNextSequenceLocked();
+        if (maxSequence == Long.MAX_VALUE) {
+            throw new IOException("deferred mutation sequence is exhausted");
+        }
+        nextSequence = Math.max(nextSequence, maxSequence + 1L);
+        writeMutationPoolMetaLocked(nextSequence);
+    }
+
+    private List<File> mutationEntries() {
+        File[] files = mutationPoolEntries.listFiles();
+        if (files == null) {
+            mutationPoolEnumerationFailed = true;
+            return new ArrayList<>();
+        }
+        mutationPoolEnumerationFailed = false;
+        List<File> result = new ArrayList<>();
+        for (File file : files) {
+            if (file.isDirectory() && !file.getName().startsWith(".")) {
+                // Keep malformed names in the ordered view.  They are
+                // durable corruption and must block the head rather than be
+                // mistaken for an empty pool.  Only dot-prefixed temporary
+                // directories are ignored.
+                result.add(file);
+            }
+        }
+        result.sort((left, right) -> compareMutationEntries(left, right));
+        return result;
+    }
+
+    private List<File> mutationEntriesStrict() throws IOException {
+        File[] files = mutationPoolEntries.listFiles();
+        if (files == null) {
+            throw new IOException(
+                "could not enumerate deferred mutation pool entries"
+            );
+        }
+        for (File file : files) {
+            String name = file.getName();
+            if (file.isDirectory() && name.startsWith(MUTATION_POOL_TEMP_PREFIX)) {
+                // A process can die after creating the write-ahead temporary
+                // directory but before publishing it.  It is explicitly
+                // recoverable scratch state, unlike every other artifact. A
+                // live writer in this process owns the path through the
+                // registry; leave it alone and let its reservation keep the
+                // admission state out of IDLE.
+                boolean active;
+                synchronized (MUTATION_POOL_TEMP_LOCK) {
+                    active = ACTIVE_MUTATION_POOL_TEMPS.contains(
+                        mutationPoolTempKey(file)
+                    );
+                    if (!active && !deleteRecursively(file)) {
+                        throw new IOException(
+                            "could not remove temporary mutation entry " + name
+                        );
+                    }
+                }
+                continue;
+            }
+            if (!file.isDirectory()) {
+                throw new IOException(
+                    "unexpected deferred mutation pool artifact " + name
+                );
+            }
+            if (name.startsWith(".")) {
+                throw new IOException(
+                    "unexpected deferred mutation pool directory " + name
+                );
+            }
+        }
+        files = mutationPoolEntries.listFiles();
+        if (files == null) {
+            throw new IOException(
+                "could not enumerate deferred mutation pool entries"
+            );
+        }
+        List<File> result = new ArrayList<>();
+        for (File file : files) {
+            if (file.isDirectory()
+                && !file.getName().startsWith(MUTATION_POOL_TEMP_PREFIX)) {
+                result.add(file);
+            }
+        }
+        result.sort((left, right) -> compareMutationEntries(left, right));
+        return result;
+    }
+
+    private static int compareMutationEntries(File left, File right) {
+        Long leftSequence = trySequenceOf(left);
+        Long rightSequence = trySequenceOf(right);
+        if (leftSequence == null && rightSequence == null) return 0;
+        if (leftSequence == null) return -1;
+        if (rightSequence == null) return 1;
+        return Long.compare(leftSequence, rightSequence);
+    }
+
+    private static Long trySequenceOf(File entry) {
+        try {
+            return sequenceOf(entry);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static long sequenceOf(File entry) {
+        String name = entry.getName();
+        int separator = name.indexOf('-');
+        if (separator <= 0) {
+            throw new IllegalArgumentException("invalid mutation entry name");
+        }
+        return Long.parseLong(name.substring(0, separator));
+    }
+
+    private static long validatedMutationEntrySequence(File entry)
+        throws IOException {
+        String name = entry.getName();
+        // 20 decimal digits, a separator, and a canonical UUID suffix.
+        if (name.length() != 57 || name.charAt(20) != '-') {
+            throw new IOException("deferred mutation entry name is invalid");
+        }
+        String sequenceText = name.substring(0, 20);
+        for (int index = 0; index < sequenceText.length(); index++) {
+            if (!Character.isDigit(sequenceText.charAt(index))) {
+                throw new IOException(
+                    "deferred mutation entry sequence is invalid"
+                );
+            }
+        }
+        final long sequence;
+        try {
+            sequence = Long.parseLong(sequenceText);
+            UUID uuid = UUID.fromString(name.substring(21));
+            if (!uuid.toString().equals(name.substring(21))) {
+                throw new IOException(
+                    "deferred mutation entry UUID is not canonical"
+                );
+            }
+        } catch (IllegalArgumentException e) {
+            throw new IOException("deferred mutation entry name is invalid", e);
+        }
+        if (sequence <= 0L
+            || !String.format(
+                java.util.Locale.ROOT,
+                "%020d",
+                sequence
+            ).equals(sequenceText)) {
+            throw new IOException("deferred mutation entry sequence is invalid");
+        }
+        return sequence;
+    }
+
+    private JSONObject readMutationState(File entry) throws Exception {
+        File stateFile = new File(entry, "state.json");
+        if (!IoUtils.atomicFileExists(stateFile)) {
+            throw new IOException("deferred mutation state is missing");
+        }
+        AtomicFile atomicFile = new AtomicFile(stateFile);
+        try (InputStream input = atomicFile.openRead()) {
+            return new JSONObject(new String(
+                IoUtils.readAllBytesLimited(input, 64 * 1024),
+                StandardCharsets.UTF_8
+            ));
+        }
+    }
+
+    private JSONObject readAndValidateMutationState(File entry)
+        throws Exception {
+        if (entry == null || !entry.isDirectory()) {
+            throw new IOException("deferred mutation entry is not a directory");
+        }
+        long directorySequence = validatedMutationEntrySequence(entry);
+        JSONObject state = readMutationState(entry);
+        long version = requiredMutationLong(state, "version");
+        if (version != 1L) {
+            throw new IOException("unsupported deferred mutation entry version");
+        }
+        long stateSequence = requiredMutationLong(state, "sequence");
+        if (stateSequence <= 0L || stateSequence != directorySequence) {
+            throw new IOException(
+                "deferred mutation state sequence does not match entry"
+            );
+        }
+        long createdAt = requiredMutationLong(state, "created_at");
+        long attemptCount = requiredMutationLong(state, "attempt_count");
+        if (createdAt < 0L || attemptCount < 0L) {
+            throw new IOException(
+                "deferred mutation state counters are negative"
+            );
+        }
+        requiredMutationString(state, "last_error");
+        DeferredMutationOperation operation;
+        try {
+            operation = DeferredMutationOperation.valueOf(
+                requiredMutationString(state, "operation")
+            );
+        } catch (Exception e) {
+            throw new IOException("deferred mutation operation is invalid", e);
+        }
+        String sceneName = requireSceneName(
+            requiredMutationString(state, "scene")
+        );
+        String language = "";
+        if (state.has("language")) {
+            language = requiredMutationString(state, "language");
+        }
+        File payload = new File(entry, "scene.json");
+        if (operation == DeferredMutationOperation.REMOVE_LANGUAGE) {
+            if (language.isEmpty()) {
+                throw new IOException("deferred language mutation is missing language");
+            }
+            if (IoUtils.atomicFileExists(payload)) {
+                throw new IOException(
+                    "language mutation unexpectedly carries a Scene payload"
+                );
+            }
+        } else {
+            if (!language.isEmpty() || state.has("language")) {
+                throw new IOException(
+                    "deferred non-language mutation carries language"
+                );
+            }
+            if (operation == DeferredMutationOperation.PUT_SCENE) {
+                if (!IoUtils.atomicFileExists(payload)) {
+                    throw new IOException("deferred Scene payload is missing");
+                }
+                // Read through AtomicFile so a base/.bak pair follows the
+                // same recovery semantics as formal Scene files.
+                try (InputStream input = new AtomicFile(payload).openRead()) {
+                    byte[] bytes = IoUtils.readAllBytesLimited(
+                        input,
+                        MAX_SCENE_BYTES
+                    );
+                    if (bytes.length < 1) {
+                        throw new IOException("deferred Scene payload is empty");
+                    }
+                }
+            } else if (IoUtils.atomicFileExists(payload)) {
+                throw new IOException(
+                    "delete mutation unexpectedly carries a Scene payload"
+                );
+            }
+        }
+        // Keep the local variable in the validation path: requiring a valid
+        // scene identity is part of the durable entry contract.
+        if (!sceneName.equals(requiredMutationString(state, "scene"))) {
+            throw new IOException("deferred Scene identity is not canonical");
+        }
+        return state;
+    }
+
+    private static long requiredMutationLong(JSONObject state, String key)
+        throws Exception {
+        if (state == null || !state.has(key)) {
+            throw new IOException("deferred mutation state is missing " + key);
+        }
+        Object value = state.get(key);
+        // The on-disk schema uses JSON integers.  Do not accept a floating
+        // point spelling such as 1.0 merely because it happens to round to a
+        // long; a damaged state must block the head rather than be replayed.
+        if (!(value instanceof Integer) && !(value instanceof Long)) {
+            throw new IOException(
+                "deferred mutation state field is not an integer: " + key
+            );
+        }
+        return ((Number) value).longValue();
+    }
+
+    private static String requiredMutationString(JSONObject state, String key)
+        throws Exception {
+        if (state == null || !state.has(key)) {
+            throw new IOException("deferred mutation state is missing " + key);
+        }
+        Object value = state.get(key);
+        if (!(value instanceof String)) {
+            throw new IOException(
+                "deferred mutation state field is not text: " + key
+            );
+        }
+        return (String) value;
+    }
+
+    private static JSONObject readAtomicJson(File file, int limit)
+        throws Exception {
+        try (InputStream input = new AtomicFile(file).openRead()) {
+            return new JSONObject(new String(
+                IoUtils.readAllBytesLimited(input, limit),
+                StandardCharsets.UTF_8
+            ));
+        }
+    }
+
+    /** Reads the durable sequence cursor with strict schema/type checks. */
+    private long readMutationPoolNextSequenceLocked() throws IOException {
+        File meta = new File(mutationPoolRoot, MUTATION_POOL_META_NAME);
+        if (!IoUtils.atomicFileExists(meta)) {
+            return 1L;
+        }
+        try {
+            JSONObject json = readAtomicJson(meta, 64 * 1024);
+            long version = requiredMutationMetaLong(json, "version");
+            if (version != 1L) {
+                throw new IOException(
+                    "unsupported deferred mutation metadata version"
+                );
+            }
+            long nextSequence = requiredMutationMetaLong(
+                json,
+                "next_sequence"
+            );
+            if (nextSequence <= 0L) {
+                throw new IOException(
+                    "deferred mutation metadata sequence is invalid"
+                );
+            }
+            return nextSequence;
+        } catch (Exception e) {
+            throw new IOException(
+                "deferred mutation metadata is damaged",
+                e
+            );
+        }
+    }
+
+    private static long requiredMutationMetaLong(
+        JSONObject state,
+        String key
+    ) throws Exception {
+        if (state == null || !state.has(key)) {
+            throw new IOException("deferred mutation metadata is missing " + key);
+        }
+        Object value = state.get(key);
+        // org.json represents JSON integers as Integer/Long.  Reject
+        // floating-point spellings (including 1.0) so a damaged meta file
+        // cannot be silently normalized by getLong/longValue.
+        if (!(value instanceof Integer) && !(value instanceof Long)) {
+            throw new IOException(
+                "deferred mutation metadata field is not an integer: " + key
+            );
+        }
+        return ((Number) value).longValue();
+    }
+
+    private long deferMutation(DeferredMutation mutation) throws IOException {
+        if (mutation == null || mutation.sceneName == null) {
+            throw new IllegalArgumentException("deferred mutation is invalid");
+        }
+        synchronized (mutationPoolLock) {
+            ensureMutationPoolDirectories();
+            List<File> entries = mutationEntriesStrict();
+            long payloadBytes = 0L;
+            for (File entry : entries) {
+                File payload = new File(entry, "scene.json");
+                if (payload.isFile()) {
+                    payloadBytes += payload.length();
+                }
+            }
+            long newBytes = mutation.payload == null ? 0L : mutation.payload.length;
+            if (entries.size() >= MAX_MUTATION_POOL_ENTRIES
+                || payloadBytes + newBytes > MAX_MUTATION_POOL_BYTES) {
+                throw new DeferredMutationPoolFullException(
+                    "Scene mutation pool is full entries=" + entries.size()
+                        + " payload_bytes=" + payloadBytes
+                );
+            }
+            long sequence = nextMutationSequenceLocked(entries);
+            if (sequence == Long.MAX_VALUE) {
+                throw new IOException(
+                    "deferred mutation sequence is exhausted"
+                );
+            }
+            String directoryName = String.format(
+                java.util.Locale.ROOT,
+                "%020d-%s",
+                sequence,
+                UUID.randomUUID().toString()
+            );
+            File temporary = new File(
+                mutationPoolEntries,
+                ".incoming-" + UUID.randomUUID().toString()
+            );
+            boolean tempRegistered = false;
+            synchronized (MUTATION_POOL_TEMP_LOCK) {
+                if (!temporary.mkdir()) {
+                    throw new IOException(
+                        "could not create deferred mutation entry"
+                    );
+                }
+                ACTIVE_MUTATION_POOL_TEMPS.add(
+                    mutationPoolTempKey(temporary)
+                );
+                tempRegistered = true;
+            }
+            boolean published = false;
+            try {
+                long now = System.currentTimeMillis();
+                JSONObject state = new JSONObject()
+                    .put("version", 1)
+                    .put("sequence", sequence)
+                    .put("operation", mutation.operation.name())
+                    .put("scene", requireSceneName(mutation.sceneName))
+                    .put("created_at", now)
+                    .put("attempt_count", 0)
+                    .put("last_error", "");
+                if (mutation.language != null) {
+                    state.put("language", mutation.language);
+                }
+                IoUtils.writeAtomically(
+                    new File(temporary, "state.json"),
+                    state.toString().getBytes(StandardCharsets.UTF_8)
+                );
+                if (mutation.operation == DeferredMutationOperation.PUT_SCENE) {
+                    if (mutation.payload == null
+                        || mutation.payload.length < 1
+                        || mutation.payload.length > MAX_SCENE_BYTES) {
+                        throw new IOException("deferred Scene payload is invalid");
+                    }
+                    IoUtils.writeAtomically(
+                        new File(temporary, "scene.json"),
+                        mutation.payload
+                    );
+                }
+                // Write-ahead monotonicity: once this metadata is durable,
+                // sequence is consumed even if the entry rename crashes.
+                // Never publish an entry whose next_sequence fact failed.
+                writeMutationPoolMetaLocked(sequence + 1L);
+                File publishedEntry = new File(mutationPoolEntries, directoryName);
+                if (!temporary.renameTo(publishedEntry)) {
+                    throw new IOException("could not publish deferred mutation entry");
+                }
+                published = true;
+                refreshMutationPoolSnapshotLocked();
+                return sequence;
+            } finally {
+                if (!published && temporary.exists()) {
+                    deleteRecursively(temporary);
+                }
+                if (tempRegistered) {
+                    synchronized (MUTATION_POOL_TEMP_LOCK) {
+                        ACTIVE_MUTATION_POOL_TEMPS.remove(
+                            mutationPoolTempKey(temporary)
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    private long nextMutationSequenceLocked(List<File> entries) throws IOException {
+        long next = readMutationPoolNextSequenceLocked();
+        for (File entry : entries) {
+            long sequence = sequenceOf(entry);
+            if (sequence == Long.MAX_VALUE) {
+                throw new IOException(
+                    "deferred mutation sequence is exhausted"
+                );
+            }
+            next = Math.max(next, sequence + 1L);
+        }
+        return next;
+    }
+
+    private void writeMutationPoolMetaLocked(long nextSequence)
+        throws IOException {
+        if (nextSequence <= 0L) {
+            throw new IOException("invalid deferred mutation sequence");
+        }
+        IoUtils.writeAtomically(
+            new File(mutationPoolRoot, MUTATION_POOL_META_NAME),
+            new JSONObject()
+                .put("version", 1)
+                .put("next_sequence", nextSequence)
+                .toString()
+                .getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    private void persistMutationPoolDiagnostic(Exception failure) {
+        synchronized (mutationPoolLock) {
+            String message = safeError(failure);
+            try {
+                ensureMutationPoolDirectories();
+                IoUtils.writeAtomically(
+                    new File(
+                        mutationPoolRoot,
+                        MUTATION_POOL_DIAGNOSTIC_NAME
+                    ),
+                    new JSONObject()
+                        .put("version", 1)
+                        .put("kind", "pool_io_failure")
+                        .put("last_error", message)
+                        .put("updated_at", System.currentTimeMillis())
+                        .toString()
+                        .getBytes(StandardCharsets.UTF_8)
+                );
+                deferredMutationDiagnostic =
+                    "mutation pool I/O failure: " + message;
+                publishMutationPoolSnapshotLocked();
+            } catch (Exception ignored) {
+                // The pool itself may be unavailable (for example, a read-
+                // only or disconnected volume).  Keep the failure visible to
+                // this process even though no durable diagnostic can be
+                // written, so callers still get a bounded stable head result.
+                deferredMutationDiagnostic =
+                    "mutation pool I/O failure: " + message;
+                publishMutationPoolSnapshotLocked();
+            }
+        }
+    }
+
+    private MutationReceipt<Void> persistDeferredAdmission(
+        MutationAdmission.ExternalAdmission admission,
+        DeferredMutation mutation
+    ) throws IOException {
+        if (admission == null || !admission.deferred || admission.lease == null) {
+            throw new IllegalArgumentException("mutation is not deferred");
+        }
+        try {
+            long sequence = MUTATION_ADMISSION
+                .persistDeferredMutationWithSequence(this, mutation);
+            return MutationReceipt.deferred(mutation.sceneName, sequence);
         } finally {
-            lease.close();
+            // Releasing the reservation may wake the sole drainer.  It is
+            // deliberately outside deferMutation's pool lock.
+            admission.lease.close();
+        }
+    }
+
+    private void drainDeferredMutations() {
+        try {
+            while (true) {
+                File head;
+                List<File> entries;
+                synchronized (MUTATION_ADMISSION.lock) {
+                    synchronized (mutationPoolLock) {
+                        ensureMutationPoolDirectories();
+                        // Re-establish the monotonic sequence fact before any
+                        // entry can be applied or removed.  Startup may have
+                        // entered DRAINING after a failed recovery scan; that
+                        // state must remain fail-closed until meta and entries
+                        // are reconciled successfully.
+                        recoverMutationPoolMetaLocked();
+                        entries = mutationEntriesStrict();
+                        refreshMutationPoolSnapshotLocked();
+                    }
+                }
+                if (entries.isEmpty()) {
+                    // The pool lock is released before changing admission
+                    // state.  The pending-deferred reservation prevents a
+                    // writer that began before this observation from crossing
+                    // the IDLE transition.
+                    MUTATION_ADMISSION.finishDrainIfEmpty(this);
+                    return;
+                }
+                boolean validOrder;
+                synchronized (mutationPoolLock) {
+                    validOrder = validateMutationEntryOrder(entries);
+                }
+                if (!validOrder) {
+                    MUTATION_ADMISSION.finishDrainHeadFailure(this);
+                    return;
+                }
+                head = entries.get(0);
+                try {
+                    applyDeferredMutation(head);
+                    synchronized (mutationPoolLock) {
+                        if (head.exists() && !deleteRecursively(head)) {
+                            throw new IOException(
+                                "could not remove committed mutation entry"
+                            );
+                        }
+                        refreshMutationPoolSnapshotLocked();
+                    }
+                } catch (Exception e) {
+                    synchronized (mutationPoolLock) {
+                        try {
+                            JSONObject state = readMutationState(head);
+                            state.put(
+                                "attempt_count",
+                                state.optInt("attempt_count", 0) + 1
+                            );
+                            state.put("last_error", safeError(e));
+                            IoUtils.writeAtomically(
+                                new File(head, "state.json"),
+                                state.toString().getBytes(StandardCharsets.UTF_8)
+                            );
+                            refreshMutationPoolSnapshotLocked();
+                        } catch (Exception ignored) {
+                            // Preserve the entry even if its diagnostic is
+                            // itself temporarily unwritable.  Use the
+                            // pool-level diagnostic when possible; the helper
+                            // also publishes a process-local snapshot when
+                            // that fallback is unavailable.
+                            persistMutationPoolDiagnostic(e);
+                        }
+                    }
+                    MUTATION_ADMISSION.finishDrainHeadFailure(this);
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            // An enumeration/metadata failure has no entry state file to
+            // annotate.  Persist a pool-level diagnostic when possible; the
+            // helper publishes a process-local fallback when it is not, so a
+            // FullSyncLease can return at a stable DRAINING/head-failure
+            // boundary instead of waiting forever on drainerActive.
+            persistMutationPoolDiagnostic(e);
+            MUTATION_ADMISSION.finishDrainHeadFailure(this);
+            return;
+        }
+    }
+
+    private boolean validateMutationEntryOrder(List<File> entries) {
+        long previous = -1L;
+        for (File entry : entries) {
+            Long sequence = trySequenceOf(entry);
+            if (sequence == null) {
+                recordMutationHeadFailure(
+                    entry,
+                    new IOException("malformed deferred mutation entry name")
+                );
+                return false;
+            }
+            try {
+                readAndValidateMutationState(entry);
+            } catch (Exception e) {
+                recordMutationHeadFailure(entry, e);
+                return false;
+            }
+            if (sequence <= previous) {
+                recordMutationHeadFailure(
+                    entry,
+                    new IOException("duplicate or out-of-order mutation sequence")
+                );
+                return false;
+            }
+            previous = sequence;
+        }
+        return true;
+    }
+
+    private void recordMutationHeadFailure(File entry, Exception failure) {
+        try {
+            JSONObject state = readMutationState(entry);
+            state.put(
+                "attempt_count",
+                state.optInt("attempt_count", 0) + 1
+            );
+            state.put("last_error", safeError(failure));
+            IoUtils.writeAtomically(
+                new File(entry, "state.json"),
+                state.toString().getBytes(StandardCharsets.UTF_8)
+            );
+        } catch (Exception ignored) {
+            // Keep the damaged entry in place.  If its state file cannot be
+            // rewritten, fall back to a durable pool-level diagnostic when
+            // possible.  The fallback publishes a process-local snapshot as
+            // well, so the owning FullSyncLease still has a stable boundary.
+            persistMutationPoolDiagnostic(failure);
+        }
+    }
+
+    private void applyDeferredMutation(File entry) throws Exception {
+        JSONObject state = readAndValidateMutationState(entry);
+        DeferredMutationOperation operation =
+            DeferredMutationOperation.valueOf(state.getString("operation"));
+        String sceneName = requireSceneName(state.getString("scene"));
+        synchronized (this) {
+            switch (operation) {
+                case PUT_SCENE:
+                    byte[] bytes;
+                    try (InputStream input = new AtomicFile(
+                        new File(entry, "scene.json")
+                    ).openRead()) {
+                        bytes = IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES);
+                    }
+                    saveRawSceneSnapshotInternal(
+                        validateRawSceneBytes(sceneName, bytes)
+                    );
+                    break;
+                case DELETE_SCENE:
+                    try {
+                        deleteSceneInternal(sceneName);
+                    } catch (IOException e) {
+                        String message = e.getMessage();
+                        if (message == null || !message.contains("does not exist")) {
+                            throw e;
+                        }
+                        PROCESS_DELETION_INTENTS.record(sceneName);
+                    }
+                    break;
+                case DELETE_SCENE_FOR_SYNC:
+                    deleteSceneForSyncInternal(sceneName);
+                    break;
+                case REMOVE_LANGUAGE:
+                    try {
+                        removeLanguageInternal(
+                            sceneName,
+                            state.getString("language")
+                        );
+                    } catch (IllegalArgumentException e) {
+                        String message = e.getMessage();
+                        if (message == null
+                            || !message.contains("does not contain language")) {
+                            throw e;
+                        }
+                        // The formal commit may have succeeded before the
+                        // process died while deleting this entry.  Removing
+                        // an already absent language is idempotent.
+                    }
+                    break;
+                default:
+                    throw new IOException("unknown deferred mutation operation");
+            }
+        }
+    }
+
+    private static String safeError(Exception e) {
+        String message = e.getMessage();
+        return e.getClass().getSimpleName()
+            + (message == null ? "" : ": " + message);
+    }
+
+    public MutationReceipt<ValidatedScene> importScene(InputStream input)
+        throws Exception {
+        ValidatedScene scene = validate(
+            IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES)
+        );
+        MutationAdmission.ExternalAdmission admission =
+            MUTATION_ADMISSION.beginExternalMutation(
+                this,
+                null
+            );
+        if (admission.deferred) {
+            MutationReceipt<Void> deferred = persistDeferredAdmission(
+                admission,
+                DeferredMutation.put(scene.sceneName, scene.bytes)
+            );
+            return new MutationReceipt<>(
+                deferred.disposition,
+                deferred.sceneName,
+                deferred.sequence,
+                null
+            );
+        }
+        try {
+            saveInternal(scene);
+            return MutationReceipt.committed(scene.sceneName, scene);
+        } finally {
+            admission.lease.close();
         }
     }
 
@@ -625,14 +2065,158 @@ public final class SceneStore {
     }
 
     /** Atomically publishes a previously validated raw snapshot without normalization. */
-    public synchronized void saveRawSceneSnapshot(RawSceneSnapshot snapshot)
+    public synchronized MutationReceipt<Void> saveRawSceneSnapshot(
+        RawSceneSnapshot snapshot
+    )
         throws IOException {
-        MutationAdmission.MutationLease lease =
-            MUTATION_ADMISSION.beginExternalMutation();
+        if (snapshot == null) {
+            throw new IllegalArgumentException("snapshot is null");
+        }
+        String sceneName = requireSceneName(snapshot.sceneName);
+        if (snapshot.bytes == null
+            || snapshot.bytes.length < 1
+            || snapshot.bytes.length > MAX_SCENE_BYTES) {
+            throw new IOException("raw Scene body length is outside the limit");
+        }
+        MutationAdmission.ExternalAdmission admission =
+            MUTATION_ADMISSION.beginExternalMutation(this, null);
+        if (admission.deferred) {
+            return persistDeferredAdmission(
+                admission,
+                DeferredMutation.put(sceneName, snapshot.bytes)
+            );
+        }
         try {
             saveRawSceneSnapshotInternal(snapshot);
+            return MutationReceipt.committed(sceneName, null);
         } finally {
-            lease.close();
+            admission.lease.close();
+        }
+    }
+
+    public enum MutationDisposition {
+        COMMITTED,
+        DEFERRED
+    }
+
+    /** Explicit result for every external Scene mutation. */
+    public static final class MutationReceipt<T> {
+        public final MutationDisposition disposition;
+        public final String sceneName;
+        public final Long sequence;
+        public final T value;
+
+        private MutationReceipt(
+            MutationDisposition disposition,
+            String sceneName,
+            Long sequence,
+            T value
+        ) {
+            this.disposition = disposition;
+            this.sceneName = sceneName;
+            this.sequence = sequence;
+            this.value = value;
+        }
+
+        private static <T> MutationReceipt<T> committed(
+            String sceneName,
+            T value
+        ) {
+            return new MutationReceipt<>(
+                MutationDisposition.COMMITTED,
+                sceneName,
+                null,
+                value
+            );
+        }
+
+        private static <T> MutationReceipt<T> deferred(
+            String sceneName,
+            long sequence
+        ) {
+            return new MutationReceipt<>(
+                MutationDisposition.DEFERRED,
+                sceneName,
+                sequence,
+                null
+            );
+        }
+    }
+
+    public static final class DeferredMutationPoolFullException
+        extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        DeferredMutationPoolFullException(String message) {
+            super(message);
+        }
+    }
+
+    private enum DeferredMutationOperation {
+        PUT_SCENE,
+        DELETE_SCENE,
+        DELETE_SCENE_FOR_SYNC,
+        REMOVE_LANGUAGE
+    }
+
+    private static final class DeferredMutation {
+        private final DeferredMutationOperation operation;
+        private final String sceneName;
+        private final String language;
+        private final byte[] payload;
+
+        private DeferredMutation(
+            DeferredMutationOperation operation,
+            String sceneName,
+            String language,
+            byte[] payload
+        ) {
+            this.operation = operation;
+            this.sceneName = sceneName;
+            this.language = language;
+            this.payload = payload;
+        }
+
+        private static DeferredMutation put(
+            String sceneName,
+            byte[] payload
+        ) {
+            return new DeferredMutation(
+                DeferredMutationOperation.PUT_SCENE,
+                sceneName,
+                null,
+                payload
+            );
+        }
+
+        private static DeferredMutation delete(String sceneName) {
+            return new DeferredMutation(
+                DeferredMutationOperation.DELETE_SCENE,
+                sceneName,
+                null,
+                null
+            );
+        }
+
+        private static DeferredMutation deleteForSync(String sceneName) {
+            return new DeferredMutation(
+                DeferredMutationOperation.DELETE_SCENE_FOR_SYNC,
+                sceneName,
+                null,
+                null
+            );
+        }
+
+        private static DeferredMutation removeLanguage(
+            String sceneName,
+            String language
+        ) {
+            return new DeferredMutation(
+                DeferredMutationOperation.REMOVE_LANGUAGE,
+                sceneName,
+                language,
+                null
+            );
         }
     }
 
@@ -746,13 +2330,30 @@ public final class SceneStore {
             .toString();
     }
 
-    public synchronized void save(ValidatedScene scene) throws IOException {
-        MutationAdmission.MutationLease lease =
-            MUTATION_ADMISSION.beginExternalMutation();
+    public synchronized MutationReceipt<Void> save(ValidatedScene scene)
+        throws IOException {
+        if (scene == null) {
+            throw new IllegalArgumentException("scene is null");
+        }
+        String sceneName = requireSceneName(scene.sceneName);
+        if (scene.bytes == null
+            || scene.bytes.length < 1
+            || scene.bytes.length > MAX_SCENE_BYTES) {
+            throw new IOException("Scene body length is outside the limit");
+        }
+        MutationAdmission.ExternalAdmission admission =
+            MUTATION_ADMISSION.beginExternalMutation(this, null);
+        if (admission.deferred) {
+            return persistDeferredAdmission(
+                admission,
+                DeferredMutation.put(sceneName, scene.bytes.clone())
+            );
+        }
         try {
             saveInternal(scene);
+            return MutationReceipt.committed(sceneName, null);
         } finally {
-            lease.close();
+            admission.lease.close();
         }
     }
 
@@ -780,17 +2381,34 @@ public final class SceneStore {
         clearSceneDeletionIntent(sceneName);
     }
 
-    public synchronized ValidatedScene removeLanguage(
+    public synchronized MutationReceipt<ValidatedScene> removeLanguage(
         String sceneName,
         String language
     )
         throws Exception {
-        MutationAdmission.MutationLease lease =
-            MUTATION_ADMISSION.beginExternalMutation();
+        sceneName = requireSceneName(sceneName);
+        if (language == null || language.isEmpty()) {
+            throw new IllegalArgumentException("language key is empty");
+        }
+        MutationAdmission.ExternalAdmission admission =
+            MUTATION_ADMISSION.beginExternalMutation(this, null);
+        if (admission.deferred) {
+            MutationReceipt<Void> deferred = persistDeferredAdmission(
+                admission,
+                DeferredMutation.removeLanguage(sceneName, language)
+            );
+            return new MutationReceipt<>(
+                deferred.disposition,
+                deferred.sceneName,
+                deferred.sequence,
+                null
+            );
+        }
         try {
-            return removeLanguageInternal(sceneName, language);
+            ValidatedScene updated = removeLanguageInternal(sceneName, language);
+            return MutationReceipt.committed(sceneName, updated);
         } finally {
-            lease.close();
+            admission.lease.close();
         }
     }
 
@@ -833,13 +2451,22 @@ public final class SceneStore {
         return updated;
     }
 
-    public synchronized void deleteScene(String sceneName) throws IOException {
-        MutationAdmission.MutationLease lease =
-            MUTATION_ADMISSION.beginExternalMutation();
+    public synchronized MutationReceipt<Void> deleteScene(String sceneName)
+        throws IOException {
+        sceneName = requireSceneName(sceneName);
+        MutationAdmission.ExternalAdmission admission =
+            MUTATION_ADMISSION.beginExternalMutation(this, null);
+        if (admission.deferred) {
+            return persistDeferredAdmission(
+                admission,
+                DeferredMutation.delete(sceneName)
+            );
+        }
         try {
             deleteSceneInternal(sceneName);
+            return MutationReceipt.committed(sceneName, null);
         } finally {
-            lease.close();
+            admission.lease.close();
         }
     }
 
@@ -862,14 +2489,22 @@ public final class SceneStore {
     }
 
     /** Deletes a game-side mirror without creating an HET delete intent. */
-    public synchronized void deleteSceneForSync(String sceneName)
+    public synchronized MutationReceipt<Void> deleteSceneForSync(String sceneName)
         throws IOException {
-        MutationAdmission.MutationLease lease =
-            MUTATION_ADMISSION.beginExternalMutation();
+        sceneName = requireSceneName(sceneName);
+        MutationAdmission.ExternalAdmission admission =
+            MUTATION_ADMISSION.beginExternalMutation(this, null);
+        if (admission.deferred) {
+            return persistDeferredAdmission(
+                admission,
+                DeferredMutation.deleteForSync(sceneName)
+            );
+        }
         try {
             deleteSceneForSyncInternal(sceneName);
+            return MutationReceipt.committed(sceneName, null);
         } finally {
-            lease.close();
+            admission.lease.close();
         }
     }
 
@@ -886,35 +2521,53 @@ public final class SceneStore {
         }
     }
 
-    public synchronized void acceptIncoming(
+    public synchronized MutationReceipt<Void> acceptIncoming(
         File temporaryFile,
         String expectedSceneName
     )
         throws Exception {
-        MutationAdmission.MutationLease lease = null;
-        try {
-            lease = MUTATION_ADMISSION.beginExternalMutation();
-            ValidatedScene scene;
-            try (InputStream input = new java.io.FileInputStream(temporaryFile)) {
-                scene = validate(IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES));
-            }
-            expectedSceneName = requireSceneName(expectedSceneName);
-            if (!scene.sceneName.equals(expectedSceneName)) {
-                throw new IllegalArgumentException(
-                    "scene field maps to " + scene.sceneName
-                        + ", not requested SceneName " + expectedSceneName
-                );
-            }
-            saveInternal(scene);
-        } finally {
+        if (temporaryFile == null) {
+            throw new IllegalArgumentException("temporary Scene file is null");
+        }
+        ValidatedScene scene;
+        try (InputStream input = new java.io.FileInputStream(temporaryFile)) {
+            scene = validate(IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES));
+        }
+        expectedSceneName = requireSceneName(expectedSceneName);
+        if (!scene.sceneName.equals(expectedSceneName)) {
+            throw new IllegalArgumentException(
+                "scene field maps to " + scene.sceneName
+                    + ", not requested SceneName " + expectedSceneName
+            );
+        }
+        MutationAdmission.ExternalAdmission admission =
+            MUTATION_ADMISSION.beginExternalMutation(this, null);
+        MutationReceipt<Void> receipt;
+        if (admission.deferred) {
+            receipt = persistDeferredAdmission(
+                admission,
+                DeferredMutation.put(scene.sceneName, scene.bytes)
+            );
+        } else {
             try {
-                if (lease != null) {
-                    lease.close();
-                }
+                saveInternal(scene);
+                receipt = MutationReceipt.committed(scene.sceneName, null);
             } finally {
-                temporaryFile.delete();
+                admission.lease.close();
             }
         }
+        // The source is disposable only after either the formal write or the
+        // durable pool entry has succeeded.
+        if (!temporaryFile.delete() && temporaryFile.exists()) {
+            // The receipt above is authoritative.  A cleanup failure must not
+            // turn a committed/deferred mutation into UNKNOWN and cause the
+            // Provider to retry it as a second write.
+            Log.w(
+                TAG,
+                "Could not delete accepted temporary Scene " + temporaryFile
+            );
+        }
+        return receipt;
     }
 
     public File createIncomingFile() throws IOException {
@@ -1337,6 +2990,24 @@ public final class SceneStore {
             }
         }
         return true;
+    }
+
+    private static boolean deleteRecursively(File file) {
+        if (file == null || !file.exists()) {
+            return true;
+        }
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children == null) {
+                return false;
+            }
+            for (File child : children) {
+                if (!deleteRecursively(child)) {
+                    return false;
+                }
+            }
+        }
+        return !file.exists() || file.delete();
     }
 
     public static String fileNameForScene(String sceneName) {

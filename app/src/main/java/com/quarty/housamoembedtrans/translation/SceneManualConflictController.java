@@ -26,7 +26,9 @@ public final class SceneManualConflictController {
 
     public enum OutcomeKind {
         GAME_APPLIED,
+        GAME_DEFERRED,
         HET_APPLIED,
+        HET_DEFERRED,
         HET_PENDING_OFFLINE,
         FAILED
     }
@@ -135,9 +137,21 @@ public final class SceneManualConflictController {
                             selectedScene,
                             conflict.gameBytes
                         );
+                    final SceneStore.MutationDisposition[] disposition = {
+                        SceneStore.MutationDisposition.COMMITTED
+                    };
                     action.commitIfActive(
-                        () -> sceneStore.saveRawSceneSnapshot(game)
+                        () -> disposition[0] = sceneStore
+                            .saveRawSceneSnapshot(game)
+                            .disposition
                     );
+                    if (disposition[0]
+                        == SceneStore.MutationDisposition.DEFERRED) {
+                        // The HET Scene is only in the durable mutation pool;
+                        // retain pending/conflict state until replay commits
+                        // the formal local view.
+                        return OutcomeKind.GAME_DEFERRED;
+                    }
                     try {
                         action.commitIfActive(
                             () -> pendingStore.remove(selectedScene)
@@ -155,7 +169,10 @@ public final class SceneManualConflictController {
                             action
                         );
                     }
-                    return OutcomeKind.GAME_APPLIED;
+                    return disposition[0]
+                        == SceneStore.MutationDisposition.DEFERRED
+                        ? OutcomeKind.GAME_DEFERRED
+                        : OutcomeKind.GAME_APPLIED;
                 }
             )
         );
@@ -201,6 +218,11 @@ public final class SceneManualConflictController {
                             selectedScene,
                             conflict.hetBytes
                         );
+                    if (result != null
+                        && result.errorCode
+                            == SceneSyncWireCodec.APPLY_DEFERRED) {
+                        return OutcomeKind.HET_DEFERRED;
+                    }
                     if (result == null || !result.success) {
                         throw new IOException(
                             "manual HET apply was not successful"

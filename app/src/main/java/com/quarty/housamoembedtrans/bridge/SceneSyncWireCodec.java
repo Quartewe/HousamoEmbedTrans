@@ -51,6 +51,8 @@ public final class SceneSyncWireCodec {
     public static final int APPLY_POLICY_UPDATE_FAILED = 5;
     public static final int APPLY_OPERATION_CANCELED = 6;
     public static final int APPLY_INTERNAL_FAILURE = 7;
+    /** The intent is durable in the Scene mutation pool, not yet formal. */
+    public static final int APPLY_DEFERRED = 8;
 
     private static final byte[] MAGIC = new byte[] {'H', 'E', 'T', 'S'};
     private static final long MAX_RECORD_PAYLOAD =
@@ -1001,7 +1003,7 @@ public final class SceneSyncWireCodec {
         long offset
     ) throws ProtocolException {
         boolean valid = success
-            ? errorCode == APPLY_NONE
+            ? (errorCode == APPLY_NONE || errorCode == APPLY_DEFERRED)
             : errorCode >= APPLY_REQUEST_STREAM_FAILED
                 && errorCode <= APPLY_INTERNAL_FAILURE;
         if (!valid) {

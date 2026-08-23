@@ -8,6 +8,7 @@ import com.quarty.housamoembedtrans.ui.SettingsActivity;
 import com.quarty.housamoembedtrans.ui.TranslationQueueActivity;
 import com.quarty.housamoembedtrans.translation.ContextReviewGate;
 import com.quarty.housamoembedtrans.translation.TranslationJobStore;
+import com.quarty.housamoembedtrans.storage.SceneStore;
 
 import android.Manifest;
 import android.app.Notification;
@@ -69,6 +70,7 @@ public final class TranslationStatusNotification {
      * instead of constructing the store on the main thread.
      */
     private static volatile TranslationJobStore statusJobStore;
+    private static volatile SceneStore statusSceneStore;
 
     private TranslationStatusNotification() {
     }
@@ -76,6 +78,11 @@ public final class TranslationStatusNotification {
     /** Installs the process-local store used by notification snapshots. */
     public static void setJobStore(TranslationJobStore store) {
         statusJobStore = store;
+    }
+
+    /** Installs the process-local Scene store used for pool diagnostics. */
+    public static void setSceneStore(SceneStore store) {
+        statusSceneStore = store;
     }
 
     /**
@@ -332,6 +339,7 @@ public final class TranslationStatusNotification {
         long finishedAt = state.getLong(KEY_FINISHED_AT, System.currentTimeMillis());
         boolean paused = RuntimeControlStore.isCapturePaused(context);
         TranslationJobStore jobStore = statusJobStore;
+        SceneStore sceneStore = statusSceneStore;
         // The notification may be rebuilt on the service/main thread.  Read
         // only the store's O(1) in-memory snapshot; durable candidate scans
         // belong to startup repair or the queue activity's I/O executor.
@@ -343,6 +351,14 @@ public final class TranslationStatusNotification {
         int manualRerunCandidateCount = jobStore == null
             ? 0
             : jobStore.getManualRerunCandidateCount();
+        int pendingMutationCount = sceneStore == null
+            ? 0
+            : sceneStore.getDeferredMutationCountSnapshot();
+        String pendingMutationDiagnostic = sceneStore == null
+            ? ""
+            : sceneStore.getDeferredMutationDiagnosticSnapshot();
+        boolean hasPendingMutationNotice = pendingMutationCount > 0
+            || !pendingMutationDiagnostic.trim().isEmpty();
         boolean repairingStartupJobs = jobStore != null
             && jobStore.isRepairingStartupJobs();
         boolean manualStartupRepair = jobStore != null
@@ -374,6 +390,13 @@ public final class TranslationStatusNotification {
             scenePageIntent = sceneFilesPendingIntent(context);
             sceneActionTitle = context.getString(
                 R.string.notification_action_view_scene_sync
+            );
+        }
+
+        if (hasPendingMutationNotice && scenePageIntent == null) {
+            scenePageIntent = sceneFilesPendingIntent(context);
+            sceneActionTitle = context.getString(
+                R.string.notification_action_view_scene_mutation_pool
             );
         }
 
@@ -549,6 +572,11 @@ public final class TranslationStatusNotification {
                                 manualRerunCandidateCount
                             )
                 );
+            } else if (sceneSync.lastOutcome
+                == SceneSyncRuntimeState.Outcome.QUEUED_BEHIND_GATE) {
+                builder.setContentText(context.getString(
+                    R.string.notification_scene_queued_behind_gate
+                ));
             } else if (hasPendingConflicts) {
                 builder.setContentText(context.getString(
                     R.string.scene_conflicts_count,
@@ -592,6 +620,16 @@ public final class TranslationStatusNotification {
             builder.setOngoing(true);
         }
 
+        if (hasPendingMutationNotice) {
+            builder.setSubText(context.getString(
+                pendingMutationCount > 0
+                    ? R.string.notification_scene_mutation_pool_pending
+                    : R.string.notification_scene_mutation_pool_failure,
+                pendingMutationCount,
+                pendingMutationDiagnostic
+            ));
+        }
+
         return builder.build();
     }
 
@@ -616,7 +654,9 @@ public final class TranslationStatusNotification {
     ) {
         if (snapshot.lastOutcome != SceneSyncRuntimeState.Outcome.FAILED
             && snapshot.lastOutcome
-                != SceneSyncRuntimeState.Outcome.NEEDS_ATTENTION) {
+                != SceneSyncRuntimeState.Outcome.NEEDS_ATTENTION
+            && snapshot.lastOutcome
+                != SceneSyncRuntimeState.Outcome.QUEUED_BEHIND_GATE) {
             return false;
         }
         switch (snapshot.lastAction) {

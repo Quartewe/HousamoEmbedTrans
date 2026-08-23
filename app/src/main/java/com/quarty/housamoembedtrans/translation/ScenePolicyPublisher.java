@@ -22,6 +22,8 @@ public final class ScenePolicyPublisher implements AutoCloseable {
 
     public enum Outcome {
         PUBLISHED,
+        /** The peer accepted the command into the durable mutation pool. */
+        DEFERRED,
         STALE,
         FAILED_OPEN
     }
@@ -230,6 +232,21 @@ public final class ScenePolicyPublisher implements AutoCloseable {
                 SceneSyncWireCodec.ApplyResult result = transport.publish(
                     prepared.encodedCommand
                 );
+                if (result != null
+                    && result.errorCode == SceneSyncWireCodec.APPLY_DEFERRED) {
+                    // APPLY_DEFERRED is an accepted durable receipt, not a
+                    // formal game-policy commit.  Do not update the HET cache
+                    // or report PUBLISHED; the caller must keep the policy
+                    // claim retryable until the pool drains.
+                    lastErrorCode = result.errorCode;
+                    return new PublishResult(
+                        Outcome.DEFERRED,
+                        attempts,
+                        lastErrorCode,
+                        null,
+                        prepared.blockedScenes
+                    );
+                }
                 if (result != null && result.success) {
                     synchronized (lock) {
                         if (!isCurrentLocked(target)) {

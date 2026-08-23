@@ -38,6 +38,10 @@
     <string name="notification_repairing_damaged_jobs">Trying to repair damaged translation-job files…</string>
     <string name="notification_action_view_scene_sync">View Scene Sync</string>
     <string name="notification_action_view_scene_conflicts">View Scene conflicts</string>
+    <string name="notification_action_view_scene_mutation_pool">View queued Scene mutations</string>
+    <string name="notification_scene_mutation_pool_pending">%1$d Scene mutation(s) waiting behind the sync gate: %2$s</string>
+    <string name="notification_scene_mutation_pool_failure">Scene mutation pool needs attention: %2$s</string>
+    <string name="notification_scene_queued_behind_gate">Scene mutation queued behind the sync gate; the conflict remains until replay commits it.</string>
     <string name="notification_action_scene_conflicts">Review Scene conflicts (%1$d)</string>
 
     <string name="settings_title">Translation settings</string>
@@ -310,6 +314,7 @@
     <string name="scene_files_refresh_started">Scene sync started.</string>
     <string name="scene_files_refresh_busy">Another Scene operation is active.</string>
     <string name="scene_files_refresh_deferred">Scene sync is deferred until current work finishes.</string>
+    <string name="scene_files_refresh_queued_behind_gate">Scene mutation is queued behind the sync gate; replay will commit it before the conflict clears.</string>
     <string name="scene_files_refresh_local_only">Game not running; refreshed local Scene files only.</string>
     <string name="scene_files_refresh_succeeded">Scene sync completed.</string>
     <string name="scene_files_refresh_needs_attention">Scene sync completed; some Scenes need attention.</string>
@@ -331,6 +336,8 @@
     <string name="scene_files_status_not_processed">Not processed</string>
     <string name="scene_files_loading">Loading local scenes…</string>
     <string name="scene_files_summary">%1$d valid local scene file(s)</string>
+    <string name="scene_files_mutation_pool_pending">%1$d Scene mutation(s) queued behind the sync gate. %2$s</string>
+    <string name="scene_files_mutation_pool_failure">Scene mutation pool needs attention: %2$s</string>
     <string name="scene_management_title">Manage a stored scene</string>
     <string name="scene_file_label">Scene file</string>
     <string name="scene_language_label">Saved language key</string>
@@ -347,11 +354,13 @@
     <string name="delete_scene_file_message">Delete %1$s locally? The next Scene Sync will delete its game-side copy.</string>
     <string name="scene_file_deleted">Local deletion completed for %1$s. Waiting for the next Scene Sync to delete the game-side copy.</string>
     <string name="scene_operation_failed">Scene operation failed: %1$s</string>
+    <string name="scene_mutation_deferred">Scene mutation for %1$s is queued behind the sync gate and will be committed after it opens.</string>
     <string name="import_scene_files">Batch import</string>
     <string name="import_scene_files_hint">Select multiple JSON files. Each file is validated independently and stored using the value of its scene field as the local filename.</string>
     <string name="export_scene_files">Export all to a folder</string>
     <string name="export_scene_files_hint">Android will ask you to choose and grant access to a destination folder.</string>
     <string name="scene_import_result">Imported %1$d; rejected %2$d.</string>
+    <string name="scene_import_deferred_result">%1$d import(s) queued behind the sync gate; they will be committed after the gate opens.</string>
     <string name="scene_export_result">Exported %1$d; failed %2$d.</string>
     <string name="scene_export_folder">Destination folder</string>
     <string name="scene_conflicts_title">Scene conflicts</string>
@@ -389,6 +398,7 @@
     <string name="scene_conflict_no_text_items">Neither candidate contains a text item.</string>
     <string name="scene_conflict_action_succeeded">The selected complete Scene was applied.</string>
     <string name="scene_conflict_action_pending_offline">The HET version was saved for the next game connection. This conflict remains blocked until then.</string>
+    <string name="scene_conflict_action_queued_behind_gate">Scene mutation queued behind the sync gate; the conflict remains until replay commits it.</string>
     <string name="scene_conflict_action_busy">Another Scene operation is active. Try again when it finishes.</string>
     <string name="scene_conflict_action_unavailable">The Scene service is not available. Reopen this page and try again.</string>
     <string name="scene_conflict_action_failed">The conflict choice could not be applied. The original conflict was kept.</string>

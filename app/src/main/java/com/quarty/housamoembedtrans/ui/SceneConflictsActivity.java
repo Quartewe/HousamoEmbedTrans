@@ -404,6 +404,9 @@ public final class SceneConflictsActivity extends AppCompatActivity {
             case NEEDS_ATTENTION:
                 message = R.string.scene_conflict_action_pending_offline;
                 break;
+            case QUEUED_BEHIND_GATE:
+                message = R.string.scene_conflict_action_queued_behind_gate;
+                break;
             case BUSY:
             case DEFERRED:
                 message = R.string.scene_conflict_action_busy;

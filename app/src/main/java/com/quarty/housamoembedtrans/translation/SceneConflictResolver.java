@@ -5,8 +5,6 @@ import com.quarty.housamoembedtrans.storage.SceneSyncSettings;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 
 import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 /**
@@ -118,9 +116,10 @@ public final class SceneConflictResolver {
     }
 
     /**
-     * Reconciles a seeded claim against the exact current pair.  A matching
-     * claim remains blocked for manual review; a stale claim is removed so the
-     * caller can continue normal pair reconciliation.
+     * Reconciles a seeded claim.  A formal directory owns its SceneName until
+     * an explicit user action removes it; the current pair is not allowed to
+     * invalidate the user's two durable candidates.  Metadata/file damage is
+     * propagated as a diagnostic failure while the directory remains intact.
      */
     public boolean retainCurrentClaim(
         String sceneName,
@@ -130,20 +129,15 @@ public final class SceneConflictResolver {
         if (!conflictStore.hasFormalConflict(sceneName)) {
             return false;
         }
-        ConflictStore.ConflictMetadata metadata =
-            conflictStore.readMetadata(sceneName);
-        if (sameCandidates(metadata, gameBytes, hetBytes)) {
-            return true;
-        }
-        conflictStore.remove(sceneName);
-        return false;
+        conflictStore.readMetadata(sceneName);
+        return true;
     }
 
     /**
      * Resolves one pair independently.  Automatic failure is reported as a
      * blocked result and never falls back to the other candidate; a formal
-     * conflict is retained only when its candidates still match the current
-     * pair, while stale records are invalidated before reconciliation.
+     * conflict is retained regardless of whether the current pair matches;
+     * stale records are never invalidated by synchronization.
      */
     public Decision resolve(
         String sceneName,
@@ -161,20 +155,13 @@ public final class SceneConflictResolver {
             if (conflictStore.hasFormalConflict(sceneName)) {
                 ConflictStore.ConflictMetadata metadata =
                     conflictStore.readMetadata(sceneName);
-                if (sameCandidates(metadata, gameBytes, hetBytes)) {
-                    return new Decision(
-                        sceneName,
-                        normalizedMode,
-                        Kind.ALREADY_PENDING,
-                        metadata,
-                        null
-                    );
-                }
-                try {
-                    conflictStore.remove(sceneName);
-                } catch (Exception e) {
-                    return failed(sceneName, normalizedMode, e);
-                }
+                return new Decision(
+                    sceneName,
+                    normalizedMode,
+                    Kind.ALREADY_PENDING,
+                    metadata,
+                    null
+                );
             }
 
             if (SceneSyncSettings.CONFLICT_MODE_GAME.equals(normalizedMode)) {
@@ -250,31 +237,4 @@ public final class SceneConflictResolver {
         );
     }
 
-    private static boolean sameCandidates(
-        ConflictStore.ConflictMetadata metadata,
-        byte[] gameBytes,
-        byte[] hetBytes
-    ) throws IOException {
-        if (metadata == null) {
-            return false;
-        }
-        return metadata.gameSha256.equals(sha256Hex(gameBytes))
-            && metadata.hetSha256.equals(sha256Hex(hetBytes));
-    }
-
-    private static String sha256Hex(byte[] bytes) throws IOException {
-        if (bytes == null) {
-            throw new IOException("conflict candidate is null");
-        }
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
-            StringBuilder result = new StringBuilder(digest.length * 2);
-            for (byte value : digest) {
-                result.append(String.format("%02x", value & 0xff));
-            }
-            return result.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IOException("SHA-256 is unavailable", e);
-        }
-    }
 }

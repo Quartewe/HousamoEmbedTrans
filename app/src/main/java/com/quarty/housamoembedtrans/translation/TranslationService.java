@@ -1169,6 +1169,7 @@ public final class TranslationService extends Service {
         }
         activeTaskExecutor = null;
         TranslationStatusNotification.setJobStore(null);
+        TranslationStatusNotification.setSceneStore(null);
         if (summaryTaskExecutor != null) {
             summaryTaskExecutor.shutdown();
         }
@@ -1541,7 +1542,11 @@ public final class TranslationService extends Service {
             case GAME_APPLIED:
                 direction = SceneSyncRuntimeState.Direction.GAME_TO_HET;
                 break;
+            case GAME_DEFERRED:
+                direction = SceneSyncRuntimeState.Direction.GAME_TO_HET;
+                break;
             case HET_APPLIED:
+            case HET_DEFERRED:
             case HET_PENDING_OFFLINE:
                 direction = SceneSyncRuntimeState.Direction.HET_TO_GAME;
                 break;
@@ -1559,6 +1564,11 @@ public final class TranslationService extends Service {
                 : outcome.kind
                     == SceneManualConflictController.OutcomeKind.FAILED
                         ? SceneSyncRuntimeState.Status.NOT_PROCESSED
+                        : outcome.kind
+                            == SceneManualConflictController.OutcomeKind.GAME_DEFERRED
+                            || outcome.kind
+                                == SceneManualConflictController.OutcomeKind.HET_DEFERRED
+                            ? SceneSyncRuntimeState.Status.NEEDS_ATTENTION
                         : SceneSyncRuntimeState.Status.PROCESSED;
         byName.put(
             outcome.sceneName,
@@ -1593,6 +1603,9 @@ public final class TranslationService extends Service {
             case GAME_APPLIED:
             case HET_APPLIED:
                 return SceneSyncRuntimeState.Outcome.SUCCEEDED;
+            case GAME_DEFERRED:
+            case HET_DEFERRED:
+                return SceneSyncRuntimeState.Outcome.QUEUED_BEHIND_GATE;
             case HET_PENDING_OFFLINE:
                 return SceneSyncRuntimeState.Outcome.NEEDS_ATTENTION;
             case FAILED:
@@ -1899,7 +1912,7 @@ public final class TranslationService extends Service {
                 );
             }
 
-            fullSyncLease = SceneStore.beginFullSyncAdmission();
+            fullSyncLease = SceneStore.beginFullSyncAdmission(sceneStoreSnapshot);
             ConflictStore.RecoveryReport conflictRecovery =
                 conflictStoreSnapshot.recover();
             PendingSceneApplyStore.RecoveryReport pendingRecovery =
@@ -1971,8 +1984,6 @@ public final class TranslationService extends Service {
                     "FULL_SYNC Scene runtime is no longer active"
                 );
             }
-            boolean operationStarted = true;
-            long repairGeneration = startupRepairGeneration;
             try {
                 SceneSyncOperation.Result result = operation.run();
                 List<SceneSyncRuntimeState.SceneSummary> summaries =
@@ -2011,17 +2022,6 @@ public final class TranslationService extends Service {
                 synchronized (sceneOperationLifecycleLock) {
                     activeSceneOperation.compareAndSet(active, null);
                 }
-                if (operationStarted
-                    && operationKind
-                        == SceneSyncCoordinator.SyncOperationKind
-                            .AUTO_FULL_SYNC
-                    && isSceneOperationGenerationCurrent(
-                        sceneOperationLifecycleOpen,
-                        sceneOperationLifecycleGeneration,
-                        sceneRuntimeGeneration
-                    )) {
-                    scheduleInitialAutoSyncBarrier(repairGeneration);
-                }
             }
         } catch (Exception e) {
             if (!terminalStatePublished) {
@@ -2047,25 +2047,7 @@ public final class TranslationService extends Service {
         }
         try {
             startupRepairExecutor.execute(() -> {
-                try {
-                    boolean retryRequired = store.signalFirstAutoSyncFinished(
-                        repairGeneration
-                    );
-                    if (retryRequired && !startupRepairExecutor.isShutdown()) {
-                        scheduleStartupRepair(0L);
-                    }
-                } catch (Exception e) {
-                    Log.w(
-                        TAG,
-                        "Could not signal first AUTO Scene Sync barrier "
-                            + "generation="
-                        + repairGeneration,
-                        e
-                    );
-                } finally {
-                    requestTerminalReplayScan();
-                    notifyStartupWaiters();
-                }
+                signalInitialAutoSyncBarrier(store, repairGeneration);
             });
         } catch (RejectedExecutionException e) {
             Log.w(
@@ -2075,6 +2057,35 @@ public final class TranslationService extends Service {
                     + repairGeneration,
                 e
             );
+            // The AUTO operation already terminated.  If this auxiliary
+            // executor is closing, run the idempotent barrier signal inline
+            // so startup cannot remain blocked forever.
+            signalInitialAutoSyncBarrier(store, repairGeneration);
+        }
+    }
+
+    private void signalInitialAutoSyncBarrier(
+        TranslationJobStore store,
+        long repairGeneration
+    ) {
+        try {
+            boolean retryRequired = store.signalFirstAutoSyncFinished(
+                repairGeneration
+            );
+            if (retryRequired && !startupRepairExecutor.isShutdown()) {
+                scheduleStartupRepair(0L);
+            }
+        } catch (Exception e) {
+            Log.w(
+                TAG,
+                "Could not signal first AUTO Scene Sync barrier "
+                    + "generation="
+                    + repairGeneration,
+                e
+            );
+        } finally {
+            requestTerminalReplayScan();
+            notifyStartupWaiters();
         }
     }
 
@@ -2238,6 +2249,7 @@ public final class TranslationService extends Service {
         // intentionally stays lightweight; Binder admission can still persist
         // through ensureTranslationJobStore() and is reconciled below.
         sceneStore = new SceneStore(this);
+        TranslationStatusNotification.setSceneStore(sceneStore);
         conflictStore = new ConflictStore(this);
         pendingSceneApplyStore = new PendingSceneApplyStore(
             new File(getFilesDir(), PendingSceneApplyStore.DIRECTORY_NAME),
@@ -2271,11 +2283,13 @@ public final class TranslationService extends Service {
                 );
             }
             preparedSceneSyncCoordinator.setOperationFinishedListener(
-                () -> onSceneOperationFinished(sceneRuntimeGeneration)
+                operationKind -> onSceneOperationFinished(
+                    sceneRuntimeGeneration,
+                    operationKind
+                )
             );
             sceneSyncCoordinator = preparedSceneSyncCoordinator;
         }
-        replayCurrentScenePortToCoordinator();
         manualConflictController = new SceneManualConflictController(
             preparedSceneSyncCoordinator,
             sceneStore,
@@ -2413,6 +2427,12 @@ public final class TranslationService extends Service {
             autoRecover,
             sortOrder
         );
+        // A port may have connected before the background runtime existed.
+        // Replay it only after the JobStore has published this service's
+        // repair generation.  Otherwise a direct/test executor can complete
+        // the first AUTO cycle while startupRepairGeneration is still the
+        // previous/default value, losing the startup barrier signal.
+        replayCurrentScenePortToCoordinator();
         if (shouldPrepareSummaryStore(summaryStartupPrepared)) {
             preparedSummaryStore.prepareForServiceStart(
                 ConfigStore.getSummaryAutoRecoverPreviousJobs(userSettings),
@@ -2486,6 +2506,7 @@ public final class TranslationService extends Service {
             contexts.setActiveContextChangeListener((previous, current) -> { });
         }
         TranslationStatusNotification.setJobStore(null);
+        TranslationStatusNotification.setSceneStore(null);
         contextCompressionCoordinator = null;
         groupCompressionCoordinator = null;
         manualConflictController = null;
@@ -2553,17 +2574,26 @@ public final class TranslationService extends Service {
         }
     }
 
-    private void onSceneOperationFinished(long sceneRuntimeGeneration) {
+    private void onSceneOperationFinished(
+        long sceneRuntimeGeneration,
+        SceneSyncCoordinator.SyncOperationKind operationKind
+    ) {
+        boolean current;
         synchronized (sceneOperationLifecycleLock) {
-            if (!isSceneOperationGenerationCurrent(
+            current = isSceneOperationGenerationCurrent(
                 sceneOperationLifecycleOpen,
                 sceneOperationLifecycleGeneration,
                 sceneRuntimeGeneration
-            )) {
-                return;
+            );
+            if (current) {
+                republishRuntimeState();
+                scheduleApiWorkDrain();
             }
-            republishRuntimeState();
-            scheduleApiWorkDrain();
+        }
+        if (current
+            && operationKind
+                == SceneSyncCoordinator.SyncOperationKind.AUTO_FULL_SYNC) {
+            scheduleInitialAutoSyncBarrier(startupRepairGeneration);
         }
     }
 
@@ -2590,7 +2620,7 @@ public final class TranslationService extends Service {
             ActiveOperation active = activeSceneOperation.getAndSet(null);
             SceneSyncCoordinator coordinator = sceneSyncCoordinator;
             if (coordinator != null) {
-                coordinator.setOperationFinishedListener(() -> { });
+                coordinator.setOperationFinishedListener(operationKind -> { });
             }
             sceneSyncCoordinator = null;
             return new SceneRuntimeDetach(active, coordinator);

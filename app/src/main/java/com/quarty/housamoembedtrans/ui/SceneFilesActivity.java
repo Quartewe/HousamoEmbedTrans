@@ -340,6 +340,10 @@ public final class SceneFilesActivity extends AppCompatActivity {
                 return getString(R.string.scene_files_refresh_busy);
             case DEFERRED:
                 return getString(R.string.scene_files_refresh_deferred);
+            case QUEUED_BEHIND_GATE:
+                return getString(
+                    R.string.scene_files_refresh_queued_behind_gate
+                );
             case LOCAL_ONLY:
                 return getString(R.string.scene_files_refresh_local_only);
             case SUCCEEDED:
@@ -433,6 +437,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         setBusy(true);
         ioExecutor.execute(() -> {
             int imported = 0;
+            int deferred = 0;
             int rejected = 0;
             StringBuilder details = new StringBuilder();
             for (Uri uri : uris) {
@@ -440,8 +445,14 @@ public final class SceneFilesActivity extends AppCompatActivity {
                     if (input == null) {
                         throw new IOException("document could not be opened");
                     }
-                    sceneStore.importScene(input);
-                    imported++;
+                    SceneStore.MutationReceipt<SceneStore.ValidatedScene> receipt =
+                        sceneStore.importScene(input);
+                    if (receipt.disposition
+                        == SceneStore.MutationDisposition.DEFERRED) {
+                        deferred++;
+                    } else {
+                        imported++;
+                    }
                 } catch (Exception e) {
                     rejected++;
                     appendFailure(details, displayName(uri), safeMessage(e));
@@ -449,6 +460,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
             }
 
             int finalImported = imported;
+            int finalDeferred = deferred;
             int finalRejected = rejected;
             List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
             runOnUiThread(() -> {
@@ -457,11 +469,23 @@ public final class SceneFilesActivity extends AppCompatActivity {
                 }
                 updateScenes(refreshedScenes, null, null);
                 setBusy(false);
-                showResult(getString(
+                String result = getString(
                     R.string.scene_import_result,
                     finalImported,
                     finalRejected
-                ), details.toString());
+                );
+                String deferredResult = finalDeferred == 0
+                    ? ""
+                    : getString(
+                        R.string.scene_import_deferred_result,
+                        finalDeferred
+                    );
+                String combinedDetails = TextUtils.isEmpty(details)
+                    ? deferredResult
+                    : TextUtils.isEmpty(deferredResult)
+                        ? details.toString()
+                        : deferredResult + "\n" + details;
+                showResult(result, combinedDetails);
             });
         });
     }
@@ -729,7 +753,25 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
         int selectedIndex = indexOfScene(wantedSceneName);
         sceneFileSpinner.setSelection(selectedIndex < 0 ? 0 : selectedIndex, false);
-        summary.setText(getString(R.string.scene_files_summary, scenes.size()));
+        int pendingMutations = sceneStore.getDeferredMutationCount();
+        String pendingMutationDiagnostic =
+            sceneStore.getDeferredMutationDiagnostic();
+        boolean hasPendingMutationNotice = pendingMutations > 0
+            || !pendingMutationDiagnostic.trim().isEmpty();
+        String sceneSummary = getString(
+            R.string.scene_files_summary,
+            scenes.size()
+        );
+        if (hasPendingMutationNotice) {
+            sceneSummary += "\n" + getString(
+                pendingMutations > 0
+                    ? R.string.scene_files_mutation_pool_pending
+                    : R.string.scene_files_mutation_pool_failure,
+                pendingMutations,
+                pendingMutationDiagnostic
+            );
+        }
+        summary.setText(sceneSummary);
         updateLanguageChoices(wantedLanguage);
     }
 
@@ -830,7 +872,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
         setBusy(true);
         ioExecutor.execute(() -> {
             try {
-                sceneStore.removeLanguage(sceneName, language);
+                SceneStore.MutationReceipt<SceneStore.ValidatedScene> receipt =
+                    sceneStore.removeLanguage(sceneName, language);
                 List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) {
@@ -838,11 +881,18 @@ public final class SceneFilesActivity extends AppCompatActivity {
                     }
                     updateScenes(refreshedScenes, sceneName, null);
                     setBusy(false);
-                    showResult(getString(
-                        R.string.scene_language_deleted,
-                        language,
-                        sceneName
-                    ), "");
+                    String message = receipt.disposition
+                        == SceneStore.MutationDisposition.DEFERRED
+                        ? getString(
+                            R.string.scene_mutation_deferred,
+                            sceneName
+                        )
+                        : getString(
+                            R.string.scene_language_deleted,
+                            language,
+                            sceneName
+                        );
+                    showResult(message, "");
                 });
             } catch (Exception e) {
                 showOperationFailure(safeMessage(e));
@@ -890,7 +940,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
         setBusy(true);
         ioExecutor.execute(() -> {
             try {
-                sceneStore.deleteScene(sceneName);
+                SceneStore.MutationReceipt<Void> receipt =
+                    sceneStore.deleteScene(sceneName);
                 List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) {
@@ -898,10 +949,17 @@ public final class SceneFilesActivity extends AppCompatActivity {
                     }
                     updateScenes(refreshedScenes, preferredSceneName, null);
                     setBusy(false);
-                    showResult(getString(
-                        R.string.scene_file_deleted,
-                        sceneName
-                    ), "");
+                    String message = receipt.disposition
+                        == SceneStore.MutationDisposition.DEFERRED
+                        ? getString(
+                            R.string.scene_mutation_deferred,
+                            sceneName
+                        )
+                        : getString(
+                            R.string.scene_file_deleted,
+                            sceneName
+                        );
+                    showResult(message, "");
                 });
             } catch (Exception e) {
                 showOperationFailure(safeMessage(e));

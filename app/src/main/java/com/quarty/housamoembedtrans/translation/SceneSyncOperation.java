@@ -590,7 +590,13 @@ public final class SceneSyncOperation implements AutoCloseable {
         if (syncWriteLease == null) {
             throw new IOException("full-sync write lease is required");
         }
-        syncWriteLease.saveRawSceneSnapshot(sceneStore, snapshot);
+        SceneStore.MutationReceipt<Void> receipt =
+            syncWriteLease.saveRawSceneSnapshot(sceneStore, snapshot);
+        if (receipt == null
+            || receipt.disposition
+                == SceneStore.MutationDisposition.DEFERRED) {
+            throw new DeferredSceneMutationException("HET Scene write");
+        }
     }
 
     private boolean clearMatchingDeletionIntentForSync(
@@ -626,7 +632,7 @@ public final class SceneSyncOperation implements AutoCloseable {
         runStarted.set(true);
         if (syncWriteLease == null) {
             try {
-                syncWriteLease = SceneStore.beginFullSyncAdmission();
+                syncWriteLease = SceneStore.beginFullSyncAdmission(sceneStore);
                 ownsSyncWriteLease = true;
             } catch (IOException e) {
                 return failure(
@@ -646,6 +652,35 @@ public final class SceneSyncOperation implements AutoCloseable {
                 syncWriteLease = null;
                 ownsSyncWriteLease = false;
             }
+        }
+    }
+
+    /**
+     * The game accepted a mutation request but HET only durably queued its
+     * Scene write.  Treat this as a per-Scene blocked outcome: callers must
+     * not clear deletion intents, pending directives, or conflict claims.
+     */
+    private static final class DeferredSceneMutationException
+        extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        private DeferredSceneMutationException(String action) {
+            super(action + " returned APPLY_DEFERRED");
+        }
+    }
+
+    private static void requireCommittedApply(
+        SceneSyncWireCodec.ApplyResult result,
+        String action
+    ) throws IOException {
+        if (result == null) {
+            throw new IOException(action + " returned no APPLY_RESULT");
+        }
+        if (result.errorCode == SceneSyncWireCodec.APPLY_DEFERRED) {
+            throw new DeferredSceneMutationException(action);
+        }
+        if (!result.success) {
+            throw new IOException(action + " was not successful");
         }
     }
 
@@ -1368,11 +1403,7 @@ public final class SceneSyncOperation implements AutoCloseable {
                         sceneName
                     )
                 );
-                if (result == null || !result.success) {
-                    throw new IOException(
-                        "Scene deletion apply was not successful"
-                    );
-                }
+                requireCommittedApply(result, "Scene deletion apply");
                 // The HET-side formal view was already deleted.  Remove only
                 // the captured in-memory intent after the game acknowledged
                 // DELETE.  A terminal DELETED summary is recorded only after
@@ -1452,11 +1483,7 @@ public final class SceneSyncOperation implements AutoCloseable {
                                 bytes
                             )
                         );
-                        if (result == null || !result.success) {
-                            throw new IOException(
-                                "HET conflict apply was not successful"
-                            );
-                        }
+                        requireCommittedApply(result, "HET conflict apply");
                     }
                 }
             );
@@ -1554,9 +1581,7 @@ public final class SceneSyncOperation implements AutoCloseable {
                 bytes
             )
         );
-        if (result == null || !result.success) {
-            throw new IOException("pending Scene apply was not successful");
-        }
+        requireCommittedApply(result, "pending Scene apply");
     }
 
     private void clearMissingDeletionIntents(
@@ -1597,9 +1622,7 @@ public final class SceneSyncOperation implements AutoCloseable {
                 scene.bytes
             )
         );
-        if (result == null || !result.success) {
-            throw new IOException("HET-only Scene apply was not successful");
-        }
+        requireCommittedApply(result, "HET-only Scene apply");
         // It becomes part of the game's view only after the game has returned
         // a successful atomic APPLY_RESULT.
         gameNames.add(sceneName);
