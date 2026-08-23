@@ -321,7 +321,12 @@ public final class TranslationService extends Service {
         (hasPendingJobs, heldQueuedJobCount, repairingStartupJobs) -> {
             notifyStartupWaiters();
             TranslationStatusNotification.refresh(this);
-            if (hasPendingJobs) {
+            if (repairingStartupJobs) {
+                // A failed pre-boundary admission preflight leaves the same
+                // repair generation open.  Wake its owner even when no
+                // ordinary API queue item is claimable yet.
+                scheduleStartupRepair();
+            } else if (hasPendingJobs) {
                 scheduleApiWorkDrain();
             }
         };

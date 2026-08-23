@@ -258,6 +258,18 @@ public final class TranslationJobStore {
         public String getDisposition() { return disposition; }
     }
 
+    /** Commit cannot safely publish A/B while a pre-boundary admission is
+     * temporarily unreadable; callers should leave the boundary closed and
+     * retry the same promotion transaction. */
+    public static final class StartupAdmissionRetryableException
+        extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        private StartupAdmissionRetryableException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
     private static final int FORMAT_VERSION = 1;
     public static final int MAX_REQUEST_BYTES = 32 * 1024 * 1024;
     private static final int MAX_STATE_BYTES = 64 * 1024;
@@ -332,6 +344,8 @@ public final class TranslationJobStore {
         new LinkedHashMap<>();
     /** In-memory count published by durable mutations/startup repair. */
     private final Set<String> manualRerunCandidateIds = new HashSet<>();
+    /** Stable in-process diagnostics for jobs whose state has no identity. */
+    private final Set<String> damagedRequestIds = new LinkedHashSet<>();
     /** Failed jobs that belong to the fixed legacy startup snapshot. */
     private final Set<String> startupManualCandidateIds =
         new LinkedHashSet<>();
@@ -344,6 +358,9 @@ public final class TranslationJobStore {
      * only; the request/state files are the durable admission record.
      */
     private final LinkedHashMap<String, Long> startupAdmissionOrder =
+        new LinkedHashMap<>();
+    /** Sequences prepared by the single admission-promotion transaction. */
+    private final LinkedHashMap<String, Long> startupAdmissionSequences =
         new LinkedHashMap<>();
     /** Durable jobs waiting for the Context membership side of admission. */
     private final Set<String> historyMembershipPendingIds = new HashSet<>();
@@ -423,8 +440,10 @@ public final class TranslationJobStore {
         historyMembershipPendingIds.clear();
         reviewPublicationPendingIds.clear();
         manualRerunCandidateIds.clear();
+        damagedRequestIds.clear();
         startupManualCandidateIds.clear();
         startupAdmissionOrder.clear();
+        startupAdmissionSequences.clear();
         sceneValidationWaitRecheckInProgress = false;
     }
 
@@ -472,7 +491,9 @@ public final class TranslationJobStore {
             pendingRequestIds.clear();
             heldQueuedJobs.clear();
             manualRerunCandidateIds.clear();
+            damagedRequestIds.clear();
             startupManualCandidateIds.clear();
+            startupAdmissionSequences.clear();
             historyMembershipPendingIds.clear();
             reviewPublicationPendingIds.clear();
             startupRepairCandidates.clear();
@@ -497,6 +518,15 @@ public final class TranslationJobStore {
                 if (startupAdmissionOrder.containsKey(requestId)) {
                     try {
                         JSONObject admittedState = readState(jobDirectory);
+                        if (admittedState == null) {
+                            throw new IllegalStateException(
+                                "pre-boundary admission state is missing"
+                            );
+                        }
+                        readOptionalQueueSequence(
+                            admittedState,
+                            requestId
+                        );
                         releaseRecoveredReviewPublicationHoldLocked(
                             jobDirectory,
                             requestId,
@@ -507,15 +537,18 @@ public final class TranslationJobStore {
                             admittedState
                         );
                     } catch (Exception e) {
-                        // Keep the identity in the startup submission list;
-                        // the normal durable repair path will reconcile it
-                        // after the recovery boundary.
+                        // Keep C/D under the dedicated startup-repair owner;
+                        // it must converge before any recovery boundary can
+                        // publish the unified queue.
                         Log.w(
                             TAG,
                             "Could not inspect pre-startup admission "
                                 + "requestId=" + requestId,
                             e
                         );
+                        // Keep C/D under the admission repair owner.  It is
+                        // deliberately excluded from legacy recovery UI.
+                        startupRepairCandidates.add(jobDirectory);
                     }
                     continue;
                 }
@@ -644,6 +677,10 @@ public final class TranslationJobStore {
 
     public synchronized int getHeldQueuedJobCount() {
         return heldQueuedJobs.size();
+    }
+
+    public synchronized Set<String> getDamagedRequestIds() {
+        return new LinkedHashSet<>(damagedRequestIds);
     }
 
     /** Whether the fixed startup snapshot still needs a manual decision. */
@@ -813,6 +850,11 @@ public final class TranslationJobStore {
                         return false;
                     }
 
+                    final boolean startupAdmission =
+                        startupAdmissionOrder.containsKey(
+                            jobDirectory.getName()
+                        );
+
                     ProcessResult result = processIncompleteJob(
                         jobDirectory,
                         ValidationMode.STARTUP_RECOVERY,
@@ -842,7 +884,13 @@ public final class TranslationJobStore {
                     switch (result) {
                         case VALID:
                         case REPAIRED: {
-                            queueStartupReadyLocked(jobDirectory);
+                            // A process-local admission already owns its
+                            // pre-boundary arrival slot.  Repair can make its
+                            // durable state queueable, but must not route it
+                            // through the legacy recovery/held lane.
+                            if (!startupAdmission) {
+                                queueStartupReadyLocked(jobDirectory);
+                            }
                             resolvedRequestIds.add(
                                 jobDirectory.getName()
                             );
@@ -850,37 +898,65 @@ public final class TranslationJobStore {
                             break;
                         }
                         case COMPLETED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    jobDirectory.getName()
+                                );
+                            }
                             resolvedRequestIds.add(
                                 jobDirectory.getName()
                             );
                             completedCount++;
                             break;
                         case FAILED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    jobDirectory.getName()
+                                );
+                            } else {
+                                startupManualCandidateIds.add(
+                                    jobDirectory.getName()
+                                );
+                            }
                             resolvedRequestIds.add(
-                                jobDirectory.getName()
-                            );
-                            startupManualCandidateIds.add(
                                 jobDirectory.getName()
                             );
                             failedCount++;
                             break;
                         case DAMAGED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    jobDirectory.getName()
+                                );
+                            }
                             resolvedRequestIds.add(
                                 jobDirectory.getName()
                             );
                             retainedCount++;
                             break;
                         case REMOVED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    jobDirectory.getName()
+                                );
+                            }
                             resolvedRequestIds.add(
                                 jobDirectory.getName()
                             );
                             removedCount++;
                             break;
-                        case TERMINAL:
+                        case TERMINAL: {
+                            boolean admissionTerminal = startupAdmission;
+                            if (admissionTerminal) {
+                                removeStartupAdmissionIdentityLocked(
+                                    jobDirectory.getName()
+                                );
+                            }
                             resolvedRequestIds.add(
                                 jobDirectory.getName()
                             );
-                            if (manualRerunCandidateIds.contains(
+                            if (!admissionTerminal
+                                && manualRerunCandidateIds.contains(
                                 jobDirectory.getName()
                             )) {
                                 startupManualCandidateIds.add(
@@ -888,6 +964,7 @@ public final class TranslationJobStore {
                                 );
                             }
                             break;
+                        }
                         case SCENE_MISSING:
                             throw new IllegalStateException(
                                 "Scene wait recheck did not resolve missing "
@@ -924,6 +1001,8 @@ public final class TranslationJobStore {
                 if (current != wait) {
                     continue;
                 }
+                final boolean startupAdmission =
+                    startupAdmissionOrder.containsKey(wait.requestId);
                 try {
                     ProcessResult result = processIncompleteJob(
                         wait.jobDirectory,
@@ -933,30 +1012,60 @@ public final class TranslationJobStore {
                     switch (result) {
                         case VALID:
                         case REPAIRED:
-                            queueStartupReadyLocked(wait.jobDirectory);
+                            if (!startupAdmission) {
+                                queueStartupReadyLocked(wait.jobDirectory);
+                            }
                             resolvedWaitIds.add(wait.requestId);
                             recoveredCount++;
                             break;
                         case COMPLETED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            }
                             resolvedWaitIds.add(wait.requestId);
                             completedCount++;
                             break;
                         case FAILED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            } else {
+                                startupManualCandidateIds.add(wait.requestId);
+                            }
                             resolvedWaitIds.add(wait.requestId);
-                            startupManualCandidateIds.add(wait.requestId);
                             failedCount++;
                             break;
                         case DAMAGED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            }
                             resolvedWaitIds.add(wait.requestId);
                             retainedCount++;
                             break;
                         case REMOVED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            }
                             resolvedWaitIds.add(wait.requestId);
                             removedCount++;
                             break;
-                        case TERMINAL:
+                        case TERMINAL: {
+                            boolean admissionTerminal = startupAdmission;
+                            if (admissionTerminal) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            }
                             resolvedWaitIds.add(wait.requestId);
-                            if (manualRerunCandidateIds.contains(
+                            if (!admissionTerminal
+                                && manualRerunCandidateIds.contains(
                                 wait.requestId
                             )) {
                                 startupManualCandidateIds.add(
@@ -964,6 +1073,7 @@ public final class TranslationJobStore {
                                 );
                             }
                             break;
+                        }
                         case SCENE_MISSING:
                             throw new IllegalStateException(
                                 "Scene wait recheck returned missing "
@@ -1016,8 +1126,8 @@ public final class TranslationJobStore {
                 }
             }
             repairingStartupJobs = !startupRepairCandidates.isEmpty()
-                || (initialAutoSyncFinished
-                    && !sceneValidationWaits.isEmpty())
+                || hasStartupAdmissionWaitLocked()
+                || (initialAutoSyncFinished && !sceneValidationWaits.isEmpty())
                 || !startupReadyJobs.isEmpty();
             retryRequired = repairingStartupJobs;
         }
@@ -1093,7 +1203,17 @@ public final class TranslationJobStore {
     private boolean canFinalizeStartupJobsLocked() {
         return startupRepairCandidates.isEmpty()
             && !sceneValidationWaitRecheckInProgress
+            && !hasStartupAdmissionWaitLocked()
             && (!initialAutoSyncFinished || sceneValidationWaits.isEmpty());
+    }
+
+    private boolean hasStartupAdmissionWaitLocked() {
+        for (String requestId : sceneValidationWaits.keySet()) {
+            if (startupAdmissionOrder.containsKey(requestId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1129,6 +1249,8 @@ public final class TranslationJobStore {
                 if (sceneValidationWaits.get(wait.requestId) != wait) {
                     continue;
                 }
+                final boolean startupAdmission =
+                    startupAdmissionOrder.containsKey(wait.requestId);
                 try {
                     ProcessResult result = processIncompleteJob(
                         wait.jobDirectory,
@@ -1138,22 +1260,52 @@ public final class TranslationJobStore {
                     switch (result) {
                         case VALID:
                         case REPAIRED:
-                            queueStartupReadyLocked(wait.jobDirectory);
+                            if (!startupAdmission) {
+                                queueStartupReadyLocked(wait.jobDirectory);
+                            }
                             resolvedWaitIds.add(wait.requestId);
                             break;
                         case COMPLETED:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            }
+                            resolvedWaitIds.add(wait.requestId);
+                            break;
                         case DAMAGED:
                         case REMOVED:
-                        case TERMINAL:
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            }
                             resolvedWaitIds.add(wait.requestId);
-                            if (manualRerunCandidateIds.contains(
+                            break;
+                        case TERMINAL: {
+                            boolean admissionTerminal = startupAdmission;
+                            if (admissionTerminal) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            }
+                            resolvedWaitIds.add(wait.requestId);
+                            if (!admissionTerminal
+                                && manualRerunCandidateIds.contains(
                                 wait.requestId
                             )) {
                                 startupManualCandidateIds.add(wait.requestId);
                             }
                             break;
+                        }
                         case FAILED:
-                            startupManualCandidateIds.add(wait.requestId);
+                            if (startupAdmission) {
+                                removeStartupAdmissionIdentityLocked(
+                                    wait.requestId
+                                );
+                            } else {
+                                startupManualCandidateIds.add(wait.requestId);
+                            }
                             resolvedWaitIds.add(wait.requestId);
                             break;
                         case SCENE_MISSING:
@@ -1203,8 +1355,8 @@ public final class TranslationJobStore {
                 }
             }
             repairingStartupJobs = !startupRepairCandidates.isEmpty()
-                || (initialAutoSyncFinished
-                    && !sceneValidationWaits.isEmpty())
+                || hasStartupAdmissionWaitLocked()
+                || (initialAutoSyncFinished && !sceneValidationWaits.isEmpty())
                 || !startupReadyJobs.isEmpty();
             retryRequired = repairingStartupJobs;
         }
@@ -1214,9 +1366,9 @@ public final class TranslationJobStore {
 
     /**
      * Publishes the complete startup batch only after every repair candidate
-     * has reached a stable state. Jobs created during this service lifetime
-     * are already in the normal queue and therefore remain ahead of this
-     * recovered batch.
+     * has reached a stable state.  Process-local admissions retain their
+     * arrival prefix until this one ordering boundary; jobs admitted after
+     * the boundary already carry a larger queue sequence.
      */
     private void finalizeStartupJobsLocked() throws Exception {
         List<StartupJob> startupJobs =
@@ -1239,7 +1391,9 @@ public final class TranslationJobStore {
             // The process-local submissions are the prefix of the unified
             // queue.  Persist their positions before any legacy recovery job
             // receives a sequence number.
-            publishStartupAdmissionSequencesLocked(true);
+            // Persist the pre-boundary prefix first, but do not expose any
+            // admission in pendingQueue until the recovered batch commits.
+            publishStartupAdmissionSequencesLocked(false);
 
             for (StartupJob job : startupJobs) {
                 JSONObject original = new JSONObject(
@@ -1264,6 +1418,7 @@ public final class TranslationJobStore {
                 : recoveredSequences.entrySet()) {
                 addPendingJobLocked(entry.getKey(), entry.getValue());
             }
+            enqueuePublishedStartupAdmissionsLocked();
         } else {
             for (StartupJob job : startupJobs) {
                 heldQueuedJobs.put(
@@ -1275,7 +1430,8 @@ public final class TranslationJobStore {
                 // There is no legacy decision to wait for.  The atomic
                 // boundary is still published so pre-startup submissions can
                 // become ordinary queued work.
-                publishStartupAdmissionSequencesLocked(true);
+                publishStartupAdmissionSequencesLocked(false);
+                enqueuePublishedStartupAdmissionsLocked();
             }
         }
 
@@ -1284,6 +1440,7 @@ public final class TranslationJobStore {
             || (startupJobs.isEmpty() && startupManualCandidateIds.isEmpty());
         if (startupRecoveryCommitted) {
             startupAdmissionOrder.clear();
+            startupAdmissionSequences.clear();
         }
         repairingStartupJobs = false;
     }
@@ -1296,32 +1453,324 @@ public final class TranslationJobStore {
      */
     private void publishStartupAdmissionSequencesLocked(boolean enqueueNow)
         throws Exception {
-        List<String> requestIds = new ArrayList<>(
-            startupAdmissionOrder.keySet()
+        // The preflight is iterative: a deterministic contradiction is
+        // quarantined and removed from the admission owner, then the whole
+        // prefix is re-evaluated without recursive stack growth.  Transient
+        // reads/writes remain owned by startup repair and abort the commit.
+        for (;;) {
+            boolean quarantined = false;
+            List<String> requestIds = new ArrayList<>(
+                startupAdmissionOrder.keySet()
+            );
+
+            // Every durable non-admission sequence is occupied.  A C/D
+            // sequence that collides with, or falls behind, this floor cannot
+            // have been allocated by the current admission promotion.
+            Set<Long> durableSequences = new HashSet<>();
+            long durableSequenceFloor = 0L;
+            for (File durableDirectory : jobStore.listValidJobDirectories()) {
+                String durableRequestId = durableDirectory.getName();
+                if (startupAdmissionOrder.containsKey(durableRequestId)) {
+                    continue;
+                }
+                JSONObject durableState;
+                try {
+                    durableState = readState(durableDirectory);
+                } catch (Exception e) {
+                    addStartupRepairCandidateLocked(durableDirectory);
+                    repairingStartupJobs = true;
+                    throw new StartupAdmissionRetryableException(
+                        "Could not inspect durable queue sequence requestId="
+                            + durableRequestId,
+                        e
+                    );
+                }
+                if (durableState == null) {
+                    addStartupRepairCandidateLocked(durableDirectory);
+                    repairingStartupJobs = true;
+                    throw new StartupAdmissionRetryableException(
+                        "Durable queue state is missing requestId="
+                            + durableRequestId,
+                        null
+                    );
+                }
+                // Damaged/quarantined jobs are retained for review but are
+                // not claimable queue members.  In particular, a C/D entry
+                // whose sequence was quarantined must not become the durable
+                // floor on the next iterative pass or after restart.
+                if (STATUS_DAMAGED.equals(
+                    durableState.optString("status", "")
+                )) {
+                    continue;
+                }
+                final long durableSequence;
+                try {
+                    durableSequence = readOptionalQueueSequence(
+                        durableState,
+                        durableRequestId
+                    );
+                } catch (Exception e) {
+                    addStartupRepairCandidateLocked(durableDirectory);
+                    repairingStartupJobs = true;
+                    throw new StartupAdmissionRetryableException(
+                        "Durable queue sequence is damaged requestId="
+                            + durableRequestId,
+                        e
+                    );
+                }
+                if (durableSequence > 0L) {
+                    durableSequences.add(durableSequence);
+                    durableSequenceFloor = Math.max(
+                        durableSequenceFloor,
+                        durableSequence
+                    );
+                }
+            }
+
+            // Validate every already-persisted C/D position before changing
+            // an index, allocating a sequence, or exposing pendingQueue.
+            Set<Long> persistedSequences = new HashSet<>();
+            long previousPersistedSequence = 0L;
+            boolean missingPersistedSequence = false;
+            for (String requestId : requestIds) {
+                File directory = jobStore.jobDirectory(requestId);
+                JSONObject state;
+                try {
+                    state = readState(directory);
+                } catch (Exception e) {
+                    addStartupRepairCandidateLocked(directory);
+                    repairingStartupJobs = true;
+                    throw new StartupAdmissionRetryableException(
+                        "Could not preflight pre-boundary admission requestId="
+                            + requestId,
+                        e
+                    );
+                }
+                if (state == null) {
+                    if (directory.exists()) {
+                        addStartupRepairCandidateLocked(directory);
+                        repairingStartupJobs = true;
+                        throw new StartupAdmissionRetryableException(
+                            "Pre-boundary admission state is missing requestId="
+                                + requestId,
+                            null
+                        );
+                    }
+                    continue;
+                }
+                String status = state.optString("status", "");
+                if (isTerminalStatus(status)) {
+                    continue;
+                }
+                if (!STATUS_QUEUED.equals(status)) {
+                    addStartupRepairCandidateLocked(directory);
+                    repairingStartupJobs = true;
+                    throw new StartupAdmissionRetryableException(
+                        "Pre-boundary admission is not queueable requestId="
+                            + requestId
+                            + " status="
+                            + status,
+                        null
+                    );
+                }
+                final long persisted;
+                try {
+                    persisted = readOptionalQueueSequence(state, requestId);
+                } catch (Exception e) {
+                    // A malformed numeric field is deterministic damage, not
+                    // a transient repair read.  Preserve request/payload and
+                    // release this C/D identity so the remaining prefix can
+                    // still converge.
+                    quarantineStartupAdmissionSequenceLocked(
+                        requestId,
+                        directory,
+                        state,
+                        "pre-boundary queue_sequence is damaged"
+                    );
+                    quarantined = true;
+                    break;
+                }
+                if (persisted <= 0L) {
+                    missingPersistedSequence = true;
+                    continue;
+                }
+                if (persisted == Long.MAX_VALUE
+                    || missingPersistedSequence
+                    || persisted <= durableSequenceFloor
+                    || durableSequences.contains(persisted)
+                    || persisted <= previousPersistedSequence
+                    || !persistedSequences.add(persisted)) {
+                    quarantineStartupAdmissionSequenceLocked(
+                        requestId,
+                        directory,
+                        state,
+                        persisted == Long.MAX_VALUE
+                            ? "pre-boundary queue_sequence is exhausted"
+                            : "pre-boundary queue_sequence order is damaged"
+                    );
+                    quarantined = true;
+                    break;
+                }
+                previousPersistedSequence = persisted;
+            }
+            if (quarantined) {
+                continue;
+            }
+
+            for (String requestId : requestIds) {
+                File directory = jobStore.jobDirectory(requestId);
+                JSONObject state;
+                try {
+                    state = readState(directory);
+                } catch (Exception e) {
+                    addStartupRepairCandidateLocked(directory);
+                    repairingStartupJobs = true;
+                    throw new StartupAdmissionRetryableException(
+                        "Could not read pre-boundary admission requestId="
+                            + requestId,
+                        e
+                    );
+                }
+                if (state == null) {
+                    if (directory.exists()) {
+                        addStartupRepairCandidateLocked(directory);
+                        repairingStartupJobs = true;
+                        throw new StartupAdmissionRetryableException(
+                            "Pre-boundary admission state is missing requestId="
+                                + requestId,
+                            null
+                        );
+                    }
+                    removeStartupAdmissionIdentityLocked(requestId);
+                    continue;
+                }
+                try {
+                    syncHistoryMembershipPendingLocked(requestId, state);
+                    String status = state.optString("status", "");
+                    if (isTerminalStatus(status)) {
+                        removeStartupAdmissionIdentityLocked(requestId);
+                        continue;
+                    }
+                    if (!STATUS_QUEUED.equals(status)) {
+                        addStartupRepairCandidateLocked(directory);
+                        repairingStartupJobs = true;
+                        throw new StartupAdmissionRetryableException(
+                            "Pre-boundary admission is not queueable requestId="
+                                + requestId
+                                + " status=" + status,
+                            null
+                        );
+                    }
+                    final long sequence;
+                    try {
+                        sequence = readOptionalQueueSequence(
+                            state,
+                            requestId
+                        );
+                    } catch (Exception e) {
+                        quarantineStartupAdmissionSequenceLocked(
+                            requestId,
+                            directory,
+                            state,
+                            "pre-boundary queue_sequence is damaged"
+                        );
+                        quarantined = true;
+                        break;
+                    }
+                    long assignedSequence = sequence;
+                    if (assignedSequence <= 0L) {
+                        assignedSequence = allocateQueueSequenceLocked();
+                        state.put("queue_sequence", assignedSequence);
+                        state.put("updated_at", System.currentTimeMillis());
+                        writeState(directory, state);
+                    } else {
+                        observeQueueSequenceLocked(assignedSequence);
+                    }
+                    startupAdmissionSequences.put(
+                        requestId,
+                        assignedSequence
+                    );
+                    if (enqueueNow) {
+                        addPendingJobLocked(requestId, assignedSequence);
+                    }
+                } catch (StartupAdmissionRetryableException e) {
+                    throw e;
+                } catch (Exception e) {
+                    addStartupRepairCandidateLocked(directory);
+                    repairingStartupJobs = true;
+                    throw new StartupAdmissionRetryableException(
+                        "Could not promote pre-boundary admission requestId="
+                            + requestId,
+                        e
+                    );
+                }
+            }
+            if (quarantined) {
+                continue;
+            }
+            return;
+        }
+    }
+
+    private void addStartupRepairCandidateLocked(File directory) {
+        if (directory == null) return;
+        for (File candidate : startupRepairCandidates) {
+            if (candidate.equals(directory)) return;
+        }
+        startupRepairCandidates.add(directory);
+    }
+
+    private void quarantineStartupAdmissionSequenceLocked(
+        String requestId,
+        File directory,
+        JSONObject state,
+        String reason
+    ) throws Exception {
+        if (directory == null) {
+            directory = jobStore.jobDirectory(requestId);
+        }
+        JSONObject durableState = state;
+        if (durableState == null && directory.exists()) {
+            durableState = readState(directory);
+        }
+        // markDamagedWithoutRequestLocked preserves every existing payload and
+        // refuses to invent scene/target identity when the state itself is not
+        // trustworthy.  Its process-local diagnostic still makes the orphan
+        // enumerable after a failed state rewrite.
+        // The queue_sequence that triggered this quarantine is not trusted.
+        // Do not carry it into the damaged state: once the C/D identity is
+        // released, a stale positive value would look like an occupied
+        // non-admission sequence on the next preflight/restart and could
+        // quarantine an otherwise valid earlier admission.
+        markDamagedWithoutRequestLocked(
+            directory,
+            durableState,
+            reason,
+            true
         );
-        for (String requestId : requestIds) {
-            File directory = jobStore.jobDirectory(requestId);
-            JSONObject state = readState(directory);
-            if (state == null) {
-                continue;
-            }
-            syncHistoryMembershipPendingLocked(requestId, state);
-            if (!STATUS_QUEUED.equals(state.optString("status", ""))) {
-                continue;
-            }
-            long sequence = readOptionalQueueSequence(state, requestId);
-            if (sequence <= 0L) {
-                sequence = allocateQueueSequenceLocked();
-                state.put("queue_sequence", sequence);
-                state.put("updated_at", System.currentTimeMillis());
-                writeState(directory, state);
-            } else {
-                observeQueueSequenceLocked(sequence);
-            }
-            if (enqueueNow) {
+        removeStartupAdmissionIdentityLocked(requestId);
+    }
+
+    private void enqueuePublishedStartupAdmissionsLocked() {
+        for (String requestId : startupAdmissionOrder.keySet()) {
+            Long sequence = startupAdmissionSequences.get(requestId);
+            if (sequence != null && sequence > 0L) {
                 addPendingJobLocked(requestId, sequence);
             }
         }
+    }
+
+    private void removeStartupAdmissionIdentityLocked(String requestId) {
+        startupAdmissionOrder.remove(requestId);
+        startupRepairCandidates.removeIf(
+            candidate -> requestId.equals(candidate.getName())
+        );
+        startupReadyJobs.remove(requestId);
+        sceneValidationWaits.remove(requestId);
+        startupManualCandidateIds.remove(requestId);
+        startupAdmissionSequences.remove(requestId);
+        manualRerunCandidateIds.remove(requestId);
+        removeJobFromIndexesLocked(requestId);
     }
 
     /**
@@ -1475,14 +1924,9 @@ public final class TranslationJobStore {
 
             startupRecoveryCommitted = true;
             startupManualCandidateIds.clear();
-            for (String requestId : startupAdmissionOrder.keySet()) {
-                JSONObject state = readState(requestId);
-                long sequence = readOptionalQueueSequence(state, requestId);
-                if (sequence > 0L) {
-                    addPendingJobLocked(requestId, sequence);
-                }
-            }
+            enqueuePublishedStartupAdmissionsLocked();
             startupAdmissionOrder.clear();
+            startupAdmissionSequences.clear();
 
             }
         } finally {
@@ -1503,55 +1947,60 @@ public final class TranslationJobStore {
     }
 
     public void cancelHeldQueuedJobs() throws Exception {
-        synchronized (this) {
-            requirePreparedLocked();
-            requireRecoveryDecisionOpenLocked();
-            requireStartupRepairCompleteLocked();
-            if (heldQueuedJobs.isEmpty()
-                && (startupRecoveryCommitted
-                    || startupManualCandidateIds.isEmpty())) {
-                return;
-            }
-
-            LinkedHashMap<File, JSONObject> originalStates =
-                new LinkedHashMap<>();
-            LinkedHashMap<File, JSONObject> updatedStates =
-                new LinkedHashMap<>();
-            long now = System.currentTimeMillis();
-
-            for (String requestId : heldQueuedJobs.keySet()) {
-                File jobDirectory = jobStore.jobDirectory(requestId);
-                JSONObject state = requireHeldQueuedState(
-                    jobDirectory,
-                    requestId
-                );
-                originalStates.put(
-                    jobDirectory,
-                    new JSONObject(state.toString())
-                );
-                state.put("status", STATUS_CANCELED);
-                state.put("updated_at", now);
-                updatedStates.put(jobDirectory, state);
-            }
-
-            writeStateBatch(originalStates, updatedStates);
-            heldQueuedJobs.clear();
-            if (!startupRecoveryCommitted) {
-                publishStartupAdmissionSequencesLocked(false);
-                startupRecoveryCommitted = true;
-                startupManualCandidateIds.clear();
-                for (String requestId : startupAdmissionOrder.keySet()) {
-                    JSONObject state = readState(requestId);
-                    long sequence = readOptionalQueueSequence(state, requestId);
-                    if (sequence > 0L) {
-                        addPendingJobLocked(requestId, sequence);
-                    }
+        try {
+            synchronized (this) {
+                requirePreparedLocked();
+                requireRecoveryDecisionOpenLocked();
+                requireStartupRepairCompleteLocked();
+                if (heldQueuedJobs.isEmpty()
+                    && (startupRecoveryCommitted
+                        || startupManualCandidateIds.isEmpty())) {
+                    return;
                 }
-                startupAdmissionOrder.clear();
-            }
-        }
 
-        notifyQueueListener();
+                LinkedHashMap<File, JSONObject> originalStates =
+                    new LinkedHashMap<>();
+                LinkedHashMap<File, JSONObject> updatedStates =
+                    new LinkedHashMap<>();
+                long now = System.currentTimeMillis();
+
+                // Preflight all process-local admissions before changing any
+                // legacy A/B recovery state.  A damaged C must not leave a
+                // partially cancelled held batch behind.
+                if (!startupRecoveryCommitted) {
+                    publishStartupAdmissionSequencesLocked(false);
+                }
+
+                for (String requestId : heldQueuedJobs.keySet()) {
+                    File jobDirectory = jobStore.jobDirectory(requestId);
+                    JSONObject state = requireHeldQueuedState(
+                        jobDirectory,
+                        requestId
+                    );
+                    originalStates.put(
+                        jobDirectory,
+                        new JSONObject(state.toString())
+                    );
+                    state.put("status", STATUS_CANCELED);
+                    state.put("updated_at", now);
+                    updatedStates.put(jobDirectory, state);
+                }
+
+                writeStateBatch(originalStates, updatedStates);
+                heldQueuedJobs.clear();
+                if (!startupRecoveryCommitted) {
+                    startupRecoveryCommitted = true;
+                    startupManualCandidateIds.clear();
+                    enqueuePublishedStartupAdmissionsLocked();
+                    startupAdmissionOrder.clear();
+                    startupAdmissionSequences.clear();
+                }
+            }
+        } finally {
+            // A preflight failure retains repairingStartupJobs and must wake
+            // the Service's generation-specific repair scheduler.
+            notifyQueueListener();
+        }
     }
 
     public ClaimedJob claimNextQueuedJob() throws Exception {
@@ -2361,15 +2810,30 @@ public final class TranslationJobStore {
         final String existingStatus = state == null
             ? ""
             : state.optString("status", "");
+        // AtomicFile may expose only a .bak while recovery is in progress;
+        // that is still durable terminal evidence and must not be deleted.
+        final boolean hasResultPayload = IoUtils.atomicFileExists(
+            new File(jobDirectory, RESULT_FILE_NAME)
+        );
+        final boolean hasErrorPayload = IoUtils.atomicFileExists(
+            new File(jobDirectory, ERROR_FILE_NAME)
+        );
+        final boolean terminalEvidence = isTerminalStatus(existingStatus)
+            || hasResultPayload
+            || hasErrorPayload;
+        final String requestDamageReason = hasResultPayload
+                && hasErrorPayload
+            ? "conflicting terminal payloads"
+            : "request_invalid";
         syncHistoryMembershipPendingLocked(jobDirectory.getName(), state);
         final boolean historyMembershipPending = state != null
             && STATUS_QUEUED.equals(existingStatus)
             && state.optBoolean(HISTORY_MEMBERSHIP_PENDING_FIELD, false);
         if (STATUS_DAMAGED.equals(existingStatus)) {
             removeJobFromIndexesLocked(jobDirectory.getName());
+            damagedRequestIds.add(jobDirectory.getName());
             return ProcessResult.DAMAGED;
         }
-
         final byte[] requestBytes;
         JobValidator.RequestInfo requestInfo;
         final String requestSha256;
@@ -2386,6 +2850,14 @@ public final class TranslationJobStore {
                     e
                 );
                 throw e;
+            }
+
+            if (terminalEvidence) {
+                return markDamagedWithoutRequestLocked(
+                    jobDirectory,
+                    state,
+                    requestDamageReason
+                );
             }
 
             removeJobFromIndexesLocked(jobDirectory.getName());
@@ -2408,6 +2880,13 @@ public final class TranslationJobStore {
             );
             requestSha256 = JobValidator.sha256Hex(requestBytes);
         } catch (JobValidator.ValidationException e) {
+            if (terminalEvidence) {
+                return markDamagedWithoutRequestLocked(
+                    jobDirectory,
+                    state,
+                    requestDamageReason
+                );
+            }
             removeJobFromIndexesLocked(jobDirectory.getName());
             deleteIncompleteJobDirectory(jobDirectory);
             Log.w(
@@ -2423,6 +2902,13 @@ public final class TranslationJobStore {
         try {
             basicRequestInfo = JobValidator.validateRequest(request);
         } catch (JobValidator.ValidationException e) {
+            if (terminalEvidence) {
+                return markDamagedWithoutRequestLocked(
+                    jobDirectory,
+                    state,
+                    requestDamageReason
+                );
+            }
             removeJobFromIndexesLocked(jobDirectory.getName());
             deleteIncompleteJobDirectory(jobDirectory);
             Log.w(
@@ -2483,6 +2969,7 @@ public final class TranslationJobStore {
                 requestSha256,
                 validationMode == ValidationMode.RUNTIME_SELF_ONLY
                     || isTerminalStatus(existingStatus)
+                    || (stateReadFailure != null && terminalEvidence)
             );
         if (terminalPayloadResult != null) {
             return terminalPayloadResult;
@@ -3696,6 +4183,7 @@ public final class TranslationJobStore {
         copyHistoryMapping(existingState, damaged);
         writeState(jobDirectory, damaged);
         removeJobFromIndexesLocked(jobDirectory.getName());
+        damagedRequestIds.add(jobDirectory.getName());
         syncHistoryMembershipPendingLocked(
             jobDirectory.getName(),
             damaged
@@ -3705,6 +4193,114 @@ public final class TranslationJobStore {
             TAG,
             "Retained damaged translation job requestId="
                 + jobDirectory.getName()
+                + " reason="
+                + reason
+        );
+        return ProcessResult.DAMAGED;
+    }
+
+    /**
+     * Isolates a job whose request cannot be parsed while retaining every
+     * terminal payload byte.  No RequestInfo is synthesized from damaged
+     * input; when state has no usable identity the original state is kept
+     * untouched and the process-local diagnostic set owns the quarantine.
+     */
+    private ProcessResult markDamagedWithoutRequestLocked(
+        File jobDirectory,
+        JSONObject existingState,
+        String reason
+    ) throws Exception {
+        return markDamagedWithoutRequestLocked(
+            jobDirectory,
+            existingState,
+            reason,
+            false
+        );
+    }
+
+    private ProcessResult markDamagedWithoutRequestLocked(
+        File jobDirectory,
+        JSONObject existingState,
+        String reason,
+        boolean dropQueueSequence
+    ) throws Exception {
+        String requestId = jobDirectory.getName();
+        if (existingState == null) {
+            damagedRequestIds.add(requestId);
+            removeJobFromIndexesLocked(requestId);
+            Log.w(
+                TAG,
+                "Retained damaged translation job requestId="
+                    + requestId
+                    + " reason="
+                    + reason
+                    + " (state identity unavailable)"
+            );
+            return ProcessResult.DAMAGED;
+        }
+        Object sceneValue = existingState.opt("scene");
+        Object targetValue = existingState.opt("target_lang");
+        if (!(sceneValue instanceof String)
+            || ((String) sceneValue).trim().isEmpty()
+            || !(targetValue instanceof String)
+            || ((String) targetValue).trim().isEmpty()) {
+            // Without a trustworthy identity we cannot write a schema-valid
+            // damaged state.  Keep the original bytes and expose a stable
+            // process-local diagnostic instead of inventing scene metadata.
+            damagedRequestIds.add(requestId);
+            removeJobFromIndexesLocked(requestId);
+            Log.w(
+                TAG,
+                "Retained damaged translation job without rewriting state "
+                    + "requestId="
+                    + requestId
+                    + " reason="
+                    + reason
+                    + " (state identity unavailable)"
+            );
+            return ProcessResult.DAMAGED;
+        }
+
+        long now = System.currentTimeMillis();
+        JSONObject damaged = new JSONObject()
+            .put("scene", ((String) sceneValue).trim())
+            .put("target_lang", ((String) targetValue).trim())
+            .put("version", FORMAT_VERSION)
+            .put("status", STATUS_DAMAGED)
+            .put(
+                "delivery_state",
+                TerminalOutcome.DeliveryState.NOT_REQUIRED.wireValue()
+            )
+            .put(
+                "created_at",
+                readTolerantTimestamp(existingState, "created_at", now)
+            )
+            .put("updated_at", now)
+            .put("damage_reason", reason == null ? "unknown" : reason);
+        copyTolerantTimestamp(existingState, damaged, "started_at");
+        if (!dropQueueSequence) {
+            copyTolerantPositiveLong(existingState, damaged, "queue_sequence");
+        }
+        Object requestSha256 = existingState.opt(
+            JobValidator.REQUEST_SHA256_FIELD
+        );
+        if (requestSha256 instanceof String
+            && ((String) requestSha256).matches("[0-9a-f]{64}")) {
+            damaged.put(JobValidator.REQUEST_SHA256_FIELD, requestSha256);
+        }
+        if (HistoryMapping.resolution(existingState)
+            != HistoryMapping.Resolution.USER_ACTION_REQUIRED) {
+            copyHistoryMapping(existingState, damaged);
+        }
+        writeState(jobDirectory, damaged);
+        removeJobFromIndexesLocked(requestId);
+        syncHistoryMembershipPendingLocked(requestId, damaged);
+        manualRerunCandidateIds.remove(requestId);
+        damagedRequestIds.add(requestId);
+        Log.w(
+            TAG,
+            "Retained damaged translation job requestId="
+                + requestId
                 + " reason="
                 + reason
         );
@@ -4331,7 +4927,9 @@ public final class TranslationJobStore {
         // A stable startup subset may already be published while unrelated
         // transient candidates or Scene Validation Wait entries are retained.
         // Only an unpublished ready batch blocks manual queue operations.
-        if (!startupReadyJobs.isEmpty()) {
+        if (!startupReadyJobs.isEmpty()
+            || !startupRepairCandidates.isEmpty()
+            || hasStartupAdmissionWaitLocked()) {
             throw new IllegalStateException(
                 "Startup-ready jobs are still being published"
             );
@@ -4598,17 +5196,16 @@ public final class TranslationJobStore {
             return 0L;
         }
         Object value = state.get("queue_sequence");
-        if (!(value instanceof Number)) {
+        // queue_sequence is an integer schema field.  Reject strings and
+        // floating-point spellings (including an integral-looking 1.0) so a
+        // deterministic corruption is quarantined rather than normalized.
+        if (!(value instanceof Integer) && !(value instanceof Long)) {
             throw new IllegalStateException(
-                "queue_sequence is not a number requestId=" + requestId
+                "queue_sequence is not an integer requestId=" + requestId
             );
         }
-        double numericSequence = ((Number) value).doubleValue();
         long sequence = ((Number) value).longValue();
-        if (!Double.isFinite(numericSequence)
-            || numericSequence != Math.rint(numericSequence)
-            || numericSequence > Long.MAX_VALUE
-            || sequence <= 0L) {
+        if (sequence <= 0L) {
             throw new IllegalStateException(
                 "Invalid queue_sequence="
                     + value
