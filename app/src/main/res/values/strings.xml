@@ -129,6 +129,8 @@
     <string name="summary_recovery_title">Summary recovery</string>
     <string name="summary_recovery_summary">%1$d legacy summary job(s) waiting. Select the jobs to restore; unselected jobs will be discarded.</string>
     <string name="summary_recovery_empty">No legacy summary jobs are waiting for a decision.</string>
+    <string name="summary_recovery_preparing">Summary recovery is preparing. Please try again shortly.</string>
+    <string name="summary_recovery_unavailable">Summary recovery is unavailable. Return to the queue page to retry.</string>
     <string name="summary_recovery_submit">Apply summary recovery decision</string>
     <string name="summary_recovery_result">Restored %1$d summary job(s); discarded %2$d.</string>
     <string name="summary_recovery_detail">%1$s · %2$s · %3$s · %4$s</string>

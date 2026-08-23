@@ -793,6 +793,15 @@ public final class SummaryJobStore {
             && !startupRecoveryIds.isEmpty();
     }
 
+    /**
+     * Returns whether this instance owns an opened startup recovery boundary.
+     * Detached stores may read durable failed jobs, but must not be used to
+     * impersonate the Service-owned recovery snapshot.
+     */
+    public synchronized boolean isRecoveryDecisionOpen() {
+        return preparedForServiceStart && recoveryDecisionOpen;
+    }
+
     /** Returns whether the automatic policy still needs its post-Review commit. */
     public synchronized boolean isAutomaticRecoveryPending() {
         return preparedForServiceStart

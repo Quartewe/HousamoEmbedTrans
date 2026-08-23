@@ -10,10 +10,6 @@ public final class HetBridgeContract {
         MODULE_PACKAGE + ".translation.TranslationService";
     public static final String ACTION_START_TRANSLATION_SERVICE =
         MODULE_PACKAGE + ".translation.action.START_TRANSLATION_SERVICE";
-    public static final String ACTION_SET_CAPTURE_PAUSED =
-        MODULE_PACKAGE + ".translation.action.SET_CAPTURE_PAUSED";
-    public static final String EXTRA_CAPTURE_PAUSED =
-        MODULE_PACKAGE + ".translation.extra.CAPTURE_PAUSED";
     public static final int ENQUEUE_RESULT_CREATED = 1;
     public static final int ENQUEUE_RESULT_EXISTING = 0;
     public static final int ENQUEUE_RESULT_RETRYABLE_PERSISTENCE = -1;

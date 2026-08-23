@@ -820,6 +820,7 @@ public final class TranslationTaskExecutor {
                 SceneSyncCoordinator coordinator = sceneSyncCoordinator;
                 ApiConcurrencyGate gate = apiGate;
                 ApiConcurrencyGate.Permit apiPermit = null;
+                boolean apiPermitTransferred = false;
                 boolean reservationHeld = false;
                 boolean activeClaim = false;
                 try {
@@ -893,7 +894,8 @@ public final class TranslationTaskExecutor {
                         if (preparation.preparedJob != null) {
                             preparedExecution.set(preparation.preparedJob);
                         }
-                        executeJob(job);
+                        apiPermitTransferred = true;
+                        executeJob(job, gate, apiPermit);
                     } finally {
                         preparedExecution.remove();
                         // executeJob only returns after final persistence and
@@ -913,7 +915,7 @@ public final class TranslationTaskExecutor {
                             blockedBySceneSync = true;
                         }
                     }
-                    if (apiPermit != null) {
+                    if (apiPermit != null && !apiPermitTransferred) {
                         gate.release(apiPermit);
                     }
                 }
@@ -1032,10 +1034,14 @@ public final class TranslationTaskExecutor {
         }
     }
 
-    private void executeJob(TranslationJobStore.ClaimedJob job)
-        throws InterruptedException {
+    private void executeJob(
+        TranslationJobStore.ClaimedJob job,
+        ApiConcurrencyGate permitGate,
+        ApiConcurrencyGate.Permit initialPermit
+    ) throws InterruptedException {
         String requestId = job.getRequestId();
         String scene = "";
+        boolean permitAdopted = false;
         try {
             PreparedJob prepared = preparedExecution.get();
             JSONObject request;
@@ -1080,6 +1086,12 @@ public final class TranslationTaskExecutor {
                 scene
             );
 
+            // Adopt only after the observer callback has returned.  From this
+            // point the coordinator's run/finally owns the permit; an
+            // observer exception therefore remains covered by executeJob's
+            // release path.
+            coordinator.adoptInitialMainPermit(permitGate, initialPermit);
+            permitAdopted = true;
             coordinator.run();
             if (coordinator.isBlocked()) {
                 HistoryResolution.Status blockedStatus =
@@ -1228,6 +1240,12 @@ public final class TranslationTaskExecutor {
                     "Could not persist task failure requestId=" + requestId,
                     persistFailure
                 );
+            }
+        } finally {
+            if (!permitAdopted
+                && initialPermit != null
+                && permitGate != null) {
+                permitGate.release(initialPermit);
             }
         }
     }
@@ -1486,6 +1504,40 @@ public final class TranslationTaskExecutor {
         private boolean repairOutputTruncated;
         private long attemptTokenCounter;
         private MainAttemptState currentAttempt;
+        private ApiConcurrencyGate mainPermitGate;
+        private ApiConcurrencyGate.Permit mainPermit;
+
+        private void adoptInitialMainPermit(
+            ApiConcurrencyGate permitGate,
+            ApiConcurrencyGate.Permit permit
+        ) {
+            if (permit == null) {
+                return;
+            }
+            if (permitGate == null) {
+                throw new IllegalArgumentException(
+                    "permit gate is required when adopting a permit"
+                );
+            }
+            if (mainPermit != null) {
+                throw new IllegalStateException(
+                    "main API permit was already adopted"
+                );
+            }
+            mainPermitGate = permitGate;
+            mainPermit = permit;
+        }
+
+        private void releaseMainPermit() {
+            ApiConcurrencyGate gate = mainPermitGate;
+            ApiConcurrencyGate.Permit permit = mainPermit;
+            if (gate == null || permit == null) {
+                return;
+            }
+            mainPermitGate = null;
+            mainPermit = null;
+            gate.release(permit);
+        }
 
         private JobCoordinator(
             String requestId,
@@ -1568,38 +1620,43 @@ public final class TranslationTaskExecutor {
         }
 
         private void run() throws Exception {
-            synchronized (this) {
-                if (blockedStatus != null) {
-                    return;
-                }
-                if (mainFinished) {
-                    finishMainLocked();
-                }
-            }
-
-            if (!mainFinished) {
-                runMainStream();
+            try {
                 synchronized (this) {
                     if (blockedStatus != null) {
                         return;
                     }
-                    if (!terminal) {
-                        mainFinished = true;
+                    if (mainFinished) {
+                        releaseMainPermit();
                         finishMainLocked();
                     }
                 }
-            }
 
-            synchronized (this) {
-                while (!terminal) {
-                    if (blockedStatus != null) {
-                        return;
-                    }
-                    evaluateTerminalLocked();
-                    if (!terminal) {
-                        wait();
+                if (!mainFinished) {
+                    runMainStream();
+                    synchronized (this) {
+                        if (blockedStatus != null) {
+                            return;
+                        }
+                        if (!terminal) {
+                            mainFinished = true;
+                            finishMainLocked();
+                        }
                     }
                 }
+
+                synchronized (this) {
+                    while (!terminal) {
+                        if (blockedStatus != null) {
+                            return;
+                        }
+                        evaluateTerminalLocked();
+                        if (!terminal) {
+                            wait();
+                        }
+                    }
+                }
+            } finally {
+                releaseMainPermit();
             }
         }
 
@@ -1622,12 +1679,14 @@ public final class TranslationTaskExecutor {
             );
             if (preflightResult.isBlocked()) {
                 applyPreflightBlock(preflightResult);
+                releaseMainPermit();
                 return;
             }
             JSONObject apiRequest = prepared.getProviderRequest();
             final String frozenBody = apiRequest.toString();
             int networkRetriesUsed = 0;
-            while (true) {
+            try {
+                while (true) {
                 final MainAttemptState attempt;
                 synchronized (this) {
                     currentAttempt.invalidate();
@@ -1759,6 +1818,12 @@ public final class TranslationTaskExecutor {
                         );
                     }
                 }
+                }
+            } finally {
+                // The permit covers the main provider request and its
+                // synchronous network retries only.  Streaming repair may
+                // now acquire the same gate, which is essential at limit=1.
+                releaseMainPermit();
             }
         }
 
@@ -2269,32 +2334,51 @@ public final class TranslationTaskExecutor {
                     };
                 String frozenRepairBody = apiRequest.toString();
                 int networkRetriesUsed = 0;
-                while (true) {
-                    try {
-                        TranslationApiClient.streamTranslationAttempt(
-                            config,
-                            frozenRepairBody,
-                            repairListener,
-                            networkRetriesUsed + 1
-                        );
-                        break;
-                    } catch (Exception e) {
-                        if (!isRetryableNetworkAttemptFailure(e)
-                            || networkRetriesUsed
-                                >= config.getNetworkRetryCount()) {
-                            throw e;
+                ApiConcurrencyGate repairGate = apiGate;
+                ApiConcurrencyGate.Permit repairPermit = null;
+                try {
+                    if (repairGate != null) {
+                        repairPermit = repairGate.acquireTranslation();
+                    }
+                    while (true) {
+                        try {
+                            TranslationApiClient.streamTranslationAttempt(
+                                config,
+                                frozenRepairBody,
+                                repairListener,
+                                networkRetriesUsed + 1
+                            );
+                            break;
+                        } catch (Exception e) {
+                            if (!isRetryableNetworkAttemptFailure(e)
+                                || networkRetriesUsed
+                                    >= config.getNetworkRetryCount()) {
+                                throw e;
+                            }
+                            networkRetriesUsed++;
+                            TranslationApiClient.logNetworkRetry(
+                                "repair: " + safeMessage(e),
+                                networkRetriesUsed,
+                                config.getNetworkRetryCount()
+                            );
+                            TranslationApiClient.waitBeforeRetry(
+                                networkRetriesUsed
+                            );
                         }
-                        networkRetriesUsed++;
-                        TranslationApiClient.logNetworkRetry(
-                            "repair: " + safeMessage(e),
-                            networkRetriesUsed,
-                            config.getNetworkRetryCount()
-                        );
-                        TranslationApiClient.waitBeforeRetry(
-                            networkRetriesUsed
-                        );
+                    }
+                } finally {
+                    if (repairPermit != null && repairGate != null) {
+                        repairGate.release(repairPermit);
                     }
                 }
+            } catch (InterruptedException e) {
+                // Executor shutdown is a control-flow interruption, not a
+                // provider protocol failure.  Restore the flag and release
+                // this repair's ownership without manufacturing a retryable
+                // API error.
+                Thread.currentThread().interrupt();
+                finishInterruptedRepair(requestedSeqs, ownerAttempt);
+                return;
             } catch (Exception e) {
                 requestFailure = e;
                 localProviderError = providerFailureDetail(e);
@@ -2378,6 +2462,25 @@ public final class TranslationTaskExecutor {
                 }
                 maybeStartRepairLocked();
                 evaluateTerminalLocked();
+                notifyAll();
+            }
+        }
+
+        private void finishInterruptedRepair(
+            Set<Integer> requestedSeqs,
+            MainAttemptState ownerAttempt
+        ) {
+            synchronized (this) {
+                if (currentAttempt != ownerAttempt || !ownerAttempt.active) {
+                    return;
+                }
+                repairRunning = false;
+                activeRepairSeqs.clear();
+                if (!shutdown) {
+                    repairQueue.addAll(requestedSeqs);
+                    maybeStartRepairLocked();
+                    evaluateTerminalLocked();
+                }
                 notifyAll();
             }
         }

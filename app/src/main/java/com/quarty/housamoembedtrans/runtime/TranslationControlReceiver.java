@@ -27,8 +27,7 @@ public final class TranslationControlReceiver extends BroadcastReceiver {
             context.getApplicationContext(),
             com.quarty.housamoembedtrans.translation.TranslationService.class
         )
-            .setAction(HetBridgeContract.ACTION_SET_CAPTURE_PAUSED)
-            .putExtra(HetBridgeContract.EXTRA_CAPTURE_PAUSED, paused);
+            .setAction(HetBridgeContract.ACTION_START_TRANSLATION_SERVICE);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.getApplicationContext().startForegroundService(

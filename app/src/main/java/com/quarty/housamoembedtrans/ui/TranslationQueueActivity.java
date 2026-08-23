@@ -11,6 +11,8 @@ import com.quarty.housamoembedtrans.translation.TranslationService;
 import com.quarty.housamoembedtrans.translation.TranslationTaskExecutor;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -52,6 +54,14 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     private final ExecutorService ioExecutor =
         Executors.newSingleThreadExecutor();
+    private final Handler summaryRecoveryHandler =
+        new Handler(Looper.getMainLooper());
+    private final Runnable summaryRecoveryRefresh =
+        () -> {
+            if (!isDestroyed() && !isFinishing() && !busy && !submitted) {
+                refreshJobs();
+            }
+        };
     private final ArrayList<String> selectedRequestIds =
         new ArrayList<>();
     private boolean busy;
@@ -101,6 +111,11 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private MaterialButton submitButton;
     private MaterialButton summarySubmitButton;
     private boolean repairingStartupJobs;
+    private boolean summaryRecoveryReady;
+    private boolean summaryRecoveryUnavailable;
+    private int summaryRecoveryWaitAttempts;
+    /** Store identity that produced the currently rendered recovery rows. */
+    private SummaryJobStore renderedSummaryRecoveryStore;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -189,6 +204,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        summaryRecoveryWaitAttempts = 0;
+        summaryRecoveryUnavailable = false;
         if (!busy && !submitted) {
             refreshJobs();
         }
@@ -226,12 +243,20 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        summaryRecoveryHandler.removeCallbacks(summaryRecoveryRefresh);
         ioExecutor.shutdownNow();
         super.onDestroy();
     }
 
     private void refreshJobs() {
         final int generation = ++refreshGeneration;
+        if (!managementOnly) {
+            // Invalidate the rendered owner before a new asynchronous snapshot
+            // starts.  A button press during the refresh must not submit rows
+            // from the previous Service epoch.
+            summaryRecoveryReady = false;
+            renderedSummaryRecoveryStore = null;
+        }
         ioExecutor.execute(() -> {
             final boolean repairing = jobStore.isRepairingStartupJobs();
             final List<TranslationJobStore.HeldQueuedJob> loadedJobs =
@@ -242,6 +267,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             final List<SummaryJobStore.RecoveryJob> loadedSummary;
             final List<SummaryJobStore.FailedJob> loadedFailedSummary;
             final List<TranslationTaskExecutor.BlockedJob> loadedUserAction;
+            final SummaryJobStore loadedSummaryStore;
+            final boolean loadedRecoveryReady;
             final Map<String, String> loadedSummaryNames = new HashMap<>();
             try {
                 loadedFailed = jobStore.listRetainedFailedJobs();
@@ -250,9 +277,17 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 loadedUserAction = activeExecutor == null
                     ? new ArrayList<>()
                     : activeExecutor.listUserActionRequiredJobs();
-                loadedSummary = managementOnly
-                    ? new ArrayList<>()
-                    : summaryJobStore.listRecoveryJobs();
+                SummaryJobStore activeSummaryStore = managementOnly
+                    ? null
+                    : TranslationService.getActiveSummaryRecoveryStore();
+                boolean recoveryReady = managementOnly
+                    || (activeSummaryStore != null
+                        && activeSummaryStore.isRecoveryDecisionOpen());
+                loadedSummaryStore = activeSummaryStore;
+                loadedRecoveryReady = recoveryReady;
+                loadedSummary = !managementOnly && recoveryReady
+                    ? activeSummaryStore.listRecoveryJobs()
+                    : new ArrayList<>();
                 loadedFailedSummary = summaryJobStore.listFailedJobs();
                 for (SummaryJobStore.RecoveryJob job : loadedSummary) {
                     loadedSummaryNames.put(
@@ -290,10 +325,34 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 repairingStartupJobs = repairing;
                 jobs = loadedJobs;
                 failedJobs = loadedFailed;
-                summaryJobs = loadedSummary;
                 failedSummaryJobs = loadedFailedSummary;
                 userActionJobs = loadedUserAction;
                 summaryOwnerNames = loadedSummaryNames;
+                SummaryJobStore currentSummaryStore =
+                    TranslationService.getActiveSummaryRecoveryStore();
+                summaryRecoveryReady = managementOnly
+                    || (loadedRecoveryReady
+                        && currentSummaryStore == loadedSummaryStore
+                        && currentSummaryStore != null
+                        && currentSummaryStore.isRecoveryDecisionOpen());
+                // The I/O snapshot is only valid for the exact ready store
+                // that produced it.  A lifecycle swap or a readiness change
+                // keeps the UI in bounded preparing mode instead of showing
+                // an empty/stale list as a committed recovery snapshot.
+                summaryJobs = summaryRecoveryReady
+                    ? loadedSummary
+                    : new ArrayList<>();
+                renderedSummaryRecoveryStore = summaryRecoveryReady
+                    ? loadedSummaryStore
+                    : null;
+                if (summaryRecoveryReady) {
+                    summaryRecoveryWaitAttempts = 0;
+                    summaryRecoveryUnavailable = false;
+                } else if (!managementOnly) {
+                    summaryRecoveryWaitAttempts++;
+                    summaryRecoveryUnavailable =
+                        summaryRecoveryWaitAttempts >= 60;
+                }
                 Set<String> currentIds = new HashSet<>();
                 for (TranslationJobStore.HeldQueuedJob job : jobs) {
                     currentIds.add(job.getRequestId());
@@ -316,6 +375,21 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                     requestId -> !currentSummaryIds.contains(requestId)
                 );
                 renderJobs();
+                if (!managementOnly
+                    && !summaryRecoveryReady
+                    && !summaryRecoveryUnavailable) {
+                    summaryRecoveryHandler.removeCallbacks(
+                        summaryRecoveryRefresh
+                    );
+                    summaryRecoveryHandler.postDelayed(
+                        summaryRecoveryRefresh,
+                        500L
+                    );
+                } else {
+                    summaryRecoveryHandler.removeCallbacks(
+                        summaryRecoveryRefresh
+                    );
+                }
             });
         });
     }
@@ -519,19 +593,34 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     private void renderSummaryRecovery() {
         boolean empty = summaryJobs.isEmpty();
+        boolean waitingForService = !managementOnly && !summaryRecoveryReady;
+        boolean unavailable = waitingForService && summaryRecoveryUnavailable;
         findViewById(R.id.summary_recovery_section).setVisibility(
-            managementOnly || empty ? View.GONE : View.VISIBLE
+            managementOnly ? View.GONE : View.VISIBLE
         );
         summarySummary.setText(getString(
             R.string.summary_recovery_summary,
             summaryJobs.size()
         ));
-        summarySummary.setVisibility(empty ? View.GONE : View.VISIBLE);
-        summaryEmptyMessage.setVisibility(empty ? View.VISIBLE : View.GONE);
+        summarySummary.setVisibility(empty || waitingForService
+            ? View.GONE : View.VISIBLE);
+        summaryEmptyMessage.setText(unavailable
+            ? R.string.summary_recovery_unavailable
+            : waitingForService
+                ? R.string.summary_recovery_preparing
+            : R.string.summary_recovery_empty);
+        summaryEmptyMessage.setVisibility(
+            empty || waitingForService ? View.VISIBLE : View.GONE
+        );
         summarySubmitButton.setVisibility(empty ? View.GONE : View.VISIBLE);
-        summarySubmitButton.setEnabled(!empty && !busy && !repairingStartupJobs);
+        summarySubmitButton.setEnabled(
+            !empty
+                && summaryRecoveryReady
+                && !busy
+                && !repairingStartupJobs
+        );
 
-        if (empty) {
+        if (empty || waitingForService) {
             return;
         }
 
@@ -636,17 +725,24 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     private void submitSummaryRecovery() {
         if (managementOnly || busy || repairingStartupJobs
+            || !summaryRecoveryReady
+            || renderedSummaryRecoveryStore == null
             || summaryJobs.isEmpty()) {
             return;
         }
         setBusy(true);
+        final SummaryJobStore expectedSummaryStore =
+            renderedSummaryRecoveryStore;
         final ArrayList<String> restoreIds =
             new ArrayList<>(selectedSummaryRequestIds);
         final int restoreCount = restoreIds.size();
         final int discardCount = summaryJobs.size() - restoreCount;
         ioExecutor.execute(() -> {
             try {
-                summaryJobStore.applySummaryRecoveryDecision(restoreIds);
+                TranslationService.applyActiveSummaryRecoveryDecision(
+                    expectedSummaryStore,
+                    restoreIds
+                );
                 runOnUiThread(() -> {
                     if (isDestroyed()) {
                         return;

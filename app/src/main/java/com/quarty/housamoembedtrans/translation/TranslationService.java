@@ -49,6 +49,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -65,6 +66,43 @@ public final class TranslationService extends Service {
 
     /** Process-local accessor for the active executor used by local UI retry. */
     private static volatile TranslationTaskExecutor activeTaskExecutor;
+
+    /**
+     * The Summary store which owns the current Service startup recovery
+     * boundary.  Ordinary persistence readers may create detached stores, but
+     * recovery UI must always resolve this process-local owner at operation
+     * time rather than retaining an Activity-owned instance.
+     */
+    private static volatile SummaryJobStore activeSummaryRecoveryStore;
+    private static volatile long activeSummaryRecoveryEpoch;
+    private static final Object ACTIVE_SUMMARY_RECOVERY_LOCK = new Object();
+    private static final AtomicLong NEXT_SERVICE_EPOCH = new AtomicLong();
+
+    public static SummaryJobStore getActiveSummaryRecoveryStore() {
+        return activeSummaryRecoveryStore;
+    }
+
+    /**
+     * Applies a recovery decision only while the exact Service-owned store is
+     * still the published owner.  Publication/clear and this operation share
+     * one lock, so an Activity cannot apply an old snapshot after a Service
+     * epoch swap has begun.
+     */
+    public static void applyActiveSummaryRecoveryDecision(
+        SummaryJobStore expectedStore,
+        List<String> restoreRequestIds
+    ) throws Exception {
+        synchronized (ACTIVE_SUMMARY_RECOVERY_LOCK) {
+            if (expectedStore == null
+                || activeSummaryRecoveryStore != expectedStore
+                || !expectedStore.isRecoveryDecisionOpen()) {
+                throw new IllegalStateException(
+                    "Summary recovery owner is stale or unavailable"
+                );
+            }
+            expectedStore.applySummaryRecoveryDecision(restoreRequestIds);
+        }
+    }
 
     public static TranslationTaskExecutor getActiveTaskExecutor() {
         return activeTaskExecutor;
@@ -268,6 +306,8 @@ public final class TranslationService extends Service {
 
     private volatile TranslationJobStore jobStore;
     private volatile SummaryJobStore summaryJobStore;
+    private volatile SummaryJobStore publishedSummaryRecoveryStore;
+    private final long serviceEpoch = NEXT_SERVICE_EPOCH.incrementAndGet();
     private volatile SummaryTaskExecutor summaryTaskExecutor;
     private volatile ContextCompressionCoordinator contextCompressionCoordinator;
     private volatile GroupCompressionCoordinator groupCompressionCoordinator;
@@ -999,31 +1039,48 @@ public final class TranslationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
-        boolean captureControl =
-            HetBridgeContract.ACTION_SET_CAPTURE_PAUSED.equals(action);
-        if (intent != null
-            && !HetBridgeContract.ACTION_START_TRANSLATION_SERVICE.equals(
+        boolean startAction = intent == null
+            || HetBridgeContract.ACTION_START_TRANSLATION_SERVICE.equals(
                 action
-            )
-            && !captureControl) {
+            );
+        if (!startAction) {
             Log.w(
                 TAG,
                 "Rejected unknown start action=" + action
             );
-            stopSelfResult(startId);
+            // The Service is exported so the game process can bind to it.
+            // Unknown/legacy start actions must not become a remote stop
+            // primitive.  A newly-created instance still has to satisfy the
+            // Android foreground-service timing contract when this was sent
+            // through startForegroundService; promote it and immediately
+            // finish only this untrusted start request.  An already running
+            // foreground Service is left untouched.
+            if (!foregroundStarted) {
+                try {
+                    promoteToForeground();
+                    foregroundStarted = true;
+                } catch (RuntimeException promotionFailure) {
+                    Log.w(
+                        TAG,
+                        "Could not satisfy foreground timing for rejected "
+                            + "start action=" + action,
+                        promotionFailure
+                    );
+                } finally {
+                    if (foregroundStarted) {
+                        stopForeground(STOP_FOREGROUND_REMOVE);
+                        foregroundStarted = false;
+                    }
+                    stopSelfResult(startId);
+                }
+            }
             return START_NOT_STICKY;
         }
 
-        if (captureControl) {
-            boolean paused = intent.getBooleanExtra(
-                HetBridgeContract.EXTRA_CAPTURE_PAUSED,
-                RuntimeControlStore.isCapturePaused(this)
-            );
-            capturePausedRequest = RuntimeControlStore.setCapturePaused(
-                this,
-                paused
-            );
-        }
+        // START is deliberately only a replay/wake action.  The receiver is
+        // the sole mutation owner; re-read the durable preference on every
+        // START so a running Service observes a just-toggled value.
+        capturePausedRequest = RuntimeControlStore.isCapturePaused(this);
 
         runOnStartCommandSequence(
             this::promoteToForeground,
@@ -1086,6 +1143,7 @@ public final class TranslationService extends Service {
         acceptingSummaryWake = false;
         foregroundStarted = false;
         apiWorkOpen = false;
+        clearActiveSummaryRecoveryStore(summaryJobStore);
         SummaryJobWakeup.clearServiceWakeCallback(summaryWakeCallback);
         clearScenePort();
         scenePolicyPublisher.close();
@@ -2362,6 +2420,7 @@ public final class TranslationService extends Service {
             );
             summaryStartupPrepared = true;
         }
+        publishActiveSummaryRecoveryStore(preparedSummaryStore);
         TranslationStatusNotification.setJobStore(jobStore);
 
         int globalLimit = ConfigStore.getApiConcurrency(userSettings);
@@ -2431,17 +2490,48 @@ public final class TranslationService extends Service {
         groupCompressionCoordinator = null;
         manualConflictController = null;
         SummaryJobStore summaries = summaryJobStore;
+        clearActiveSummaryRecoveryStore(summaries);
         if (shouldRetainSummaryStore(
             summaries != null,
             summaryStartupPrepared
         )) {
             summaries.setRecoveryDecisionListener(() -> { });
         } else {
+            clearActiveSummaryRecoveryStore(summaries);
             summaryJobStore = null;
         }
         pendingSceneApplyStore = null;
         conflictStore = null;
         sceneStore = null;
+    }
+
+    private void publishActiveSummaryRecoveryStore(SummaryJobStore store) {
+        if (store == null || !acceptingSummaryWake || summaryJobStore != store) {
+            return;
+        }
+        synchronized (ACTIVE_SUMMARY_RECOVERY_LOCK) {
+            if (!acceptingSummaryWake || summaryJobStore != store) {
+                return;
+            }
+            publishedSummaryRecoveryStore = store;
+            activeSummaryRecoveryEpoch = serviceEpoch;
+            activeSummaryRecoveryStore = store;
+        }
+    }
+
+    private void clearActiveSummaryRecoveryStore(SummaryJobStore store) {
+        if (store == null) {
+            return;
+        }
+        synchronized (ACTIVE_SUMMARY_RECOVERY_LOCK) {
+            if (publishedSummaryRecoveryStore == store
+                && activeSummaryRecoveryStore == store
+                && activeSummaryRecoveryEpoch == serviceEpoch) {
+                activeSummaryRecoveryStore = null;
+                activeSummaryRecoveryEpoch = 0L;
+                publishedSummaryRecoveryStore = null;
+            }
+        }
     }
 
     private static void resetScenePortRegistration(ScenePortRecord record) {
