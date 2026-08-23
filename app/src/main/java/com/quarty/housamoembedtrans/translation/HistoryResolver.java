@@ -252,9 +252,21 @@ public final class HistoryResolver {
         );
         String manual = manualText(langObject);
         if (manual != null) {
+            int k = retentionK(context, options);
+            // Manual text replaces only the compressed prefix.  The
+            // independent recent-window contract still carries the last K
+            // complete Scene summaries before the current Scene.
+            JSONArray scenes = sceneSummariesAfterCutoffWithRecentWindow(
+                context,
+                lang,
+                currentIndex,
+                currentIndex,
+                k
+            );
             return new JSONObject()
                 .put("source", "manual")
-                .put("summary", manual);
+                .put("summary", manual)
+                .put("scenes", scenes);
         }
 
         JSONObject current = langObject == null
