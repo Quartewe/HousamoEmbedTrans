@@ -359,14 +359,16 @@ void ReportSceneProductionRejected(
     const std::string& scene_name,
     het::scene_sync::RejectReason reason
 ) {
-    const int reason_code = static_cast<int>(reason);
-    if ((reason_code != 1 && reason_code != 2)
+    if ((reason != het::scene_sync::RejectReason::sync_worker_hold
+            && reason != het::scene_sync::RejectReason::scene_blocked)
         || scene_name.empty()
         || !g_java_bridge.jvm
         || !g_java_bridge.main_hook_class
         || !g_java_bridge.report_scene_rejected_method) {
         return;
     }
+
+    const int reason_code = static_cast<int>(reason);
 
     JNIEnv* env = nullptr;
     bool attached_here = false;

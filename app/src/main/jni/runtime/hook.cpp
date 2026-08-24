@@ -80,10 +80,10 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
 
     auto production_lease = EnterSceneProduction(scene_name);
     if (!production_lease.allowed()) {
-        if (production_lease.reason()
-            != het::scene_sync::RejectReason::invalid_scene_name) {
-            ReportSceneProductionRejected(scene_name, production_lease.reason());
-        }
+        // ReportSceneProductionRejected owns the complete reportable-reason
+        // policy.  Callers pass the typed reason without maintaining a
+        // second filter that can drift when RejectReason evolves.
+        ReportSceneProductionRejected(scene_name, production_lease.reason());
         LOGI(
             "[FindScenarioData] Scene production rejected scene=%s reason=%d",
             scene_name.c_str(),

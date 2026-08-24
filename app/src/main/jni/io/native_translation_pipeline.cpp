@@ -112,25 +112,14 @@ public:
             return false;
         }
 
-        std::string scene_json;
         std::string error;
-        if (!scene_store::Read(scene_name, &scene_json, &error)) {
-            LOGE(
-                "[NativeTranslationPipeline] Could not read existing scene=%s reason=%s",
-                scene_name.c_str(),
-                error.c_str());
-            return false;
-        }
         TranslationRequest request;
-        const bool rebuilt = document_codec::BuildRequestFromExistingScene(
-                scene_json,
+        if (!RebuildRequestFromDisk(
+                scene_name,
                 g_runtime_config.target_lang,
+                false,
                 &request,
-                &error);
-        if (!rebuilt || request.scene_name != scene_name) {
-            if (rebuilt && error.empty()) {
-                error = "existing scene identity does not match requested scene";
-            }
+                &error)) {
             LOGE(
                 "[NativeTranslationPipeline] Existing scene is not submit-ready scene=%s reason=%s",
                 scene_name.c_str(),
@@ -250,16 +239,14 @@ public:
             return false;
         }
         if (!request) {
-            std::string scene_json;
             std::string rebuild_error;
             TranslationRequest rebuilt_request;
-            if (!scene_store::Read(scene_name, &scene_json, &rebuild_error)
-                || !document_codec::BuildRequestFromExistingScene(
-                    scene_json,
+            if (!RebuildRequestFromDisk(
+                    scene_name,
                     target_lang,
+                    true,
                     &rebuilt_request,
-                    &rebuild_error,
-                    true)) {
+                    &rebuild_error)) {
                 LOGW(
                     "[NativeTranslationPipeline] cannot reconstruct completion requestId=%s scene=%s reason=%s",
                     request_id.c_str(),
@@ -270,13 +257,6 @@ public:
             request = std::make_shared<const TranslationRequest>(
                 std::move(rebuilt_request)
             );
-            if (!request || request->scene_name != scene_name
-                || request->target_lang != target_lang) {
-                LOGW(
-                    "[NativeTranslationPipeline] reconstructed completion identity mismatch requestId=%s",
-                    request_id.c_str());
-                return false;
-            }
         }
         TranslationResult result;
         std::string error;
@@ -286,18 +266,7 @@ public:
         }
         if (GetFileStatusForTarget(scene_name, target_lang)
             == SceneFileStatus::complete) {
-            std::lock_guard<std::mutex> lock(receipt_mutex_);
-            // Java preflight is authoritative for the current durable
-            // terminal kind.  A rerun may replace an old opposite receipt in
-            // this process, so discard that stale receipt before recording
-            // the newly accepted completion.
-            failure_receipts_.erase(request_id);
-            completion_receipts_[request_id] = CompletionReceipt{
-                scene_name,
-                target_lang
-            };
-            // completion_waiting_ack receipt; native ACK owns its removal.
-            translation_dispatcher::TakePendingRequest(request_id);
+            RecordCompletionReceipt(request_id, scene_name, target_lang);
             LOGI(
                 "[NativeTranslationPipeline] completion already applied requestId=%s scene=%s target=%s",
                 request_id.c_str(),
@@ -309,17 +278,7 @@ public:
             LOGE("[NativeTranslationPipeline] final writeback failed requestId=%s scene=%s path=%s reason=%s", request_id.c_str(), request->scene_name.c_str(), scene_store::PathForLog(request->scene_name).c_str(), error.c_str());
             return false;
         }
-        {
-            std::lock_guard<std::mutex> lock(receipt_mutex_);
-            failure_receipts_.erase(request_id);
-            completion_receipts_[request_id] = CompletionReceipt{
-                scene_name,
-                target_lang
-            };
-        }
-        // completion_waiting_ack receipt is durable on HET and process-local
-        // here until Java persists the matching ACK.
-        translation_dispatcher::TakePendingRequest(request_id);
+        RecordCompletionReceipt(request_id, scene_name, target_lang);
         LOGI("[NativeTranslationPipeline] final result committed requestId=%s scene=%s target=%s translations=%zu", request_id.c_str(), request->scene_name.c_str(), result.target_lang.c_str(), result.translations.size());
         return true;
     }
@@ -381,6 +340,59 @@ public:
     }
 
 private:
+    bool RebuildRequestFromDisk(
+        const std::string& scene_name,
+        const std::string& target_lang,
+        bool allow_already_translated,
+        TranslationRequest* request,
+        std::string* error) const {
+        std::string scene_json;
+        if (!scene_store::Read(scene_name, &scene_json, error)
+            || !document_codec::BuildRequestFromExistingScene(
+                scene_json,
+                target_lang,
+                request,
+                error,
+                allow_already_translated)) {
+            return false;
+        }
+        if (request->scene_name != scene_name) {
+            if (error) {
+                *error = "existing scene identity does not match requested scene";
+            }
+            return false;
+        }
+        if (request->target_lang != target_lang) {
+            if (error) {
+                *error = "existing scene target language does not match request";
+            }
+            return false;
+        }
+        return true;
+    }
+
+    void RecordCompletionReceipt(
+        const std::string& request_id,
+        const std::string& scene_name,
+        const std::string& target_lang) {
+        {
+            std::lock_guard<std::mutex> lock(receipt_mutex_);
+            // Java preflight is authoritative for the current durable
+            // terminal kind.  A rerun may replace an old opposite receipt in
+            // this process, so discard that stale receipt before recording
+            // the newly accepted completion.
+            failure_receipts_.erase(request_id);
+            completion_receipts_[request_id] = CompletionReceipt{
+                scene_name,
+                target_lang
+            };
+        }
+        // Never acquire the Dispatcher pending lock while receipt_mutex_ is
+        // held.  The process-local completion receipt remains until Java
+        // persists the matching ACK.
+        translation_dispatcher::TakePendingRequest(request_id);
+    }
+
     bool CommitTranslationResult(
         const TranslationRequest& request,
         const TranslationResult& result,
@@ -508,16 +520,12 @@ private:
         }
 
         if (committed == SceneCommitResult::already_exists) {
-            if (!scene_store::Read(scene->scene, &scene_json, &error)
-                || !document_codec::BuildRequestFromExistingScene(
-                    scene_json,
+            if (!RebuildRequestFromDisk(
+                    scene->scene,
                     scene->target_lang,
+                    false,
                     &request,
-                    &error)
-                || request.scene_name != scene->scene) {
-                if (error.empty()) {
-                    error = "existing scene identity does not match requested scene";
-                }
+                    &error)) {
                 LOGE(
                     "[NativeTranslationPipeline] Existing scene could not replace captured submission scene=%s reason=%s",
                     scene->scene.c_str(),

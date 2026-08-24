@@ -50,12 +50,6 @@ void ReportSceneProductionRejected(
     const std::string& scene_name,
     het::scene_sync::RejectReason reason);
 
-enum class SceneFileStatus {
-    not_found, // 文件不存在
-    complete, // 文件完整
-    pending // 文件存在但未完成
-};
-
 // AC机
 enum class MatchKind {
     character,

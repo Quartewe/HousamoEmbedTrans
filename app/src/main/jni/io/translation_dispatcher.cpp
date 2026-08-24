@@ -486,9 +486,10 @@ private:
             if (!bridge_.ResolveRequestId(
                     request.payload_json,
                     &resolution_json)) {
-                LOGE(
-                    "[TranslationDispatcher] Request ID resolution JNI bridge invocation failed permanently scene=%s",
+                LOGW(
+                    "[TranslationDispatcher] Request ID resolution JNI bridge invocation failed; scheduling retry scene=%s",
                     request.scene_name.c_str());
+                ScheduleRetry(pending);
                 return;
             }
 
@@ -545,10 +546,11 @@ private:
             }
         }
         if (!bridge_submit_ok) {
-            LOGE(
-                "[TranslationDispatcher] Submit JNI bridge invocation failed permanently scene=%s requestId=%s",
+            LOGW(
+                "[TranslationDispatcher] Submit JNI bridge invocation failed; scheduling retry scene=%s requestId=%s",
                 request.scene_name.c_str(),
                 pending->request_id.c_str());
+            ScheduleRetry(pending);
             return;
         }
 

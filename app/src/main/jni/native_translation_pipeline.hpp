@@ -7,7 +7,12 @@
 #include "scene_production_policy.hpp"
 
 struct Scene;
-enum class SceneFileStatus;
+
+enum class SceneFileStatus {
+    not_found,
+    complete,
+    pending,
+};
 
 SceneFileStatus GetSceneFileStatus(const std::string& scene_name);
 bool SubmitExistingScene(
