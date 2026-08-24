@@ -40,8 +40,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -336,6 +338,9 @@ public final class TranslationService extends Service {
     private final ScenePolicyPublisher scenePolicyPublisher =
         new ScenePolicyPublisher();
     private ScenePortRecord currentScenePort;
+    /** One notification per generation, Scene identity, and rejection cause. */
+    private final Set<String> notifiedSceneProductionRejections =
+        new HashSet<>();
     private final AtomicReference<ActiveOperation> activeSceneOperation =
         new AtomicReference<>();
     private final Object sceneOperationLifecycleLock = new Object();
@@ -472,6 +477,22 @@ public final class TranslationService extends Service {
                         TAG,
                         "Failure status notification failed requestId="
                             + requestId,
+                        notificationFailure
+                    );
+                }
+            }
+
+            @Override
+            public void onRejectedApiResultArchived(JSONObject record) {
+                try {
+                    TranslationStatusNotification.rejectedApiResultArchived(
+                        TranslationService.this,
+                        record
+                    );
+                } catch (RuntimeException notificationFailure) {
+                    Log.w(
+                        TAG,
+                        "Rejected API result notification failed",
                         notificationFailure
                     );
                 }
@@ -3209,6 +3230,7 @@ public final class TranslationService extends Service {
                     generation
                 );
                 currentScenePort = published;
+                notifiedSceneProductionRejections.clear();
                 // Queue only lightweight lifecycle events while holding the
                 // identity lock.  This preserves swap order without
                 // performing any remote Binder call under scenePortLock.
@@ -3393,6 +3415,8 @@ public final class TranslationService extends Service {
             );
             return;
         }
+        final long generation;
+        final String deduplicationKey;
         synchronized (scenePortLock) {
             if (currentScenePort == null) {
                 Log.w(
@@ -3402,11 +3426,47 @@ public final class TranslationService extends Service {
                 );
                 return;
             }
+            generation = currentScenePort.generation;
+            deduplicationKey = generation + "|" + sceneName + "|" + reasonCode;
+            if (!notifiedSceneProductionRejections.add(deduplicationKey)) {
+                Log.i(
+                    TAG,
+                    "Scene production rejection already notified scene="
+                        + sceneName
+                        + " generation="
+                        + generation
+                        + " reason="
+                        + reasonCode
+                );
+                return;
+            }
+        }
+        ConflictStore conflicts = conflictStore;
+        boolean hasFormalConflict = conflicts != null
+            && conflicts.hasFormalConflict(sceneName);
+        try {
+            TranslationStatusNotification.sceneProductionRejected(
+                this,
+                sceneName,
+                reasonCode,
+                reasonCode == SCENE_REJECTED_SYNC_WORKER_HOLD,
+                hasFormalConflict,
+                generation
+            );
+        } catch (RuntimeException notificationFailure) {
+            Log.w(
+                TAG,
+                "Scene production rejection notification failed scene="
+                    + sceneName,
+                notificationFailure
+            );
         }
         Log.i(
             TAG,
             "Scene production rejected scene="
                 + sceneName
+                + " generation="
+                + generation
                 + " reason="
                 + reasonCode
         );

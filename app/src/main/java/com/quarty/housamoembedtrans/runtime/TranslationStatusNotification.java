@@ -6,6 +6,7 @@ import com.quarty.housamoembedtrans.ui.SceneContextActivity;
 import com.quarty.housamoembedtrans.ui.SceneFilesActivity;
 import com.quarty.housamoembedtrans.ui.SettingsActivity;
 import com.quarty.housamoembedtrans.ui.TranslationQueueActivity;
+import com.quarty.housamoembedtrans.ui.RejectedApiResultsActivity;
 import com.quarty.housamoembedtrans.translation.ContextReviewGate;
 import com.quarty.housamoembedtrans.translation.TranslationJobStore;
 import com.quarty.housamoembedtrans.storage.SceneStore;
@@ -23,6 +24,8 @@ import android.os.Build;
 import android.text.format.DateUtils;
 import android.util.Log;
 
+import org.json.JSONObject;
+
 /** Owns the persistent translation status notification in the HET app process. */
 public final class TranslationStatusNotification {
 
@@ -39,12 +42,15 @@ public final class TranslationStatusNotification {
     private static final String JOB_ERROR_CHANNEL_ID = "job_errors";
     public static final int NOTIFICATION_ID = 0x484554;
     private static final int SUMMARY_ERROR_NOTIFICATION_BASE = 0x534D;
+    private static final int REJECTED_API_RESULT_NOTIFICATION_BASE = 0x524A;
+    private static final int SCENE_REJECTION_NOTIFICATION_BASE = 0x534E;
     private static final int SETTINGS_REQUEST_CODE = 1;
     private static final int CAPTURE_REQUEST_CODE = 2;
     private static final int QUEUE_REQUEST_CODE = 3;
     private static final int SCENE_FILES_REQUEST_CODE = 4;
     private static final int SCENE_CONFLICTS_REQUEST_CODE = 5;
     private static final int SCENE_CONTEXT_REVIEW_REQUEST_CODE = 6;
+    private static final int REJECTED_API_RESULTS_REQUEST_CODE = 7;
 
     private static final String PREFS_NAME = "translation_notification_state";
     private static final String KEY_STATE = "state";
@@ -171,56 +177,24 @@ public final class TranslationStatusNotification {
         String message
     ) {
         Context appContext = context.getApplicationContext();
-        NotificationManager manager = appContext.getSystemService(
-            NotificationManager.class
-        );
-        if (manager == null) {
-            Log.w(TAG, "NotificationManager is unavailable");
-            return;
-        }
-        createJobErrorChannel(appContext, manager);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-            && appContext.checkSelfPermission(
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED) {
-            Log.i(TAG, "Notification permission has not been granted");
-            return;
-        }
-
         String title = ownerId == null || ownerId.trim().isEmpty()
             ? appContext.getString(R.string.notification_summary_failed_title)
             : ownerId;
         String text = message == null || message.trim().isEmpty()
             ? appContext.getString(R.string.notification_summary_failed_generic)
             : message;
-        Notification notification = new Notification.Builder(
+        postJobErrorNotification(
             appContext,
-            JOB_ERROR_CHANNEL_ID
-        )
-            .setSmallIcon(R.drawable.ic_notification)
-            .setColor(appContext.getColor(R.color.het_primary))
-            .setContentTitle(title)
-            .setContentText(text)
-            .setSubText(appContext.getString(
+            requestId,
+            title,
+            text,
+            appContext.getString(
                 R.string.notification_summary_failed_subtitle,
                 ownerType == null ? "" : ownerType
-            ))
-            .setContentIntent(queuePendingIntent(appContext))
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(Notification.CATEGORY_ERROR)
-            .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .build();
-
-        int notificationId = SUMMARY_ERROR_NOTIFICATION_BASE
-            + (requestId == null
-                ? 0
-                : Math.abs(requestId.hashCode() % 1000));
-        try {
-            manager.notify(notificationId, notification);
-        } catch (SecurityException e) {
-            Log.w(TAG, "Could not post summary failure notification", e);
-        }
+            ),
+            SUMMARY_ERROR_NOTIFICATION_BASE,
+            "summary"
+        );
     }
 
     /** Posts one per-job error notification for a failed Translation job. */
@@ -230,6 +204,90 @@ public final class TranslationStatusNotification {
         String scene,
         String message
     ) {
+        Context appContext = context.getApplicationContext();
+        String title = scene == null || scene.trim().isEmpty()
+            ? appContext.getString(R.string.notification_translation_failed_title)
+            : scene;
+        String text = message == null || message.trim().isEmpty()
+            ? appContext.getString(R.string.notification_translation_failed_generic)
+            : message;
+        postJobErrorNotification(
+            appContext,
+            requestId,
+            title,
+            text,
+            appContext.getString(
+                R.string.notification_translation_failed_subtitle
+            ),
+            SUMMARY_ERROR_NOTIFICATION_BASE + 1000,
+            "translation"
+        );
+    }
+
+    private static void postJobErrorNotification(
+        Context context,
+        String requestId,
+        String title,
+        String text,
+        String subText,
+        int notificationIdBase,
+        String failureType
+    ) {
+        NotificationManager manager = context.getSystemService(
+            NotificationManager.class
+        );
+        if (manager == null) {
+            Log.w(TAG, "NotificationManager is unavailable");
+            return;
+        }
+        createJobErrorChannel(context, manager);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && context.checkSelfPermission(
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED) {
+            Log.i(TAG, "Notification permission has not been granted");
+            return;
+        }
+
+        Notification notification = new Notification.Builder(
+            context,
+            JOB_ERROR_CHANNEL_ID
+        )
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(context.getColor(R.color.het_primary))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSubText(subText)
+            .setContentIntent(queuePendingIntent(context))
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_ERROR)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build();
+
+        int notificationId = notificationIdBase
+            + (requestId == null
+                ? 0
+                : Math.abs(requestId.hashCode() % 1000));
+        try {
+            manager.notify(notificationId, notification);
+        } catch (SecurityException e) {
+            Log.w(
+                TAG,
+                "Could not post " + failureType + " failure notification",
+                e
+            );
+        }
+    }
+
+    /** Posts a one-time notification for a newly archived API result. */
+    public static void rejectedApiResultArchived(
+        Context context,
+        JSONObject record
+    ) {
+        if (record == null) {
+            return;
+        }
         Context appContext = context.getApplicationContext();
         NotificationManager manager = appContext.getSystemService(
             NotificationManager.class
@@ -247,40 +305,119 @@ public final class TranslationStatusNotification {
             return;
         }
 
-        String title = scene == null || scene.trim().isEmpty()
-            ? appContext.getString(R.string.notification_translation_failed_title)
-            : scene;
-        String text = message == null || message.trim().isEmpty()
-            ? appContext.getString(R.string.notification_translation_failed_generic)
-            : message;
+        String jobKind = record.optString("job_kind", "API");
+        String requestId = record.optString("request_id", "");
+        String reason = record.optString("reason", "unknown");
+        String text = appContext.getString(
+            R.string.notification_rejected_api_result_text,
+            jobKind,
+            requestId,
+            reason
+        );
         Notification notification = new Notification.Builder(
             appContext,
             JOB_ERROR_CHANNEL_ID
         )
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(appContext.getColor(R.color.het_primary))
-            .setContentTitle(title)
+            .setContentTitle(appContext.getString(
+                R.string.notification_rejected_api_result_title
+            ))
             .setContentText(text)
             .setSubText(appContext.getString(
-                R.string.notification_translation_failed_subtitle
+                R.string.notification_rejected_api_result_subtitle
             ))
-            .setContentIntent(queuePendingIntent(appContext))
+            .setContentIntent(rejectedApiResultsPendingIntent(appContext))
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_ERROR)
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .build();
-
-        int notificationId = SUMMARY_ERROR_NOTIFICATION_BASE
-            + 1000
-            + (requestId == null
-                ? 0
-                : Math.abs(requestId.hashCode() % 1000));
         try {
-            manager.notify(notificationId, notification);
+            manager.notify(
+                stableNotificationId(
+                    REJECTED_API_RESULT_NOTIFICATION_BASE,
+                    record.optString("record_id", requestId)
+                ),
+                notification
+            );
         } catch (SecurityException e) {
-            Log.w(TAG, "Could not post translation failure notification", e);
+            Log.w(TAG, "Could not post rejected API result notification", e);
         }
+    }
+
+    /** Posts a deduplicated, actionable Scene production rejection notice. */
+    public static void sceneProductionRejected(
+        Context context,
+        String sceneName,
+        int reasonCode,
+        boolean syncWorkerHold,
+        boolean hasFormalConflict,
+        long generation
+    ) {
+        if (sceneName == null || sceneName.trim().isEmpty()) {
+            return;
+        }
+        Context appContext = context.getApplicationContext();
+        NotificationManager manager = appContext.getSystemService(
+            NotificationManager.class
+        );
+        if (manager == null) {
+            Log.w(TAG, "NotificationManager is unavailable");
+            return;
+        }
+        createJobErrorChannel(appContext, manager);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && appContext.checkSelfPermission(
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED) {
+            Log.i(TAG, "Notification permission has not been granted");
+            return;
+        }
+
+        int textResource;
+        PendingIntent contentIntent;
+        if (syncWorkerHold) {
+            textResource = R.string.notification_scene_rejected_sync_active;
+            contentIntent = sceneFilesPendingIntent(appContext);
+        } else if (hasFormalConflict) {
+            textResource = R.string.notification_scene_rejected_conflict;
+            contentIntent = sceneConflictsPendingIntent(appContext);
+        } else {
+            textResource = R.string.notification_scene_rejected_not_synced;
+            contentIntent = sceneFilesPendingIntent(appContext);
+        }
+        Notification notification = new Notification.Builder(
+            appContext,
+            JOB_ERROR_CHANNEL_ID
+        )
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(appContext.getColor(R.color.het_primary))
+            .setContentTitle(appContext.getString(
+                R.string.notification_scene_rejected_title
+            ))
+            .setContentText(appContext.getString(textResource, sceneName))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_ERROR)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build();
+        try {
+            manager.notify(
+                stableNotificationId(
+                    SCENE_REJECTION_NOTIFICATION_BASE,
+                    generation + "|" + sceneName + "|" + reasonCode
+                ),
+                notification
+            );
+        } catch (SecurityException e) {
+            Log.w(TAG, "Could not post Scene production rejection notification", e);
+        }
+    }
+
+    private static int stableNotificationId(int base, String identity) {
+        return base ^ (identity == null ? 0 : identity.hashCode());
     }
 
     private static void update(
@@ -785,6 +922,21 @@ public final class TranslationStatusNotification {
         return PendingIntent.getActivity(
             context,
             SCENE_CONTEXT_REVIEW_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT
+                | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
+    private static PendingIntent rejectedApiResultsPendingIntent(Context context) {
+        Intent intent = new Intent(context, RejectedApiResultsActivity.class)
+            .addFlags(
+                Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
+            );
+        return PendingIntent.getActivity(
+            context,
+            REJECTED_API_RESULTS_REQUEST_CODE,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT
                 | PendingIntent.FLAG_IMMUTABLE

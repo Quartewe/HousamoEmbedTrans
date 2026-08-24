@@ -438,7 +438,19 @@ public final class SummaryTaskExecutor {
                 kind,
                 payload
             );
-            TranslationStatusNotification.refresh(context);
+            try {
+                TranslationStatusNotification.rejectedApiResultArchived(
+                    context,
+                    record
+                );
+                TranslationStatusNotification.refresh(context);
+            } catch (RuntimeException notificationFailure) {
+                logWarn(
+                    "Rejected API result notification failed requestId="
+                        + requestId,
+                    notificationFailure
+                );
+            }
             return;
         };
         int workerCount = readSummaryWorkerCount(context);
