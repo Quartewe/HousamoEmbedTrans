@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.translation;
 
 import com.quarty.housamoembedtrans.storage.HistoryMapping;
+import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 
 import org.json.JSONObject;
 
@@ -10,8 +11,6 @@ import org.json.JSONObject;
  * JUnit tests cover the queued-only rewrite rule without a runtime.
  */
 public final class TranslationJobHistoryMapping {
-
-    private static final String STATUS_QUEUED = "queued";
 
     private TranslationJobHistoryMapping() {
         throw new AssertionError("No instances");
@@ -31,7 +30,7 @@ public final class TranslationJobHistoryMapping {
         }
         HistoryMapping.requireWritable(historyMapping);
         String status = state.optString("status", "");
-        if (!STATUS_QUEUED.equals(status)) {
+        if (!TranslationJobStatus.QUEUED.wireValue().equals(status)) {
             throw new IllegalStateException(
                 "cannot rewrite history_mapping for non-queued job status="
                     + status

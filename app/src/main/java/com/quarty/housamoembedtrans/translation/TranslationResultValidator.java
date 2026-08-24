@@ -135,7 +135,6 @@ public final class TranslationResultValidator {
     }
 
     private final String expectedTargetLanguage;
-    private final boolean contextSummaryRequired;
     private final Map<Integer, String> sourceTexts;
     private final Set<String> protectedLabels;
 
@@ -162,7 +161,6 @@ public final class TranslationResultValidator {
         }
 
         expectedTargetLanguage = requestInfo.getTargetLanguage();
-        contextSummaryRequired = request.optBoolean("request_context_summary", false);
         sourceTexts = Collections.unmodifiableMap(texts);
         protectedLabels = Collections.unmodifiableSet(
             collectProtectedLabels(request)

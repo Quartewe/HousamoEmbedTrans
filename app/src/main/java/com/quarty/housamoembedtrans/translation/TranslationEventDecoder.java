@@ -15,11 +15,6 @@ public final class TranslationEventDecoder {
             String invalidContextSummary
         ) throws Exception;
 
-        default void onSummary(String summary, String contextSummary)
-            throws Exception {
-            onSummary(summary, contextSummary, null);
-        }
-
         void onTranslation(int seq, String text) throws Exception;
 
         void onComplete() throws Exception;

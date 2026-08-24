@@ -6,6 +6,7 @@ import com.quarty.housamoembedtrans.storage.SceneStore;
 import com.quarty.housamoembedtrans.storage.SceneContextStore;
 import com.quarty.housamoembedtrans.util.IoUtils;
 import com.quarty.housamoembedtrans.util.JobValidator;
+import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 import com.quarty.housamoembedtrans.storage.TranslationSchemaValidator;
 
 import android.content.Context;
@@ -76,13 +77,6 @@ public final class TranslationJobStore {
             int heldQueuedJobCount,
             boolean repairingStartupJobs
         );
-    }
-
-    /** Observable state of the process-local Scene Validation Wait set. */
-    public enum SceneValidationWaitState {
-        NONE,
-        WAITING,
-        RECHECKING
     }
 
     public static final class HeldQueuedJob {
@@ -196,9 +190,8 @@ public final class TranslationJobStore {
         }
 
         public boolean isSceneValidationFailure() {
-            return "failed".equals(status) && "scene_validation".equals(
-                errorType
-            );
+            return TranslationJobStatus.FAILED.wireValue().equals(status)
+                && "scene_validation".equals(errorType);
         }
     }
 
@@ -281,13 +274,20 @@ public final class TranslationJobStore {
     private static final String PROGRESS_FILE_NAME = "progress.json";
     private static final String RESULT_FILE_NAME = "result.json";
     private static final String ERROR_FILE_NAME = "error.json";
-    private static final String STATUS_QUEUED = "queued";
-    private static final String STATUS_RUNNING = "running";
-    private static final String STATUS_RESETTING = "resetting";
-    private static final String STATUS_CANCELED = "canceled";
-    private static final String STATUS_COMPLETED = "completed";
-    private static final String STATUS_FAILED = "failed";
-    private static final String STATUS_DAMAGED = "damaged";
+    private static final String STATUS_QUEUED =
+        TranslationJobStatus.QUEUED.wireValue();
+    private static final String STATUS_RUNNING =
+        TranslationJobStatus.RUNNING.wireValue();
+    private static final String STATUS_RESETTING =
+        TranslationJobStatus.RESETTING.wireValue();
+    private static final String STATUS_CANCELED =
+        TranslationJobStatus.CANCELED.wireValue();
+    private static final String STATUS_COMPLETED =
+        TranslationJobStatus.COMPLETED.wireValue();
+    private static final String STATUS_FAILED =
+        TranslationJobStatus.FAILED.wireValue();
+    private static final String STATUS_DAMAGED =
+        TranslationJobStatus.DAMAGED.wireValue();
     /** Durable cross-store admission marker.  A marked job is never claimable. */
     private static final String HISTORY_MEMBERSHIP_PENDING_FIELD =
         "history_membership_pending";
@@ -334,6 +334,65 @@ public final class TranslationJobStore {
         }
     }
 
+    /**
+     * The common reducer output for startup repair and Scene Validation Wait
+     * rechecks.  These fields intentionally describe only the process-local
+     * bookkeeping; the durable state transition remains owned by
+     * {@link #processIncompleteJob(File, ValidationMode, boolean)}.
+     */
+    private static final class StartupProcessReduction {
+        private final boolean releaseAdmission;
+        private final boolean queueStartupReady;
+        private final boolean addManualCandidate;
+        private final int recoveredCount;
+        private final int completedCount;
+        private final int removedCount;
+        private final int retainedCount;
+        private final int failedCount;
+
+        private StartupProcessReduction(
+            boolean releaseAdmission,
+            boolean queueStartupReady,
+            boolean addManualCandidate,
+            int recoveredCount,
+            int completedCount,
+            int removedCount,
+            int retainedCount,
+            int failedCount
+        ) {
+            this.releaseAdmission = releaseAdmission;
+            this.queueStartupReady = queueStartupReady;
+            this.addManualCandidate = addManualCandidate;
+            this.recoveredCount = recoveredCount;
+            this.completedCount = completedCount;
+            this.removedCount = removedCount;
+            this.retainedCount = retainedCount;
+            this.failedCount = failedCount;
+        }
+
+        private static StartupProcessReduction resolved(
+            boolean releaseAdmission,
+            boolean queueStartupReady,
+            boolean addManualCandidate,
+            int recoveredCount,
+            int completedCount,
+            int removedCount,
+            int retainedCount,
+            int failedCount
+        ) {
+            return new StartupProcessReduction(
+                releaseAdmission,
+                queueStartupReady,
+                addManualCandidate,
+                recoveredCount,
+                completedCount,
+                removedCount,
+                retainedCount,
+                failedCount
+            );
+        }
+    }
+
     private final File jobRoot;
     private final PersistentApiJobStore jobStore;
     private final SceneStore sceneStore;
@@ -353,12 +412,12 @@ public final class TranslationJobStore {
     private final LinkedHashMap<String, StartupJob> startupReadyJobs =
         new LinkedHashMap<>();
     /**
-     * Requests admitted before the unified recovery decision.  The map is
+     * Requests admitted before the unified recovery decision.  The set is
      * deliberately process-local and contains identity plus arrival order
      * only; the request/state files are the durable admission record.
      */
-    private final LinkedHashMap<String, Long> startupAdmissionOrder =
-        new LinkedHashMap<>();
+    private final LinkedHashSet<String> startupAdmissionOrder =
+        new LinkedHashSet<>();
     /** Sequences prepared by the single admission-promotion transaction. */
     private final LinkedHashMap<String, Long> startupAdmissionSequences =
         new LinkedHashMap<>();
@@ -515,7 +574,7 @@ public final class TranslationJobStore {
                 // startup snapshot boundary.  They are durable jobs, but not
                 // legacy recovery candidates and must be ordered before the
                 // selected/automatically recovered batch at commit.
-                if (startupAdmissionOrder.containsKey(requestId)) {
+                if (startupAdmissionOrder.contains(requestId)) {
                     try {
                         JSONObject admittedState = readState(jobDirectory);
                         if (admittedState == null) {
@@ -704,27 +763,12 @@ public final class TranslationJobStore {
         }
     }
 
-    /** Returns the number of process-local Scene Validation Wait entries. */
+    /**
+     * Read-only host-fixture/diagnostic seam for the process-local Scene
+     * Validation Wait set; this is not a persisted queue count.
+     */
     public synchronized int getSceneValidationWaitCount() {
         return sceneValidationWaits.size();
-    }
-
-    /**
-     * Small diagnostic seam for the Service/UI.  Wait is intentionally not
-     * represented as a pending API queue count or a persisted status.
-     */
-    public synchronized SceneValidationWaitState
-        getSceneValidationWaitState() {
-        if (sceneValidationWaitRecheckInProgress) {
-            return SceneValidationWaitState.RECHECKING;
-        }
-        return sceneValidationWaits.isEmpty()
-            ? SceneValidationWaitState.NONE
-            : SceneValidationWaitState.WAITING;
-    }
-
-    public synchronized boolean isSceneValidationWaiting(String requestId) {
-        return requestId != null && sceneValidationWaits.containsKey(requestId);
     }
 
     public synchronized boolean isInitialAutoSyncFinished() {
@@ -851,7 +895,7 @@ public final class TranslationJobStore {
                     }
 
                     final boolean startupAdmission =
-                        startupAdmissionOrder.containsKey(
+                        startupAdmissionOrder.contains(
                             jobDirectory.getName()
                         );
 
@@ -881,97 +925,30 @@ public final class TranslationJobStore {
                             continue;
                         }
                     }
-                    switch (result) {
-                        case VALID:
-                        case REPAIRED: {
-                            // A process-local admission already owns its
-                            // pre-boundary arrival slot.  Repair can make its
-                            // durable state queueable, but must not route it
-                            // through the legacy recovery/held lane.
-                            if (!startupAdmission) {
-                                queueStartupReadyLocked(jobDirectory);
-                            }
-                            resolvedRequestIds.add(
-                                jobDirectory.getName()
-                            );
-                            recoveredCount++;
-                            break;
-                        }
-                        case COMPLETED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    jobDirectory.getName()
-                                );
-                            }
-                            resolvedRequestIds.add(
-                                jobDirectory.getName()
-                            );
-                            completedCount++;
-                            break;
-                        case FAILED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    jobDirectory.getName()
-                                );
-                            } else {
-                                startupManualCandidateIds.add(
-                                    jobDirectory.getName()
-                                );
-                            }
-                            resolvedRequestIds.add(
-                                jobDirectory.getName()
-                            );
-                            failedCount++;
-                            break;
-                        case DAMAGED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    jobDirectory.getName()
-                                );
-                            }
-                            resolvedRequestIds.add(
-                                jobDirectory.getName()
-                            );
-                            retainedCount++;
-                            break;
-                        case REMOVED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    jobDirectory.getName()
-                                );
-                            }
-                            resolvedRequestIds.add(
-                                jobDirectory.getName()
-                            );
-                            removedCount++;
-                            break;
-                        case TERMINAL: {
-                            boolean admissionTerminal = startupAdmission;
-                            if (admissionTerminal) {
-                                removeStartupAdmissionIdentityLocked(
-                                    jobDirectory.getName()
-                                );
-                            }
-                            resolvedRequestIds.add(
-                                jobDirectory.getName()
-                            );
-                            if (!admissionTerminal
-                                && manualRerunCandidateIds.contains(
-                                jobDirectory.getName()
-                            )) {
-                                startupManualCandidateIds.add(
-                                    jobDirectory.getName()
-                                );
-                            }
-                            break;
-                        }
-                        case SCENE_MISSING:
-                            throw new IllegalStateException(
-                                "Scene wait recheck did not resolve missing "
-                                    + "Scene requestId="
-                                    + jobDirectory.getName()
-                            );
+                    if (result == ProcessResult.SCENE_MISSING) {
+                        throw new IllegalStateException(
+                            "Scene wait recheck did not resolve missing "
+                                + "Scene requestId="
+                                + jobDirectory.getName()
+                        );
                     }
+                    StartupProcessReduction reduction =
+                        reduceStartupProcessResultLocked(
+                            result,
+                            jobDirectory.getName(),
+                            startupAdmission
+                        );
+                    applyStartupProcessReductionLocked(
+                        reduction,
+                        jobDirectory,
+                        jobDirectory.getName(),
+                        resolvedRequestIds
+                    );
+                    recoveredCount += reduction.recoveredCount;
+                    completedCount += reduction.completedCount;
+                    removedCount += reduction.removedCount;
+                    retainedCount += reduction.retainedCount;
+                    failedCount += reduction.failedCount;
                 }
             } catch (Exception e) {
                 retainedCount++;
@@ -1002,85 +979,37 @@ public final class TranslationJobStore {
                     continue;
                 }
                 final boolean startupAdmission =
-                    startupAdmissionOrder.containsKey(wait.requestId);
+                    startupAdmissionOrder.contains(wait.requestId);
                 try {
                     ProcessResult result = processIncompleteJob(
                         wait.jobDirectory,
                         ValidationMode.SCENE_WAIT_RECHECK,
                         false
                     );
-                    switch (result) {
-                        case VALID:
-                        case REPAIRED:
-                            if (!startupAdmission) {
-                                queueStartupReadyLocked(wait.jobDirectory);
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            recoveredCount++;
-                            break;
-                        case COMPLETED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            completedCount++;
-                            break;
-                        case FAILED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            } else {
-                                startupManualCandidateIds.add(wait.requestId);
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            failedCount++;
-                            break;
-                        case DAMAGED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            retainedCount++;
-                            break;
-                        case REMOVED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            removedCount++;
-                            break;
-                        case TERMINAL: {
-                            boolean admissionTerminal = startupAdmission;
-                            if (admissionTerminal) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            if (!admissionTerminal
-                                && manualRerunCandidateIds.contains(
-                                wait.requestId
-                            )) {
-                                startupManualCandidateIds.add(
-                                    wait.requestId
-                                );
-                            }
-                            break;
-                        }
-                        case SCENE_MISSING:
-                            throw new IllegalStateException(
-                                "Scene wait recheck returned missing "
-                                    + "without a failed state requestId="
-                                    + wait.requestId
-                            );
+                    if (result == ProcessResult.SCENE_MISSING) {
+                        throw new IllegalStateException(
+                            "Scene wait recheck returned missing "
+                                + "without a failed state requestId="
+                                + wait.requestId
+                        );
                     }
+                    StartupProcessReduction reduction =
+                        reduceStartupProcessResultLocked(
+                            result,
+                            wait.requestId,
+                            startupAdmission
+                        );
+                    applyStartupProcessReductionLocked(
+                        reduction,
+                        wait.jobDirectory,
+                        wait.requestId,
+                        resolvedWaitIds
+                    );
+                    recoveredCount += reduction.recoveredCount;
+                    completedCount += reduction.completedCount;
+                    removedCount += reduction.removedCount;
+                    retainedCount += reduction.retainedCount;
+                    failedCount += reduction.failedCount;
                 } catch (Exception e) {
                     retainedCount++;
                     Log.w(
@@ -1209,7 +1138,7 @@ public final class TranslationJobStore {
 
     private boolean hasStartupAdmissionWaitLocked() {
         for (String requestId : sceneValidationWaits.keySet()) {
-            if (startupAdmissionOrder.containsKey(requestId)) {
+            if (startupAdmissionOrder.contains(requestId)) {
                 return true;
             }
         }
@@ -1250,71 +1179,32 @@ public final class TranslationJobStore {
                     continue;
                 }
                 final boolean startupAdmission =
-                    startupAdmissionOrder.containsKey(wait.requestId);
+                    startupAdmissionOrder.contains(wait.requestId);
                 try {
                     ProcessResult result = processIncompleteJob(
                         wait.jobDirectory,
                         ValidationMode.SCENE_WAIT_RECHECK,
                         false
                     );
-                    switch (result) {
-                        case VALID:
-                        case REPAIRED:
-                            if (!startupAdmission) {
-                                queueStartupReadyLocked(wait.jobDirectory);
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            break;
-                        case COMPLETED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            break;
-                        case DAMAGED:
-                        case REMOVED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            break;
-                        case TERMINAL: {
-                            boolean admissionTerminal = startupAdmission;
-                            if (admissionTerminal) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            if (!admissionTerminal
-                                && manualRerunCandidateIds.contains(
-                                wait.requestId
-                            )) {
-                                startupManualCandidateIds.add(wait.requestId);
-                            }
-                            break;
-                        }
-                        case FAILED:
-                            if (startupAdmission) {
-                                removeStartupAdmissionIdentityLocked(
-                                    wait.requestId
-                                );
-                            } else {
-                                startupManualCandidateIds.add(wait.requestId);
-                            }
-                            resolvedWaitIds.add(wait.requestId);
-                            break;
-                        case SCENE_MISSING:
-                            throw new IllegalStateException(
-                                "Scene Validation Wait remained missing "
-                                    + "after AUTO_FULL_SYNC requestId="
-                                    + wait.requestId
-                            );
+                    if (result == ProcessResult.SCENE_MISSING) {
+                        throw new IllegalStateException(
+                            "Scene Validation Wait remained missing "
+                                + "after AUTO_FULL_SYNC requestId="
+                                + wait.requestId
+                        );
                     }
+                    StartupProcessReduction reduction =
+                        reduceStartupProcessResultLocked(
+                            result,
+                            wait.requestId,
+                            startupAdmission
+                        );
+                    applyStartupProcessReductionLocked(
+                        reduction,
+                        wait.jobDirectory,
+                        wait.requestId,
+                        resolvedWaitIds
+                    );
                 } catch (Exception e) {
                     // Temporary SceneAccess/I/O failures retain the Wait and
                     // are retried by the existing startup-repair scheduler.
@@ -1460,7 +1350,7 @@ public final class TranslationJobStore {
         for (;;) {
             boolean quarantined = false;
             List<String> requestIds = new ArrayList<>(
-                startupAdmissionOrder.keySet()
+                startupAdmissionOrder
             );
 
             // Every durable non-admission sequence is occupied.  A C/D
@@ -1470,7 +1360,7 @@ public final class TranslationJobStore {
             long durableSequenceFloor = 0L;
             for (File durableDirectory : jobStore.listValidJobDirectories()) {
                 String durableRequestId = durableDirectory.getName();
-                if (startupAdmissionOrder.containsKey(durableRequestId)) {
+                if (startupAdmissionOrder.contains(durableRequestId)) {
                     continue;
                 }
                 JSONObject durableState;
@@ -1752,7 +1642,7 @@ public final class TranslationJobStore {
     }
 
     private void enqueuePublishedStartupAdmissionsLocked() {
-        for (String requestId : startupAdmissionOrder.keySet()) {
+        for (String requestId : startupAdmissionOrder) {
             Long sequence = startupAdmissionSequences.get(requestId);
             if (sequence != null && sequence > 0L) {
                 addPendingJobLocked(requestId, sequence);
@@ -1935,15 +1825,6 @@ public final class TranslationJobStore {
             // finish any resetting marker after a crash or I/O failure.
             notifyQueueListener();
         }
-    }
-
-    public void applyManualQueueOrder(
-        List<String> orderedRequestIds
-    ) throws Exception {
-        // Keep one manual recovery commit path.  The former queue-only
-        // implementation could publish held jobs without numbering startup
-        // admissions or opening the unified recovery boundary.
-        applyManualRecoveryOrder(orderedRequestIds);
     }
 
     public void cancelHeldQueuedJobs() throws Exception {
@@ -2550,24 +2431,6 @@ public final class TranslationJobStore {
     }
 
     /**
-     * Starts a crash-safe local rerun from retained request.json.  The
-     * incoming duplicate payload is deliberately ignored by this method.
-     */
-    public boolean rerunRetainedJob(String requestId) throws Exception {
-        synchronized (this) {
-            validateRequestId(requestId);
-            File directory = requireJobDirectoryLocked(requestId);
-            JSONObject state = readState(directory);
-            if (state == null) {
-                throw new IllegalStateException("translation state is missing");
-            }
-            rerunRetainedJobLocked(directory, requestId, state);
-        }
-        notifyQueueListener();
-        return true;
-    }
-
-    /**
      * Explicit local user action: abandon a pending failed delivery and rerun
      * the retained request in one store lock.  Binder duplicate admission may
      * not use this exception path.
@@ -2613,22 +2476,6 @@ public final class TranslationJobStore {
             requestId,
             state,
             false,
-            null,
-            true
-        );
-    }
-
-    private void rerunRetainedJobLocked(
-        File directory,
-        String requestId,
-        JSONObject state,
-        boolean allowPendingFailure
-    ) throws Exception {
-        rerunRetainedJobLocked(
-            directory,
-            requestId,
-            state,
-            allowPendingFailure,
             null,
             true
         );
@@ -2753,6 +2600,124 @@ public final class TranslationJobStore {
         TERMINAL,
         REMOVED,
         SCENE_MISSING
+    }
+
+    /**
+     * Reduces one repair result to the shared startup bookkeeping semantics.
+     * Callers still decide whether the result came from a candidate or a
+     * Scene Validation Wait, but they no longer maintain separate mappings
+     * for resolved ids, manual candidates, or diagnostic counts.
+     */
+    private StartupProcessReduction reduceStartupProcessResultLocked(
+        ProcessResult result,
+        String requestId,
+        boolean startupAdmission
+    ) {
+        if (result == null) {
+            throw new IllegalArgumentException("result cannot be null");
+        }
+        boolean releaseAdmission = startupAdmission
+            && result != ProcessResult.VALID
+            && result != ProcessResult.REPAIRED
+            && result != ProcessResult.SCENE_MISSING;
+        boolean addManualCandidate = !startupAdmission
+            && (result == ProcessResult.FAILED
+                || (result == ProcessResult.TERMINAL
+                    && manualRerunCandidateIds.contains(requestId)));
+        switch (result) {
+            case VALID:
+            case REPAIRED:
+                return StartupProcessReduction.resolved(
+                    false,
+                    !startupAdmission,
+                    false,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0
+                );
+            case COMPLETED:
+                return StartupProcessReduction.resolved(
+                    releaseAdmission,
+                    false,
+                    false,
+                    0,
+                    1,
+                    0,
+                    0,
+                    0
+                );
+            case FAILED:
+                return StartupProcessReduction.resolved(
+                    releaseAdmission,
+                    false,
+                    addManualCandidate,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1
+                );
+            case DAMAGED:
+                return StartupProcessReduction.resolved(
+                    releaseAdmission,
+                    false,
+                    false,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0
+                );
+            case REMOVED:
+                return StartupProcessReduction.resolved(
+                    releaseAdmission,
+                    false,
+                    false,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0
+                );
+            case TERMINAL:
+                return StartupProcessReduction.resolved(
+                    releaseAdmission,
+                    false,
+                    addManualCandidate,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                );
+            case SCENE_MISSING:
+                throw new IllegalStateException(
+                    "Scene Validation Wait remained unresolved requestId="
+                        + requestId
+                );
+            default:
+                throw new AssertionError("Unhandled process result: " + result);
+        }
+    }
+
+    private void applyStartupProcessReductionLocked(
+        StartupProcessReduction reduction,
+        File jobDirectory,
+        String requestId,
+        Set<String> resolvedRequestIds
+    ) throws Exception {
+        if (reduction.queueStartupReady) {
+            queueStartupReadyLocked(jobDirectory);
+        }
+        if (reduction.releaseAdmission) {
+            removeStartupAdmissionIdentityLocked(requestId);
+        }
+        if (reduction.addManualCandidate) {
+            startupManualCandidateIds.add(requestId);
+        }
+        resolvedRequestIds.add(requestId);
     }
 
     private enum ValidationMode {
@@ -3491,10 +3456,7 @@ public final class TranslationJobStore {
                         && !deferReviewPublication) {
                         addPendingJobLocked(requestId, queueSequence);
                     } else if (!queueCommitted) {
-                        startupAdmissionOrder.put(
-                            requestId,
-                            (long) startupAdmissionOrder.size()
-                        );
+                        startupAdmissionOrder.add(requestId);
                     }
                     created = true;
                 } catch (Exception e) {
@@ -3563,13 +3525,10 @@ public final class TranslationJobStore {
                                     state.put("queue_sequence", sequence);
                                 }
                             } else {
-                                if (!startupAdmissionOrder.containsKey(
+                                if (!startupAdmissionOrder.contains(
                                     requestId
                                 )) {
-                                    startupAdmissionOrder.put(
-                                        requestId,
-                                        (long) startupAdmissionOrder.size()
-                                    );
+                                    startupAdmissionOrder.add(requestId);
                                 }
                             }
                         }
@@ -3827,37 +3786,6 @@ public final class TranslationJobStore {
         TranslationJobHistoryMapping.rewrite(state, historyMapping);
         state.put("updated_at", System.currentTimeMillis());
         writeState(jobDirectory, state);
-    }
-
-    private boolean requeueQueuedJobAtTailLocked(
-        File jobDirectory,
-        String requestId,
-        JSONObject state
-    ) throws Exception {
-        if (!STATUS_QUEUED.equals(state.optString("status", ""))) {
-            return false;
-        }
-
-        long queueSequence = allocateQueueSequenceLocked();
-        state.put("queue_sequence", queueSequence);
-        state.put("updated_at", System.currentTimeMillis());
-        state.remove("started_at");
-        writeState(jobDirectory, state);
-
-        removeJobFromIndexesLocked(requestId);
-        syncHistoryMembershipPendingLocked(requestId, state);
-        if (!historyMembershipPendingIds.contains(requestId)) {
-            addPendingJobLocked(requestId, queueSequence);
-        }
-        Log.i(
-            TAG,
-            "Requeued duplicate translation request at queue tail "
-                + "requestId="
-                + requestId
-                + " queueSequence="
-                + queueSequence
-        );
-        return true;
     }
 
     private ProcessResult rebuildStateFromRequest(
@@ -4938,10 +4866,7 @@ public final class TranslationJobStore {
 
     private static boolean isTerminalStatus(String status) {
         String normalized = status == null ? "" : status.trim();
-        return STATUS_CANCELED.equals(normalized)
-            || STATUS_COMPLETED.equals(normalized)
-            || STATUS_FAILED.equals(normalized)
-            || STATUS_DAMAGED.equals(normalized);
+        return TranslationJobStatus.isTerminal(normalized);
     }
 
     private TerminalOutcome.DeliveryState normalizeDeliveryStateLocked(

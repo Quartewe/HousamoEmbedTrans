@@ -41,21 +41,6 @@ public final class JobValidator {
     private static final char[] HEX_DIGITS =
         "0123456789abcdef".toCharArray();
 
-    private static final Set<String> VALID_JOB_STATUSES;
-
-    static {
-        Set<String> statuses = new HashSet<>();
-        statuses.add("queued");
-        statuses.add("running");
-        statuses.add("resetting");
-        statuses.add("canceled");
-        statuses.add("completed");
-        statuses.add("failed");
-        // Retained for explicit repair; never claimable or deliverable.
-        statuses.add("damaged");
-        VALID_JOB_STATUSES = Collections.unmodifiableSet(statuses);
-    }
-
     private JobValidator() {
         throw new AssertionError("No instances");
     }
@@ -258,21 +243,6 @@ public final class JobValidator {
         }
     }
 
-    public static boolean isRequestMatchingScene(
-        JSONObject request,
-        SceneStore sceneStore
-    ) {
-        try {
-            validateRequestAgainstScene(request, sceneStore);
-            return true;
-        } catch (ValidationException
-            | SceneAccessException
-            | SceneMissingException
-            | SceneInvalidException ignored) {
-            return false;
-        }
-    }
-
     /**
      * Validates the current state.json shape.
      *
@@ -297,7 +267,7 @@ public final class JobValidator {
         }
 
         String status = requireNonBlankString(state, "status", "$state");
-        if (!VALID_JOB_STATUSES.contains(status)) {
+        if (!TranslationJobStatus.isValid(status)) {
             throw error(
                 "$state.status",
                 "has unsupported value " + quote(status)
@@ -351,11 +321,8 @@ public final class JobValidator {
                 "has unsupported value " + quote(deliveryState)
             );
         }
-        boolean terminal = "completed".equals(status)
-            || "failed".equals(status)
-            || "canceled".equals(status)
-            || "damaged".equals(status);
-        if ("resetting".equals(status)) {
+        boolean terminal = TranslationJobStatus.isTerminal(status);
+        if (TranslationJobStatus.RESETTING.wireValue().equals(status)) {
             if (!"not_required".equals(deliveryState)) {
                 throw error(
                     "$state.delivery_state",
@@ -368,8 +335,8 @@ public final class JobValidator {
                 "is not allowed for non-terminal status " + quote(status)
             );
         }
-        if (("queued".equals(status)
-                || "running".equals(status))
+        if ((TranslationJobStatus.QUEUED.wireValue().equals(status)
+                || TranslationJobStatus.RUNNING.wireValue().equals(status))
             && deliveryState != null) {
             throw error(
                 "$state.delivery_state",
