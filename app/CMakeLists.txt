@@ -13,18 +13,18 @@ add_library(housamo_trans SHARED
     src/main/jni/data/data_manager.cpp
     src/main/jni/data/text_ac.cpp
     src/main/jni/scene/page_rec.cpp
-    src/main/jni/scene_production_policy.cpp
+    src/main/jni/scene/scene_production_policy.cpp
     src/main/jni/scene/scenario_catcher.cpp
     src/main/jni/scene/scene_builder.cpp
-    src/main/jni/io/bridge_response_codec.cpp
-    src/main/jni/io/document_codec_internal.cpp
-    src/main/jni/io/native_translation_pipeline.cpp
-    src/main/jni/io/request_document_codec.cpp
-    src/main/jni/io/scene_document_codec.cpp
-    src/main/jni/io/scene_store.cpp
-    src/main/jni/io/translation_dispatcher.cpp
-    src/main/jni/io/translation_result_codec.cpp
-    src/main/jni/io/translation_callback_bridge.cpp
+    src/main/jni/translation/codec/bridge_response_codec.cpp
+    src/main/jni/translation/codec/document_codec_internal.cpp
+    src/main/jni/translation/pipeline/native_translation_pipeline.cpp
+    src/main/jni/translation/codec/request_document_codec.cpp
+    src/main/jni/translation/codec/scene_document_codec.cpp
+    src/main/jni/translation/store/scene_store.cpp
+    src/main/jni/translation/pipeline/translation_dispatcher.cpp
+    src/main/jni/translation/codec/translation_result_codec.cpp
+    src/main/jni/bridge/translation_callback_bridge.cpp
 )
 
 # Header file paths

@@ -4,7 +4,7 @@
 #include <jni.h>
 #include <inttypes.h>
 #include "housamo.hpp"
-#include "jni_bridge.hpp"
+#include "bridge/jni_bridge.hpp"
 
 JavaBridge g_java_bridge;
 

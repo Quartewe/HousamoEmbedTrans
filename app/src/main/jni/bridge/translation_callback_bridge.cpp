@@ -1,4 +1,4 @@
-#include "native_translation_pipeline.hpp"
+#include "translation/native_translation_pipeline.hpp"
 #include "housamo.hpp"
 
 #include <jni.h>

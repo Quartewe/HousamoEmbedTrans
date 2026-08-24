@@ -4,7 +4,7 @@
 #include <string>
 #include <cstdint>
 
-#include "scene_production_policy.hpp"
+#include "scene/scene_production_policy.hpp"
 
 struct Scene;
 

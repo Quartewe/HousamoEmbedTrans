@@ -1,6 +1,6 @@
-#include "native_translation_pipeline.hpp"
+#include "translation/native_translation_pipeline.hpp"
 #include "housamo.hpp"
-#include "io/scene_identity.hpp"
+#include "scene/scene_identity.hpp"
 #include "shadowhook.h"
 
 #include <cstdint>

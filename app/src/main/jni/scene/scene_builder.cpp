@@ -1,6 +1,6 @@
 #include "housamo.hpp"
 
-#include "native_translation_pipeline.hpp"
+#include "translation/native_translation_pipeline.hpp"
 
 #include <algorithm>
 #include <cmath>

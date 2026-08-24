@@ -1,6 +1,6 @@
 #include "scene_production_policy.hpp"
 
-#include "io/scene_identity.hpp"
+#include "scene_identity.hpp"
 
 #include <algorithm>
 #include <cassert>

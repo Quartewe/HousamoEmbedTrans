@@ -1,5 +1,7 @@
-#include "translation_pipeline_internal.hpp"
-#include "scene_identity.hpp"
+#include "translation/store/scene_store.hpp"
+
+#include "housamo.hpp"
+#include "scene/scene_identity.hpp"
 
 #include <cerrno>
 #include <cstdio>

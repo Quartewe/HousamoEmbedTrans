@@ -15,7 +15,7 @@
 #include <memory>
 #include <utility>
 
-#include "scene_production_policy.hpp"
+#include "scene/scene_production_policy.hpp"
 
 // 日志宏
 #define LOG_TAG "HousamoTrans"

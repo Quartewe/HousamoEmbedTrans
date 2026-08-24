@@ -1,6 +1,6 @@
 #include "document_codec.hpp"
 
-#include "scene_identity.hpp"
+#include "scene/scene_identity.hpp"
 
 #include <rapidjson/document.h>
 

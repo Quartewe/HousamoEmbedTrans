@@ -1,6 +1,7 @@
-#include "native_translation_pipeline.hpp"
+#include "translation/native_translation_pipeline.hpp"
 
 #include "housamo.hpp"
+#include "translation/store/scene_store.hpp"
 #include "translation_pipeline_internal.hpp"
 
 #include <atomic>

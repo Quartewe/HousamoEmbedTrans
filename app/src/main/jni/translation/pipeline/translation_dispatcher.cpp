@@ -1,7 +1,7 @@
 #include "translation_pipeline_internal.hpp"
 
 #if !defined(HET_TRANSLATION_DISPATCHER_TEST)
-#include "jni_bridge.hpp"
+#include "bridge/jni_bridge.hpp"
 #endif
 
 #include <algorithm>

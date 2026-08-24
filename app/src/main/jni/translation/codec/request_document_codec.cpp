@@ -1,6 +1,6 @@
 #include "document_codec.hpp"
 #include "document_codec_internal.hpp"
-#include "scene_identity.hpp"
+#include "scene/scene_identity.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
