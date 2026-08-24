@@ -464,10 +464,11 @@ public final class SceneContextActivity extends AppCompatActivity {
             // dialog. The mutating import repeats this check under its
             // transaction lock, but malformed documents must not leave the
             // user halfway through a conflict flow.
-            sceneContextStore.inspectImportBundle(bundle);
+            SceneContextStore.ImportInspection inspection =
+                sceneContextStore.inspectImportBundle(bundle);
             runOnUiThread(() -> {
                 setBusy(false);
-                showImportConflictDialog(bundle);
+                showImportConflictDialog(bundle, inspection);
             });
         } catch (Exception e) {
             runOnUiThread(() -> {
@@ -480,14 +481,11 @@ public final class SceneContextActivity extends AppCompatActivity {
         }
     }
 
-    private void showImportConflictDialog(JSONObject bundle) {
+    private void showImportConflictDialog(
+        JSONObject bundle,
+        SceneContextStore.ImportInspection inspection
+    ) {
         try {
-            Set<String> existingContexts = new HashSet<>(
-                sceneContextStore.listContextIds()
-            );
-            Set<String> existingGroups = new HashSet<>(
-                sceneContextStore.listGroupIds()
-            );
             List<ImportConflictItem> conflicts = new ArrayList<>();
             JSONArray contexts = bundle.optJSONArray("contexts");
             if (contexts != null) {
@@ -495,7 +493,7 @@ public final class SceneContextActivity extends AppCompatActivity {
                     JSONObject context = contexts.optJSONObject(i);
                     if (context != null) {
                         String id = context.optString("id", "");
-                        if (existingContexts.contains(id)) {
+                        if (inspection.conflictingContextIds.contains(id)) {
                             conflicts.add(new ImportConflictItem(
                                 false,
                                 id,
@@ -511,7 +509,7 @@ public final class SceneContextActivity extends AppCompatActivity {
                     JSONObject group = groups.optJSONObject(i);
                     if (group != null) {
                         String id = group.optString("id", "");
-                        if (existingGroups.contains(id)) {
+                        if (inspection.conflictingGroupIds.contains(id)) {
                             conflicts.add(new ImportConflictItem(
                                 true,
                                 id,

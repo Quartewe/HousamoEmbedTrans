@@ -5,9 +5,6 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -22,9 +19,7 @@ public final class ContextStore {
 
     public static final String DIRECTORY_NAME = "contexts";
 
-    private final File directory;
-    private final ContextGroupSchemaValidator validator;
-    private final AtomicJsonFileIo io;
+    private final FileEntityStore fileStore;
 
     @FunctionalInterface
     public interface Mutation {
@@ -44,78 +39,32 @@ public final class ContextStore {
                 "directory, validator and io are required"
             );
         }
-        this.directory = directory;
-        this.validator = validator;
-        this.io = io;
+        this.fileStore = new FileEntityStore(
+            directory,
+            "context",
+            validator::validateContext,
+            io
+        );
     }
 
     public File getDirectory() {
-        return directory;
+        return fileStore.getDirectory();
     }
 
     public boolean exists(String storageName) {
-        return isValidStorageName(storageName)
-            && io.exists(fileFor(storageName));
+        return fileStore.exists(storageName);
     }
 
     /** Reads and schema-validates one Context entity. */
     public JSONObject read(String storageName)
         throws IOException, ContextGroupSchemaValidator.ValidationException {
-        requireStorageName(storageName);
-        File file = fileFor(storageName);
-        synchronized (EntityStoreLock.forFile(file)) {
-            return readUnlocked(storageName, file);
-        }
-    }
-
-    private JSONObject readUnlocked(String storageName, File file)
-        throws IOException, ContextGroupSchemaValidator.ValidationException {
-        if (!io.exists(file)) {
-            throw new IOException("context file does not exist: " + storageName);
-        }
-        JSONObject context = parseJsonObject(
-            io.read(file),
-            "context " + storageName
-        );
-        String storedName = context.optString("storage_name", "");
-        if (!storageName.equals(storedName)) {
-            throw new IOException(
-                "context storage_name does not match file name: " + storageName
-            );
-        }
-        validator.validateContext(context);
-        return context;
+        return fileStore.read(storageName);
     }
 
     /** Validates and atomically writes one Context entity. */
     public void write(String storageName, JSONObject context)
         throws IOException, ContextGroupSchemaValidator.ValidationException {
-        requireStorageName(storageName);
-        File file = fileFor(storageName);
-        synchronized (EntityStoreLock.forFile(file)) {
-            writeUnlocked(storageName, file, context);
-        }
-    }
-
-    private void writeUnlocked(
-        String storageName,
-        File file,
-        JSONObject context
-    ) throws IOException, ContextGroupSchemaValidator.ValidationException {
-        if (context == null) {
-            throw new IOException("context is null");
-        }
-        String storedName = context.optString("storage_name", "");
-        if (!storageName.equals(storedName)) {
-            throw new IOException(
-                "context storage_name must match target file name: " + storageName
-            );
-        }
-        validator.validateContext(context);
-        io.write(
-            file,
-            context.toString().getBytes(StandardCharsets.UTF_8)
-        );
+        fileStore.write(storageName, context);
     }
 
     /** Atomically reads, mutates and writes one current Context document. */
@@ -127,55 +76,17 @@ public final class ContextStore {
         if (mutation == null) {
             throw new IllegalArgumentException("mutation is null");
         }
-        File file = fileFor(storageName);
-        synchronized (EntityStoreLock.forFile(file)) {
-            if (!io.exists(file)) {
-                throw new SummaryTargetInvalidatedException(
-                    "context target was deleted: " + storageName
-                );
-            }
-            JSONObject current = readUnlocked(storageName, file);
-            JSONObject updated = mutation.apply(current);
-            if (updated == null) {
-                throw new IOException("context mutation returned null");
-            }
-            writeUnlocked(storageName, file, updated);
-            return updated;
-        }
+        return fileStore.mutate(storageName, mutation::apply);
     }
 
     /** Deletes one Context entity file; missing file is a no-op. */
     public void delete(String storageName) throws IOException {
-        requireStorageName(storageName);
-        File file = fileFor(storageName);
-        synchronized (EntityStoreLock.forFile(file)) {
-            io.delete(file);
-        }
+        fileStore.delete(storageName);
     }
 
     /** Lists storage names without reading entity bodies. */
     public List<String> listStorageNames() {
-        if (!directory.isDirectory()) {
-            return Collections.emptyList();
-        }
-        File[] files = directory.listFiles();
-        if (files == null) {
-            return Collections.emptyList();
-        }
-        List<String> names = new ArrayList<>();
-        for (File file : files) {
-            String name = file.getName();
-            if (!file.isFile() || !name.endsWith(".json")) {
-                continue;
-            }
-            String storageName = name.substring(0, name.length() - 5);
-            if (isValidStorageName(storageName)
-                && name.equals(storageName + ".json")) {
-                names.add(storageName);
-            }
-        }
-        Collections.sort(names);
-        return Collections.unmodifiableList(names);
+        return fileStore.listStorageNames();
     }
 
     /** Returns the {@code entry_id} of a scene inside a Context, or null. */
@@ -214,9 +125,7 @@ public final class ContextStore {
         String storageName,
         String targetLang
     ) throws IOException, ContextGroupSchemaValidator.ValidationException {
-        JSONObject context = read(storageName);
-        JSONObject lang = summaryLanguage(context, targetLang);
-        return lang != null && lang.has("manual") && !lang.isNull("manual");
+        return fileStore.hasManualSummary(storageName, targetLang);
     }
 
     /** Returns whether a non-empty Final Summary exists for one language. */
@@ -241,13 +150,7 @@ public final class ContextStore {
     ) throws IOException,
         ContextGroupSchemaValidator.ValidationException,
         org.json.JSONException {
-        requireNonEmpty(kind, "summary kind");
-        JSONObject context = read(storageName);
-        JSONObject lang = summaryLanguage(context, targetLang);
-        if (lang == null || !lang.has(kind) || lang.isNull(kind)) {
-            return null;
-        }
-        return new JSONObject(lang.getJSONObject(kind).toString());
+        return fileStore.getSummaryRecord(storageName, targetLang, kind);
     }
 
     /**
@@ -363,14 +266,13 @@ public final class ContextStore {
         requireNonEmpty(text, "context summary");
         requireNonEmpty(expectedCurrentSourceHash, "expected source_hash");
 
-        File file = fileFor(storageName);
-        synchronized (EntityStoreLock.forFile(file)) {
-            if (!io.exists(file)) {
+        return fileStore.withLockedFile(storageName, file -> {
+            if (!fileStore.existsFile(file)) {
                 throw new SummaryTargetInvalidatedException(
                     "context target was deleted: " + storageName
                 );
             }
-            JSONObject context = readUnlocked(storageName, file);
+            JSONObject context = fileStore.readUnlocked(storageName, file);
             JSONObject entry = findSceneEntry(context, scene);
             if (entry == null) {
                 return CurrentSummaryWriteResult.contextChanged();
@@ -393,7 +295,8 @@ public final class ContextStore {
                 return CurrentSummaryWriteResult.contextChanged();
             }
 
-            if (!continueAfterManual && hasManualSummary(context, targetLang)) {
+            if (!continueAfterManual
+                && FileEntityStore.hasManualSummary(context, targetLang)) {
                 return CurrentSummaryWriteResult.manualSummaryActive();
             }
 
@@ -423,12 +326,12 @@ public final class ContextStore {
                 .put("updated_at", now)
                 .put("cutoff", entryId));
             context.put("updated_at", now);
-            writeUnlocked(storageName, file, context);
+            fileStore.writeUnlocked(storageName, file, context);
             return CurrentSummaryWriteResult.written(
                 entryId,
                 currentSourceHash
             );
-        }
+        });
     }
 
     /** Outcome of one atomic current-summary write attempt. */
@@ -580,26 +483,7 @@ public final class ContextStore {
     ) throws IOException,
         ContextGroupSchemaValidator.ValidationException,
         org.json.JSONException {
-        requireStorageName(storageName);
-        requireNonEmpty(targetLang, "target_lang");
-        requireNonEmpty(text, "manual summary");
-        return mutate(storageName, context -> {
-            JSONObject summaryContainer = context.optJSONObject("summary");
-            if (summaryContainer == null) {
-                summaryContainer = new JSONObject();
-                context.put("summary", summaryContainer);
-            }
-            JSONObject lang = summaryContainer.optJSONObject(targetLang);
-            if (lang == null) {
-                lang = new JSONObject();
-                summaryContainer.put(targetLang, lang);
-            }
-            lang.put("manual", new JSONObject()
-                .put("text", text)
-                .put("updated_at", System.currentTimeMillis()));
-            context.put("updated_at", System.currentTimeMillis());
-            return context;
-        });
+        return fileStore.writeManualSummary(storageName, targetLang, text);
     }
 
     /**
@@ -614,22 +498,7 @@ public final class ContextStore {
     ) throws IOException,
         ContextGroupSchemaValidator.ValidationException,
         org.json.JSONException {
-        requireStorageName(storageName);
-        requireNonEmpty(targetLang, "target_lang");
-        return mutate(storageName, context -> {
-            JSONObject summaryContainer = context.optJSONObject("summary");
-            if (summaryContainer != null) {
-                JSONObject lang = summaryContainer.optJSONObject(targetLang);
-                if (lang != null && lang.has("manual")) {
-                    lang.remove("manual");
-                    if (lang.length() == 0) {
-                        summaryContainer.remove(targetLang);
-                    }
-                    context.put("updated_at", System.currentTimeMillis());
-                }
-            }
-            return context;
-        });
+        return fileStore.deleteManualSummary(storageName, targetLang);
     }
 
     /**
@@ -697,14 +566,6 @@ public final class ContextStore {
         return summary == null ? null : summary.optJSONObject(targetLang);
     }
 
-    private static boolean hasManualSummary(
-        JSONObject context,
-        String targetLang
-    ) {
-        JSONObject lang = summaryLanguage(context, targetLang);
-        return lang != null && lang.has("manual") && !lang.isNull("manual");
-    }
-
     private static JSONObject findSceneEntry(JSONObject context, String scene) {
         JSONArray scenes = context.optJSONArray("scenes");
         if (scenes == null) {
@@ -753,34 +614,11 @@ public final class ContextStore {
         }
     }
 
-    private File fileFor(String storageName) {
-        return new File(directory, storageName + ".json");
-    }
-
     static boolean isValidStorageName(String value) {
-        return value != null
-            && value.length() <= 64
-            && value.matches("^[A-Za-z][A-Za-z0-9_-]*$");
+        return FileEntityStore.isValidStorageName(value);
     }
 
     static String requireStorageName(String value) {
-        if (!isValidStorageName(value)) {
-            throw new IllegalArgumentException(
-                "storage name must match [A-Za-z][A-Za-z0-9_-]{0,63}"
-            );
-        }
-        return value;
-    }
-
-    private static JSONObject parseJsonObject(byte[] bytes, String name)
-        throws IOException {
-        if (bytes == null || bytes.length == 0) {
-            throw new IOException(name + " is empty");
-        }
-        try {
-            return new JSONObject(new String(bytes, StandardCharsets.UTF_8));
-        } catch (org.json.JSONException e) {
-            throw new IOException(name + " is not valid JSON", e);
-        }
+        return FileEntityStore.requireStorageName(value);
     }
 }

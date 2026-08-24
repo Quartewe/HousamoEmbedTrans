@@ -3,8 +3,6 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.storage.ConfigStore;
 import com.quarty.housamoembedtrans.storage.GroupContextEntry;
-import com.quarty.housamoembedtrans.storage.HistoryMapping;
-import com.quarty.housamoembedtrans.storage.PersistentApiJobStore;
 import com.quarty.housamoembedtrans.storage.SceneContextStore;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 import com.quarty.housamoembedtrans.storage.SummaryJobStore;
@@ -37,7 +35,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -191,39 +188,15 @@ public final class SceneBatchEditActivity extends AppCompatActivity {
     }
 
     private List<SceneBatchPlanner.JobSnapshot> loadJobs() throws Exception {
-        File root = new File(getFilesDir(), TranslationJobStore.DIRECTORY_NAME);
-        if (!root.isDirectory()) {
-            return Collections.emptyList();
-        }
-        PersistentApiJobStore store = PersistentApiJobStore.createForAndroid(
-            root,
-            PersistentApiJobStore.RequestIdFormat.UUID,
-            32 * 1024 * 1024,
-            64 * 1024
-        );
         List<SceneBatchPlanner.JobSnapshot> jobs = new ArrayList<>();
-        for (File directory : store.listValidJobDirectories()) {
-            JSONObject state = store.readState(directory);
-            if (state == null) {
-                continue;
-            }
-            String contextId = null;
-            String groupId = null;
-            Object mapping = state.opt(HistoryMapping.FIELD);
-            if (HistoryMapping.resolutionOfValue(mapping)
-                == HistoryMapping.Resolution.VALID) {
-                JSONObject object = (JSONObject) mapping;
-                contextId = object.optString(HistoryMapping.CONTEXT_ID, null);
-                if (!object.isNull(HistoryMapping.GROUP_ID)) {
-                    groupId = object.optString(HistoryMapping.GROUP_ID, null);
-                }
-            }
+        for (TranslationJobStore.ReviewJob job
+            : translationJobStore.listReviewJobs()) {
             jobs.add(new SceneBatchPlanner.JobSnapshot(
-                directory.getName(),
-                state.optString("scene", ""),
-                state.optString("status", ""),
-                contextId,
-                groupId
+                job.getRequestId(),
+                job.getScene(),
+                job.getStatus(),
+                job.getContextId(),
+                job.getGroupId()
             ));
         }
         return jobs;

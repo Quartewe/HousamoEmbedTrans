@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.translation;
 
 import com.quarty.housamoembedtrans.storage.ContextContentHash;
+import com.quarty.housamoembedtrans.storage.ConfigStore;
 import com.quarty.housamoembedtrans.storage.GroupContextEntry;
 import com.quarty.housamoembedtrans.storage.ManualDescriptionResolver;
 import com.quarty.housamoembedtrans.storage.SceneSummaryResolver;
@@ -27,8 +28,10 @@ public final class HistoryResolver {
         public boolean autoCompression;
         /** Keyed lookup for the specific missing Scene Summary. */
         public SceneSummaryProducer sceneSummaryProducer;
-        public int defaultRecentPercent = 30;
-        public int defaultRecentLimit = 10;
+        public int defaultRecentPercent =
+            ConfigStore.DEFAULT_CONTEXT_HISTORY_RECENT_PERCENT;
+        public int defaultRecentLimit =
+            ConfigStore.DEFAULT_CONTEXT_HISTORY_RECENT_SCENE_LIMIT;
 
         /**
          * When true, automatic Context Summary records are only used when their
@@ -670,7 +673,20 @@ public final class HistoryResolver {
                 String lang = keys.next();
                 JSONObject langObject = summaryContainer.optJSONObject(lang);
                 long updatedAt = maxUpdatedAt(langObject);
-                if (updatedAt > bestUpdatedAt) {
+                // A missing/invalid timestamp is not a usable "recent"
+                // candidate. If every fallback language is unusable, the
+                // caller keeps the requested target language instead.
+                if (updatedAt < 0L) {
+                    continue;
+                }
+                // JSONObject.keys() does not promise a stable iteration
+                // order. Keep the "most recently updated" rule, but make
+                // equal timestamps deterministic so the selected language
+                // cannot change when the same document is parsed elsewhere.
+                if (bestLang == null
+                    || updatedAt > bestUpdatedAt
+                    || (updatedAt == bestUpdatedAt
+                        && lang.compareTo(bestLang) < 0)) {
                     bestUpdatedAt = updatedAt;
                     bestLang = lang;
                 }

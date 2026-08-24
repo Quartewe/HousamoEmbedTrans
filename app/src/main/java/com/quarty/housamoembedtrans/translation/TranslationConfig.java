@@ -28,6 +28,8 @@ public final class TranslationConfig {
     private final int contextLength;
     private final boolean contextAutoCompression;
     private final boolean continueAutoSummaryAfterManual;
+    private final int defaultRecentPercent;
+    private final int defaultRecentSceneLimit;
 
     private TranslationConfig(
         String protocol,
@@ -44,7 +46,9 @@ public final class TranslationConfig {
         ThinkingStrength thinkingStrength,
         int contextLength,
         boolean contextAutoCompression,
-        boolean continueAutoSummaryAfterManual
+        boolean continueAutoSummaryAfterManual,
+        int defaultRecentPercent,
+        int defaultRecentSceneLimit
     ) {
         this.protocol = protocol;
         this.apiUrl = apiUrl;
@@ -61,6 +65,8 @@ public final class TranslationConfig {
         this.contextLength = contextLength;
         this.contextAutoCompression = contextAutoCompression;
         this.continueAutoSummaryAfterManual = continueAutoSummaryAfterManual;
+        this.defaultRecentPercent = defaultRecentPercent;
+        this.defaultRecentSceneLimit = defaultRecentSceneLimit;
     }
 
     public String getProtocol() {
@@ -123,6 +129,14 @@ public final class TranslationConfig {
         return continueAutoSummaryAfterManual;
     }
 
+    public int getDefaultRecentPercent() {
+        return defaultRecentPercent;
+    }
+
+    public int getDefaultRecentSceneLimit() {
+        return defaultRecentSceneLimit;
+    }
+
     public static TranslationConfig load(Context context) throws Exception {
         ConfigStore store = new ConfigStore(context);
         ConfigStore.TranslationConfigSnapshot snapshot =
@@ -172,6 +186,8 @@ public final class TranslationConfig {
                 "ContinueAutoSummaryAfterManual",
                 false
             );
+        ConfigStore.ContextHistoryRetention retention =
+            ConfigStore.getContextHistoryRetention(userSettings);
 
         boolean hasSplitRetryCounts = api.has("NetworkRetryCount")
             || api.has("ResultRepairCount");
@@ -225,7 +241,9 @@ public final class TranslationConfig {
             ThinkingStrength.fromConfigValue(thinkingStrengthValue),
             contextLength,
             contextAutoCompression,
-            continueAutoSummaryAfterManual
+            continueAutoSummaryAfterManual,
+            retention.recentPercent,
+            retention.recentSceneLimit
         );
 
         config.validate();

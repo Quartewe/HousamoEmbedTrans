@@ -422,7 +422,8 @@ public final class ContextSummaryCoordinator {
         String status = state.optString("status", "");
         // Only unsent jobs are removed. Running jobs may still return a legal
         // late result and are allowed to write back unless user edits revoke it.
-        if ("queued".equals(status) || "awaiting_user".equals(status)) {
+        if (("queued".equals(status) || "awaiting_user".equals(status))
+            && !summaryJobStore.isUserRequested(requestId)) {
             summaryJobStore.removeCompletedJob(requestId);
             return false;
         }
@@ -441,9 +442,11 @@ public final class ContextSummaryCoordinator {
             entryId,
             sourceHash
         );
-        SummaryJobStore.AdmissionResult admission =
-            summaryJobStore.admit(request);
-        return admission.requestId;
+        return SummaryAdmissionCoordinator.admit(
+            summaryJobStore,
+            request,
+            false
+        ).requestId;
     }
 
     private static JSONObject snapshotRequest(

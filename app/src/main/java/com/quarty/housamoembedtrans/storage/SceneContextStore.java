@@ -2833,31 +2833,10 @@ public final class SceneContextStore {
         String displayName,
         String kind
     ) {
-        String base = storageNameFromDisplayName(displayName, kind);
-        Set<String> used = new HashSet<>();
-        if (map != null) {
-            for (String key : sortedKeys(map)) {
-                String fileName = map.optString(key, "");
-                if (!fileName.isEmpty() && fileName.endsWith(".json")) {
-                    used.add(fileName.substring(0, fileName.length() - 5));
-                }
-            }
-        }
-        for (String existing : store.listStorageNames()) {
-            used.add(existing);
-        }
-        String candidate = base;
-        int suffix = 2;
-        while (used.contains(candidate)) {
-            String suffixText = "_" + suffix;
-            int maxBase = 64 - suffixText.length();
-            String basePart = base.length() > maxBase
-                ? base.substring(0, maxBase)
-                : base;
-            candidate = basePart + suffixText;
-            suffix++;
-        }
-        return candidate;
+        return allocateStorageName(
+            collectUsedStorageNames(map, store.listStorageNames()),
+            storageNameFromDisplayName(displayName, kind)
+        );
     }
 
     private String allocateStorageName(
@@ -2866,7 +2845,16 @@ public final class SceneContextStore {
         String displayName,
         String kind
     ) {
-        String base = storageNameFromDisplayName(displayName, kind);
+        return allocateStorageName(
+            collectUsedStorageNames(map, store.listStorageNames()),
+            storageNameFromDisplayName(displayName, kind)
+        );
+    }
+
+    private static Set<String> collectUsedStorageNames(
+        JSONObject map,
+        List<String> storageNames
+    ) {
         Set<String> used = new HashSet<>();
         if (map != null) {
             for (String key : sortedKeys(map)) {
@@ -2876,9 +2864,16 @@ public final class SceneContextStore {
                 }
             }
         }
-        for (String existing : store.listStorageNames()) {
+        for (String existing : storageNames) {
             used.add(existing);
         }
+        return used;
+    }
+
+    private static String allocateStorageName(
+        Set<String> used,
+        String base
+    ) {
         String candidate = base;
         int suffix = 2;
         while (used.contains(candidate)) {

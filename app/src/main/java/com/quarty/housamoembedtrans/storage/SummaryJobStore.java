@@ -1074,39 +1074,6 @@ public final class SummaryJobStore {
         return ids;
     }
 
-    /**
-     * Lists all request ids for one SummaryTargetKey in durable arrival order
-     * (created_at, then request id). This is the serial ordering used by the
-     * future Summary scheduler; no {@code queue_sequence} is persisted.
-     */
-    public synchronized List<String> listRequestIdsForTarget(
-        SummaryTargetKey target
-    ) throws Exception {
-        List<String> ids = new ArrayList<>();
-        for (File directory : store.listValidJobDirectories()) {
-            JSONObject request = JobValidator.parseJsonObject(
-                store.readRequest(directory),
-                MAX_REQUEST_BYTES,
-                "summary request"
-            );
-            if (!target.equals(SummaryTargetKey.fromRequest(request))) {
-                continue;
-            }
-            ids.add(directory.getName());
-        }
-        ids.sort((left, right) -> {
-            try {
-                long leftCreated = readState(left).optLong("created_at", 0L);
-                long rightCreated = readState(right).optLong("created_at", 0L);
-                int created = Long.compare(leftCreated, rightCreated);
-                return created != 0 ? created : left.compareTo(right);
-            } catch (Exception e) {
-                return left.compareTo(right);
-            }
-        });
-        return ids;
-    }
-
     /** Returns the active request id for a target, or null. */
     public synchronized String findActiveRequestId(SummaryTargetKey target)
         throws Exception {
@@ -1118,17 +1085,8 @@ public final class SummaryJobStore {
         return SummaryTargetKey.fromRequest(readRequest(requestId));
     }
 
-    public void markQueued(String requestId) throws Exception {
-        mutateUnderRoot(() -> updateStatus(requestId, STATUS_QUEUED));
-    }
-
     public void markRunning(String requestId) throws Exception {
         mutateUnderRoot(() -> updateStatus(requestId, STATUS_RUNNING));
-    }
-
-    public void markAwaitingUser(String requestId)
-        throws Exception {
-        mutateUnderRoot(() -> updateStatus(requestId, STATUS_AWAITING_USER));
     }
 
     public void markFailed(String requestId) throws Exception {
@@ -1146,23 +1104,6 @@ public final class SummaryJobStore {
             state.put("error", errorMessage == null ? "" : errorMessage);
             state.put("updated_at", System.currentTimeMillis());
             store.writeState(directory, state);
-        });
-    }
-
-    public void cancelJob(String requestId) throws Exception {
-        mutateUnderRoot(() -> {
-            synchronized (TARGET_ADMISSION_LOCK) {
-                JSONObject state = readState(requestId);
-                String status = state.optString("status", "");
-                if (!STATUS_QUEUED.equals(status)
-                    && !STATUS_AWAITING_USER.equals(status)) {
-                    throw new IllegalStateException(
-                        "only unsent Summary Jobs can be canceled; status="
-                            + status
-                    );
-                }
-                updateStatus(requestId, STATUS_CANCELED);
-            }
         });
     }
 

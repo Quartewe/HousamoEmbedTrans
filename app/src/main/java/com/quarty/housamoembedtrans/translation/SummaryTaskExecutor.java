@@ -471,13 +471,9 @@ public final class SummaryTaskExecutor {
         JSONObject userSettings = configStore.load().config.getJSONObject(
             "UserSettings"
         );
+        ConfigStore.SummaryRetryCounts retryCounts =
+            ConfigStore.getSummaryRetryCounts(userSettings);
         JSONObject contextHistory = userSettings.optJSONObject("ContextHistory");
-        int contextRetryCount = contextHistory == null
-            ? 1
-            : contextHistory.optInt("ContextSummaryRetryCount", 1);
-        int groupRetryCount = contextHistory == null
-            ? 1
-            : contextHistory.optInt("GroupSummaryRetryCount", 1);
         boolean continueAfterManual = contextHistory != null
             && contextHistory.optBoolean("ContinueAutoSummaryAfterManual", false);
         TranslationConfig config = TranslationConfig.load(context);
@@ -493,8 +489,8 @@ public final class SummaryTaskExecutor {
             config,
             summaryPrompt,
             summarySchema,
-            contextRetryCount,
-            groupRetryCount,
+            retryCounts.context,
+            retryCounts.group,
             continueAfterManual
         );
     }
@@ -1074,33 +1070,7 @@ public final class SummaryTaskExecutor {
                     "group summary cutoff is no longer present"
                 );
             }
-            JSONArray contextIds = group.optJSONArray("contexts");
-            if (contextIds != null) {
-                for (int index = 0; index < contextIds.length(); index++) {
-                    String contextId = GroupContextEntry.contextIdAt(
-                        contextIds,
-                        index
-                    );
-                    if (!contextId.isEmpty()
-                        && !contextsById.containsKey(contextId)) {
-                        try {
-                            contextsById.put(
-                                contextId,
-                                gateway.getContext(contextId)
-                            );
-                        } catch (Exception missingContext) {
-                            if (isTargetInvalidation(missingContext)) {
-                                throw new TargetInvalidatedException(
-                                    "group member context is no longer available: "
-                                        + contextId,
-                                    missingContext
-                                );
-                            }
-                            throw missingContext;
-                        }
-                    }
-                }
-            }
+            contextsById = loadContextsById(group);
         } else {
             throw new IllegalArgumentException(
                 "unsupported summary owner_type: " + ownerType

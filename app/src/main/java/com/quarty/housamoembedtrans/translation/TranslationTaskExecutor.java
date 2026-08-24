@@ -322,6 +322,7 @@ public final class TranslationTaskExecutor {
     private final TranslationJobStore jobStore;
     private final ResultListener resultListener;
     private final ContextSummaryCoordinator contextSummaryCoordinator;
+    private final ContextHistoryPreparer contextHistoryPreparer;
     private final DrainScheduler mainExecutor;
     private final ClaimSource claimSource;
     private final ExecutorService repairExecutor;
@@ -407,9 +408,12 @@ public final class TranslationTaskExecutor {
         this.repairExecutor = Executors.newSingleThreadExecutor(runnable ->
             new Thread(runnable, "HET-translation-repair")
         );
+        SceneContextStore sceneContextStore = new SceneContextStore(this.context);
+        SummaryJobStore summaryJobStore =
+            SummaryJobStore.createForAndroid(this.context);
         this.contextSummaryCoordinator = new ContextSummaryCoordinator(
-            new SceneContextStore(this.context),
-            SummaryJobStore.createForAndroid(this.context),
+            sceneContextStore,
+            summaryJobStore,
             RejectedApiResultStore.createForAndroid(
                 new File(
                     this.context.getFilesDir(),
@@ -418,6 +422,9 @@ public final class TranslationTaskExecutor {
             ),
             new ContextSummaryCoordinator.ContextSummaryReleaseGate(),
             resultListener::onRejectedApiResultArchived
+        );
+        this.contextHistoryPreparer = new ContextHistoryPreparer(
+            sceneContextStore
         );
     }
 
@@ -442,6 +449,7 @@ public final class TranslationTaskExecutor {
         jobStore = null;
         this.resultListener = resultListener;
         contextSummaryCoordinator = null;
+        contextHistoryPreparer = null;
         this.mainExecutor = mainExecutor;
         this.claimSource = claimSource;
         repairExecutor = null;
@@ -1250,203 +1258,77 @@ public final class TranslationTaskExecutor {
         }
     }
 
-    private static final class HistoryContext {
-        private final String contextId;
-        private final String storageName;
-        private final String capturedSourceHashExcludingScene;
-        private final boolean requestContextSummary;
-        private final HistoryPayload historyPayload;
-        private final HistoryResolution blockResolution;
-
-        private HistoryContext(
-            String contextId,
-            String storageName,
-            String capturedSourceHashExcludingScene,
-            boolean requestContextSummary,
-            HistoryPayload historyPayload,
-            HistoryResolution blockResolution
-        ) {
-            this.contextId = contextId;
-            this.storageName = storageName;
-            this.capturedSourceHashExcludingScene =
-                capturedSourceHashExcludingScene;
-            this.requestContextSummary = requestContextSummary;
-            this.historyPayload = historyPayload == null
-                ? HistoryPayload.empty()
-                : historyPayload;
-            this.blockResolution = blockResolution;
-        }
-
-        private static HistoryContext none() {
-            return new HistoryContext(
-                null,
-                null,
-                null,
-                false,
-                HistoryPayload.empty(),
-                null
-            );
-        }
-
-        private static HistoryContext blocked(HistoryResolution resolution) {
-            return new HistoryContext(
-                null,
-                null,
-                null,
-                false,
-                HistoryPayload.empty(),
-                resolution
-            );
-        }
-    }
-
-    private HistoryContext resolveHistoryContext(
+    private ContextHistoryPreparer.HistoryPreparation resolveHistoryContext(
         String requestId,
         JSONObject state,
-        ContextSummaryCoordinator coordinator,
         JobValidator.RequestInfo requestInfo,
         TranslationConfig config
     ) {
         if (state == null) {
-            return HistoryContext.blocked(HistoryResolution.userActionRequired(
+            return ContextHistoryPreparer.HistoryPreparation.blocked(
+                HistoryResolution.userActionRequired(
                 "translation state is missing; cannot read history_mapping"
-            ));
+                )
+            );
         }
         HistoryMapping.Resolution mapping = HistoryMapping.resolution(state);
         if (mapping == HistoryMapping.Resolution.USER_ACTION_REQUIRED) {
-            return HistoryContext.blocked(HistoryResolution.userActionRequired(
+            return ContextHistoryPreparer.HistoryPreparation.blocked(
+                HistoryResolution.userActionRequired(
                 "history_mapping is missing, malformed, or uses an invalid id; "
                     + "fix the mapping before sending this job"
-            ));
+                )
+            );
         }
         if (mapping == HistoryMapping.Resolution.NO_HISTORY) {
-            return HistoryContext.none();
+            return ContextHistoryPreparer.HistoryPreparation.noHistory();
         }
-        if (coordinator == null) {
-            return HistoryContext.blocked(HistoryResolution.userActionRequired(
-                "history resolver is unavailable for a valid history mapping"
-            ));
+        if (contextHistoryPreparer == null) {
+            return ContextHistoryPreparer.HistoryPreparation.blocked(
+                HistoryResolution.userActionRequired(
+                    "history preparation is unavailable for a valid mapping"
+                )
+            );
         }
         JSONObject mappingObject = state.optJSONObject(HistoryMapping.FIELD);
         if (mappingObject == null) {
-            return HistoryContext.blocked(HistoryResolution.userActionRequired(
-                "history_mapping object is missing"
-            ));
+            return ContextHistoryPreparer.HistoryPreparation.blocked(
+                HistoryResolution.userActionRequired(
+                    "history_mapping object is missing"
+                )
+            );
         }
-        String contextId = mappingObject.optString(
-            HistoryMapping.CONTEXT_ID,
-            ""
-        );
-        String groupId = mappingObject.isNull(HistoryMapping.GROUP_ID)
-            ? null
-            : mappingObject.optString(HistoryMapping.GROUP_ID, null);
         String scene = requestInfo.getScene();
         String targetLang = requestInfo.getTargetLanguage();
-        try {
-            SceneContextStore store = coordinator.getSceneContextStore();
-            JSONObject context = store.getContext(contextId);
-            if (context == null) {
-                return HistoryContext.blocked(
-                    HistoryResolution.userActionRequired(
-                        "selected context is missing: " + contextId
-                    )
-                );
-            }
-            String storageName = context.optString("storage_name", "");
-            boolean autoCompression = config.isContextAutoCompressionEnabled();
-            boolean manualSuppressed =
-                !config.isContinueAutoSummaryAfterManual()
-                    && store.getContextStore().hasManualSummary(
-                        storageName,
-                        targetLang
-                    );
-            boolean requestContextSummary = autoCompression
-                && !manualSuppressed;
-
-            String capturedHash = null;
-            if (autoCompression) {
-                capturedHash =
-                    store.getContextStore()
-                        .computeContextSourceHashExcludingScene(
-                            storageName,
-                            scene,
-                            targetLang
-                        );
-            }
-
-            HistoryResolution resolution = resolveHistoryPayload(
-                store,
-                context,
-                groupId,
-                targetLang,
+        ContextHistoryPreparer.HistoryPreparation preparation =
+            contextHistoryPreparer.prepare(
+                mappingObject,
+                requestId,
                 scene,
+                targetLang,
                 config,
-                (
-                    missingContext,
-                    missingScene,
-                    missingTargetLang
-                ) -> jobStore != null
-                    && jobStore.hasQueuedOrRunningSceneSummaryProducer(
-                        missingContext == null
-                            ? ""
-                            : missingContext.optString("id", ""),
-                        missingScene,
-                        missingTargetLang,
-                        requestId
+                (missingContext, missingScene, missingTargetLang) ->
+                    jobStore != null
+                        && jobStore.hasQueuedOrRunningSceneSummaryProducer(
+                            missingContext == null
+                                ? ""
+                                : missingContext.optString("id", ""),
+                            missingScene,
+                            missingTargetLang,
+                            requestId
+                        )
+            );
+        if (preparation.resolution == null
+            || !preparation.resolution.isReady()) {
+            return ContextHistoryPreparer.HistoryPreparation.blocked(
+                preparation.resolution == null
+                    ? HistoryResolution.userActionRequired(
+                        "history preparation returned no resolution"
                     )
+                    : preparation.resolution
             );
-            if (!resolution.isReady()) {
-                return HistoryContext.blocked(resolution);
-            }
-            return new HistoryContext(
-                contextId,
-                storageName,
-                capturedHash,
-                requestContextSummary,
-                resolution.getPayload(),
-                null
-            );
-        } catch (Exception e) {
-            Log.w(
-                TAG,
-                "Could not resolve Context history; holding job for user "
-                    + "action contextId="
-                    + contextId,
-                e
-            );
-            return HistoryContext.blocked(HistoryResolution.userActionRequired(
-                "could not resolve context history: " + safeMessage(e)
-            ));
         }
-    }
-
-    private static HistoryResolution resolveHistoryPayload(
-        SceneContextStore store,
-        JSONObject currentContext,
-        String groupId,
-        String targetLang,
-        String currentScene,
-        TranslationConfig config,
-        HistoryResolver.SceneSummaryProducer sceneSummaryProducer
-    ) throws Exception {
-        Map<String, JSONObject> contextsById = new LinkedHashMap<>();
-        for (String contextId : store.listContextIds()) {
-            contextsById.put(contextId, store.getContext(contextId));
-        }
-        JSONObject group = groupId == null ? null : store.getGroup(groupId);
-        HistoryResolver.Options options = new HistoryResolver.Options();
-        options.autoCompression = config.isContextAutoCompressionEnabled();
-        options.sceneSummaryProducer = sceneSummaryProducer;
-        options.defaultRecentPercent = 30;
-        options.defaultRecentLimit = 10;
-        return HistoryResolver.resolve(
-            currentContext,
-            group,
-            contextsById,
-            targetLang,
-            currentScene,
-            options
-        );
+        return preparation;
     }
 
     private final class JobCoordinator {
@@ -1556,25 +1438,28 @@ public final class TranslationTaskExecutor {
             this.historyMapping = state == null
                 ? JSONObject.NULL
                 : state.opt(HistoryMapping.FIELD);
-            HistoryContext historyContext = resolveHistoryContext(
-                requestId,
-                state,
-                contextSummaryCoordinator,
-                requestInfo,
-                config
-            );
+            ContextHistoryPreparer.HistoryPreparation historyPreparation =
+                resolveHistoryContext(
+                    requestId,
+                    state,
+                    requestInfo,
+                    config
+                );
             this.mappingResolution = HistoryMapping.resolution(state);
-            this.historyBlockResolution = historyContext.blockResolution;
+            this.historyBlockResolution = historyPreparation.resolution != null
+                && !historyPreparation.resolution.isReady()
+                ? historyPreparation.resolution
+                : null;
             if (historyBlockResolution != null) {
                 blockedStatus = historyBlockResolution.getStatus();
                 blockedReason = historyBlockResolution.getReason();
             }
-            this.contextId = historyContext.contextId;
-            this.contextStorageName = historyContext.storageName;
+            this.contextId = historyPreparation.contextId;
+            this.contextStorageName = historyPreparation.storageName;
             this.capturedSourceHashExcludingScene =
-                historyContext.capturedSourceHashExcludingScene;
-            this.requestContextSummary = historyContext.requestContextSummary;
-            this.historyPayload = historyContext.historyPayload;
+                historyPreparation.capturedSourceHashExcludingScene;
+            this.requestContextSummary = historyPreparation.requestContextSummary;
+            this.historyPayload = historyPreparation.payload;
             this.contextSummaryOptions = new ContextSummaryCoordinator.Options();
             this.contextSummaryOptions.autoCompression =
                 config.isContextAutoCompressionEnabled();

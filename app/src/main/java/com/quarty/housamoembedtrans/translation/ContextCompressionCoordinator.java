@@ -7,6 +7,7 @@ import com.quarty.housamoembedtrans.storage.SummaryJobStore;
 
 import org.json.JSONObject;
 
+import java.util.Arrays;
 import java.util.Set;
 
 /**
@@ -316,52 +317,28 @@ public final class ContextCompressionCoordinator {
         }
 
         JSONObject request = finalRequest(contextId, targetLang, sourceHash);
-        SummaryJobStore.SummaryTargetKey target =
-            SummaryJobStore.SummaryTargetKey.fromRequest(request);
-        String activeRequestId = summaryJobStore.findActiveRequestId(target);
-        if (activeRequestId != null) {
-            if (userRequested) {
-                summaryJobStore.markUserRequested(activeRequestId);
-            }
-            result.finalJobActive = true;
-            result.requestId = activeRequestId;
-            JSONObject activeRequest = summaryJobStore.readRequest(
-                activeRequestId
+        SummaryAdmissionCoordinator.Decision decision =
+            SummaryAdmissionCoordinator.admit(
+                summaryJobStore,
+                request,
+                userRequested
             );
-            String activeId = SummaryJobStore.computeRequestId(activeRequest);
-            String desiredId = SummaryJobStore.computeRequestId(request);
-            if (!activeId.equals(desiredId)) {
-                summaryJobStore.markRerunRequired(activeRequestId);
-            }
-            return result;
-        }
-
-        String requestId = SummaryJobStore.computeRequestId(request);
-        if (summaryJobStore.hasJob(requestId)) {
-            if (userRequested) {
-                summaryJobStore.markUserRequested(requestId);
-            }
-            // A failed/canceled job for the exact same source_hash remains the
-            // user-visible retry/cancel surface; do not create a duplicate.
-            result.finalReused = true;
-            result.requestId = requestId;
-            return result;
-        }
-
-        SummaryJobStore.AdmissionResult admission = userRequested
-            ? summaryJobStore.admitUserRequested(request)
-            : summaryJobStore.admit(request);
-        result.requestId = admission.requestId;
-        if (admission.created) {
-            result.finalJobCreated = true;
-        } else if (SummaryJobStore.DISPOSITION_DUPLICATE_REJECTED.equals(
-            admission.disposition
-        )) {
-            result.finalReused = true;
-        } else if (SummaryJobStore.DISPOSITION_ACTIVE_TARGET_REJECTED.equals(
-            admission.disposition
-        )) {
-            result.finalJobActive = true;
+        result.requestId = decision.requestId;
+        switch (decision.outcome) {
+            case CREATED:
+                result.finalJobCreated = true;
+                break;
+            case REUSED_DUPLICATE:
+                result.finalReused = true;
+                break;
+            case REUSED_ACTIVE:
+            case MARKED_RERUN:
+                result.finalJobActive = true;
+                break;
+            default:
+                throw new IllegalStateException(
+                    "Unhandled Summary admission outcome: " + decision.outcome
+                );
         }
         return result;
     }
@@ -370,32 +347,16 @@ public final class ContextCompressionCoordinator {
         String contextId,
         String targetLang
     ) throws Exception {
-        int removed = 0;
-        for (String requestId : summaryJobStore.listRequestIds()) {
-            JSONObject request = summaryJobStore.readRequest(requestId);
-            if (!"context".equals(request.optString("owner_type", ""))) {
-                continue;
-            }
-            if (!contextId.equals(request.optString("owner_id", ""))) {
-                continue;
-            }
-            if (!targetLang.equals(request.optString("target_lang", ""))) {
-                continue;
-            }
-            String kind = request.optString("request_kind", "");
-            if (!"context_snapshot".equals(kind)
-                && !"context_final".equals(kind)) {
-                continue;
-            }
-            String status = summaryJobStore.readState(requestId)
-                .optString("status", "");
-            if (("queued".equals(status) || "awaiting_user".equals(status))
-                && !summaryJobStore.isUserRequested(requestId)) {
-                summaryJobStore.removeCompletedJob(requestId);
-                removed++;
-            }
-        }
-        return removed;
+        return SummaryAdmissionCoordinator.removePendingAutomaticJobs(
+            summaryJobStore,
+            "context",
+            contextId,
+            targetLang,
+            new java.util.HashSet<>(Arrays.asList(
+                "context_snapshot",
+                "context_final"
+            ))
+        );
     }
 
     private String requireStorageName(String contextId) throws Exception {

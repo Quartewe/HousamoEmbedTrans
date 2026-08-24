@@ -17,6 +17,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Arrays;
 
 /**
  * Coordinates Group-layer compression facts that are not part of the live
@@ -427,46 +428,28 @@ public final class GroupCompressionCoordinator {
             .put("cutoff", cutoff)
             .put("source_hash", sourceHash);
 
-        SummaryJobStore.SummaryTargetKey target =
-            SummaryJobStore.SummaryTargetKey.fromRequest(request);
-        String activeRequestId = summaryJobStore.findActiveRequestId(target);
-        if (activeRequestId != null) {
-            result.groupJobActive = true;
-            result.requestId = activeRequestId;
-            JSONObject activeRequest = summaryJobStore.readRequest(
-                activeRequestId
+        SummaryAdmissionCoordinator.Decision decision =
+            SummaryAdmissionCoordinator.admit(
+                summaryJobStore,
+                request,
+                false
             );
-            String activeId = SummaryJobStore.computeRequestId(activeRequest);
-            String desiredId = SummaryJobStore.computeRequestId(request);
-            if (!activeId.equals(desiredId)) {
-                summaryJobStore.markRerunRequired(activeRequestId);
-            }
-            return result;
-        }
-
-        String requestId = SummaryJobStore.computeRequestId(request);
-        if (summaryJobStore.hasJob(requestId)) {
-            // A failed/canceled job for the exact same input remains the
-            // user-visible retry/cancel surface; do not create a duplicate.
-            result.groupJobReused = true;
-            result.requestId = requestId;
-            return result;
-        }
-
-        SummaryJobStore.AdmissionResult admission = summaryJobStore.admit(
-            request
-        );
-        result.requestId = admission.requestId;
-        if (admission.created) {
-            result.groupJobCreated = true;
-        } else if (SummaryJobStore.DISPOSITION_DUPLICATE_REJECTED.equals(
-            admission.disposition
-        )) {
-            result.groupJobReused = true;
-        } else if (SummaryJobStore.DISPOSITION_ACTIVE_TARGET_REJECTED.equals(
-            admission.disposition
-        )) {
-            result.groupJobActive = true;
+        result.requestId = decision.requestId;
+        switch (decision.outcome) {
+            case CREATED:
+                result.groupJobCreated = true;
+                break;
+            case REUSED_DUPLICATE:
+                result.groupJobReused = true;
+                break;
+            case REUSED_ACTIVE:
+            case MARKED_RERUN:
+                result.groupJobActive = true;
+                break;
+            default:
+                throw new IllegalStateException(
+                    "Unhandled Summary admission outcome: " + decision.outcome
+                );
         }
         return result;
     }
@@ -475,30 +458,13 @@ public final class GroupCompressionCoordinator {
         String groupId,
         String targetLang
     ) throws Exception {
-        int removed = 0;
-        for (String requestId : summaryJobStore.listRequestIds()) {
-            JSONObject request = summaryJobStore.readRequest(requestId);
-            if (!"group".equals(request.optString("owner_type", ""))) {
-                continue;
-            }
-            if (!groupId.equals(request.optString("owner_id", ""))) {
-                continue;
-            }
-            if (!targetLang.equals(request.optString("target_lang", ""))) {
-                continue;
-            }
-            if (!"group_snapshot".equals(request.optString("request_kind", ""))) {
-                continue;
-            }
-            String status = summaryJobStore.readState(requestId)
-                .optString("status", "");
-            if (("queued".equals(status) || "awaiting_user".equals(status))
-                && !summaryJobStore.isUserRequested(requestId)) {
-                summaryJobStore.removeCompletedJob(requestId);
-                removed++;
-            }
-        }
-        return removed;
+        return SummaryAdmissionCoordinator.removePendingAutomaticJobs(
+            summaryJobStore,
+            "group",
+            groupId,
+            targetLang,
+            new java.util.HashSet<>(Arrays.asList("group_snapshot"))
+        );
     }
 
     private Map<String, JSONObject> loadContextsById(JSONArray groupContexts)

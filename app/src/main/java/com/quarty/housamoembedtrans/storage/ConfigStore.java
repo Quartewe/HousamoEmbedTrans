@@ -26,6 +26,15 @@ public final class ConfigStore {
     public static final String GAMETERMS_FILE_NAME = "gameterms.json";
     public static final int DEFAULT_NETWORK_RETRY_COUNT = 1;
     public static final int DEFAULT_RESULT_REPAIR_COUNT = 1;
+    public static final int DEFAULT_SUMMARY_RETRY_COUNT = 1;
+    public static final int MIN_SUMMARY_RETRY_COUNT = 0;
+    public static final int MAX_SUMMARY_RETRY_COUNT = 5;
+    public static final int DEFAULT_CONTEXT_HISTORY_RECENT_PERCENT = 30;
+    public static final int MIN_CONTEXT_HISTORY_RECENT_PERCENT = 1;
+    public static final int MAX_CONTEXT_HISTORY_RECENT_PERCENT = 100;
+    public static final int DEFAULT_CONTEXT_HISTORY_RECENT_SCENE_LIMIT = 10;
+    public static final int MIN_CONTEXT_HISTORY_RECENT_SCENE_LIMIT = 1;
+    public static final int MAX_CONTEXT_HISTORY_RECENT_SCENE_LIMIT = 10000;
     public static final boolean DEFAULT_ENABLE_STREAMING_REPAIR = false;
     public static final int DEFAULT_REPAIR_GRADIENT_COUNT = 3;
     public static final boolean DEFAULT_USE_FULL_SCENE_FOR_REPAIR = true;
@@ -94,6 +103,28 @@ public final class ConfigStore {
         private TranslationConfigSnapshot(JSONObject config, String apiKey) {
             this.config = config;
             this.apiKey = apiKey == null ? "" : apiKey;
+        }
+    }
+
+    /** Strict, immutable Context/Group Summary retry configuration. */
+    public static final class SummaryRetryCounts {
+        public final int context;
+        public final int group;
+
+        private SummaryRetryCounts(int context, int group) {
+            this.context = context;
+            this.group = group;
+        }
+    }
+
+    /** Validated defaults for the recent Scene retention window. */
+    public static final class ContextHistoryRetention {
+        public final int recentPercent;
+        public final int recentSceneLimit;
+
+        private ContextHistoryRetention(int recentPercent, int recentSceneLimit) {
+            this.recentPercent = recentPercent;
+            this.recentSceneLimit = recentSceneLimit;
         }
     }
 
@@ -401,6 +432,9 @@ public final class ConfigStore {
             }
         }
 
+        getSummaryRetryCounts(userSettings);
+        getContextHistoryRetention(userSettings);
+
         JSONObject api = userSettings.optJSONObject("Api");
         if (api != null) {
             String thinkingStrength = api.getString("ThinkingStrength");
@@ -565,10 +599,18 @@ public final class ConfigStore {
                 DEFAULT_SUMMARY_AUTO_RECOVER_PREVIOUS_JOBS
             );
         }
-        JSONObject contextHistory = userSettings.optJSONObject("ContextHistory");
-        if (contextHistory == null) {
+        JSONObject contextHistory;
+        if (!userSettings.has("ContextHistory")) {
             contextHistory = new JSONObject();
             userSettings.put("ContextHistory", contextHistory);
+        } else {
+            Object rawContextHistory = userSettings.get("ContextHistory");
+            if (!(rawContextHistory instanceof JSONObject)) {
+                throw new IllegalArgumentException(
+                    "UserSettings.ContextHistory must be an object"
+                );
+            }
+            contextHistory = (JSONObject) rawContextHistory;
         }
         if (!contextHistory.has("EnableAutoCompression")) {
             contextHistory.put("EnableAutoCompression", false);
@@ -580,6 +622,32 @@ public final class ConfigStore {
             contextHistory.put(
                 "EnableStartupReview",
                 DEFAULT_ENABLE_STARTUP_REVIEW
+            );
+        }
+        if (!contextHistory.has("DefaultRecentPercent")) {
+            contextHistory.put(
+                "DefaultRecentPercent",
+                DEFAULT_CONTEXT_HISTORY_RECENT_PERCENT
+            );
+        } else {
+            contextHistory.put(
+                "DefaultRecentPercent",
+                normalizeContextHistoryRecentPercent(
+                    contextHistory.get("DefaultRecentPercent")
+                )
+            );
+        }
+        if (!contextHistory.has("DefaultRecentSceneLimit")) {
+            contextHistory.put(
+                "DefaultRecentSceneLimit",
+                DEFAULT_CONTEXT_HISTORY_RECENT_SCENE_LIMIT
+            );
+        } else {
+            contextHistory.put(
+                "DefaultRecentSceneLimit",
+                normalizeContextHistoryRecentSceneLimit(
+                    contextHistory.get("DefaultRecentSceneLimit")
+                )
             );
         }
         normalizeSceneSyncSettings(userSettings);
@@ -704,6 +772,102 @@ public final class ConfigStore {
             );
     }
 
+    /**
+     * Parses both independent Context/Group Summary retry counts with one
+     * strict rule. Missing fields use the shared default; present fields must
+     * be integral JSON numbers in the inclusive 0..5 range.
+     */
+    public static SummaryRetryCounts getSummaryRetryCounts(
+        JSONObject userSettings
+    ) throws Exception {
+        JSONObject contextHistory = userSettings == null
+            ? null
+            : userSettings.optJSONObject("ContextHistory");
+        if (userSettings != null
+            && userSettings.has("ContextHistory")
+            && contextHistory == null) {
+            throw new IllegalArgumentException(
+                "UserSettings.ContextHistory must be an object"
+            );
+        }
+        int context = parseSummaryRetryCount(
+            contextHistory,
+            "ContextSummaryRetryCount"
+        );
+        int group = parseSummaryRetryCount(
+            contextHistory,
+            "GroupSummaryRetryCount"
+        );
+        return new SummaryRetryCounts(context, group);
+    }
+
+    /** Returns the validated default recent-window settings. */
+    public static ContextHistoryRetention getContextHistoryRetention(
+        JSONObject userSettings
+    ) throws Exception {
+        JSONObject contextHistory = userSettings == null
+            ? null
+            : userSettings.optJSONObject("ContextHistory");
+        if (userSettings != null
+            && userSettings.has("ContextHistory")
+            && contextHistory == null) {
+            throw new IllegalArgumentException(
+                "UserSettings.ContextHistory must be an object"
+            );
+        }
+        int recentPercent = contextHistory == null
+            || !contextHistory.has("DefaultRecentPercent")
+            ? DEFAULT_CONTEXT_HISTORY_RECENT_PERCENT
+            : normalizeContextHistoryRecentPercent(
+                contextHistory.get("DefaultRecentPercent")
+            );
+        int recentSceneLimit = contextHistory == null
+            || !contextHistory.has("DefaultRecentSceneLimit")
+            ? DEFAULT_CONTEXT_HISTORY_RECENT_SCENE_LIMIT
+            : normalizeContextHistoryRecentSceneLimit(
+                contextHistory.get("DefaultRecentSceneLimit")
+            );
+        return new ContextHistoryRetention(recentPercent, recentSceneLimit);
+    }
+
+    private static int parseSummaryRetryCount(
+        JSONObject contextHistory,
+        String key
+    ) throws Exception {
+        if (contextHistory == null || !contextHistory.has(key)) {
+            return DEFAULT_SUMMARY_RETRY_COUNT;
+        }
+        int value;
+        try {
+            value = requireInt(contextHistory.get(key), key);
+        } catch (IllegalArgumentException e) {
+            throw invalidSummaryRetryCount(key, e);
+        }
+        if (value < MIN_SUMMARY_RETRY_COUNT
+            || value > MAX_SUMMARY_RETRY_COUNT) {
+            throw invalidSummaryRetryCount(key, null);
+        }
+        return value;
+    }
+
+    private static IllegalArgumentException invalidSummaryRetryCount(
+        String key,
+        Throwable cause
+    ) {
+        IllegalArgumentException error = new IllegalArgumentException(
+            "UserSettings.ContextHistory."
+                + key
+                + " must be an integer from "
+                + MIN_SUMMARY_RETRY_COUNT
+                + " to "
+                + MAX_SUMMARY_RETRY_COUNT
+        );
+        if (cause != null) {
+            error.initCause(cause);
+        }
+        return error;
+    }
+
     private static boolean isCanonicalConfig(JSONObject config) {
         if (config.length() != 2
             || !config.has("Version")
@@ -723,6 +887,9 @@ public final class ConfigStore {
         JSONObject executionApi = userSettings == null
             ? null
             : userSettings.optJSONObject("Api");
+        JSONObject contextHistory = userSettings == null
+            ? null
+            : userSettings.optJSONObject("ContextHistory");
         return translationApi != null
             && translationApi.has("EnableStreamingRepair")
             && translationApi.has("RepairGradientCount")
@@ -736,6 +903,9 @@ public final class ConfigStore {
             && executionApi.has("ThinkingStrength")
             && executionApi.has("context_length")
             && executionApi.has("max_concurrent_requests")
+            && contextHistory != null
+            && contextHistory.has("DefaultRecentPercent")
+            && contextHistory.has("DefaultRecentSceneLimit")
             && userSettings.has("SceneWorkerCount")
             && userSettings.optJSONObject("SceneSync") != null
             && userSettings.optJSONObject("SceneSync").has(
@@ -805,6 +975,72 @@ public final class ConfigStore {
             throw new IllegalArgumentException(key + " must be positive");
         }
         return parsed;
+    }
+
+    private static int normalizeContextHistoryRecentPercent(Object value) {
+        return normalizeContextHistoryRecentSetting(
+            value,
+            "DefaultRecentPercent",
+            MIN_CONTEXT_HISTORY_RECENT_PERCENT,
+            MAX_CONTEXT_HISTORY_RECENT_PERCENT
+        );
+    }
+
+    private static int normalizeContextHistoryRecentSceneLimit(Object value) {
+        return normalizeContextHistoryRecentSetting(
+            value,
+            "DefaultRecentSceneLimit",
+            MIN_CONTEXT_HISTORY_RECENT_SCENE_LIMIT,
+            MAX_CONTEXT_HISTORY_RECENT_SCENE_LIMIT
+        );
+    }
+
+    private static int normalizeContextHistoryRecentSetting(
+        Object value,
+        String key,
+        int minimum,
+        int maximum
+    ) {
+        int parsed;
+        try {
+            parsed = requireInt(value, key);
+        } catch (IllegalArgumentException e) {
+            throw invalidContextHistoryRecentSetting(
+                key,
+                minimum,
+                maximum,
+                e
+            );
+        }
+        if (parsed < minimum || parsed > maximum) {
+            throw invalidContextHistoryRecentSetting(
+                key,
+                minimum,
+                maximum,
+                null
+            );
+        }
+        return parsed;
+    }
+
+    private static IllegalArgumentException invalidContextHistoryRecentSetting(
+        String key,
+        int minimum,
+        int maximum,
+        Throwable cause
+    ) {
+        IllegalArgumentException error = new IllegalArgumentException(
+            "UserSettings.ContextHistory."
+                + key
+                + " must be an integer from "
+                + minimum
+                + " to "
+                + maximum
+        );
+        if (cause != null) {
+            error.initCause(cause);
+        }
+        return error;
     }
 
     private static int requireInt(Object value, String key) {
