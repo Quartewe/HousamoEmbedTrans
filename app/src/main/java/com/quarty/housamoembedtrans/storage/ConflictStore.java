@@ -8,20 +8,15 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -62,7 +57,7 @@ public final class ConflictStore {
             this.kind = kind;
         }
 
-        ConflictFailure(FailureKind kind, String message, Exception cause) {
+        ConflictFailure(FailureKind kind, String message, Throwable cause) {
             super(message, cause);
             this.kind = kind;
         }
@@ -215,7 +210,6 @@ public final class ConflictStore {
     ) throws IOException {
         requireCandidate(sceneName, gameBytes);
         requireCandidate(sceneName, hetBytes);
-        ensureDirectory(conflictDirectory);
 
         normalizeScene(sceneName);
         File formalDirectory = formalDirectory(sceneName);
@@ -223,68 +217,35 @@ public final class ConflictStore {
             return readMetadata(sceneName);
         }
 
-        File temporaryDirectory = incomingDirectory(sceneName);
-        if (temporaryDirectory.exists() || !temporaryDirectory.mkdir()) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "could not create temporary conflict directory"
-            );
-        }
-
-        boolean published = false;
-        try {
-            writeExact(
-                new File(temporaryDirectory, GAME_FILE_NAME),
-                gameBytes
-            );
-            writeExact(
-                new File(temporaryDirectory, HET_FILE_NAME),
-                hetBytes
-            );
-            long createdAt = System.currentTimeMillis();
-            String gameHash = sha256Hex(gameBytes);
-            String hetHash = sha256Hex(hetBytes);
-            writeState(
-                temporaryDirectory,
-                sceneName,
-                createdAt,
-                gameHash,
-                hetHash
-            );
-
-            // renameTo is a same-filesystem directory publication.  The
-            // formal directory is never replaced: a concurrent/previous
-            // publication wins and its candidates remain authoritative.
-            if (formalDirectory.exists()) {
-                cleanupOrThrow(temporaryDirectory, "could not remove losing incoming conflict");
-                return readMetadata(sceneName);
-            }
-            if (!temporaryDirectory.renameTo(formalDirectory)) {
-                if (formalDirectory.isDirectory()) {
-                    cleanupOrThrow(temporaryDirectory, "could not remove losing incoming conflict");
-                    return readMetadata(sceneName);
-                }
-                throw new ConflictFailure(
-                    FailureKind.IO,
-                    "could not publish conflict directory"
+        final long createdAt = System.currentTimeMillis();
+        final String gameHash = sha256Hex(gameBytes);
+        final String hetHash = sha256Hex(hetBytes);
+        boolean published = TransactionalSceneSlots.publishNew(
+            conflictDirectory,
+            sceneName,
+            TEMP_PREFIX,
+            ConflictStore::slotIoFailure,
+            incoming -> {
+                writeExact(new File(incoming, GAME_FILE_NAME), gameBytes);
+                writeExact(new File(incoming, HET_FILE_NAME), hetBytes);
+                writeState(
+                    incoming,
+                    sceneName,
+                    createdAt,
+                    gameHash,
+                    hetHash
                 );
             }
-            published = true;
-            return new ConflictMetadata(
-                sceneName,
-                createdAt,
-                gameHash,
-                hetHash
-            );
-        } finally {
-            if (!published && temporaryDirectory.exists()
-                && !deleteRecursively(temporaryDirectory)) {
-                throw new ConflictFailure(
-                    FailureKind.IO,
-                    "could not remove incomplete conflict directory"
-                );
-            }
+        );
+        if (!published) {
+            return readMetadata(sceneName);
         }
+        return new ConflictMetadata(
+            sceneName,
+            createdAt,
+            gameHash,
+            hetHash
+        );
     }
 
     /**
@@ -301,7 +262,6 @@ public final class ConflictStore {
     ) throws IOException {
         requireCandidate(sceneName, gameBytes);
         requireCandidate(sceneName, hetBytes);
-        ensureDirectory(conflictDirectory);
 
         normalizeScene(sceneName);
         File formalDirectory = formalDirectory(sceneName);
@@ -311,89 +271,33 @@ public final class ConflictStore {
                 "formal conflict directory is missing"
             );
         }
-        File temporaryDirectory = incomingDirectory(sceneName);
-        if (temporaryDirectory.exists() || !temporaryDirectory.mkdir()) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "could not create temporary conflict directory"
-            );
-        }
-
         long createdAt = System.currentTimeMillis();
         String gameHash = sha256Hex(gameBytes);
         String hetHash = sha256Hex(hetBytes);
-        File backupDirectory = backupDirectory(sceneName);
-        boolean oldMoved = false;
-        boolean published = false;
-        try {
-            writeExact(
-                new File(temporaryDirectory, GAME_FILE_NAME),
-                gameBytes
-            );
-            writeExact(
-                new File(temporaryDirectory, HET_FILE_NAME),
-                hetBytes
-            );
-            writeState(
-                temporaryDirectory,
-                sceneName,
-                createdAt,
-                gameHash,
-                hetHash
-            );
-
-            if (backupDirectory.exists()) {
-                throw new ConflictFailure(
-                    FailureKind.IO,
-                    "fixed conflict backup slot is not empty"
+        TransactionalSceneSlots.publishReplacement(
+            conflictDirectory,
+            sceneName,
+            TEMP_PREFIX,
+            BACKUP_PREFIX,
+            ConflictStore::slotIoFailure,
+            incoming -> {
+                writeExact(new File(incoming, GAME_FILE_NAME), gameBytes);
+                writeExact(new File(incoming, HET_FILE_NAME), hetBytes);
+                writeState(
+                    incoming,
+                    sceneName,
+                    createdAt,
+                    gameHash,
+                    hetHash
                 );
             }
-            if (!formalDirectory.renameTo(backupDirectory)) {
-                throw new ConflictFailure(
-                    FailureKind.IO,
-                    "could not stage existing conflict directory"
-                );
-            }
-            oldMoved = true;
-            if (!temporaryDirectory.renameTo(formalDirectory)) {
-                throw new ConflictFailure(
-                    FailureKind.IO,
-                    "could not publish replacement conflict directory"
-                );
-            }
-            published = true;
-            if (!deleteRecursively(backupDirectory)) {
-                throw new ConflictFailure(
-                    FailureKind.IO,
-                    "could not remove published conflict backup"
-                );
-            }
-            return new ConflictMetadata(
-                sceneName,
-                createdAt,
-                gameHash,
-                hetHash
-            );
-        } catch (IOException e) {
-            if (oldMoved
-                && !formalDirectory.exists()
-                && !backupDirectory.renameTo(formalDirectory)) {
-                e.addSuppressed(new IOException(
-                    "could not restore previous conflict directory"
-                ));
-            }
-            throw e;
-        } finally {
-            if (!published) {
-                if (temporaryDirectory.exists()
-                    && !deleteRecursively(temporaryDirectory)) {
-                    throw new ConflictFailure(
-                        FailureKind.IO,
-                        "could not remove incomplete conflict directory"
-                    );
-                }
-            }
-        }
+        );
+        return new ConflictMetadata(
+            sceneName,
+            createdAt,
+            gameHash,
+            hetHash
+        );
     }
 
     /** Reads one complete conflict, rejecting partial or tampered state. */
@@ -539,7 +443,7 @@ public final class ConflictStore {
         }
         List<String> names = new ArrayList<>();
         for (File entry : entries) {
-            if (entry.isDirectory() && SceneStore.isValidSceneName(entry.getName())) {
+            if (SceneStore.isValidSceneName(entry.getName())) {
                 names.add(entry.getName());
             }
         }
@@ -568,7 +472,7 @@ public final class ConflictStore {
         }
         List<String> names = new ArrayList<>();
         for (File entry : entries) {
-            if (entry.isDirectory() && SceneStore.isValidSceneName(entry.getName())) {
+            if (SceneStore.isValidSceneName(entry.getName())) {
                 names.add(entry.getName());
             }
         }
@@ -640,7 +544,17 @@ public final class ConflictStore {
                 removedTemporary.add(entry.getName());
                 continue;
             }
-            String sceneName = slotSceneName(entry, BACKUP_PREFIX);
+            String sceneName;
+            try {
+                sceneName = TransactionalSceneSlots.slotSceneName(
+                    entry,
+                    BACKUP_PREFIX,
+                    STATE_FILE_NAME,
+                    ConflictStore::readSlotSceneName
+                );
+            } catch (TransactionalSceneSlots.SlotFailure e) {
+                throw mapSlotFailure(e);
+            }
             if (sceneName != null) {
                 sceneNames.add(sceneName);
                 continue;
@@ -679,277 +593,88 @@ public final class ConflictStore {
 
     private void normalizeScene(String sceneName) throws IOException {
         validateSceneName(sceneName);
-        ensureDirectory(conflictDirectory);
-
-        File formal = formalDirectory(sceneName);
-        boolean formalValid = false;
-        ConflictFailure formalFailure = null;
-        if (formal.exists()) {
-            try {
-                readMetadataFromDirectory(sceneName, formal);
-                formalValid = true;
-            } catch (ConflictFailure e) {
-                if (e.kind == FailureKind.IO) {
-                    throw e;
-                }
-                formalFailure = e;
-            }
-        }
-
-        cleanupAllIncoming();
-
-        if (formalValid) {
-            for (File backup : backupDirectoriesForCleanup(sceneName)) {
-                cleanupOrThrow(
-                    backup,
-                    "could not remove stale conflict backup directory"
-                );
-            }
-            return;
-        }
-
-        List<File> validBackups = new ArrayList<>();
-        for (File backup : slotDirectories(sceneName, BACKUP_PREFIX)) {
-            try {
-                readMetadataFromDirectory(sceneName, backup);
-                validBackups.add(backup);
-            } catch (ConflictFailure e) {
-                if (e.kind == FailureKind.IO) {
-                    throw e;
-                }
-                cleanupOrThrow(backup, "could not remove invalid conflict backup directory");
-            }
-        }
-
-        if (validBackups.size() > 1) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "multiple valid conflict backups have no deterministic winner"
+        try {
+            TransactionalSceneSlots.normalize(
+                conflictDirectory,
+                sceneName,
+                TEMP_PREFIX,
+                BACKUP_PREFIX,
+                STATE_FILE_NAME,
+                ConflictStore::readSlotSceneName,
+                (directory, name) -> readMetadataFromDirectory(name, directory),
+                failure -> failure instanceof ConflictFailure
+                    && ((ConflictFailure) failure).kind == FailureKind.IO,
+                ConflictStore::slotIoFailure,
+                false
             );
-        }
-        if (validBackups.size() == 1) {
-            if (formal.exists()) {
-                cleanupOrThrow(formal, "could not remove damaged formal conflict directory");
-            }
-            File backup = validBackups.get(0);
-            if (!backup.renameTo(formal)) {
-                throw new ConflictFailure(
-                    FailureKind.IO,
-                    "could not restore conflict backup"
-                );
-            }
-            return;
-        }
-        if (formalFailure != null) {
-            throw new ConflictFailure(
-                formalFailure.kind,
-                "formal conflict is damaged and has no valid backup",
-                formalFailure
-            );
+        } catch (TransactionalSceneSlots.SlotFailure e) {
+            throw mapSlotFailure(e);
         }
     }
 
-    private List<File> slotDirectories(String sceneName, String prefix)
-        throws ConflictFailure {
-        List<File> matches = new ArrayList<>();
-        if (!conflictDirectory.isDirectory()) {
-            return matches;
-        }
-        File[] entries = conflictDirectory.listFiles();
-        if (entries == null) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "could not enumerate conflict root"
-            );
-        }
-        for (File entry : entries) {
-            if (sceneName.equals(slotSceneName(entry, prefix))) {
-                matches.add(entry);
-            }
-        }
-        return matches;
-    }
-
-    private List<File> backupDirectoriesForCleanup(String sceneName)
-        throws ConflictFailure {
-        List<File> matches = new ArrayList<>();
-        File[] entries = conflictDirectory.listFiles();
-        if (entries == null) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "could not enumerate conflict root"
-            );
-        }
-        String prefix = BACKUP_PREFIX;
-        for (File entry : entries) {
-            if (!entry.getName().startsWith(prefix)) {
-                continue;
-            }
-            if (backupBelongsToScene(entry, sceneName)) {
-                matches.add(entry);
-            }
-        }
-        return matches;
-    }
-
-    private static boolean backupBelongsToScene(
-        File entry,
-        String sceneName
-    ) throws ConflictFailure {
-        String suffix = entry.getName().substring(BACKUP_PREFIX.length());
-        String directName = SceneStore.isValidSceneName(suffix) ? suffix : null;
-        String legacyName = legacySceneName(suffix);
-        String stateName = slotSceneNameFromState(entry, BACKUP_PREFIX);
-        if (stateName != null) {
-            if (!stateName.equals(directName) && !stateName.equals(legacyName)) {
-                throw new ConflictFailure(
-                    FailureKind.INVALID_STATE,
-                    "conflict backup state SceneName does not match its slot"
-                );
-            }
-            return sceneName.equals(stateName);
-        }
-        if (directName != null && legacyName != null
-            && !directName.equals(legacyName)) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "conflict backup identity is ambiguous without state"
-            );
-        }
-        return sceneName.equals(directName != null ? directName : legacyName);
-    }
-
-    private void cleanupAllIncoming() throws ConflictFailure {
-        if (!conflictDirectory.isDirectory()) {
-            return;
-        }
-        File[] entries = conflictDirectory.listFiles();
-        if (entries == null) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "could not enumerate conflict root"
-            );
-        }
-        for (File entry : entries) {
-            if (entry.getName().startsWith(TEMP_PREFIX)) {
-                cleanupOrThrow(
-                    entry,
-                    "could not remove uncommitted conflict incoming directory"
-                );
-            }
-        }
-    }
-
-    private static String slotSceneName(File entry, String prefix)
-        throws ConflictFailure {
-        if (entry == null || !entry.getName().startsWith(prefix)) {
-            return null;
-        }
-        String stateName = slotSceneNameFromState(entry, prefix);
-        if (stateName != null) {
-            String suffix = entry.getName().substring(prefix.length());
-            String directName = SceneStore.isValidSceneName(suffix) ? suffix : null;
-            String legacyName = legacySceneName(suffix);
-            if (stateName.equals(directName) || stateName.equals(legacyName)) {
-                return stateName;
-            }
-            throw new ConflictFailure(
-                FailureKind.INVALID_STATE,
-                "conflict backup state SceneName does not match its slot"
-            );
-        }
-        String suffix = entry.getName().substring(prefix.length());
-        String legacyName = legacySceneName(suffix);
-        String directName = SceneStore.isValidSceneName(suffix) ? suffix : null;
-        if (legacyName != null && directName != null
-            && !legacyName.equals(directName)) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "conflict residue SceneName is ambiguous without state"
-            );
-        }
-        return legacyName != null ? legacyName : directName;
-    }
-
-    private static String slotSceneNameFromState(File entry, String prefix)
-        throws ConflictFailure {
-        if (entry == null || !entry.getName().startsWith(prefix)) {
-            return null;
-        }
-        File stateFile = new File(entry, STATE_FILE_NAME);
-        if (!stateFile.isFile()) {
-            return null;
-        }
+    private static String readSlotSceneName(File stateFile)
+        throws TransactionalSceneSlots.SlotFailure {
         try {
             JSONObject state = readState(stateFile);
             Object value = state.get("scene_name");
-            return value instanceof String
-                && SceneStore.isValidSceneName((String) value)
-                ? (String) value
-                : null;
+            if (!(value instanceof String)
+                || !SceneStore.isValidSceneName((String) value)) {
+                throw new TransactionalSceneSlots.SlotFailure(
+                    TransactionalSceneSlots.FailureKind.INVALID_STATE,
+                    "conflict slot state SceneName is invalid"
+                );
+            }
+            return (String) value;
+        } catch (TransactionalSceneSlots.SlotFailure e) {
+            throw e;
         } catch (ConflictFailure e) {
-            if (e.kind == FailureKind.IO) {
-                throw e;
-            }
-            return null;
-        } catch (JSONException ignored) {
-            return null;
+            throw new TransactionalSceneSlots.SlotFailure(
+                e.kind == FailureKind.IO
+                    ? TransactionalSceneSlots.FailureKind.IO
+                    : TransactionalSceneSlots.FailureKind.INVALID_STATE,
+                "could not read conflict slot state",
+                e
+            );
+        } catch (JSONException e) {
+            throw new TransactionalSceneSlots.SlotFailure(
+                TransactionalSceneSlots.FailureKind.INVALID_STATE,
+                "conflict slot state SceneName is invalid",
+                e
+            );
         }
     }
 
-    private static String legacySceneName(String suffix) {
-        if (suffix.length() > 37
-            && suffix.charAt(suffix.length() - 37) == '-') {
-            String uuid = suffix.substring(suffix.length() - 36);
-            String sceneName = suffix.substring(0, suffix.length() - 37);
-            if (SceneStore.isValidSceneName(sceneName) && isUuid(uuid)) {
-                return sceneName;
-            }
+    private static ConflictFailure mapSlotFailure(
+        TransactionalSceneSlots.SlotFailure failure
+    ) {
+        return new ConflictFailure(
+            failure.kind == TransactionalSceneSlots.FailureKind.IO
+                ? FailureKind.IO
+                : FailureKind.INVALID_STATE,
+            failure.getMessage(),
+            failure
+        );
+    }
+
+    static IOException slotIoFailure(
+        String message,
+        Throwable cause
+    ) {
+        if ("slot file parent is missing".equals(message)) {
+            message = "conflict file parent is missing";
+        } else if ("could not write slot file".equals(message)) {
+            message = "could not write conflict file";
         }
-        return SceneStore.isValidSceneName(suffix) ? suffix : null;
-    }
-
-    private static boolean isUuid(String value) {
-        if (value.length() != 36) {
-            return false;
-        }
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            boolean hex = (c >= '0' && c <= '9')
-                || (c >= 'a' && c <= 'f')
-                || (c >= 'A' && c <= 'F');
-            if (i == 8 || i == 13 || i == 18 || i == 23) {
-                if (c != '-') {
-                    return false;
-                }
-            } else if (!hex) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static File incomingDirectory(File root, String sceneName) {
-        return new File(root, TEMP_PREFIX + sceneName);
-    }
-
-    private File incomingDirectory(String sceneName) {
-        return incomingDirectory(conflictDirectory, sceneName);
-    }
-
-    private static File backupDirectory(File root, String sceneName) {
-        return new File(root, BACKUP_PREFIX + sceneName);
-    }
-
-    private File backupDirectory(String sceneName) {
-        return backupDirectory(conflictDirectory, sceneName);
+        return new ConflictFailure(FailureKind.IO, message, cause);
     }
 
     private static void cleanupOrThrow(File file, String message)
         throws ConflictFailure {
-        if (file.exists() && !deleteRecursively(file)) {
-            throw new ConflictFailure(FailureKind.IO, message);
-        }
+        TransactionalSceneSlots.cleanupOrThrow(
+            file,
+            message,
+            ConflictStore::slotIoFailure
+        );
     }
 
     private File formalDirectory(String sceneName) {
@@ -1135,16 +860,7 @@ public final class ConflictStore {
                 "conflict file is missing"
             );
         }
-        MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "SHA-256 is unavailable",
-                e
-            );
-        }
+        MessageDigest digest = SceneDigest.newSha256();
         try (InputStream input = new FileInputStream(file)) {
             byte[] buffer = new byte[8192];
             int read;
@@ -1168,7 +884,7 @@ public final class ConflictStore {
                     "conflict file is empty"
                 );
             }
-            return new HashedFile(hex(digest.digest()));
+            return new HashedFile(SceneDigest.lowerHex(digest.digest()));
         } catch (ConflictFailure e) {
             throw e;
         } catch (IOException e) {
@@ -1181,83 +897,24 @@ public final class ConflictStore {
     }
 
     private static void writeExact(File file, byte[] bytes) throws IOException {
-        File parent = file.getParentFile();
-        if (parent == null || !parent.isDirectory()) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "conflict file parent is missing"
-            );
-        }
-        try (FileOutputStream output = new FileOutputStream(file)) {
-            output.write(bytes);
-            output.flush();
-            output.getFD().sync();
-        } catch (IOException e) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "could not write conflict file",
-                e
-            );
-        }
-    }
-
-    private static void ensureDirectory(File directory) throws IOException {
-        if (directory.isDirectory()) {
-            return;
-        }
-        if (directory.exists()
-            || (!directory.mkdirs() && !directory.isDirectory())) {
-            throw new ConflictFailure(
-                FailureKind.IO,
-                "could not create conflict directory"
-            );
-        }
+        TransactionalSceneSlots.writeExact(
+            file,
+            bytes,
+            ConflictStore::slotIoFailure
+        );
     }
 
     private static boolean deleteRecursively(File file) {
-        if (file == null || !file.exists()) {
-            return true;
-        }
-        if (file.isDirectory()) {
-            File[] children = file.listFiles();
-            if (children == null) {
-                return false;
-            }
-            for (File child : children) {
-                if (!deleteRecursively(child)) {
-                    return false;
-                }
-            }
-        }
-        return file.delete();
+        return TransactionalSceneSlots.deleteRecursively(file);
     }
 
     private static String decodeStrictUtf8(byte[] bytes)
         throws CharacterCodingException {
-        return StandardCharsets.UTF_8.newDecoder()
-            .onMalformedInput(CodingErrorAction.REPORT)
-            .onUnmappableCharacter(CodingErrorAction.REPORT)
-            .decode(ByteBuffer.wrap(bytes))
-            .toString();
+        return TransactionalSceneSlots.decodeStrictUtf8(bytes);
     }
 
     private static String sha256Hex(byte[] bytes) {
-        final byte[] digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256").digest(bytes);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
-        return hex(digest);
-    }
-
-    private static String hex(byte[] digest) {
-        StringBuilder output = new StringBuilder(digest.length * 2);
-        for (byte value : digest) {
-            output.append(Character.forDigit((value >>> 4) & 0x0f, 16));
-            output.append(Character.forDigit(value & 0x0f, 16));
-        }
-        return output.toString();
+        return SceneDigest.sha256Hex(bytes);
     }
 
     private static boolean isSha256Hex(String value) {

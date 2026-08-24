@@ -183,10 +183,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 pendingAutoSync = true;
                 return TriggerResult.DEFERRED_ACTIVE_API;
             }
-            pendingAutoSync = false;
-            state = State.FULL_SYNC;
-            operationGeneration++;
-            activePort = currentPort;
+            enterAutoFullSyncLocked();
             schedule = true;
             result = TriggerResult.STARTED;
         }
@@ -219,10 +216,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 pendingAutoSync = true;
                 return TriggerResult.DEFERRED_ACTIVE_API;
             }
-            pendingAutoSync = false;
-            state = State.FULL_SYNC;
-            operationGeneration++;
-            activePort = currentPort;
+            enterAutoFullSyncLocked();
             schedule = true;
             result = TriggerResult.STARTED;
         }
@@ -371,13 +365,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 );
             }
             apiClaimReservations--;
-            schedule = shouldStartPendingAutoSyncLocked();
-            if (schedule) {
-                pendingAutoSync = false;
-                state = State.FULL_SYNC;
-                operationGeneration++;
-                activePort = currentPort;
-            }
+            schedule = startPendingAutoSyncLocked();
         }
         if (schedule) {
             enqueueFullSync();
@@ -392,13 +380,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 throw new IllegalStateException("no active API job to release");
             }
             activeApiJobs--;
-            schedule = shouldStartPendingAutoSyncLocked();
-            if (schedule) {
-                pendingAutoSync = false;
-                state = State.FULL_SYNC;
-                operationGeneration++;
-                activePort = currentPort;
-            }
+            schedule = startPendingAutoSyncLocked();
         }
         if (schedule) {
             enqueueFullSync();
@@ -480,19 +462,32 @@ public final class SceneSyncCoordinator implements AutoCloseable {
     }
 
     private boolean enqueueFullSync(SyncOperationKind operationKind) {
+        return enqueueFullSync(operationKind, true);
+    }
+
+    private boolean enqueueFullSync(
+        SyncOperationKind operationKind,
+        boolean recoverPending
+    ) {
         long generation;
         PortSnapshot snapshot;
         synchronized (lock) {
             generation = operationGeneration;
             snapshot = activePort;
         }
-        return enqueueFullSync(generation, snapshot, operationKind);
+        return enqueueFullSync(
+            generation,
+            snapshot,
+            operationKind,
+            recoverPending
+        );
     }
 
     private boolean enqueueFullSync(
         long generation,
         PortSnapshot snapshot,
-        SyncOperationKind operationKind
+        SyncOperationKind operationKind,
+        boolean recoverPending
     ) {
         if (snapshot == null || operationKind == null) {
             return false;
@@ -548,17 +543,23 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                     && activePort == snapshot) {
                     state = State.NONE;
                     activePort = null;
-                    if (shouldStartPendingAutoSyncLocked()) {
-                        pendingAutoSync = false;
-                        state = State.FULL_SYNC;
-                        operationGeneration++;
-                        activePort = currentPort;
-                        schedulePending = true;
-                    }
+                    schedulePending = startPendingAutoSyncLocked();
                 }
             }
-            if (schedulePending) {
-                enqueueFullSync();
+            if (schedulePending && recoverPending) {
+                boolean successorAccepted = enqueueFullSync(
+                    SyncOperationKind.AUTO_FULL_SYNC,
+                    false
+                );
+                if (!successorAccepted) {
+                    synchronized (lock) {
+                        if (!closed
+                            && state == State.NONE
+                            && currentPort != null) {
+                            pendingAutoSync = true;
+                        }
+                    }
+                }
             }
             notifyOperationFinishedOnce(completion);
             return false;
@@ -629,13 +630,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                         activeManualAction = null;
                     }
                 }
-                if (shouldStartPendingAutoSyncLocked()) {
-                    pendingAutoSync = false;
-                    state = State.FULL_SYNC;
-                    operationGeneration++;
-                    activePort = currentPort;
-                    schedule = true;
-                }
+                schedule = startPendingAutoSyncLocked();
             }
             if (schedule) {
                 enqueueFullSync();
@@ -667,12 +662,8 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 activePort = null;
                 cleaned = true;
             }
-            if (cleaned && shouldStartPendingAutoSyncLocked()) {
-                pendingAutoSync = false;
-                state = State.FULL_SYNC;
-                operationGeneration++;
-                activePort = currentPort;
-                schedule = true;
+            if (cleaned) {
+                schedule = startPendingAutoSyncLocked();
             }
         }
         if (schedule) {
@@ -700,6 +691,35 @@ public final class SceneSyncCoordinator implements AutoCloseable {
         } catch (RuntimeException ignored) {
             // A wake-up observer must never corrupt coordinator cleanup.
         }
+    }
+
+    /**
+     * Enters one AUTO FULL_SYNC cycle.  Callers must hold {@link #lock} and
+     * have already established all admission preconditions.
+     */
+    private void enterAutoFullSyncLocked() {
+        if (closed
+            || state != State.NONE
+            || currentPort == null
+            || activeApiJobs != 0
+            || apiClaimReservations != 0) {
+            throw new IllegalStateException(
+                "AUTO FULL_SYNC entry preconditions are not satisfied"
+            );
+        }
+        pendingAutoSync = false;
+        state = State.FULL_SYNC;
+        operationGeneration++;
+        activePort = currentPort;
+    }
+
+    /** Returns whether the caller must submit exactly one AUTO runnable. */
+    private boolean startPendingAutoSyncLocked() {
+        if (!shouldStartPendingAutoSyncLocked()) {
+            return false;
+        }
+        enterAutoFullSyncLocked();
+        return true;
     }
 
     private boolean shouldStartPendingAutoSyncLocked() {

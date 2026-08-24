@@ -4,7 +4,6 @@ import com.quarty.housamoembedtrans.bridge.SceneSyncWireCodec;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -218,13 +217,6 @@ public final class SceneMirrorExportCoordinator {
             return successful;
         }
 
-        /** Called by the apply operation after the final policy is published. */
-        public void complete() {
-            // The writer finally owns inFlight.  Completing the control-plane
-            // apply must not race a still-running writer and release the
-            // export single-flight gate early.
-        }
-
         public void abort() {
             cancelRequested.set(true);
             closeOutput();
@@ -246,9 +238,7 @@ public final class SceneMirrorExportCoordinator {
 
         @Override
         public void close() {
-            if (successful) {
-                complete();
-            } else {
+            if (!successful) {
                 abort();
             }
         }

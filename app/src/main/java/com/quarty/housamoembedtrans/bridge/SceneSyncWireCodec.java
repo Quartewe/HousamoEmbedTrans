@@ -1,6 +1,5 @@
 package com.quarty.housamoembedtrans.bridge;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -104,14 +103,6 @@ public final class SceneSyncWireCodec {
         }
     }
 
-    public static final class ExportStream {
-        public final List<ExportRecord> records;
-
-        private ExportStream(List<ExportRecord> records) {
-            this.records = Collections.unmodifiableList(records);
-        }
-    }
-
     public static final class ApplyCommand {
         public final RecordType type;
         public final String sceneName;
@@ -209,88 +200,6 @@ public final class SceneSyncWireCodec {
             null,
             sceneNames == null ? null : new ArrayList<>(sceneNames)
         );
-    }
-
-    public static byte[] encodeExport(List<ExportRecord> records)
-        throws ProtocolException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try {
-            writeExport(output, records);
-        } catch (IOException e) {
-            if (e instanceof ProtocolException) {
-                throw (ProtocolException) e;
-            }
-            throw new ProtocolException("could not encode export stream", e);
-        }
-        return output.toByteArray();
-    }
-
-    public static void writeExport(
-        OutputStream output,
-        Iterable<ExportRecord> records
-    ) throws IOException {
-        if (output == null || records == null) {
-            throw new ProtocolException(
-                "direction=game_to_het/export record=header type=unknown "
-                    + "scene=unknown offset=0: output and records are required"
-            );
-        }
-        writeHeader(output, STREAM_EXPORT);
-        Set<String> names = new HashSet<>();
-        int index = 0;
-        for (ExportRecord record : records) {
-            if (index >= MAX_SCENES) {
-                throw protocol(
-                    "game_to_het/export", index, "unknown", "unknown", -1,
-                    "record count exceeds " + MAX_SCENES
-                );
-            }
-            if (record == null || record.type == null) {
-                throw protocol(
-                    "game_to_het/export", index, "unknown", "unknown", -1,
-                    "null export record"
-                );
-            }
-            if (!names.add(requireSceneName(
-                record.sceneName,
-                "game_to_het/export",
-                index,
-                record.type.name()
-            ))) {
-                throw protocol(
-                    "game_to_het/export", index, record.type.name(),
-                    record.sceneName, -1, "duplicate SceneName"
-                );
-            }
-            switch (record.type) {
-                case SCENE:
-                    writeSceneRecord(
-                        output,
-                        RecordType.SCENE,
-                        record.sceneName,
-                        record.sceneBytes,
-                        "game_to_het/export",
-                        index
-                    );
-                    break;
-                case REJECTED:
-                    validateExportError(record.errorCode,
-                        "game_to_het/export", index, record.sceneName);
-                    writeRecordHeader(output, RecordType.REJECTED, 2L
-                        + encodedNameLength(record.sceneName));
-                    writeName(output, record.sceneName);
-                    writeU16(output, record.errorCode);
-                    break;
-                default:
-                    throw protocol(
-                        "game_to_het/export", index, record.type.name(),
-                        record.sceneName, -1,
-                        "record is not allowed on EXPORT stream"
-                    );
-            }
-            index++;
-        }
-        writeRecordHeader(output, RecordType.END, 0L);
     }
 
     /**
@@ -458,53 +367,11 @@ public final class SceneSyncWireCodec {
         }
     }
 
-    public static byte[] encodeWriteScene(String sceneName, byte[] sceneBytes)
-        throws ProtocolException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try {
-            writeWriteScene(output, sceneName, sceneBytes);
-        } catch (IOException e) {
-            if (e instanceof ProtocolException) {
-                throw (ProtocolException) e;
-            }
-            throw new ProtocolException("could not encode WRITE_SCENE", e);
-        }
-        return output.toByteArray();
-    }
-
-    /** Streaming-friendly WRITE_SCENE encoder; does not build a payload copy. */
-    public static void writeWriteScene(
-        OutputStream output,
-        String sceneName,
-        byte[] sceneBytes
-    ) throws IOException {
-        writeApply(output, writeScene(sceneName, sceneBytes));
-    }
-
-    public static byte[] encodeDeleteScene(String sceneName)
-        throws ProtocolException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try {
-            writeDeleteScene(output, sceneName);
-        } catch (IOException e) {
-            if (e instanceof ProtocolException) {
-                throw (ProtocolException) e;
-            }
-            throw new ProtocolException("could not encode DELETE_SCENE", e);
-        }
-        return output.toByteArray();
-    }
-
-    public static void writeDeleteScene(OutputStream output, String sceneName)
-        throws IOException {
-        writeApply(output, deleteScene(sceneName));
-    }
-
     public static byte[] encodeReplaceBlockedScenes(Collection<String> sceneNames)
         throws ProtocolException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try {
-            writeReplaceBlockedScenes(output, sceneNames);
+            writeApply(output, replaceBlockedScenes(sceneNames));
         } catch (IOException e) {
             if (e instanceof ProtocolException) {
                 throw (ProtocolException) e;
@@ -513,27 +380,6 @@ public final class SceneSyncWireCodec {
                 "could not encode REPLACE_BLOCKED_SCENES",
                 e
             );
-        }
-        return output.toByteArray();
-    }
-
-    public static void writeReplaceBlockedScenes(
-        OutputStream output,
-        Collection<String> sceneNames
-    ) throws IOException {
-        writeApply(output, replaceBlockedScenes(sceneNames));
-    }
-
-    public static byte[] encodeApply(ApplyCommand command)
-        throws ProtocolException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try {
-            writeApply(output, command);
-        } catch (IOException e) {
-            if (e instanceof ProtocolException) {
-                throw (ProtocolException) e;
-            }
-            throw new ProtocolException("could not encode apply request", e);
         }
         return output.toByteArray();
     }
@@ -583,20 +429,6 @@ public final class SceneSyncWireCodec {
         writeRecordHeader(output, RecordType.END, 0L);
     }
 
-    public static byte[] encodeApplyResult(boolean success, int errorCode)
-        throws ProtocolException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream(8);
-        try {
-            writeApplyResult(output, success, errorCode);
-        } catch (IOException e) {
-            if (e instanceof ProtocolException) {
-                throw (ProtocolException) e;
-            }
-            throw new ProtocolException("could not encode apply result", e);
-        }
-        return output.toByteArray();
-    }
-
     public static void writeApplyResult(
         OutputStream output,
         boolean success,
@@ -615,37 +447,6 @@ public final class SceneSyncWireCodec {
         output.write(success ? 1 : 0);
         writeU16(output, errorCode);
         writeRecordHeader(output, RecordType.END, 0L);
-    }
-
-    public static ExportStream decodeExport(InputStream input)
-        throws IOException {
-        final List<ExportRecord> records = new ArrayList<>();
-        decodeExport(input, new ExportRecordConsumer() {
-            @Override
-            public void onScene(
-                String sceneName,
-                int bodyLength,
-                InputStream body
-            ) throws IOException {
-                records.add(new ExportRecord(
-                    RecordType.SCENE,
-                    sceneName,
-                    readBodyBytes(body, bodyLength),
-                    0
-                ));
-            }
-
-            @Override
-            public void onRejected(String sceneName, int errorCode) {
-                records.add(new ExportRecord(
-                    RecordType.REJECTED,
-                    sceneName,
-                    null,
-                    errorCode
-                ));
-            }
-        });
-        return new ExportStream(records);
     }
 
     /** Decodes an EXPORT stream without retaining a batch of Scene bodies. */
@@ -715,39 +516,6 @@ public final class SceneSyncWireCodec {
             throw reader.protocol(index, "unknown", "unknown", "missing END");
         }
         reader.ensureEof(index, "END", "unknown");
-    }
-
-    private static byte[] readBodyBytes(InputStream body, int bodyLength)
-        throws IOException {
-        byte[] bytes = new byte[bodyLength];
-        int position = 0;
-        while (position < bodyLength) {
-            int read = body.read(bytes, position, bodyLength - position);
-            if (read < 0) {
-                throw new ProtocolException(
-                    "streamed Scene body ended before declared length "
-                        + bodyLength
-                );
-            }
-            if (read == 0) {
-                continue;
-            }
-            position += read;
-        }
-        if (body.read() != -1) {
-            throw new ProtocolException(
-                "streamed Scene body exceeded declared length " + bodyLength
-            );
-        }
-        return bytes;
-    }
-
-    public static ExportStream decodeExport(byte[] bytes) throws IOException {
-        if (bytes == null) {
-            throw new ProtocolException("direction=game_to_het/export record=header "
-                + "type=unknown scene=unknown offset=0: null input");
-        }
-        return decodeExport(new ByteArrayInputStream(bytes));
     }
 
     public static ApplyRequest decodeApplyRequest(InputStream input)
@@ -823,14 +591,6 @@ public final class SceneSyncWireCodec {
         return new ApplyRequest(command);
     }
 
-    public static ApplyRequest decodeApplyRequest(byte[] bytes) throws IOException {
-        if (bytes == null) {
-            throw new ProtocolException("direction=het_to_game/apply_request record=header "
-                + "type=unknown scene=unknown offset=0: null input");
-        }
-        return decodeApplyRequest(new ByteArrayInputStream(bytes));
-    }
-
     public static ApplyResult decodeApplyResult(InputStream input)
         throws IOException {
         WireReader reader = new WireReader(input, "game_to_het/apply_result");
@@ -873,14 +633,6 @@ public final class SceneSyncWireCodec {
         }
         reader.ensureEof(index + 1, "END", "unknown");
         return new ApplyResult(successValue == 1, errorCode);
-    }
-
-    public static ApplyResult decodeApplyResult(byte[] bytes) throws IOException {
-        if (bytes == null) {
-            throw new ProtocolException("direction=game_to_het/apply_result record=header "
-                + "type=unknown scene=unknown offset=0: null input");
-        }
-        return decodeApplyResult(new ByteArrayInputStream(bytes));
     }
 
     private static void writeSceneRecord(
@@ -1023,12 +775,14 @@ public final class SceneSyncWireCodec {
         String sceneName,
         String label
     ) throws ProtocolException {
-        try {
-            StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes));
-        } catch (CharacterCodingException e) {
+        Utf8State state = new Utf8State();
+        for (byte value : bytes) {
+            if (!state.accept(value & 0xff)) {
+                throw protocol(direction, index, type, sceneName, -1,
+                    label + " is not strict UTF-8");
+            }
+        }
+        if (!state.finish()) {
             throw protocol(direction, index, type, sceneName, -1,
                 label + " is not strict UTF-8");
         }
@@ -1458,46 +1212,38 @@ public final class SceneSyncWireCodec {
         }
     }
 
-    /** Incremental UTF-8 validator that never buffers the Scene body. */
-    private static final class Utf8Validator {
-        private final PayloadReader owner;
-        private final String sceneName;
+    /** Pure incremental UTF-8 transition state shared by both stream sides. */
+    private static final class Utf8State {
         private int continuationCount;
         private int codePoint;
         private int firstContinuationMin = 0x80;
         private int firstContinuationMax = 0xbf;
 
-        private Utf8Validator(PayloadReader owner, String sceneName) {
-            this.owner = owner;
-            this.sceneName = sceneName;
-        }
-
-        private void accept(int value) throws ProtocolException {
+        /** Accepts one unsigned byte; false means an invalid UTF-8 byte. */
+        private boolean accept(int value) {
+            if (value < 0 || value > 0xff) {
+                return false;
+            }
             if (continuationCount > 0) {
                 if (value < firstContinuationMin
                     || value > firstContinuationMax) {
-                    throw owner.protocol(sceneName,
-                        "Scene body is not strict UTF-8");
+                    return false;
                 }
                 codePoint = (codePoint << 6) | (value & 0x3f);
                 continuationCount--;
                 firstContinuationMin = 0x80;
                 firstContinuationMax = 0xbf;
-                if (continuationCount == 0
-                    && (codePoint > 0x10ffff
-                        || (codePoint >= 0xd800 && codePoint <= 0xdfff))) {
-                    throw owner.protocol(sceneName,
-                        "Scene body is not strict UTF-8");
-                }
-                return;
+                return continuationCount != 0
+                    || (codePoint <= 0x10ffff
+                        && (codePoint < 0xd800 || codePoint > 0xdfff));
             }
             if (value <= 0x7f) {
-                return;
+                return true;
             }
             if (value >= 0xc2 && value <= 0xdf) {
                 continuationCount = 1;
                 codePoint = value & 0x1f;
-                return;
+                return true;
             }
             if (value >= 0xe0 && value <= 0xef) {
                 continuationCount = 2;
@@ -1507,7 +1253,7 @@ public final class SceneSyncWireCodec {
                 } else if (value == 0xed) {
                     firstContinuationMax = 0x9f;
                 }
-                return;
+                return true;
             }
             if (value >= 0xf0 && value <= 0xf4) {
                 continuationCount = 3;
@@ -1517,29 +1263,50 @@ public final class SceneSyncWireCodec {
                 } else if (value == 0xf4) {
                     firstContinuationMax = 0x8f;
                 }
-                return;
+                return true;
             }
-            throw owner.protocol(sceneName, "Scene body is not strict UTF-8");
+            return false;
+        }
+
+        /** Returns false when a lead byte still needs continuations. */
+        private boolean finish() {
+            return continuationCount == 0;
+        }
+    }
+
+    /** Consumer-side wrapper preserving PayloadReader protocol context. */
+    private static final class Utf8Validator {
+        private final PayloadReader owner;
+        private final String sceneName;
+        private final Utf8State state = new Utf8State();
+
+        private Utf8Validator(PayloadReader owner, String sceneName) {
+            this.owner = owner;
+            this.sceneName = sceneName;
+        }
+
+        private void accept(int value) throws ProtocolException {
+            if (!state.accept(value)) {
+                throw owner.protocol(sceneName,
+                    "Scene body is not strict UTF-8");
+            }
         }
 
         private void finish() throws ProtocolException {
-            if (continuationCount != 0) {
+            if (!state.finish()) {
                 throw owner.protocol(sceneName,
                     "Scene body ends in an incomplete UTF-8 sequence");
             }
         }
     }
 
-    /** Strict UTF-8 validator for the producer-side streaming writer. */
+    /** Producer-side wrapper preserving direction/record protocol context. */
     private static final class Utf8StreamValidator {
         private final String direction;
         private final int index;
         private final String type;
         private final String sceneName;
-        private int continuationCount;
-        private int codePoint;
-        private int firstContinuationMin = 0x80;
-        private int firstContinuationMax = 0xbf;
+        private final Utf8State state = new Utf8State();
 
         private Utf8StreamValidator(
             String direction,
@@ -1560,55 +1327,13 @@ public final class SceneSyncWireCodec {
         }
 
         private void acceptByte(int value) throws ProtocolException {
-            if (continuationCount > 0) {
-                if (value < firstContinuationMin
-                    || value > firstContinuationMax) {
-                    throw invalid();
-                }
-                codePoint = (codePoint << 6) | (value & 0x3f);
-                continuationCount--;
-                firstContinuationMin = 0x80;
-                firstContinuationMax = 0xbf;
-                if (continuationCount == 0
-                    && (codePoint > 0x10ffff
-                        || (codePoint >= 0xd800 && codePoint <= 0xdfff))) {
-                    throw invalid();
-                }
-                return;
+            if (!state.accept(value)) {
+                throw invalid();
             }
-            if (value <= 0x7f) {
-                return;
-            }
-            if (value >= 0xc2 && value <= 0xdf) {
-                continuationCount = 1;
-                codePoint = value & 0x1f;
-                return;
-            }
-            if (value >= 0xe0 && value <= 0xef) {
-                continuationCount = 2;
-                codePoint = value & 0x0f;
-                if (value == 0xe0) {
-                    firstContinuationMin = 0xa0;
-                } else if (value == 0xed) {
-                    firstContinuationMax = 0x9f;
-                }
-                return;
-            }
-            if (value >= 0xf0 && value <= 0xf4) {
-                continuationCount = 3;
-                codePoint = value & 0x07;
-                if (value == 0xf0) {
-                    firstContinuationMin = 0x90;
-                } else if (value == 0xf4) {
-                    firstContinuationMax = 0x8f;
-                }
-                return;
-            }
-            throw invalid();
         }
 
         private void finish() throws ProtocolException {
-            if (continuationCount != 0) {
+            if (!state.finish()) {
                 throw invalid();
             }
         }

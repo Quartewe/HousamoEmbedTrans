@@ -4,6 +4,7 @@ import com.quarty.housamoembedtrans.bridge.SceneSyncWireCodec;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 import com.quarty.housamoembedtrans.storage.PendingSceneApplyStore;
 import com.quarty.housamoembedtrans.storage.SceneSyncCycleSnapshot;
+import com.quarty.housamoembedtrans.storage.SceneDigest;
 
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
@@ -12,7 +13,6 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -2012,22 +2012,6 @@ public final class SceneSyncOperation implements AutoCloseable {
         return target.size() <= SceneSyncWireCodec.MAX_SCENES;
     }
 
-    private static void drain(InputStream input, int bodyLength)
-        throws IOException {
-        byte[] buffer = new byte[8192];
-        int remaining = bodyLength;
-        while (remaining > 0) {
-            int read = input.read(buffer, 0, Math.min(buffer.length, remaining));
-            if (read < 0) {
-                throw new IOException("early EOF while draining Scene body");
-            }
-            if (read == 0) {
-                continue;
-            }
-            remaining -= read;
-        }
-    }
-
     private static byte[] readBody(InputStream input, int bodyLength)
         throws IOException {
         byte[] bytes = new byte[bodyLength];
@@ -2046,25 +2030,11 @@ public final class SceneSyncOperation implements AutoCloseable {
     }
 
     private static byte[] sha256(byte[] bytes) {
-        MessageDigest digest = newDigest();
-        return digest.digest(bytes);
+        return SceneDigest.sha256(bytes);
     }
 
     private static String hex(byte[] bytes) {
-        StringBuilder output = new StringBuilder(bytes.length * 2);
-        for (byte value : bytes) {
-            output.append(Character.forDigit((value >>> 4) & 0x0f, 16));
-            output.append(Character.forDigit(value & 0x0f, 16));
-        }
-        return output.toString();
-    }
-
-    private static MessageDigest newDigest() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
+        return SceneDigest.lowerHex(bytes);
     }
 
     private PendingResult failure(

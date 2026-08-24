@@ -3,10 +3,8 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.SceneSyncUiVisibility;
-import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Typeface;
@@ -49,6 +47,13 @@ public final class SceneFilesActivity extends AppCompatActivity {
         SceneSyncRuntimeState.getInstance();
     private final SceneSyncUiVisibility.ActivityFlag visibilityFlag =
         SceneSyncUiVisibility.newSceneFilesFlag();
+    private final SceneSyncRuntimeBinding runtimeBinding =
+        new SceneSyncRuntimeBinding(
+            this,
+            runtimeState,
+            visibilityFlag,
+            this::acceptRuntimeSnapshot
+        );
     private final List<SceneStore.SceneInfo> scenes = new ArrayList<>();
     private final List<String> sceneFileLabels = new ArrayList<>();
     private final List<String> sceneLanguages = new ArrayList<>();
@@ -77,11 +82,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
     private ActivityResultLauncher<Uri> exportLauncher;
     private SceneSyncRuntimeState.Snapshot runtimeSnapshot =
         runtimeState.getSnapshot();
-    private SceneSyncRuntimeState.Listener runtimeListener;
     private boolean busy = true;
     private boolean refreshRequestPending;
-    private boolean started;
-    private int lifecycleGeneration;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -198,30 +200,12 @@ public final class SceneFilesActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        started = true;
-        int generation = ++lifecycleGeneration;
-        runtimeListener = changed -> runOnUiThread(() -> {
-            if (!started
-                || lifecycleGeneration != generation
-                || isFinishing()
-                || isDestroyed()) {
-                return;
-            }
-            acceptRuntimeSnapshot(changed);
-        });
-        visibilityFlag.setVisible(true);
-        runtimeState.addListener(runtimeListener);
+        runtimeBinding.start();
     }
 
     @Override
     protected void onStop() {
-        started = false;
-        lifecycleGeneration++;
-        SceneSyncRuntimeState.Listener listener = runtimeListener;
-        runtimeListener = null;
-        runtimeState.removeListener(listener);
-        visibilityFlag.setVisible(false);
-        TranslationStatusNotification.refresh(this);
+        runtimeBinding.stop();
         super.onStop();
     }
 
@@ -253,7 +237,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
             R.string.scene_files_runtime_status,
             service,
             game,
-            phaseLabel(snapshot.phase),
+            SceneSyncUiText.phaseLabel(this, snapshot.phase),
             snapshot.activeApiJobs
         ));
 
@@ -283,23 +267,6 @@ public final class SceneFilesActivity extends AppCompatActivity {
             pendingConflicts > 0 ? Typeface.BOLD : Typeface.NORMAL
         );
         renderSceneSummaries(snapshot.sceneSummaries);
-    }
-
-    private String phaseLabel(SceneSyncRuntimeState.Phase phase) {
-        if (phase == null) {
-            return getString(R.string.scene_sync_phase_idle);
-        }
-        switch (phase) {
-            case FULL_SYNC:
-                return getString(R.string.scene_sync_phase_full_sync);
-            case MANUAL_REFRESH:
-                return getString(R.string.scene_sync_phase_refresh);
-            case MANUAL_APPLY:
-                return getString(R.string.scene_sync_phase_manual_apply);
-            case IDLE:
-            default:
-                return getString(R.string.scene_sync_phase_idle);
-        }
     }
 
     private String refreshOutcomeLabel(
@@ -1020,11 +987,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        started = false;
-        lifecycleGeneration++;
-        SceneSyncRuntimeState.Listener listener = runtimeListener;
-        runtimeListener = null;
-        runtimeState.removeListener(listener);
+        runtimeBinding.stop();
         visibilityFlag.close();
         ioExecutor.shutdownNow();
         super.onDestroy();

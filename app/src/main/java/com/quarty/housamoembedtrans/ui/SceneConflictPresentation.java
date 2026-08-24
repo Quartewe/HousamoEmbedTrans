@@ -83,11 +83,6 @@ public final class SceneConflictPresentation {
             return Objects.hash(labelIndex, pageNo, commandIndex, subIndex);
         }
 
-        /** Compact user-facing coordinate; it contains no JSON or hashes. */
-        public String coordinate() {
-            return labelIndex + "/" + pageNo + "/" + commandIndex + "/" + subIndex;
-        }
-
         private String internalKey() {
             return labelIndex + ":" + pageNo + ":" + commandIndex + ":" + subIndex;
         }

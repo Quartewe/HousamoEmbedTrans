@@ -4,7 +4,6 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.SceneSyncUiVisibility;
-import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.ConflictStore;
 import com.quarty.housamoembedtrans.storage.SceneStore;
 import com.quarty.housamoembedtrans.translation.TranslationService;
@@ -45,6 +44,13 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         SceneSyncRuntimeState.getInstance();
     private final SceneSyncUiVisibility.ActivityFlag visibilityFlag =
         SceneSyncUiVisibility.newSceneConflictsFlag();
+    private final SceneSyncRuntimeBinding runtimeBinding =
+        new SceneSyncRuntimeBinding(
+            this,
+            runtimeState,
+            visibilityFlag,
+            this::acceptRuntimeSnapshot
+        );
     private final ExecutorService ioExecutor =
         Executors.newSingleThreadExecutor();
     private final ArrayList<ConflictRow> conflicts = new ArrayList<>();
@@ -62,10 +68,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
     private boolean reloadRequested;
     private boolean manualActionPending;
     private boolean serviceStartFailed;
-    private boolean started;
     private int loadGeneration;
-    private int lifecycleGeneration;
-    private SceneSyncRuntimeState.Listener runtimeListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,30 +112,12 @@ public final class SceneConflictsActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        started = true;
-        int generation = ++lifecycleGeneration;
-        runtimeListener = changed -> runOnUiThread(() -> {
-            if (!started
-                || lifecycleGeneration != generation
-                || isFinishing()
-                || isDestroyed()) {
-                return;
-            }
-            acceptRuntimeSnapshot(changed);
-        });
-        visibilityFlag.setVisible(true);
-        runtimeState.addListener(runtimeListener);
+        runtimeBinding.start();
     }
 
     @Override
     protected void onStop() {
-        started = false;
-        lifecycleGeneration++;
-        SceneSyncRuntimeState.Listener listener = runtimeListener;
-        runtimeListener = null;
-        runtimeState.removeListener(listener);
-        visibilityFlag.setVisible(false);
-        TranslationStatusNotification.refresh(this);
+        runtimeBinding.stop();
         super.onStop();
     }
 
@@ -147,8 +132,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        started = false;
-        lifecycleGeneration++;
+        runtimeBinding.stop();
         loadGeneration++;
         ioExecutor.shutdownNow();
         visibilityFlag.close();
@@ -234,26 +218,9 @@ public final class SceneConflictsActivity extends AppCompatActivity {
             R.string.scene_conflicts_runtime_status,
             service,
             game,
-            phaseLabel(snapshot.phase),
+            SceneSyncUiText.phaseLabel(this, snapshot.phase),
             snapshot.pendingConflictCount
         ));
-    }
-
-    private String phaseLabel(SceneSyncRuntimeState.Phase phase) {
-        if (phase == null) {
-            return getString(R.string.scene_sync_phase_idle);
-        }
-        switch (phase) {
-            case FULL_SYNC:
-                return getString(R.string.scene_sync_phase_full_sync);
-            case MANUAL_REFRESH:
-                return getString(R.string.scene_sync_phase_refresh);
-            case MANUAL_APPLY:
-                return getString(R.string.scene_sync_phase_manual_apply);
-            case IDLE:
-            default:
-                return getString(R.string.scene_sync_phase_idle);
-        }
     }
 
     private void requestConflictReload() {

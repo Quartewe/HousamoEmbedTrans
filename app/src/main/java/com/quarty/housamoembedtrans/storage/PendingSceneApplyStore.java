@@ -9,20 +9,14 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -186,87 +180,37 @@ public final class PendingSceneApplyStore {
         byte[] exactCandidateBytes = candidateBytes;
         String candidateHash = sha256Hex(exactCandidateBytes);
         normalizeScene(sceneName);
-        ensureDirectory(rootDirectory);
 
-        File incoming = incomingDirectory(sceneName);
-        if (incoming.exists() || !incoming.mkdir()) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "could not create pending incoming directory"
-            );
-        }
-        File formal = formalDirectory(sceneName);
-        File backup = backupDirectory(sceneName);
         long createdAt = System.currentTimeMillis();
-        boolean oldMoved = false;
-        boolean published = false;
-        try {
-            writeExact(
-                new File(incoming, SCENE_FILE_NAME),
-                exactCandidateBytes
-            );
-            writeState(
-                incoming,
-                sceneName,
-                createdAt,
-                expectedGameSha256,
-                candidateHash,
-                overwriteIfGameChanged
-            );
-            if (formal.exists()) {
-                if (backup.exists()) {
-                    throw new PendingFailure(
-                        FailureKind.IO,
-                        "fixed pending backup slot is not empty"
-                    );
-                }
-                if (!formal.renameTo(backup)) {
-                    throw new PendingFailure(
-                        FailureKind.IO,
-                        "could not stage previous pending directive"
-                    );
-                }
-                oldMoved = true;
-            }
-            if (!incoming.renameTo(formal)) {
-                throw new PendingFailure(
-                    FailureKind.IO,
-                    "could not publish pending directive"
+        TransactionalSceneSlots.publishReplacement(
+            rootDirectory,
+            sceneName,
+            INCOMING_PREFIX,
+            BACKUP_PREFIX,
+            PendingSceneApplyStore::slotIoFailure,
+            incoming -> {
+                writeExact(
+                    new File(incoming, SCENE_FILE_NAME),
+                    exactCandidateBytes
+                );
+                writeState(
+                    incoming,
+                    sceneName,
+                    createdAt,
+                    expectedGameSha256,
+                    candidateHash,
+                    overwriteIfGameChanged
                 );
             }
-            published = true;
-            if (!deleteRecursively(backup)) {
-                throw new PendingFailure(
-                    FailureKind.IO,
-                    "could not remove published pending backup"
-                );
-            }
-            return new PendingRecord(
-                sceneName,
-                exactCandidateBytes,
-                createdAt,
-                expectedGameSha256,
-                candidateHash,
-                overwriteIfGameChanged
-            );
-        } catch (IOException e) {
-            if (oldMoved
-                && !formal.exists()
-                && !backup.renameTo(formal)) {
-                e.addSuppressed(new IOException(
-                    "could not restore previous pending directive"
-                ));
-            }
-            throw e;
-        } finally {
-            if (!published && incoming.exists()
-                && !deleteRecursively(incoming)) {
-                throw new PendingFailure(
-                    FailureKind.IO,
-                    "could not remove incomplete pending directive"
-                );
-            }
-        }
+        );
+        return new PendingRecord(
+            sceneName,
+            exactCandidateBytes,
+            createdAt,
+            expectedGameSha256,
+            candidateHash,
+            overwriteIfGameChanged
+        );
     }
 
     /** Reads and verifies one complete directive. */
@@ -339,7 +283,17 @@ public final class PendingSceneApplyStore {
                 );
                 continue;
             }
-            String sceneName = slotSceneName(entry, BACKUP_PREFIX);
+            String sceneName;
+            try {
+                sceneName = TransactionalSceneSlots.slotSceneName(
+                    entry,
+                    BACKUP_PREFIX,
+                    STATE_FILE_NAME,
+                    PendingSceneApplyStore::readSlotSceneName
+                );
+            } catch (TransactionalSceneSlots.SlotFailure e) {
+                throw mapSlotFailure(e);
+            }
             if (sceneName != null) {
                 sceneNames.add(sceneName);
                 continue;
@@ -380,286 +334,87 @@ public final class PendingSceneApplyStore {
      * incoming-only slot is uncommitted and is deliberately not reported.
      */
     private boolean normalizeScene(String sceneName) throws IOException {
-        ensureDirectory(rootDirectory);
-        File formal = formalDirectory(sceneName);
-        boolean formalValid = false;
-        PendingFailure formalFailure = null;
-        if (formal.exists()) {
-            try {
-                readDirectory(formal, sceneName);
-                formalValid = true;
-            } catch (PendingFailure e) {
-                if (e.kind == FailureKind.IO) {
-                    throw e;
-                }
-                formalFailure = e;
-            }
-        }
-
-        cleanupAllIncoming();
-
-        if (formalValid) {
-            for (File backup : backupDirectoriesForCleanup(sceneName)) {
-                cleanupOrThrow(
-                    backup,
-                    "could not remove stale pending backup directory"
-                );
-            }
-            return false;
-        }
-
-        List<File> validBackups = new ArrayList<>();
-        for (File backup : slotDirectories(sceneName, BACKUP_PREFIX)) {
-            try {
-                readDirectory(backup, sceneName);
-                validBackups.add(backup);
-            } catch (PendingFailure e) {
-                if (e.kind == FailureKind.IO) {
-                    throw e;
-                }
-                cleanupOrThrow(
-                    backup,
-                    "could not remove invalid pending backup directory"
-                );
-            }
-        }
-
-        if (validBackups.size() > 1) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "multiple valid pending backups have no deterministic winner"
+        try {
+            return TransactionalSceneSlots.normalize(
+                rootDirectory,
+                sceneName,
+                INCOMING_PREFIX,
+                BACKUP_PREFIX,
+                STATE_FILE_NAME,
+                PendingSceneApplyStore::readSlotSceneName,
+                (directory, name) -> readDirectory(directory, name),
+                failure -> failure instanceof PendingFailure
+                    && ((PendingFailure) failure).kind == FailureKind.IO,
+                PendingSceneApplyStore::slotIoFailure,
+                true
             );
-        }
-        if (validBackups.size() == 1) {
-            if (formal.exists()) {
-                cleanupOrThrow(
-                    formal,
-                    "could not remove damaged pending directive"
-                );
-            }
-            if (!validBackups.get(0).renameTo(formal)) {
-                throw new PendingFailure(
-                    FailureKind.IO,
-                    "could not restore pending backup"
-                );
-            }
-            return false;
-        }
-        if (formalFailure != null) {
-            cleanupOrThrow(
-                formal,
-                "could not discard damaged pending directive"
-            );
-            return true;
-        }
-        return false;
-    }
-
-    private List<File> slotDirectories(String sceneName, String prefix)
-        throws PendingFailure {
-        List<File> matches = new ArrayList<>();
-        if (!rootDirectory.isDirectory()) {
-            return matches;
-        }
-        File[] entries = rootDirectory.listFiles();
-        if (entries == null) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "could not enumerate pending root"
-            );
-        }
-        for (File entry : entries) {
-            if (sceneName.equals(slotSceneName(entry, prefix))) {
-                matches.add(entry);
-            }
-        }
-        return matches;
-    }
-
-    private List<File> backupDirectoriesForCleanup(String sceneName)
-        throws PendingFailure {
-        List<File> matches = new ArrayList<>();
-        if (!rootDirectory.isDirectory()) {
-            return matches;
-        }
-        File[] entries = rootDirectory.listFiles();
-        if (entries == null) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "could not enumerate pending root"
-            );
-        }
-        for (File entry : entries) {
-            if (!entry.getName().startsWith(BACKUP_PREFIX)) {
-                continue;
-            }
-            if (backupBelongsToScene(entry, sceneName)) {
-                matches.add(entry);
-            }
-        }
-        return matches;
-    }
-
-    private static boolean backupBelongsToScene(
-        File entry,
-        String sceneName
-    ) throws PendingFailure {
-        String suffix = entry.getName().substring(BACKUP_PREFIX.length());
-        String directName = SceneStore.isValidSceneName(suffix) ? suffix : null;
-        String legacyName = legacySceneName(suffix);
-        String stateName = slotSceneNameFromState(entry, BACKUP_PREFIX);
-        if (stateName != null) {
-            if (!stateName.equals(directName) && !stateName.equals(legacyName)) {
-                throw new PendingFailure(
-                    FailureKind.INVALID_STATE,
-                    "pending backup state SceneName does not match its slot"
-                );
-            }
-            return sceneName.equals(stateName);
-        }
-        if (directName != null && legacyName != null
-            && !directName.equals(legacyName)) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "pending backup identity is ambiguous without state"
-            );
-        }
-        return sceneName.equals(directName != null ? directName : legacyName);
-    }
-
-    private void cleanupAllIncoming() throws PendingFailure {
-        if (!rootDirectory.isDirectory()) {
-            return;
-        }
-        File[] entries = rootDirectory.listFiles();
-        if (entries == null) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "could not enumerate pending root"
-            );
-        }
-        for (File entry : entries) {
-            if (entry.getName().startsWith(INCOMING_PREFIX)) {
-                cleanupOrThrow(
-                    entry,
-                    "could not remove uncommitted pending incoming directory"
-                );
-            }
+        } catch (TransactionalSceneSlots.SlotFailure e) {
+            throw mapSlotFailure(e);
         }
     }
 
-    private static String slotSceneName(File entry, String prefix)
-        throws PendingFailure {
-        if (entry == null || !entry.getName().startsWith(prefix)) {
-            return null;
-        }
-        String stateName = slotSceneNameFromState(entry, prefix);
-        if (stateName != null) {
-            String suffix = entry.getName().substring(prefix.length());
-            String directName = SceneStore.isValidSceneName(suffix) ? suffix : null;
-            String legacyName = legacySceneName(suffix);
-            if (stateName.equals(directName) || stateName.equals(legacyName)) {
-                return stateName;
-            }
-            throw new PendingFailure(
-                FailureKind.INVALID_STATE,
-                "pending backup state SceneName does not match its slot"
-            );
-        }
-        String suffix = entry.getName().substring(prefix.length());
-        String legacyName = legacySceneName(suffix);
-        String directName = SceneStore.isValidSceneName(suffix) ? suffix : null;
-        if (legacyName != null && directName != null
-            && !legacyName.equals(directName)) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "pending residue SceneName is ambiguous without state"
-            );
-        }
-        return legacyName != null ? legacyName : directName;
-    }
-
-    private static String slotSceneNameFromState(File entry, String prefix)
-        throws PendingFailure {
-        if (entry == null || !entry.getName().startsWith(prefix)) {
-            return null;
-        }
-        File stateFile = new File(entry, STATE_FILE_NAME);
-        if (!stateFile.isFile()) {
-            return null;
-        }
+    private static String readSlotSceneName(File stateFile)
+        throws TransactionalSceneSlots.SlotFailure {
         try (InputStream input = new FileInputStream(stateFile)) {
             byte[] bytes = IoUtils.readAllBytesLimited(input, MAX_STATE_BYTES);
             JSONObject state = new JSONObject(decodeStrictUtf8(bytes));
             Object value = state.get("scene_name");
-            return value instanceof String
-                && SceneStore.isValidSceneName((String) value)
-                ? (String) value
-                : null;
+            if (!(value instanceof String)
+                || !SceneStore.isValidSceneName((String) value)) {
+                throw new TransactionalSceneSlots.SlotFailure(
+                    TransactionalSceneSlots.FailureKind.INVALID_STATE,
+                    "pending slot state SceneName is invalid"
+                );
+            }
+            return (String) value;
+        } catch (TransactionalSceneSlots.SlotFailure e) {
+            throw e;
         } catch (IOException e) {
-            throw new PendingFailure(
-                FailureKind.IO,
+            throw new TransactionalSceneSlots.SlotFailure(
+                TransactionalSceneSlots.FailureKind.IO,
                 "could not inspect pending slot state",
                 e
             );
-        } catch (Exception ignored) {
-            return null;
+        } catch (Exception e) {
+            throw new TransactionalSceneSlots.SlotFailure(
+                TransactionalSceneSlots.FailureKind.INVALID_STATE,
+                "pending slot state is invalid",
+                e
+            );
         }
     }
 
-    private static String legacySceneName(String suffix) {
-        if (suffix.length() > 37
-            && suffix.charAt(suffix.length() - 37) == '-') {
-            String uuid = suffix.substring(suffix.length() - 36);
-            String sceneName = suffix.substring(0, suffix.length() - 37);
-            if (SceneStore.isValidSceneName(sceneName) && isUuid(uuid)) {
-                return sceneName;
-            }
-        }
-        return SceneStore.isValidSceneName(suffix) ? suffix : null;
+    private static PendingFailure mapSlotFailure(
+        TransactionalSceneSlots.SlotFailure failure
+    ) {
+        return new PendingFailure(
+            failure.kind == TransactionalSceneSlots.FailureKind.IO
+                ? FailureKind.IO
+                : FailureKind.INVALID_STATE,
+            failure.getMessage(),
+            failure
+        );
     }
 
-    private static boolean isUuid(String value) {
-        if (value.length() != 36) {
-            return false;
+    static IOException slotIoFailure(
+        String message,
+        Throwable cause
+    ) {
+        if ("slot file parent is missing".equals(message)) {
+            message = "pending file parent is missing";
+        } else if ("could not write slot file".equals(message)) {
+            message = "could not write pending file";
         }
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            boolean hex = (c >= '0' && c <= '9')
-                || (c >= 'a' && c <= 'f')
-                || (c >= 'A' && c <= 'F');
-            if (i == 8 || i == 13 || i == 18 || i == 23) {
-                if (c != '-') {
-                    return false;
-                }
-            } else if (!hex) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private File incomingDirectory(String sceneName) {
-        return new File(rootDirectory, INCOMING_PREFIX + sceneName);
-    }
-
-    private File backupDirectory(String sceneName) {
-        return new File(rootDirectory, BACKUP_PREFIX + sceneName);
+        return new PendingFailure(FailureKind.IO, message, cause);
     }
 
     private static void cleanupOrThrow(File file, String message)
         throws PendingFailure {
-        if (file.exists() && !deleteRecursively(file)) {
-            throw new PendingFailure(FailureKind.IO, message);
-        }
-    }
-
-    private static boolean isDiscardable(FailureKind kind) {
-        return kind == FailureKind.INVALID_NAME
-            || kind == FailureKind.INVALID_STATE
-            || kind == FailureKind.INVALID_CANDIDATE
-            || kind == FailureKind.MISSING_FILE
-            || kind == FailureKind.HASH_MISMATCH;
+        TransactionalSceneSlots.cleanupOrThrow(
+            file,
+            message,
+            PendingSceneApplyStore::slotIoFailure
+        );
     }
 
     private PendingRecord readDirectory(File directory, String expectedName)
@@ -900,37 +655,11 @@ public final class PendingSceneApplyStore {
     }
 
     private static void writeExact(File file, byte[] bytes) throws IOException {
-        File parent = file.getParentFile();
-        if (parent == null || !parent.isDirectory()) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "pending file parent is missing"
-            );
-        }
-        try (FileOutputStream output = new FileOutputStream(file)) {
-            output.write(bytes);
-            output.flush();
-            output.getFD().sync();
-        } catch (IOException e) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "could not write pending file",
-                e
-            );
-        }
-    }
-
-    private static void ensureDirectory(File directory) throws IOException {
-        if (directory.isDirectory()) {
-            return;
-        }
-        if (directory.exists()
-            || (!directory.mkdirs() && !directory.isDirectory())) {
-            throw new PendingFailure(
-                FailureKind.IO,
-                "could not create pending root"
-            );
-        }
+        TransactionalSceneSlots.writeExact(
+            file,
+            bytes,
+            PendingSceneApplyStore::slotIoFailure
+        );
     }
 
     private static String requireSceneName(String sceneName)
@@ -968,44 +697,16 @@ public final class PendingSceneApplyStore {
     }
 
     private static String sha256Hex(byte[] bytes) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
-            StringBuilder output = new StringBuilder(64);
-            for (byte value : digest) {
-                output.append(Character.forDigit((value >>> 4) & 0xf, 16));
-                output.append(Character.forDigit(value & 0xf, 16));
-            }
-            return output.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
+        return SceneDigest.sha256Hex(bytes);
     }
 
     private static String decodeStrictUtf8(byte[] bytes)
         throws CharacterCodingException {
-        return StandardCharsets.UTF_8.newDecoder()
-            .onMalformedInput(CodingErrorAction.REPORT)
-            .onUnmappableCharacter(CodingErrorAction.REPORT)
-            .decode(ByteBuffer.wrap(bytes))
-            .toString();
+        return TransactionalSceneSlots.decodeStrictUtf8(bytes);
     }
 
     private static boolean deleteRecursively(File file) {
-        if (file == null || !file.exists()) {
-            return true;
-        }
-        if (file.isDirectory()) {
-            File[] children = file.listFiles();
-            if (children == null) {
-                return false;
-            }
-            for (File child : children) {
-                if (!deleteRecursively(child)) {
-                    return false;
-                }
-            }
-        }
-        return file.delete();
+        return TransactionalSceneSlots.deleteRecursively(file);
     }
 
     private static List<String> immutableSorted(List<String> values) {

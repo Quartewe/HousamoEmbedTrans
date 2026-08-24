@@ -8,6 +8,7 @@ import com.quarty.housamoembedtrans.storage.SceneStore;
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -152,13 +153,6 @@ public final class SceneManualConflictController {
                         // the formal local view.
                         return OutcomeKind.GAME_DEFERRED;
                     }
-                    try {
-                        action.commitIfActive(
-                            () -> pendingStore.remove(selectedScene)
-                        );
-                    } finally {
-                        invalidateConflictAndRequestAutoSync(selectedScene);
-                    }
                     if (snapshot != null) {
                         IGameScenePort port = checkedPort(snapshot);
                         publishResolvedScene(
@@ -169,10 +163,13 @@ public final class SceneManualConflictController {
                             action
                         );
                     }
-                    return disposition[0]
-                        == SceneStore.MutationDisposition.DEFERRED
-                        ? OutcomeKind.GAME_DEFERRED
-                        : OutcomeKind.GAME_APPLIED;
+                    action.commitIfActive(
+                        () -> pendingStore.remove(selectedScene)
+                    );
+                    action.commitIfActive(
+                        () -> completeResolvedConflict(selectedScene)
+                    );
+                    return OutcomeKind.GAME_APPLIED;
                 }
             )
         );
@@ -228,19 +225,18 @@ public final class SceneManualConflictController {
                             "manual HET apply was not successful"
                         );
                     }
-                    try {
-                        action.commitIfActive(
-                            () -> pendingStore.remove(selectedScene)
-                        );
-                    } finally {
-                        invalidateConflictAndRequestAutoSync(selectedScene);
-                    }
                     publishResolvedScene(
                         snapshot,
                         port,
                         selectedScene,
                         applyCoordinator,
                         action
+                    );
+                    action.commitIfActive(
+                        () -> pendingStore.remove(selectedScene)
+                    );
+                    action.commitIfActive(
+                        () -> completeResolvedConflict(selectedScene)
                     );
                     return OutcomeKind.HET_APPLIED;
                 }
@@ -283,15 +279,65 @@ public final class SceneManualConflictController {
         }
     }
 
-    private void invalidateConflictAndRequestAutoSync(String sceneName) {
+    private void completeResolvedConflict(String sceneName) throws IOException {
+        completeResolvedConflict(conflictStore, coordinator, sceneName);
+    }
+
+    /**
+     * Package-private durable batch-end seam used by host fixtures.  The
+     * instance controller delegates to this exact implementation so tests do
+     * not reimplement claim deletion or strict backlog classification.
+     */
+    static void completeResolvedConflict(
+        ConflictStore conflictStore,
+        SceneSyncCoordinator coordinator,
+        String sceneName
+    ) throws IOException {
+        completeResolvedConflict(
+            conflictStore,
+            coordinator,
+            sceneName,
+            conflictStore::listClaimedSceneNamesStrict
+        );
+    }
+
+    @FunctionalInterface
+    interface StrictClaimEnumerator {
+        List<String> list() throws IOException;
+    }
+
+    static void completeResolvedConflict(
+        ConflictStore conflictStore,
+        SceneSyncCoordinator coordinator,
+        String sceneName,
+        StrictClaimEnumerator claimEnumerator
+    ) throws IOException {
+        if (conflictStore == null || coordinator == null
+            || claimEnumerator == null) {
+            throw new IllegalArgumentException(
+                "conflictStore and coordinator cannot be null"
+            );
+        }
+        // The formal claim is the durable completion boundary.  Never remove
+        // it before pending cleanup and (when online) policy publication have
+        // both succeeded, otherwise a failed retry would lose the conflict.
+        conflictStore.remove(sceneName);
+        final boolean backlogEmpty;
         try {
-            conflictStore.remove(sceneName);
-        } catch (Exception e) {
+            // The convenience complete-name view hides damaged claims;
+            // only strict formal enumeration can prove that the durable
+            // conflict backlog is empty and therefore end this batch.
+            backlogEmpty = claimEnumerator.list().isEmpty();
+        } catch (IOException e) {
             Log.w(
                 TAG,
-                "Could not remove resolved conflict scene=" + sceneName,
+                "Could not verify conflict backlog after scene=" + sceneName,
                 e
             );
+            return;
+        }
+        if (!backlogEmpty) {
+            return;
         }
         SceneSyncCoordinator.TriggerResult trigger =
             coordinator.requestAutoSync();
