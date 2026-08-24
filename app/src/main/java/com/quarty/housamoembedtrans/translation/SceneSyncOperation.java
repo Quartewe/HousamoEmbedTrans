@@ -1440,8 +1440,8 @@ public final class SceneSyncOperation implements AutoCloseable {
         if (hetScene == null) {
             throw new IOException("HET Scene snapshot is missing");
         }
-        byte[] gameHash = sha256(gameScene.bytes);
-        byte[] hetHash = sha256(hetScene.bytes);
+        byte[] gameHash = SceneDigest.sha256(gameScene.bytes);
+        byte[] hetHash = SceneDigest.sha256(hetScene.bytes);
         boolean currentClaimRetained =
             conflictResolver.retainCurrentClaim(
                 sceneName,
@@ -1518,13 +1518,15 @@ public final class SceneSyncOperation implements AutoCloseable {
         SceneStore.RawSceneSnapshot currentHet =
             sceneStore.readRawSceneSnapshot(sceneName);
         if (currentHet == null
-            || !pending.candidateSha256.equals(hex(sha256(currentHet.bytes)))) {
+            || !pending.candidateSha256.equals(
+                SceneDigest.lowerHex(SceneDigest.sha256(currentHet.bytes))
+            )) {
             pendingApplyStore.remove(sceneName);
             blockedNames.remove(sceneName);
             return false;
         }
-        byte[] currentHash = sha256(gameScene.bytes);
-        byte[] candidateHash = sha256(pending.candidateBytes);
+        byte[] currentHash = SceneDigest.sha256(gameScene.bytes);
+        byte[] candidateHash = SceneDigest.sha256(pending.candidateBytes);
         if (MessageDigest.isEqual(currentHash, candidateHash)) {
             conflictResolver.removeConflict(sceneName);
             pendingApplyStore.remove(sceneName);
@@ -1533,7 +1535,7 @@ public final class SceneSyncOperation implements AutoCloseable {
         }
 
         boolean expected = pending.expectedGameSha256.equals(
-            hex(currentHash)
+            SceneDigest.lowerHex(currentHash)
         );
         if (expected || pending.overwriteIfGameChanged) {
             applyPendingCandidate(sceneName, pending.candidateBytes);
@@ -2027,14 +2029,6 @@ public final class SceneSyncOperation implements AutoCloseable {
             offset += read;
         }
         return bytes;
-    }
-
-    private static byte[] sha256(byte[] bytes) {
-        return SceneDigest.sha256(bytes);
-    }
-
-    private static String hex(byte[] bytes) {
-        return SceneDigest.lowerHex(bytes);
     }
 
     private PendingResult failure(
