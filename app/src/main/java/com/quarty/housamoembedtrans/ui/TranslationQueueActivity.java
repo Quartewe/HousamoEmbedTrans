@@ -3,12 +3,12 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
-import com.quarty.housamoembedtrans.storage.SceneContextStore;
-import com.quarty.housamoembedtrans.storage.SummaryJobStore;
-import com.quarty.housamoembedtrans.translation.TerminalOutcome;
-import com.quarty.housamoembedtrans.translation.TranslationJobStore;
+import com.quarty.housamoembedtrans.context.store.SceneContextStore;
+import com.quarty.housamoembedtrans.summary.job.SummaryJobStore;
+import com.quarty.housamoembedtrans.translation.delivery.TerminalOutcome;
+import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 import com.quarty.housamoembedtrans.translation.TranslationService;
-import com.quarty.housamoembedtrans.translation.TranslationTaskExecutor;
+import com.quarty.housamoembedtrans.translation.job.TranslationTaskExecutor;
 
 import android.os.Bundle;
 import android.os.Handler;

@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.bridge;
+import com.quarty.housamoembedtrans.translation.TranslationService;
 
-import com.quarty.housamoembedtrans.storage.SceneSyncStartupSnapshot;
+import com.quarty.housamoembedtrans.scene.sync.SceneSyncStartupSnapshot;
 
 import com.quarty.housamoembedtrans.translation.ITranslationCallback;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;

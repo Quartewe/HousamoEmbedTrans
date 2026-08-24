@@ -1,7 +1,7 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
-import com.quarty.housamoembedtrans.storage.RejectedApiResultStore;
+import com.quarty.housamoembedtrans.provider.RejectedApiResultStore;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;

@@ -1,7 +1,7 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
-import com.quarty.housamoembedtrans.storage.ConfigStore;
+import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
 import android.content.Context;
 import android.graphics.Typeface;

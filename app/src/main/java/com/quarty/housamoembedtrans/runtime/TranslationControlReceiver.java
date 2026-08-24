@@ -1,4 +1,5 @@
 package com.quarty.housamoembedtrans.runtime;
+import com.quarty.housamoembedtrans.translation.TranslationService;
 
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 

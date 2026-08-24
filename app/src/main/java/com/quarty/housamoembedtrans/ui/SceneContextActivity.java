@@ -1,17 +1,17 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
-import com.quarty.housamoembedtrans.storage.ConfigStore;
-import com.quarty.housamoembedtrans.storage.GroupContextEntry;
-import com.quarty.housamoembedtrans.storage.SceneContextStore;
-import com.quarty.housamoembedtrans.storage.SceneStore;
-import com.quarty.housamoembedtrans.storage.SummaryJobStore;
-import com.quarty.housamoembedtrans.translation.ContextCompressionCoordinator;
-import com.quarty.housamoembedtrans.translation.ContextReviewCoordinator;
-import com.quarty.housamoembedtrans.translation.ContextReviewGate;
-import com.quarty.housamoembedtrans.translation.ContextReviewPlanner;
-import com.quarty.housamoembedtrans.translation.GroupCompressionCoordinator;
-import com.quarty.housamoembedtrans.translation.TranslationJobStore;
+import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.context.model.GroupContextEntry;
+import com.quarty.housamoembedtrans.context.store.SceneContextStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
+import com.quarty.housamoembedtrans.summary.job.SummaryJobStore;
+import com.quarty.housamoembedtrans.summary.policy.ContextCompressionCoordinator;
+import com.quarty.housamoembedtrans.context.review.ContextReviewCoordinator;
+import com.quarty.housamoembedtrans.context.review.ContextReviewGate;
+import com.quarty.housamoembedtrans.context.review.ContextReviewPlanner;
+import com.quarty.housamoembedtrans.summary.policy.GroupCompressionCoordinator;
+import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 
 import android.content.Intent;
 import android.content.ClipData;

@@ -3,7 +3,7 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.SceneSyncUiVisibility;
-import com.quarty.housamoembedtrans.storage.SceneStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 
 import android.content.Intent;
 import android.database.Cursor;

@@ -4,12 +4,12 @@ import com.bytedance.shadowhook.ShadowHook;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.bridge.SceneSyncWireCodec;
 import com.quarty.housamoembedtrans.bridge.TranslationServiceClient;
-import com.quarty.housamoembedtrans.translation.GameSceneMirrorSource;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
+import com.quarty.housamoembedtrans.scene.sync.GameSceneMirrorSource;
+import com.quarty.housamoembedtrans.scene.sync.SceneMirrorExportCoordinator;
+import com.quarty.housamoembedtrans.scene.sync.SceneSyncStartupSnapshot;
+import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;
-import com.quarty.housamoembedtrans.translation.SceneMirrorExportCoordinator;
-import com.quarty.housamoembedtrans.storage.ConfigStore;
-import com.quarty.housamoembedtrans.storage.SceneStore;
-import com.quarty.housamoembedtrans.storage.SceneSyncStartupSnapshot;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;

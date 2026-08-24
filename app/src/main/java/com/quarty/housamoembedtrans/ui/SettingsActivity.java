@@ -1,11 +1,12 @@
 package com.quarty.housamoembedtrans.ui;
+import com.quarty.housamoembedtrans.provider.ThinkingStrength;
 
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
-import com.quarty.housamoembedtrans.storage.ConfigStore;
-import com.quarty.housamoembedtrans.storage.ApiConcurrencySettings;
-import com.quarty.housamoembedtrans.storage.SceneStore;
-import com.quarty.housamoembedtrans.translation.TranslationApiClient;
+import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.provider.ApiConcurrencySettings;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
+import com.quarty.housamoembedtrans.provider.TranslationApiClient;
 
 import android.Manifest;
 import android.content.Intent;

@@ -4,8 +4,8 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.SceneSyncUiVisibility;
-import com.quarty.housamoembedtrans.storage.ConflictStore;
-import com.quarty.housamoembedtrans.storage.SceneStore;
+import com.quarty.housamoembedtrans.scene.store.ConflictStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.translation.TranslationService;
 
 import android.content.Intent;

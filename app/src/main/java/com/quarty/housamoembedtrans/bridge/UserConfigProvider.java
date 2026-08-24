@@ -1,7 +1,7 @@
 package com.quarty.housamoembedtrans.bridge;
 
-import com.quarty.housamoembedtrans.storage.ConfigStore;
-import com.quarty.housamoembedtrans.storage.SceneStore;
+import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;

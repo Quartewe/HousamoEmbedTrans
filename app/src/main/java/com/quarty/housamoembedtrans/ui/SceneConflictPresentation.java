@@ -1,6 +1,6 @@
 package com.quarty.housamoembedtrans.ui;
 
-import com.quarty.housamoembedtrans.storage.SceneStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 
 import org.json.JSONArray;
 import org.json.JSONException;

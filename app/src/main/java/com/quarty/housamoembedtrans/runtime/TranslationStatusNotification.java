@@ -1,4 +1,5 @@
 package com.quarty.housamoembedtrans.runtime;
+import com.quarty.housamoembedtrans.translation.TranslationService;
 
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.ui.SceneConflictsActivity;
@@ -7,9 +8,9 @@ import com.quarty.housamoembedtrans.ui.SceneFilesActivity;
 import com.quarty.housamoembedtrans.ui.SettingsActivity;
 import com.quarty.housamoembedtrans.ui.TranslationQueueActivity;
 import com.quarty.housamoembedtrans.ui.RejectedApiResultsActivity;
-import com.quarty.housamoembedtrans.translation.ContextReviewGate;
-import com.quarty.housamoembedtrans.translation.TranslationJobStore;
-import com.quarty.housamoembedtrans.storage.SceneStore;
+import com.quarty.housamoembedtrans.context.review.ContextReviewGate;
+import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 
 import android.Manifest;
 import android.app.Notification;
