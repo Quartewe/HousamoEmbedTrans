@@ -17,6 +17,7 @@
 /.codex
 /.vscode
 AGENTS.md
+CONTEXT.md
 PLAN.md
 /tools
 /debug
