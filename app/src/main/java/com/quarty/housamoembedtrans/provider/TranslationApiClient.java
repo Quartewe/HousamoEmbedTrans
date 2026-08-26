@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Provider transport. Translation semantics and validation live in the executor. */
 public final class TranslationApiClient {
@@ -66,6 +67,22 @@ public final class TranslationApiClient {
             int attemptNumber
         ) throws Exception;
 
+        /**
+         * Cancellation-aware transport seam. Existing host transports may
+         * keep implementing the four-argument method; production uses this
+         * overload to bind the active HttpURLConnection to the executor's
+         * cancellation handle.
+         */
+        default void streamTranslationAttempt(
+            TranslationConfig config,
+            String body,
+            StreamListener listener,
+            int attemptNumber,
+            AttemptHandle cancellation
+        ) throws Exception {
+            streamTranslationAttempt(config, body, listener, attemptNumber);
+        }
+
         JSONObject sendSummaryRequest(
             TranslationConfig config,
             String body
@@ -84,7 +101,25 @@ public final class TranslationApiClient {
                 config,
                 body,
                 listener,
-                attemptNumber
+                attemptNumber,
+                null
+            );
+        }
+
+        @Override
+        public void streamTranslationAttempt(
+            TranslationConfig config,
+            String body,
+            StreamListener listener,
+            int attemptNumber,
+            AttemptHandle cancellation
+        ) throws Exception {
+            TranslationApiClient.streamTranslationAttemptReal(
+                config,
+                body,
+                listener,
+                attemptNumber,
+                cancellation
             );
         }
 
@@ -111,6 +146,122 @@ public final class TranslationApiClient {
         void onTextDelta(String text) throws Exception;
 
         void onStreamCompleted(String stopReason) throws Exception;
+    }
+
+    /**
+     * Provider-neutral handle for one in-flight HTTP attempt. The executor
+     * only knows how to cancel this handle; protocol-specific connection
+     * details stay inside this provider class.
+     */
+    public interface AttemptHandle {
+        void cancel();
+
+        boolean isCanceled();
+    }
+
+    private static final class HttpAttemptHandle implements AttemptHandle {
+        private final AtomicBoolean canceled = new AtomicBoolean();
+        /**
+         * The connection and its owning worker form one binding identity.
+         * Cancellation must re-check that identity while holding the same
+         * monitor as detach; otherwise a delayed cancel can interrupt the
+         * worker after it has already been reused for another request.
+         */
+        private final Object bindingLock = new Object();
+        private Binding binding;
+
+        private static final class Binding {
+            private final HttpURLConnection connection;
+            private final Thread ownerThread;
+
+            private Binding(
+                HttpURLConnection connection,
+                Thread ownerThread
+            ) {
+                this.connection = connection;
+                this.ownerThread = ownerThread;
+            }
+        }
+
+        @Override
+        public void cancel() {
+            canceled.set(true);
+            synchronized (bindingLock) {
+                Binding active = binding;
+                if (active == null) {
+                    return;
+                }
+                try {
+                    active.connection.disconnect();
+                } catch (RuntimeException teardownFailure) {
+                    // Cancellation is already durable at the JobStore seam;
+                    // a transport teardown failure must not turn that
+                    // accepted request into a Binder retryable error.
+                    Log.w(
+                        TAG,
+                        "Could not disconnect canceled provider attempt",
+                        teardownFailure
+                    );
+                }
+                if (active.ownerThread != Thread.currentThread()) {
+                    try {
+                        // Keep the identity check and interrupt in one
+                        // critical section. detach cannot publish a new
+                        // binding (and the old worker cannot start its next
+                        // attempt) until this call has completed.
+                        if (binding == active) {
+                            active.ownerThread.interrupt();
+                        }
+                    } catch (RuntimeException interruptFailure) {
+                        Log.w(
+                            TAG,
+                            "Could not interrupt canceled provider attempt",
+                            interruptFailure
+                        );
+                    }
+                }
+            }
+        }
+
+        @Override
+        public boolean isCanceled() {
+            return canceled.get();
+        }
+
+        private void attach(HttpURLConnection active) {
+            synchronized (bindingLock) {
+                binding = new Binding(active, Thread.currentThread());
+                if (!canceled.get()) {
+                    return;
+                }
+                try {
+                    active.disconnect();
+                } catch (RuntimeException teardownFailure) {
+                    Log.w(
+                        TAG,
+                        "Could not disconnect provider attempt canceled "
+                            + "before attach",
+                        teardownFailure
+                    );
+                }
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        private void detach(HttpURLConnection active) {
+            synchronized (bindingLock) {
+                if (binding != null
+                    && binding.connection == active
+                    && binding.ownerThread == Thread.currentThread()) {
+                    binding = null;
+                }
+            }
+        }
+    }
+
+    /** Creates a handle that can cancel the next/current provider attempt. */
+    public static AttemptHandle newAttemptHandle() {
+        return new HttpAttemptHandle();
     }
 
     /** A listener/decoder failure; never classify this as a network retry. */
@@ -239,11 +390,30 @@ public final class TranslationApiClient {
         );
     }
 
+    /** Executes one stream while exposing only a provider-neutral cancel
+     * handle to the Translation executor. */
+    public static void streamTranslationAttempt(
+        TranslationConfig config,
+        String body,
+        StreamListener listener,
+        int attemptNumber,
+        AttemptHandle cancellation
+    ) throws Exception {
+        transport.streamTranslationAttempt(
+            config,
+            body,
+            listener,
+            attemptNumber,
+            cancellation
+        );
+    }
+
     private static void streamTranslationAttemptReal(
         TranslationConfig config,
         String body,
         StreamListener listener,
-        int attemptNumber
+        int attemptNumber,
+        AttemptHandle cancellation
     ) throws Exception {
         if (config == null || body == null || listener == null) {
             throw new IllegalArgumentException(
@@ -269,12 +439,18 @@ public final class TranslationApiClient {
             TimeUnit.SECONDS
         );
         try {
+            if (cancellation != null && cancellation.isCanceled()) {
+                throw new InterruptedException("provider attempt canceled");
+            }
             try {
                 listener.onAttemptStarted(attemptNumber);
             } catch (Exception e) {
                 throw new ListenerFailure(e);
             }
-            streamTranslationOnce(config, body, listener);
+            if (cancellation != null && cancellation.isCanceled()) {
+                throw new InterruptedException("provider attempt canceled");
+            }
+            streamTranslationOnce(config, body, listener, cancellation);
         } finally {
             waitLog.cancel(false);
             Log.i(
@@ -391,12 +567,23 @@ public final class TranslationApiClient {
     private static void streamTranslationOnce(
         TranslationConfig config,
         String body,
-        StreamListener listener
+        StreamListener listener,
+        AttemptHandle cancellation
     ) throws Exception {
         HttpURLConnection connection = openConnection(
             resolveTranslationEndpoint(config)
         );
+        HttpAttemptHandle concreteCancellation = cancellation
+            instanceof HttpAttemptHandle
+                ? (HttpAttemptHandle) cancellation
+                : null;
+        if (concreteCancellation != null) {
+            concreteCancellation.attach(connection);
+        }
         try {
+            if (cancellation != null && cancellation.isCanceled()) {
+                throw new InterruptedException("provider attempt canceled");
+            }
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
             connection.setReadTimeout(TRANSLATION_READ_TIMEOUT_MS);
@@ -493,6 +680,9 @@ public final class TranslationApiClient {
                 throw new ListenerFailure(e);
             }
         } finally {
+            if (concreteCancellation != null) {
+                concreteCancellation.detach(connection);
+            }
             connection.disconnect();
         }
     }

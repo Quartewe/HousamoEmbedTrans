@@ -23,7 +23,11 @@ import java.util.UUID;
 public final class RejectedApiResultStore {
 
     public static final String DIRECTORY_NAME = "rejected_api_results";
-    private static final int MAX_RECORD_BYTES = 8 * 1024 * 1024;
+    // TranslationJobStore accepts result payloads up to 32 MiB. The archive
+    // uses compact JSON below, leaving explicit headroom for its envelope so
+    // a complete legal late Translation result is not rejected merely because
+    // it moved into the user-action archive.
+    private static final int MAX_RECORD_BYTES = 64 * 1024 * 1024;
 
     private final File directory;
     private final AtomicJsonFileIo io;
@@ -65,6 +69,36 @@ public final class RejectedApiResultStore {
         String kind,
         Object payload
     ) throws IOException, org.json.JSONException {
+        return archiveWithRecordId(
+            UUID.randomUUID().toString(),
+            jobKind,
+            requestId,
+            reason,
+            kind,
+            payload
+        );
+    }
+
+    /**
+     * Archives one record under a caller-owned stable identity.  Repeating
+     * the call after an ambiguous write outcome returns the already durable
+     * record instead of allocating a second UUID.  This is used by late
+     * Translation cancellation so an after-write I/O exception cannot turn a
+     * single provider result into duplicate user-action records.
+     */
+    public synchronized JSONObject archiveWithRecordId(
+        String recordId,
+        String jobKind,
+        String requestId,
+        String reason,
+        String kind,
+        Object payload
+    ) throws IOException, org.json.JSONException {
+        if (!isSafeRecordId(recordId)) {
+            throw new IllegalArgumentException(
+                "record_id must contain only lowercase letters, digits, and -"
+            );
+        }
         if (jobKind == null || jobKind.trim().isEmpty()) {
             throw new IllegalArgumentException("job_kind must not be empty");
         }
@@ -77,7 +111,17 @@ public final class RejectedApiResultStore {
         if (payload == null) {
             payload = JSONObject.NULL;
         }
-        String recordId = UUID.randomUUID().toString();
+        File recordFile = fileFor(recordId);
+        if (io.exists(recordFile)) {
+            return readExistingRecord(
+                recordFile,
+                recordId,
+                jobKind,
+                requestId,
+                reason,
+                kind
+            );
+        }
         JSONObject record = new JSONObject()
             .put("record_id", recordId)
             .put("job_kind", jobKind)
@@ -86,7 +130,7 @@ public final class RejectedApiResultStore {
             .put("kind", kind)
             .put("payload", payload)
             .put("created_at", System.currentTimeMillis());
-        byte[] bytes = (record.toString(2) + "\n").getBytes(
+        byte[] bytes = (record.toString() + "\n").getBytes(
             StandardCharsets.UTF_8
         );
         if (bytes.length > MAX_RECORD_BYTES) {
@@ -95,8 +139,66 @@ public final class RejectedApiResultStore {
             );
         }
         ensureDirectory();
-        io.write(new File(directory, recordId + ".json"), bytes);
-        return record;
+        try {
+            io.write(recordFile, bytes);
+            return record;
+        } catch (IOException writeFailure) {
+            /*
+             * Some storage implementations can commit the rename and still
+             * report a post-write failure.  Inspect the fixed target before
+             * retrying; a valid matching record is a successful archive.
+             */
+            if (io.exists(recordFile)) {
+                return readExistingRecord(
+                    recordFile,
+                    recordId,
+                    jobKind,
+                    requestId,
+                    reason,
+                    kind
+                );
+            }
+            throw writeFailure;
+        }
+    }
+
+    private JSONObject readExistingRecord(
+        File recordFile,
+        String recordId,
+        String jobKind,
+        String requestId,
+        String reason,
+        String kind
+    ) throws IOException {
+        byte[] bytes = io.read(recordFile);
+        if (bytes.length > MAX_RECORD_BYTES) {
+            throw new IOException(
+                "rejected API result exceeds byte limit: " + recordId
+            );
+        }
+        final JSONObject existing;
+        try {
+            existing = new JSONObject(
+                new String(bytes, StandardCharsets.UTF_8)
+            );
+        } catch (org.json.JSONException e) {
+            throw new IOException(
+                "rejected API result is not valid JSON: " + recordId,
+                e
+            );
+        }
+        if (!recordId.equals(existing.optString("record_id", ""))
+            || !jobKind.equals(existing.optString("job_kind", ""))
+            || !(requestId == null ? "" : requestId).equals(
+                existing.optString("request_id", "")
+            )
+            || !reason.equals(existing.optString("reason", ""))
+            || !kind.equals(existing.optString("kind", ""))) {
+            throw new IOException(
+                "rejected API record identity conflict: " + recordId
+            );
+        }
+        return existing;
     }
 
     public synchronized boolean exists(String recordId) {

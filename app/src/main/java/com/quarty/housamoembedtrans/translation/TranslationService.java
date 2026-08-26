@@ -418,23 +418,56 @@ public final class TranslationService extends Service {
                 String requestId,
                 JSONObject patch
             ) {
-                byte[] bytes = patch.toString().getBytes(
-                    StandardCharsets.UTF_8
-                );
-                long patchVersion = patch.optLong(
-                    "patch_version",
-                    0L
-                );
-                deliverPayload(
-                    requestId,
-                    bytes,
-                    callback -> descriptor ->
-                        callback.onQuestPatch(
-                            requestId,
-                            patchVersion,
-                            descriptor
-                        )
-                );
+                TranslationJobStore store = jobStore;
+                if (store == null) {
+                    return;
+                }
+                // Serialize the eligibility check with requestCancellation's
+                // JobStore monitor. Once this section starts sending, the
+                // patch has won the same delivery race; a cancellation that
+                // acquires the monitor first observes canceled and returns
+                // without opening a callback pipe.
+                synchronized (store) {
+                    try {
+                        if (!store.isQuestPatchEligible(requestId)) {
+                            Log.i(
+                                TAG,
+                                "Ignored Quest patch after Translation cancellation "
+                                    + "requestId="
+                                    + requestId
+                            );
+                            return;
+                        }
+                    } catch (Exception stateFailure) {
+                        // A patch must never be sent without a positive
+                        // durable running-state check. The provider result
+                        // itself is handled by the terminal/archive path.
+                        Log.w(
+                            TAG,
+                            "Could not preflight Quest patch requestId="
+                                + requestId,
+                            stateFailure
+                        );
+                        return;
+                    }
+                    byte[] bytes = patch.toString().getBytes(
+                        StandardCharsets.UTF_8
+                    );
+                    long patchVersion = patch.optLong(
+                        "patch_version",
+                        0L
+                    );
+                    deliverPayload(
+                        requestId,
+                        bytes,
+                        callback -> descriptor ->
+                            callback.onQuestPatch(
+                                requestId,
+                                patchVersion,
+                                descriptor
+                            )
+                    );
+                }
             }
 
             @Override
@@ -794,6 +827,55 @@ public final class TranslationService extends Service {
                             + requestId,
                         e
                     );
+                }
+            }
+
+            @Override
+            public int cancelTranslation(String requestId) {
+                enforceAllowedCaller();
+                validateRequestId(requestId);
+                try {
+                    ensureTranslationJobStore();
+                    TranslationTaskExecutor executor = taskExecutor;
+                    TranslationJobStore.CancellationResult result =
+                        executor == null
+                            ? jobStore.requestCancellation(requestId)
+                            : executor.cancelTranslationJob(requestId);
+                    switch (result.getDisposition()) {
+                        case QUEUED_CANCELED:
+                            return HetBridgeContract
+                                .CANCEL_RESULT_QUEUED_CANCELED;
+                        case RUNNING_CANCELED:
+                            return HetBridgeContract
+                                .CANCEL_RESULT_RUNNING_CANCELED;
+                        case ALREADY_CANCELED:
+                            return HetBridgeContract
+                                .CANCEL_RESULT_ALREADY_CANCELED;
+                        case NOT_FOUND:
+                            return HetBridgeContract
+                                .CANCEL_RESULT_NOT_FOUND;
+                        case NOT_CANCELABLE:
+                        default:
+                            return HetBridgeContract
+                                .CANCEL_RESULT_NOT_CANCELABLE;
+                    }
+                } catch (IOException e) {
+                    Log.w(
+                        TAG,
+                        "Temporary cancellation persistence failure requestId="
+                            + requestId,
+                        e
+                    );
+                    return HetBridgeContract
+                        .CANCEL_RESULT_RETRYABLE_PERSISTENCE;
+                } catch (Exception e) {
+                    Log.w(
+                        TAG,
+                        "Could not cancel translation requestId=" + requestId,
+                        e
+                    );
+                    return HetBridgeContract
+                        .CANCEL_RESULT_RETRYABLE_PERSISTENCE;
                 }
             }
 

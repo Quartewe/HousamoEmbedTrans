@@ -22,6 +22,7 @@ import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.summary.job.SummaryJobStore;
 import com.quarty.housamoembedtrans.util.IoUtils;
 import com.quarty.housamoembedtrans.util.JobValidator;
+import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 
 import android.content.Context;
 import android.util.Log;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -67,6 +69,7 @@ public final class TranslationTaskExecutor {
         30000L
     };
     private static final long WAITING_RETRY_DELAY_MILLIS = 5_000L;
+    private static final long LATE_ARCHIVE_RETRY_DELAY_MILLIS = 1_000L;
 
     public interface ResultListener {
         void onStarted(String requestId, String scene);
@@ -335,6 +338,7 @@ public final class TranslationTaskExecutor {
     private final Context context;
     private final TranslationJobStore jobStore;
     private final ResultListener resultListener;
+    private final RejectedApiResultStore rejectedResultStore;
     private final ContextSummaryCoordinator contextSummaryCoordinator;
     private final ContextHistoryPreparer contextHistoryPreparer;
     private final DrainScheduler mainExecutor;
@@ -346,6 +350,10 @@ public final class TranslationTaskExecutor {
     private ScheduledHandle claimRetryHandle;
     private final AtomicInteger claimFailureCount = new AtomicInteger();
     private final Object blockedLock = new Object();
+    /** Active coordinators are the executor-side cancellation seam. */
+    private final Object activeJobsLock = new Object();
+    private final Map<String, LinkedHashSet<JobCoordinator>> activeJobs =
+        new LinkedHashMap<>();
     private final PriorityQueue<DeferredJob> deferredJobs = new PriorityQueue<>(
         (left, right) -> Long.compare(
             left.retryAtMillis,
@@ -400,6 +408,12 @@ public final class TranslationTaskExecutor {
         this.context = appContext != null ? appContext : context;
         this.jobStore = jobStore;
         this.resultListener = resultListener;
+        this.rejectedResultStore = RejectedApiResultStore.createForAndroid(
+            new File(
+                this.context.getFilesDir(),
+                RejectedApiResultStore.DIRECTORY_NAME
+            )
+        );
         this.maxWorkers = workerCountForApiConcurrency(maxWorkers);
         this.mainExecutor = new ExecutorDrainScheduler(
             Executors.newScheduledThreadPool(
@@ -428,12 +442,7 @@ public final class TranslationTaskExecutor {
         this.contextSummaryCoordinator = new ContextSummaryCoordinator(
             sceneContextStore,
             summaryJobStore,
-            RejectedApiResultStore.createForAndroid(
-                new File(
-                    this.context.getFilesDir(),
-                    RejectedApiResultStore.DIRECTORY_NAME
-                )
-            ),
+            rejectedResultStore,
             new ContextSummaryCoordinator.ContextSummaryReleaseGate(),
             resultListener::onRejectedApiResultArchived
         );
@@ -462,6 +471,7 @@ public final class TranslationTaskExecutor {
         context = null;
         jobStore = null;
         this.resultListener = resultListener;
+        rejectedResultStore = null;
         contextSummaryCoordinator = null;
         contextHistoryPreparer = null;
         this.mainExecutor = mainExecutor;
@@ -545,6 +555,322 @@ public final class TranslationTaskExecutor {
         return true;
     }
 
+    /**
+     * Requests user cancellation at the Translation Job store seam, then
+     * invalidates the active coordinator/transport when one exists. The
+     * durable state transition happens first; a missing in-memory coordinator
+     * is therefore safe (the next claim/execute check observes canceled).
+     */
+    public TranslationJobStore.CancellationResult cancelTranslationJob(
+        String requestId
+    ) throws Exception {
+        TranslationJobStore.CancellationResult result;
+        List<TranslationApiClient.AttemptHandle> handles = null;
+        List<JobCoordinator> coordinators;
+        /*
+         * activeJobsLock is the executor-side linearization point.  A worker
+         * registers and performs its durable canceled-state recheck while
+         * holding this same lock; cancellation therefore cannot observe an
+         * empty registry and then lose to a just-starting provider attempt.
+         * The coordinator monitor is acquired inside the registry lock so a
+         * successful durable transition publishes the local cancellation
+         * before registration can return to the worker.
+         */
+        synchronized (activeJobsLock) {
+            LinkedHashSet<JobCoordinator> registered = activeJobs.get(requestId);
+            coordinators = registered == null
+                ? new ArrayList<>()
+                : new ArrayList<>(registered);
+            // Lock every coordinator for this request before changing the
+            // durable state.  A worker that is already inside a coordinator
+            // callback must finish that callback before cancellation's
+            // durable linearization point; once the store write returns,
+            // every still-registered coordinator is marked before any of
+            // these monitors are released.
+            coordinators.sort((left, right) -> Integer.compare(
+                System.identityHashCode(left),
+                System.identityHashCode(right)
+            ));
+            handles = new ArrayList<>();
+            result = requestCancellationWithCoordinatorsLocked(
+                requestId,
+                coordinators,
+                0,
+                handles
+            );
+            if (handles.isEmpty()) {
+                handles = null;
+            }
+        }
+        if (handles != null) {
+            for (JobCoordinator coordinator : coordinators) {
+                coordinator.cancelTransportHandles(handles);
+                break;
+            }
+        }
+        if (!result.isAccepted()) {
+            return result;
+        }
+
+        synchronized (blockedLock) {
+            deferredJobs.removeIf(candidate ->
+                candidate.requestId.equals(requestId)
+            );
+            userActionRequiredRequests.remove(requestId);
+            userActionRequiredScenes.remove(requestId);
+            userActionRequiredReasons.remove(requestId);
+            userActionNotified.remove(requestId);
+        }
+
+        return result;
+    }
+
+    /**
+     * Caller holds {@link #activeJobsLock}.  Coordinator monitors are acquired
+     * recursively in a stable order so cancellation cannot publish the
+     * durable state while another registered worker is still in a write-back
+     * callback.  The recursive unwind keeps all monitors held until every
+     * accepted cancellation has been published locally.
+     */
+    private TranslationJobStore.CancellationResult
+        requestCancellationWithCoordinatorsLocked(
+            String requestId,
+            List<JobCoordinator> coordinators,
+            int index,
+            List<TranslationApiClient.AttemptHandle> handles
+        ) throws Exception {
+        if (index >= coordinators.size()) {
+            TranslationJobStore.CancellationResult result =
+                jobStore.requestCancellation(requestId);
+            if (result.isAccepted()) {
+                for (JobCoordinator coordinator : coordinators) {
+                    handles.addAll(
+                        coordinator.markCancellationRequestedLocked()
+                    );
+                }
+            }
+            return result;
+        }
+        synchronized (coordinators.get(index)) {
+            return requestCancellationWithCoordinatorsLocked(
+                requestId,
+                coordinators,
+                index + 1,
+                handles
+            );
+        }
+    }
+
+    private boolean registerActiveJob(
+        String requestId,
+        JobCoordinator coordinator
+    ) throws Exception {
+        List<TranslationApiClient.AttemptHandle> handles =
+            new ArrayList<>();
+        boolean canceledBeforeStart = false;
+        synchronized (activeJobsLock) {
+            LinkedHashSet<JobCoordinator> registered = activeJobs.get(requestId);
+            if (registered == null) {
+                registered = new LinkedHashSet<>();
+                activeJobs.put(requestId, registered);
+            }
+            registered.add(coordinator);
+            /*
+             * Keep registration and the durable recheck in one critical
+             * section with cancelTranslationJob.  If cancellation won before
+             * registration, this check observes canceled and invalidates the
+             * newly registered coordinator before it can call onStarted or
+             * open a provider stream.
+             */
+            if (jobStore != null
+                && jobStore.isCancellationRequested(requestId)) {
+                synchronized (coordinator) {
+                    handles.addAll(
+                        coordinator.markCancellationRequestedLocked()
+                    );
+                }
+                canceledBeforeStart = true;
+            }
+        }
+        if (!handles.isEmpty()) {
+            coordinator.cancelTransportHandles(handles);
+        }
+        return canceledBeforeStart;
+    }
+
+    private void unregisterActiveJob(
+        String requestId,
+        JobCoordinator coordinator
+    ) {
+        synchronized (activeJobsLock) {
+            LinkedHashSet<JobCoordinator> registered = activeJobs.get(requestId);
+            if (registered != null) {
+                registered.remove(coordinator);
+                if (registered.isEmpty()) {
+                    activeJobs.remove(requestId);
+                }
+            }
+        }
+    }
+
+    /**
+     * Archives a complete legal provider result that arrived after user
+     * cancellation won the durable race. This intentionally uses the
+     * existing rejected-result format; no terminal result or delivery ACK is
+     * created for the canceled job.
+     */
+    private boolean archiveCanceledResult(
+        JobCoordinator coordinator,
+        JSONObject result
+    ) {
+        String requestId = coordinator.requestId;
+        String lateArchiveRecordId = coordinator.lateArchiveRecordId;
+        if (rejectedResultStore == null || result == null) {
+            Log.e(
+                TAG,
+                "Cannot archive canceled Translation result requestId="
+                    + requestId
+            );
+            return false;
+        }
+        final JSONObject record;
+        try {
+            record = rejectedResultStore.archiveWithRecordId(
+                lateArchiveRecordId,
+                "translation",
+                requestId,
+                "translation_canceled_by_user",
+                "legal",
+                result
+            );
+        } catch (Exception archiveFailure) {
+            // The coordinator releases its in-memory claim and schedules a
+            // retry.  A transient archive I/O error must not forget a legal
+            // late payload when the worker is about to unregister.
+            Log.e(
+                TAG,
+                "Could not archive canceled Translation result requestId="
+                    + requestId,
+                archiveFailure
+            );
+            return false;
+        }
+        if (resultListener != null) {
+            try {
+                // The record is durable already.  Notification failure must
+                // never make the caller retry the archive and create a
+                // duplicate user-action record.
+                resultListener.onRejectedApiResultArchived(record);
+            } catch (RuntimeException notificationFailure) {
+                Log.w(
+                    TAG,
+                    "Rejected Translation result notification failed "
+                        + "requestId="
+                        + requestId,
+                    notificationFailure
+                );
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Tries the coordinator's exactly-once late-result claim. Main execution
+     * and a still-unwinding repair worker may call this concurrently; only a
+     * successful complete-result build occupies the claim, so a partial main
+     * stream cannot suppress a later complete repair result.
+     */
+    private void tryArchiveLateCanceledResult(JobCoordinator coordinator) {
+        if (coordinator == null || !coordinator.isCancellationRequested()) {
+            return;
+        }
+        // A provider callback can race with the main worker's terminal catch.
+        // Retry one failed write immediately so a transient first I/O error
+        // does not disappear when the worker is about to unregister. Further
+        // failures retain the payload and use a delayed retry.
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                JSONObject result = coordinator.claimLateCanceledResult();
+                if (result == null) {
+                    return;
+                }
+                if (archiveCanceledResult(coordinator, result)) {
+                    return;
+                }
+                coordinator.releaseLateArchiveClaim();
+            } catch (Exception incompleteResult) {
+                // No complete legal result is available yet. A repair worker
+                // may capture one later and call this same seam before it
+                // exits.
+                Log.i(
+                    TAG,
+                    "Canceled Translation had no complete legal result yet "
+                        + "requestId="
+                        + coordinator.requestId
+                );
+                return;
+            }
+        }
+        scheduleLateArchiveRetry(coordinator);
+    }
+
+    private void scheduleLateArchiveRetry(JobCoordinator coordinator) {
+        if (coordinator == null || rejectedResultStore == null || shutdown) {
+            return;
+        }
+        long delay;
+        synchronized (coordinator) {
+            if (coordinator.lateArchiveClaimed
+                || coordinator.lateArchiveRetryScheduled) {
+                return;
+            }
+            coordinator.lateArchiveRetryScheduled = true;
+            coordinator.lateArchiveRetryCount = Math.min(
+                coordinator.lateArchiveRetryCount + 1,
+                6
+            );
+            delay = LATE_ARCHIVE_RETRY_DELAY_MILLIS
+                * (1L << Math.max(0, coordinator.lateArchiveRetryCount - 1));
+        }
+        try {
+            mainExecutor.schedule(() -> {
+                synchronized (coordinator) {
+                    coordinator.lateArchiveRetryScheduled = false;
+                }
+                tryArchiveLateCanceledResult(coordinator);
+            }, delay, TimeUnit.MILLISECONDS);
+        } catch (RuntimeException scheduleFailure) {
+            synchronized (coordinator) {
+                coordinator.lateArchiveRetryScheduled = false;
+            }
+            Log.e(
+                TAG,
+                "Could not schedule canceled Translation archive retry "
+                    + "requestId="
+                    + coordinator.requestId,
+                scheduleFailure
+            );
+        }
+    }
+
+    /** Best-effort cancellation observation for terminal catch paths. */
+    private boolean isDurablyCanceled(String requestId) {
+        if (jobStore == null) {
+            return false;
+        }
+        try {
+            return jobStore.isCancellationRequested(requestId);
+        } catch (Exception stateFailure) {
+            Log.w(
+                TAG,
+                "Could not recheck cancellation state requestId="
+                    + requestId,
+                stateFailure
+            );
+            return false;
+        }
+    }
+
     /** Returns the current in-memory jobs blocked for a user action. */
     public List<BlockedJob> listUserActionRequiredJobs() {
         synchronized (blockedLock) {
@@ -570,6 +896,20 @@ public final class TranslationTaskExecutor {
     ) {
         long retryAt = System.currentTimeMillis() + Math.max(0L, delayMillis);
         synchronized (blockedLock) {
+            try {
+                if (jobStore != null
+                    && jobStore.isCancellationRequested(job.getRequestId())) {
+                    return;
+                }
+            } catch (Exception stateFailure) {
+                Log.w(
+                    TAG,
+                    "Could not confirm deferred job cancellation state "
+                        + "requestId="
+                        + job.getRequestId(),
+                    stateFailure
+                );
+            }
             deferredJobs.removeIf(candidate ->
                 candidate.requestId.equals(job.getRequestId())
             );
@@ -578,6 +918,23 @@ public final class TranslationTaskExecutor {
                 job.getRequestJson(),
                 retryAt
             ));
+            try {
+                if (jobStore != null
+                    && jobStore.isCancellationRequested(job.getRequestId())) {
+                    deferredJobs.removeIf(candidate ->
+                        candidate.requestId.equals(job.getRequestId())
+                    );
+                    return;
+                }
+            } catch (Exception stateFailure) {
+                Log.w(
+                    TAG,
+                    "Could not recheck deferred job cancellation state "
+                        + "requestId="
+                        + job.getRequestId(),
+                    stateFailure
+                );
+            }
         }
         scheduleDeferredRetry();
     }
@@ -681,6 +1038,22 @@ public final class TranslationTaskExecutor {
     ) {
         boolean shouldNotify;
         synchronized (blockedLock) {
+            try {
+                if (jobStore != null
+                    && jobStore.isCancellationRequested(
+                        job.getRequestId()
+                    )) {
+                    return;
+                }
+            } catch (Exception stateFailure) {
+                Log.w(
+                    TAG,
+                    "Could not confirm user-action job cancellation state "
+                        + "requestId="
+                        + job.getRequestId(),
+                    stateFailure
+                );
+            }
             userActionRequiredRequests.put(
                 job.getRequestId(),
                 job.getRequestJson()
@@ -688,6 +1061,26 @@ public final class TranslationTaskExecutor {
             userActionRequiredScenes.put(job.getRequestId(), scene);
             userActionRequiredReasons.put(job.getRequestId(), reason);
             shouldNotify = userActionNotified.add(job.getRequestId());
+            try {
+                if (jobStore != null
+                    && jobStore.isCancellationRequested(
+                        job.getRequestId()
+                    )) {
+                    userActionRequiredRequests.remove(job.getRequestId());
+                    userActionRequiredScenes.remove(job.getRequestId());
+                    userActionRequiredReasons.remove(job.getRequestId());
+                    userActionNotified.remove(job.getRequestId());
+                    return;
+                }
+            } catch (Exception stateFailure) {
+                Log.w(
+                    TAG,
+                    "Could not recheck user-action job cancellation state "
+                        + "requestId="
+                        + job.getRequestId(),
+                    stateFailure
+                );
+            }
         }
         if (shouldNotify && resultListener != null) {
             try {
@@ -975,6 +1368,8 @@ public final class TranslationTaskExecutor {
         private final long token;
         private boolean active = true;
         private boolean accepted;
+        /** The provider emitted a complete, normal stream before cancel. */
+        private boolean resultComplete;
 
         private MainAttemptState(long token) {
             this.token = token;
@@ -1064,13 +1459,13 @@ public final class TranslationTaskExecutor {
         String requestId = job.getRequestId();
         String scene = "";
         boolean permitAdopted = false;
+        JobCoordinator coordinator = null;
         try {
             PreparedJob prepared = preparedExecution.get();
             JSONObject request;
             JobValidator.RequestInfo requestInfo;
             TranslationConfig config;
             JSONObject state;
-            JobCoordinator coordinator;
             if (prepared != null && prepared.claimedJob == job) {
                 request = prepared.request;
                 requestInfo = prepared.requestInfo;
@@ -1102,6 +1497,9 @@ public final class TranslationTaskExecutor {
                     )
                 );
             }
+            if (registerActiveJob(requestId, coordinator)) {
+                return;
+            }
             scene = requestInfo.getScene();
             resultListener.onStarted(
                 requestId,
@@ -1115,6 +1513,10 @@ public final class TranslationTaskExecutor {
             coordinator.adoptInitialMainPermit(permitGate, initialPermit);
             permitAdopted = true;
             coordinator.run();
+            if (coordinator.isCancellationRequested()) {
+                tryArchiveLateCanceledResult(coordinator);
+                return;
+            }
             if (coordinator.isBlocked()) {
                 HistoryResolution.Status blockedStatus =
                     coordinator.getBlockedStatus();
@@ -1143,12 +1545,23 @@ public final class TranslationTaskExecutor {
                 return;
             }
             if (coordinator.isSuccessful()) {
-                byte[] resultBytes = coordinator.buildFinalResult()
-                    .toString()
+                JSONObject finalResult = coordinator.buildFinalResult();
+                byte[] resultBytes = finalResult.toString()
                     .getBytes(StandardCharsets.UTF_8);
+                if (coordinator.isCancellationRequested()
+                    || isDurablyCanceled(requestId)) {
+                    tryArchiveLateCanceledResult(coordinator);
+                    return;
+                }
                 try {
                     jobStore.completeRunningJob(requestId, resultBytes);
                 } catch (Exception persistFailure) {
+                    if (persistFailure
+                            instanceof TranslationJobStore.CanceledJobException
+                        || isDurablyCanceled(requestId)) {
+                        tryArchiveLateCanceledResult(coordinator);
+                        return;
+                    }
                     // result.json may already be durable when state.json
                     // fails.  Do not create an opposing error payload; the
                     // startup reconciliation path owns this recovery.
@@ -1195,12 +1608,21 @@ public final class TranslationTaskExecutor {
                         + requestInfo.getTextCount()
                 );
             } else {
+                if (coordinator.isCancellationRequested()
+                    || isDurablyCanceled(requestId)) {
+                    tryArchiveLateCanceledResult(coordinator);
+                    return;
+                }
                 JSONObject error = coordinator.buildFailure();
                 byte[] errorBytes = error.toString()
                     .getBytes(StandardCharsets.UTF_8);
                 try {
                     jobStore.failRunningJob(requestId, errorBytes);
                 } catch (Exception persistFailure) {
+                    if (isDurablyCanceled(requestId)) {
+                        tryArchiveLateCanceledResult(coordinator);
+                        return;
+                    }
                     // Preserve the authoritative error payload and let
                     // startup reconciliation repair state.json; never write
                     // a second terminal kind from this catch path.
@@ -1238,8 +1660,20 @@ public final class TranslationTaskExecutor {
                 );
             }
         } catch (InterruptedException e) {
-            throw e;
+            if (coordinator == null
+                || !coordinator.isCancellationRequested()) {
+                throw e;
+            }
+            // User cancellation deliberately consumes the worker interrupt;
+            // the drain may continue with the next queued Translation Job.
+            Thread.interrupted();
+            tryArchiveLateCanceledResult(coordinator);
         } catch (Exception e) {
+            if (coordinator != null
+                && coordinator.isCancellationRequested()) {
+                tryArchiveLateCanceledResult(coordinator);
+                return;
+            }
             Log.e(
                 TAG,
                 "Translation task crashed requestId=" + requestId,
@@ -1264,6 +1698,15 @@ public final class TranslationTaskExecutor {
                 );
             }
         } finally {
+            if (coordinator != null && coordinator.isCancellationRequested()) {
+                // HttpAttemptHandle may interrupt the worker in addition to
+                // disconnecting the socket. Consume that control-flow flag
+                // before drainLoop claims another job.
+                Thread.interrupted();
+            }
+            if (coordinator != null) {
+                unregisterActiveJob(requestId, coordinator);
+            }
             if (!permitAdopted
                 && initialPermit != null
                 && permitGate != null) {
@@ -1347,6 +1790,8 @@ public final class TranslationTaskExecutor {
 
     private final class JobCoordinator {
         private final String requestId;
+        /** Stable identity for this coordinator's late-result archive. */
+        private final String lateArchiveRecordId;
         private final JSONObject request;
         private final JobValidator.RequestInfo requestInfo;
         private final TranslationConfig config;
@@ -1400,8 +1845,128 @@ public final class TranslationTaskExecutor {
         private boolean repairOutputTruncated;
         private long attemptTokenCounter;
         private MainAttemptState currentAttempt;
+        /** A main stream and a repair stream can overlap; cancel all. */
+        private final Set<TranslationApiClient.AttemptHandle>
+            transportHandles = new LinkedHashSet<>();
+        /**
+         * Values decoded after cancellation are quarantined here.  They are
+         * never merged into the normal item/progress state; a complete stream
+         * may still be assembled for the rejected-result archive.
+         */
+        private Map<Integer, TranslationResultValidator.Result>
+            lateMainResults;
+        private String lateSummary;
+        private String lateContextSummary;
+        private boolean lateMainStreamComplete;
+        /**
+         * A repair can finish its normal provider stream just before user
+         * cancellation wins the coordinator lock. Keep only validated final
+         * values from that one late stream so the archive path can construct
+         * a complete legal result without committing them to JobStore.
+         */
+        private Map<Integer, TranslationResultValidator.Result>
+            lateRepairResults;
+        private boolean lateRepairStreamComplete;
+        /** In-flight or completed exactly-once claim for archive publication. */
+        private boolean lateArchiveClaimed;
+        private int lateArchiveRetryCount;
+        private boolean lateArchiveRetryScheduled;
+        private volatile boolean cancelRequested;
         private ApiConcurrencyGate mainPermitGate;
         private ApiConcurrencyGate.Permit mainPermit;
+
+        /**
+         * Publishes cancellation to the coordinator and current provider
+         * attempt. The durable JobStore transition already happened before
+         * this method is called, so every late callback is ineligible even if
+         * the transport takes time to unwind.
+         */
+        private void cancelFromUser() {
+            List<TranslationApiClient.AttemptHandle> handles;
+            synchronized (this) {
+                handles = markCancellationRequestedLocked();
+            }
+            cancelTransportHandles(handles);
+        }
+
+        /** Caller must hold this coordinator monitor. */
+        private List<TranslationApiClient.AttemptHandle>
+            markCancellationRequestedLocked() {
+            cancelRequested = true;
+            if (currentAttempt != null) {
+                currentAttempt.invalidate();
+            }
+            List<TranslationApiClient.AttemptHandle> handles =
+                new ArrayList<>(transportHandles);
+            notifyAll();
+            return handles;
+        }
+
+        private void cancelTransportHandles(
+            List<TranslationApiClient.AttemptHandle> handles
+        ) {
+            for (TranslationApiClient.AttemptHandle handle : handles) {
+                try {
+                    handle.cancel();
+                } catch (RuntimeException cancellationFailure) {
+                    // One provider teardown must not prevent cancellation of
+                    // a concurrent main or repair attempt.
+                    Log.w(
+                        TAG,
+                        "Could not cancel one provider attempt requestId="
+                            + requestId,
+                        cancellationFailure
+                    );
+                }
+            }
+        }
+
+        private boolean isCancellationRequested() {
+            if (cancelRequested) {
+                return true;
+            }
+            try {
+                return jobStore != null
+                    && jobStore.isCancellationRequested(requestId);
+            } catch (Exception e) {
+                Log.w(
+                    TAG,
+                    "Could not read cancellation state requestId="
+                        + requestId,
+                    e
+                );
+                return cancelRequested;
+            }
+        }
+
+        private boolean isCancellationRequestedLocked() {
+            return cancelRequested;
+        }
+
+        private void bindTransportHandle(
+            MainAttemptState attempt,
+            TranslationApiClient.AttemptHandle handle
+        ) {
+            synchronized (this) {
+                if (currentAttempt != attempt || !attempt.active) {
+                    handle.cancel();
+                    return;
+                }
+                transportHandles.add(handle);
+                if (cancelRequested) {
+                    handle.cancel();
+                }
+            }
+        }
+
+        private void clearTransportHandle(
+            MainAttemptState attempt,
+            TranslationApiClient.AttemptHandle handle
+        ) {
+            synchronized (this) {
+                transportHandles.remove(handle);
+            }
+        }
 
         private void adoptInitialMainPermit(
             ApiConcurrencyGate permitGate,
@@ -1445,6 +2010,13 @@ public final class TranslationTaskExecutor {
             ContextSummaryCoordinator contextSummaryCoordinator
         ) {
             this.requestId = requestId;
+            // Do not key this identity solely by requestId: a canceled job
+            // may later be rerun with the same durable request directory.
+            // The coordinator lifetime is the retry/idempotency scope, so a
+            // fresh UUID here keeps generations distinct while every retry
+            // of this late result reuses exactly the same record envelope.
+            this.lateArchiveRecordId = "translation-canceled-"
+                + UUID.randomUUID().toString();
             this.request = request;
             this.requestInfo = requestInfo;
             this.config = config;
@@ -1452,6 +2024,10 @@ public final class TranslationTaskExecutor {
             this.historyMapping = state == null
                 ? JSONObject.NULL
                 : state.opt(HistoryMapping.FIELD);
+            this.cancelRequested = state != null
+                && TranslationJobStatus.CANCELED.wireValue().equals(
+                    state.optString("status", "")
+                );
             ContextHistoryPreparer.HistoryPreparation historyPreparation =
                 resolveHistoryContext(
                     requestId,
@@ -1521,7 +2097,7 @@ public final class TranslationTaskExecutor {
         private void run() throws Exception {
             try {
                 synchronized (this) {
-                    if (blockedStatus != null) {
+                    if (cancelRequested || blockedStatus != null) {
                         return;
                     }
                     if (mainFinished) {
@@ -1533,7 +2109,7 @@ public final class TranslationTaskExecutor {
                 if (!mainFinished) {
                     runMainStream();
                     synchronized (this) {
-                        if (blockedStatus != null) {
+                        if (cancelRequested || blockedStatus != null) {
                             return;
                         }
                         if (!terminal) {
@@ -1545,7 +2121,7 @@ public final class TranslationTaskExecutor {
 
                 synchronized (this) {
                     while (!terminal) {
-                        if (blockedStatus != null) {
+                        if (cancelRequested || blockedStatus != null) {
                             return;
                         }
                         evaluateTerminalLocked();
@@ -1581,17 +2157,29 @@ public final class TranslationTaskExecutor {
                 releaseMainPermit();
                 return;
             }
+            synchronized (this) {
+                if (cancelRequested) {
+                    releaseMainPermit();
+                    return;
+                }
+            }
             JSONObject apiRequest = prepared.getProviderRequest();
             final String frozenBody = apiRequest.toString();
             int networkRetriesUsed = 0;
             try {
                 while (true) {
                 final MainAttemptState attempt;
+                final TranslationApiClient.AttemptHandle cancellation =
+                    TranslationApiClient.newAttemptHandle();
                 synchronized (this) {
+                    if (cancelRequested) {
+                        return;
+                    }
                     currentAttempt.invalidate();
                     currentAttempt = new MainAttemptState(++attemptTokenCounter);
                     resetMainAttemptStateLocked();
                     attempt = currentAttempt;
+                    bindTransportHandle(attempt, cancellation);
                 }
                 final TranslationEventDecoder[] decoder =
                     new TranslationEventDecoder[1];
@@ -1628,11 +2216,18 @@ public final class TranslationTaskExecutor {
                             public void onTextDelta(String text)
                                 throws Exception {
                                 synchronized (JobCoordinator.this) {
-                                    mainOutputTruncated |= appendLimited(
-                                        mainAttemptOutput,
-                                        text
-                                    );
+                                    if (!cancelRequested) {
+                                        mainOutputTruncated |= appendLimited(
+                                            mainAttemptOutput,
+                                            text
+                                        );
+                                    }
                                 }
+                                // Cancellation closes write-back eligibility,
+                                // not protocol validation.  Keep feeding the
+                                // decoder so a transport that has already
+                                // buffered a complete response can be safely
+                                // quarantined for rejected-result handling.
                                 decoder[0].accept(text);
                             }
 
@@ -1641,11 +2236,26 @@ public final class TranslationTaskExecutor {
                                 String stopReason
                             ) throws Exception {
                                 decoder[0].finish();
+                                synchronized (JobCoordinator.this) {
+                                    // Decoder finish is the provider-level
+                                    // normal-termination evidence. The
+                                    // caller may still lose the cancellation
+                                    // race before its return/accept step.
+                                    attempt.resultComplete = true;
+                                    if (cancelRequested) {
+                                        lateMainStreamComplete = true;
+                                    }
+                                }
                             }
                         },
-                        networkRetriesUsed + 1
+                        networkRetriesUsed + 1,
+                        cancellation
                     );
                     synchronized (this) {
+                        attempt.resultComplete = true;
+                        if (cancelRequested) {
+                            return;
+                        }
                         if (currentAttempt != attempt
                             || attempt.token <= 0L) {
                             throw new IllegalStateException(
@@ -1658,6 +2268,10 @@ public final class TranslationTaskExecutor {
                 } catch (Exception e) {
                     boolean retryResult = false;
                     synchronized (this) {
+                        if (cancelRequested) {
+                            attempt.invalidate();
+                            return;
+                        }
                         lastProviderError = providerFailureDetail(e);
                         attempt.invalidate();
                         if (isRetryableNetworkAttemptFailure(e)
@@ -1712,10 +2326,15 @@ public final class TranslationTaskExecutor {
                         return;
                     }
                     if (isRetryableNetworkAttemptFailure(e)) {
+                        if (isCancellationRequested()) {
+                            return;
+                        }
                         TranslationApiClient.waitBeforeRetry(
                             networkRetriesUsed
                         );
                     }
+                } finally {
+                    clearTransportHandle(attempt, cancellation);
                 }
                 }
             } finally {
@@ -1757,6 +2376,12 @@ public final class TranslationTaskExecutor {
             repairAttemptOutput.setLength(0);
             mainOutputTruncated = false;
             repairOutputTruncated = false;
+            lateMainResults = new LinkedHashMap<>();
+            lateSummary = null;
+            lateContextSummary = null;
+            lateMainStreamComplete = false;
+            lateRepairResults = null;
+            lateRepairStreamComplete = false;
         }
 
         private final class MainEventListener
@@ -1768,6 +2393,17 @@ public final class TranslationTaskExecutor {
                 String invalidContextSummary
             ) throws Exception {
                 synchronized (JobCoordinator.this) {
+                    if (cancelRequested) {
+                        // Preserve only the in-memory values needed to build
+                        // a rejected archive record.  No checkpoint or
+                        // Context/Group summary write-back is permitted once
+                        // cancellation has won.
+                        lateSummary = incomingSummary;
+                        if (incomingContextSummary != null) {
+                            lateContextSummary = incomingContextSummary;
+                        }
+                        return;
+                    }
                     summary = incomingSummary;
                     if (incomingContextSummary != null) {
                         contextSummary = incomingContextSummary;
@@ -1776,28 +2412,33 @@ public final class TranslationTaskExecutor {
                     // Body repairs are not eligible until this attempt has
                     // passed decoder.finish() and been accepted.
                     maybeStartRepairLocked();
-                }
-                if (contextSummaryCoordinator != null && contextId != null) {
-                    try {
-                        contextSummaryCoordinator.acceptFirstSummary(
-                            requestId,
-                            contextId,
-                            requestInfo.getScene(),
-                            requestInfo.getTargetLanguage(),
-                            incomingSummary,
-                            incomingContextSummary,
-                            invalidContextSummary,
-                            capturedSourceHashExcludingScene,
-                            contextSummaryOptions
-                        );
-                    } catch (Exception e) {
-                        Log.w(
-                            TAG,
-                            "Context Summary observation failed without "
-                                + "blocking translation requestId="
-                                + requestId,
-                            e
-                        );
+                    // Keep summary observation/writeback under the same
+                    // coordinator monitor as cancellation. The writeback
+                    // method takes ROOT_ACCESS_LOCK, preserving the shared
+                    // coordinator -> ROOT lock order used by cancellation.
+                    if (contextSummaryCoordinator != null
+                        && contextId != null) {
+                        try {
+                            contextSummaryCoordinator.acceptFirstSummary(
+                                requestId,
+                                contextId,
+                                requestInfo.getScene(),
+                                requestInfo.getTargetLanguage(),
+                                incomingSummary,
+                                incomingContextSummary,
+                                invalidContextSummary,
+                                capturedSourceHashExcludingScene,
+                                contextSummaryOptions
+                            );
+                        } catch (Exception e) {
+                            Log.w(
+                                TAG,
+                                "Context Summary observation failed without "
+                                    + "blocking translation requestId="
+                                    + requestId,
+                                e
+                            );
+                        }
                     }
                 }
             }
@@ -1807,13 +2448,21 @@ public final class TranslationTaskExecutor {
                 throws Exception {
                 synchronized (JobCoordinator.this) {
                     if (!items.containsKey(seq)) {
-                        Log.w(
-                            TAG,
-                            "Rejected unrequested main seq="
-                                + seq
-                                + " requestId="
-                                + requestId
+                        throw new TranslationEventDecoder.ProtocolException(
+                            "main stream returned unrequested seq=" + seq
                         );
+                    }
+
+                    TranslationResultValidator.Result validation =
+                        validator.validate(seq, text);
+                    if (cancelRequested) {
+                        // Keep post-cancel values in quarantine.  They are
+                        // considered for archive construction only after the
+                        // provider decoder has proved a normal complete
+                        // stream; they never alter item/progress state.
+                        if (validation.isFinalValid()) {
+                            lateMainResults.put(seq, validation);
+                        }
                         return;
                     }
 
@@ -1829,7 +2478,7 @@ public final class TranslationTaskExecutor {
                     }
                     highestMainSeqSeen = Math.max(highestMainSeqSeen, seq);
                     applyValidationLocked(
-                        validator.validate(seq, text),
+                        validation,
                         true
                     );
                     closeReachedBlocksLocked();
@@ -2007,6 +2656,7 @@ public final class TranslationTaskExecutor {
 
         private void maybeStartRepairLocked() {
             if (shutdown
+                || cancelRequested
                 || terminal
                 || fatalProviderFailure
                 || blockedStatus != null
@@ -2129,6 +2779,7 @@ public final class TranslationTaskExecutor {
             boolean localFatalProviderFailure = false;
             StringBuilder localRepairOutput = new StringBuilder();
             boolean[] localRepairOutputTruncated = {false};
+            boolean[] localRepairStreamComplete = {false};
             try {
                 PreparedApiRequest prepared =
                     TranslationRequestFactory.buildRepairRequest(
@@ -2165,9 +2816,12 @@ public final class TranslationTaskExecutor {
                     new TranslationApiClient.StreamListener() {
                         @Override
                         public void onAttemptStarted(int attemptNumber) {
-                            returned.clear();
-                            localRepairOutput.setLength(0);
-                            localRepairOutputTruncated[0] = false;
+                            synchronized (JobCoordinator.this) {
+                                returned.clear();
+                                localRepairStreamComplete[0] = false;
+                                localRepairOutput.setLength(0);
+                                localRepairOutputTruncated[0] = false;
+                            }
                             decoder[0] = new TranslationEventDecoder(
                                 true,
                                 false,
@@ -2193,10 +2847,20 @@ public final class TranslationTaskExecutor {
                                                         + seq
                                                 );
                                         }
-                                        returned.put(
-                                            seq,
-                                            validator.validate(seq, text)
-                                        );
+                                        TranslationResultValidator.Result
+                                            validation = validator.validate(
+                                                seq,
+                                                text
+                                            );
+                                        // returned is read under the
+                                        // coordinator monitor by the late
+                                        // archive capture path.  Keep this
+                                        // write synchronized even though the
+                                        // provider callback normally runs on
+                                        // the repair worker.
+                                        synchronized (JobCoordinator.this) {
+                                            returned.put(seq, validation);
+                                        }
                                     }
 
                                     @Override
@@ -2218,10 +2882,17 @@ public final class TranslationTaskExecutor {
                         @Override
                         public void onTextDelta(String text)
                             throws Exception {
-                            localRepairOutputTruncated[0] |= appendLimited(
-                                localRepairOutput,
-                                text
-                            );
+                            synchronized (JobCoordinator.this) {
+                                if (!cancelRequested) {
+                                    localRepairOutputTruncated[0] |= appendLimited(
+                                        localRepairOutput,
+                                        text
+                                    );
+                                }
+                            }
+                            // Continue decoding a buffered post-cancel
+                            // stream so a complete legal repair can be
+                            // archived; never merge it into JobStore.
                             decoder[0].accept(text);
                         }
 
@@ -2229,23 +2900,49 @@ public final class TranslationTaskExecutor {
                         public void onStreamCompleted(String stopReason)
                             throws Exception {
                             decoder[0].finish();
+                            synchronized (JobCoordinator.this) {
+                                localRepairStreamComplete[0] = true;
+                            }
                         }
                     };
                 String frozenRepairBody = apiRequest.toString();
                 int networkRetriesUsed = 0;
                 ApiConcurrencyGate repairGate = apiGate;
                 ApiConcurrencyGate.Permit repairPermit = null;
+                TranslationApiClient.AttemptHandle cancellation =
+                    TranslationApiClient.newAttemptHandle();
+                synchronized (this) {
+                    if (cancelRequested
+                        || currentAttempt != ownerAttempt
+                        || !ownerAttempt.active) {
+                        cancellation.cancel();
+                        return;
+                    }
+                    transportHandles.add(cancellation);
+                }
                 try {
                     if (repairGate != null) {
                         repairPermit = repairGate.acquireTranslation();
                     }
                     while (true) {
+                        // Compatible/fake transports may not bind the
+                        // AttemptHandle and therefore cannot be interrupted
+                        // while an earlier request unwinds.  Re-check the
+                        // coordinator latch immediately before every retry
+                        // so cancellation cannot start another provider
+                        // request after it has been accepted.
+                        if (cancelRequested) {
+                            throw new InterruptedException(
+                                "repair attempt canceled"
+                            );
+                        }
                         try {
                             TranslationApiClient.streamTranslationAttempt(
                                 config,
                                 frozenRepairBody,
                                 repairListener,
-                                networkRetriesUsed + 1
+                                networkRetriesUsed + 1,
+                                cancellation
                             );
                             break;
                         } catch (Exception e) {
@@ -2254,18 +2951,36 @@ public final class TranslationTaskExecutor {
                                     >= config.getNetworkRetryCount()) {
                                 throw e;
                             }
+                            if (cancelRequested) {
+                                // Preserve returned/complete evidence for the
+                                // outer cancellation quarantine path rather
+                                // than resetting it and entering a retry wait.
+                                throw new InterruptedException(
+                                    "repair retry canceled"
+                                );
+                            }
+                            // A retry starts a fresh decoder/result attempt;
+                            // the earlier stream is not final evidence if it
+                            // did not return normally.
+                            localRepairStreamComplete[0] = false;
                             networkRetriesUsed++;
                             TranslationApiClient.logNetworkRetry(
                                 "repair: " + safeMessage(e),
                                 networkRetriesUsed,
                                 config.getNetworkRetryCount()
                             );
+                            if (cancelRequested) {
+                                throw new InterruptedException(
+                                    "repair retry canceled"
+                                );
+                            }
                             TranslationApiClient.waitBeforeRetry(
                                 networkRetriesUsed
                             );
                         }
                     }
                 } finally {
+                    clearTransportHandle(ownerAttempt, cancellation);
                     if (repairPermit != null && repairGate != null) {
                         repairGate.release(repairPermit);
                     }
@@ -2275,7 +2990,26 @@ public final class TranslationTaskExecutor {
                 // provider protocol failure.  Restore the flag and release
                 // this repair's ownership without manufacturing a retryable
                 // API error.
-                Thread.currentThread().interrupt();
+                boolean canceled;
+                boolean lateCaptured = false;
+                synchronized (this) {
+                    canceled = cancelRequested;
+                    if (canceled) {
+                        lateCaptured = captureLateRepairResultLocked(
+                            requestedSeqs,
+                            returned,
+                            localRepairStreamComplete[0]
+                        );
+                    }
+                }
+                if (canceled) {
+                    Thread.interrupted();
+                } else {
+                    Thread.currentThread().interrupt();
+                }
+                if (lateCaptured) {
+                    tryArchiveLateCanceledResult(this);
+                }
                 finishInterruptedRepair(requestedSeqs, ownerAttempt);
                 return;
             } catch (Exception e) {
@@ -2289,9 +3023,20 @@ public final class TranslationTaskExecutor {
                 }
             }
 
+            boolean discardResult = false;
+            boolean lateCaptured = false;
             synchronized (this) {
-                if (currentAttempt != ownerAttempt
-                    || !ownerAttempt.active) {
+                discardResult = cancelRequested
+                    || currentAttempt != ownerAttempt
+                    || !ownerAttempt.active;
+                if (discardResult) {
+                    if (cancelRequested) {
+                        lateCaptured = captureLateRepairResultLocked(
+                            requestedSeqs,
+                            returned,
+                            localRepairStreamComplete[0]
+                        );
+                    }
                     Log.i(
                         TAG,
                         "Discarding stale repair result before merge "
@@ -2300,8 +3045,7 @@ public final class TranslationTaskExecutor {
                             + " attemptToken="
                             + ownerAttempt.token
                     );
-                    return;
-                }
+                } else {
                 lastProviderError = localProviderError;
                 repairAttemptOutput.setLength(0);
                 repairAttemptOutput.append(localRepairOutput);
@@ -2362,6 +3106,20 @@ public final class TranslationTaskExecutor {
                 maybeStartRepairLocked();
                 evaluateTerminalLocked();
                 notifyAll();
+                }
+            }
+            if (discardResult) {
+                if (lateCaptured) {
+                    tryArchiveLateCanceledResult(this);
+                }
+                if (cancelRequested) {
+                    // HttpAttemptHandle may have interrupted the shared
+                    // repair worker even when the fake/compatible transport
+                    // still completed normally.  Do not leak that control
+                    // flag into the next JobCoordinator using this thread.
+                    Thread.interrupted();
+                }
+                return;
             }
         }
 
@@ -2375,7 +3133,7 @@ public final class TranslationTaskExecutor {
                 }
                 repairRunning = false;
                 activeRepairSeqs.clear();
-                if (!shutdown) {
+                if (!shutdown && !cancelRequested) {
                     repairQueue.addAll(requestedSeqs);
                     maybeStartRepairLocked();
                     evaluateTerminalLocked();
@@ -2385,7 +3143,11 @@ public final class TranslationTaskExecutor {
         }
 
         private void evaluateTerminalLocked() {
-            if (terminal || blockedStatus != null || !mainFinished || repairRunning) {
+            if (cancelRequested
+                || terminal
+                || blockedStatus != null
+                || !mainFinished
+                || repairRunning) {
                 return;
             }
             if (fatalProviderFailure) {
@@ -2522,7 +3284,7 @@ public final class TranslationTaskExecutor {
         private void emitBlockPatchLocked(
             TranslationGradientPlanner.Block block
         ) throws Exception {
-            if (!currentAttempt.accepted) {
+            if (cancelRequested || !currentAttempt.accepted) {
                 return;
             }
             JSONArray updates = new JSONArray();
@@ -2568,6 +3330,9 @@ public final class TranslationTaskExecutor {
 
         private JSONObject buildCompleteQuestPatchLocked()
             throws Exception {
+            if (cancelRequested) {
+                return null;
+            }
             JSONArray updates = new JSONArray();
             for (ItemProgress item : items.values()) {
                 updates.put(new JSONObject()
@@ -2793,6 +3558,116 @@ public final class TranslationTaskExecutor {
                 contextSummary,
                 translations
             );
+        }
+
+        /** Caller must hold this coordinator monitor. */
+        private boolean captureLateRepairResultLocked(
+            Set<Integer> requestedSeqs,
+            Map<Integer, TranslationResultValidator.Result> returned,
+            boolean streamComplete
+        ) {
+            if (!streamComplete || returned == null) {
+                return false;
+            }
+            LinkedHashMap<Integer, TranslationResultValidator.Result> copy =
+                new LinkedHashMap<>();
+            for (Integer seq : requestedSeqs) {
+                TranslationResultValidator.Result result = returned.get(seq);
+                if (result == null || !result.isFinalValid()) {
+                    return false;
+                }
+                copy.put(seq, result);
+            }
+            lateRepairResults = copy;
+            lateRepairStreamComplete = true;
+            return true;
+        }
+
+        /**
+         * Builds a late legal payload only when the provider had completed a
+         * normal main stream, or a normal repair stream has supplied every
+         * requested missing item (or the coordinator had already reached
+         * main-finish). A canceled partial stream must not be mistaken for an
+         * archivable result merely because a few item values happened to
+         * validate.
+         */
+        private synchronized JSONObject buildLateCanceledResult()
+            throws Exception {
+            if (!mainFinished
+                && (currentAttempt == null
+                    || !currentAttempt.resultComplete)
+                && !lateMainStreamComplete
+                && !lateRepairStreamComplete) {
+                throw new IllegalStateException(
+                    "canceled Translation has no complete provider result"
+                );
+            }
+            String resultSummary = summary != null ? summary : lateSummary;
+            String resultContextSummary = contextSummary != null
+                ? contextSummary
+                : lateContextSummary;
+            Map<Integer, String> translations = new LinkedHashMap<>();
+            for (ItemProgress item : items.values()) {
+                // Preserve the first-final value that was accepted before
+                // cancellation.  A duplicate late event must not replace
+                // that value; only unresolved items may be filled from the
+                // quarantined post-cancel stream.
+                if (item.isFinalValid()) {
+                    translations.put(item.seq, item.finalText);
+                    continue;
+                }
+                TranslationResultValidator.Result lateMain =
+                    lateMainResults == null
+                        ? null
+                        : lateMainResults.get(item.seq);
+                if (lateMain != null && lateMain.isFinalValid()) {
+                    translations.put(item.seq, lateMain.getText());
+                    continue;
+                }
+                TranslationResultValidator.Result lateRepair =
+                    lateRepairResults == null
+                        ? null
+                        : lateRepairResults.get(item.seq);
+                if (lateRepair == null || !lateRepair.isFinalValid()) {
+                    throw new IllegalStateException(
+                        "canceled Translation has unresolved seq="
+                            + item.seq
+                    );
+                }
+                translations.put(item.seq, lateRepair.getText());
+            }
+            return TranslationRequestFactory.buildFinalResult(
+                config,
+                requestInfo.getTargetLanguage(),
+                resultSummary,
+                resultContextSummary,
+                translations
+            );
+        }
+
+        /**
+         * Claims one complete late result for rejected-result archiving.
+         * Incomplete streams leave the claim free so a repair worker that
+         * finishes later can retry; a successful build occupies it before
+         * the caller performs the actual atomic archive write.
+         */
+        private synchronized JSONObject claimLateCanceledResult()
+            throws Exception {
+            // The outer seam has already observed durable/local cancellation;
+            // keeping this claim independent of the volatile flag also lets
+            // a terminal catch archive when durable cancellation won just
+            // before the coordinator callback set that flag.
+            if (lateArchiveClaimed) {
+                return null;
+            }
+            JSONObject result = buildLateCanceledResult();
+            lateArchiveClaimed = true;
+            return result;
+        }
+
+        /** Releases a claim when the durable archive write failed. */
+        private synchronized void releaseLateArchiveClaim() {
+            lateArchiveClaimed = false;
         }
 
         private JSONObject buildFailure() throws Exception {

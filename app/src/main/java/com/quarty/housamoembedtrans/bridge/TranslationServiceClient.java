@@ -221,6 +221,14 @@ public final class TranslationServiceClient {
                 ITranslationService.Stub.asInterface(service);
             try {
                 int version = connected.getProtocolVersion();
+                if (version != HetBridgeContract.PROTOCOL_VERSION) {
+                    throw new IllegalStateException(
+                        "Unsupported TranslationService protocol version "
+                            + version
+                            + "; expected "
+                            + HetBridgeContract.PROTOCOL_VERSION
+                    );
+                }
                 synchronized (TranslationServiceClient.this) {
                     if (closed) {
                         return;
@@ -565,6 +573,16 @@ public final class TranslationServiceClient {
         public String getDisposition() {
             return disposition;
         }
+    }
+
+    /** Requests idempotent cancellation of one ordinary Translation Job. */
+    public int cancelTranslation(String requestId) throws RemoteException {
+        if (requestId == null || requestId.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                "requestId cannot be null or empty"
+            );
+        }
+        return requireRemote().cancelTranslation(requestId);
     }
 
     /** Synchronous terminal preflight performed before native consumption. */

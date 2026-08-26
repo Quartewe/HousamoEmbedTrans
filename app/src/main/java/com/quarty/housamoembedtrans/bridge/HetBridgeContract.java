@@ -16,6 +16,14 @@ public final class HetBridgeContract {
     public static final int ENQUEUE_RESULT_DUPLICATE_REJECTED = -2;
     public static final int ENQUEUE_RESULT_EXECUTION_NOT_SETTLED = -3;
     public static final int ENQUEUE_RESULT_USER_ACTION_REQUIRED = -4;
+    public static final int CANCEL_RESULT_QUEUED_CANCELED = 1;
+    /** Running state won the durable cancellation race; transport unwind is
+     * asynchronous but no retry/repair/delivery is allowed. */
+    public static final int CANCEL_RESULT_RUNNING_CANCELED = 2;
+    public static final int CANCEL_RESULT_ALREADY_CANCELED = 0;
+    public static final int CANCEL_RESULT_NOT_FOUND = -1;
+    public static final int CANCEL_RESULT_NOT_CANCELABLE = -2;
+    public static final int CANCEL_RESULT_RETRYABLE_PERSISTENCE = -3;
     public static final int PROTOCOL_VERSION = 1;
 
     public static final String METHOD_GET_API_KEY = "get_api_key";

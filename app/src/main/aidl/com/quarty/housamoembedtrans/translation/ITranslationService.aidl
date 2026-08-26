@@ -13,6 +13,9 @@ interface ITranslationService {
         boolean overwrite
     );
 
+    /** Requests idempotent user cancellation of one ordinary Translation Job. */
+    int cancelTranslation(String requestId);
+
     /** Registers the one terminal callback owned by the current connection. */
     void registerTranslationCallback(ITranslationCallback callback);
 

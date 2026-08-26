@@ -37,8 +37,11 @@ import java.util.Set;
 /**
  * Owns the persistent translation-job state and its process-local dispatch
  * indexes. The HET service and HET activities run in the same process and
- * therefore share one store instance; no queue-management method is exposed
- * through the cross-process AIDL interface.
+ * therefore share one store instance; no general queue-management API is
+ * exposed through the cross-process AIDL interface apart from the explicit
+ * user-cancellation operation. User cancellation enters here so the durable
+ * state transition and every process-local claim index share one
+ * linearization point.
  */
 public final class TranslationJobStore {
 
@@ -79,6 +82,54 @@ public final class TranslationJobStore {
             int heldQueuedJobCount,
             boolean repairingStartupJobs
         );
+    }
+
+    /** Result of one idempotent user cancellation request. */
+    public enum CancellationDisposition {
+        /** A queued job was durably moved to canceled and de-indexed. */
+        QUEUED_CANCELED,
+        /** A running job was durably moved to canceled; its attempt is
+         * winding down and is no longer allowed to commit or deliver. */
+        RUNNING_CANCELED,
+        /** The requested job was already canceled. */
+        ALREADY_CANCELED,
+        /** A terminal state such as completed/failed/damaged won the race. */
+        NOT_CANCELABLE,
+        /** No durable Translation Job exists for the request id. */
+        NOT_FOUND
+    }
+
+    public static final class CancellationResult {
+        private final CancellationDisposition disposition;
+
+        private CancellationResult(CancellationDisposition disposition) {
+            this.disposition = disposition;
+        }
+
+        public CancellationDisposition getDisposition() {
+            return disposition;
+        }
+
+        public boolean isAccepted() {
+            return disposition == CancellationDisposition.QUEUED_CANCELED
+                || disposition == CancellationDisposition.RUNNING_CANCELED
+                || disposition == CancellationDisposition.ALREADY_CANCELED;
+        }
+
+        public boolean isRunning() {
+            return disposition
+                == CancellationDisposition.RUNNING_CANCELED;
+        }
+    }
+
+    /** Raised when a late terminal writer loses the durable cancel race. */
+    public static final class CanceledJobException
+        extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private CanceledJobException(String requestId) {
+            super("translation job was canceled requestId=" + requestId);
+        }
     }
 
     public static final class HeldQueuedJob {
@@ -1769,8 +1820,7 @@ public final class TranslationJobStore {
                     updatedStates.put(directory, state);
                     selectedHeldSequences.put(requestId, sequence);
                 } else {
-                    state.put("status", STATUS_CANCELED);
-                    state.put("updated_at", now);
+                    markCanceledStateLocked(state, "startup_recovery_unselected");
                     updatedStates.put(directory, state);
                 }
             }
@@ -1845,8 +1895,6 @@ public final class TranslationJobStore {
                     new LinkedHashMap<>();
                 LinkedHashMap<File, JSONObject> updatedStates =
                     new LinkedHashMap<>();
-                long now = System.currentTimeMillis();
-
                 // Preflight all process-local admissions before changing any
                 // legacy A/B recovery state.  A damaged C must not leave a
                 // partially cancelled held batch behind.
@@ -1864,8 +1912,7 @@ public final class TranslationJobStore {
                         jobDirectory,
                         new JSONObject(state.toString())
                     );
-                    state.put("status", STATUS_CANCELED);
-                    state.put("updated_at", now);
+                    markCanceledStateLocked(state, "startup_recovery_back");
                     updatedStates.put(jobDirectory, state);
                 }
 
@@ -1884,6 +1931,129 @@ public final class TranslationJobStore {
             // the Service's generation-specific repair scheduler.
             notifyQueueListener();
         }
+    }
+
+    /**
+     * Atomically applies the ordinary user's request to stop one Translation
+     * Job. The state transition is the cancellation linearization point:
+     * queued and running jobs become terminal {@code canceled}, delivery is
+     * {@code not_required}, and every claim/recovery index is removed before
+     * this method returns. A running executor may still unwind its provider
+     * attempt after this point, but no completion, failure, retry, repair, or
+     * Quest patch can regain commit/delivery eligibility. A complete late
+     * result is archived by the executor through RejectedApiResultStore.
+     *
+     * <p>Completed, failed, damaged, and internal resetting states are never
+     * rewritten. Repeating the call for an already canceled job is a no-op.
+     */
+    public CancellationResult requestCancellation(String requestId)
+        throws Exception {
+        try {
+            return SceneContextStore.withRootAccess(() -> {
+                synchronized (this) {
+                    validateRequestId(requestId);
+                    File jobDirectory = jobStore.jobDirectory(requestId);
+                    if (!jobDirectory.isDirectory()) {
+                        return new CancellationResult(
+                            CancellationDisposition.NOT_FOUND
+                        );
+                    }
+
+                    JSONObject state = readState(jobDirectory);
+                    if (state == null) {
+                        return new CancellationResult(
+                            CancellationDisposition.NOT_FOUND
+                        );
+                    }
+                    String status = state.optString("status", "");
+                    if (STATUS_CANCELED.equals(status)) {
+                        return new CancellationResult(
+                            CancellationDisposition.ALREADY_CANCELED
+                        );
+                    }
+                    if (!STATUS_QUEUED.equals(status)
+                        && !STATUS_RUNNING.equals(status)) {
+                        return new CancellationResult(
+                            CancellationDisposition.NOT_CANCELABLE
+                        );
+                    }
+
+                    // A terminal payload cannot legitimately coexist with an
+                    // active state. Refuse to overwrite it if a crash left
+                    // that impossible combination visible; startup repair
+                    // must preserve and diagnose the evidence instead.
+                    if (IoUtils.atomicFileExists(
+                            new File(jobDirectory, RESULT_FILE_NAME)
+                        ) || IoUtils.atomicFileExists(
+                            new File(jobDirectory, ERROR_FILE_NAME)
+                        )) {
+                        return new CancellationResult(
+                            CancellationDisposition.NOT_CANCELABLE
+                        );
+                    }
+
+                    boolean wasRunning = STATUS_RUNNING.equals(status);
+                    markCanceledStateLocked(state, "user");
+                    writeState(jobDirectory, state);
+
+                    // State is durable before any in-memory removal. This
+                    // prevents a concurrent claimant/recovery pass from
+                    // observing a terminal job through a stale queue entry.
+                    removeJobFromIndexesLocked(requestId);
+                    // A cross-store admission/review compensation may still
+                    // be holding a durable marker. Keep that marker indexed
+                    // until its existing compensation owner observes the
+                    // canceled state and clears it; the canceled job itself
+                    // remains absent from every claim/recovery index.
+                    syncHistoryMembershipPendingLocked(requestId, state);
+                    syncReviewPublicationPendingLocked(requestId, state);
+                    manualRerunCandidateIds.remove(requestId);
+                    return new CancellationResult(
+                        wasRunning
+                            ? CancellationDisposition.RUNNING_CANCELED
+                            : CancellationDisposition.QUEUED_CANCELED
+                    );
+                }
+            });
+        } finally {
+            notifyQueueListener();
+        }
+    }
+
+    /** Returns true when this request has lost execution eligibility. */
+    public synchronized boolean isCancellationRequested(String requestId)
+        throws Exception {
+        validateRequestId(requestId);
+        File jobDirectory = jobStore.jobDirectory(requestId);
+        if (!jobDirectory.isDirectory()) {
+            return false;
+        }
+        JSONObject state = readState(jobDirectory);
+        return state != null
+            && STATUS_CANCELED.equals(state.optString("status", ""));
+    }
+
+    /**
+     * Quest patches are eligible while the durable job is running or after a
+     * completion that already won the cancellation race. A canceled job is
+     * never eligible.
+     * This gate is checked by the Service immediately before opening a
+     * callback PFD, so a cancellation that wins the state race suppresses
+     * late patches without changing the existing terminal delivery protocol.
+     */
+    public synchronized boolean isQuestPatchEligible(String requestId)
+        throws Exception {
+        validateRequestId(requestId);
+        File jobDirectory = jobStore.jobDirectory(requestId);
+        if (!jobDirectory.isDirectory()) {
+            return false;
+        }
+        JSONObject state = readState(jobDirectory);
+        return state != null
+            && (STATUS_RUNNING.equals(state.optString("status", ""))
+                || STATUS_COMPLETED.equals(
+                    state.optString("status", "")
+                ));
     }
 
     public ClaimedJob claimNextQueuedJob() throws Exception {
@@ -4473,6 +4643,44 @@ public final class TranslationJobStore {
     }
 
     /**
+     * Applies the one durable cancellation transition used by both the
+     * ordinary Binder path and startup-held batch cancellation.  The caller
+     * owns this store's monitor (and, for ordinary cancellation, the shared
+     * root lock).  Cross-store admission markers deliberately remain in the
+     * state: their existing compensation owner must still observe and clear
+     * the marker, but the canceled status keeps the job out of every dispatch
+     * index and the fixed delivery state prevents terminal replay.
+     */
+    private static void markCanceledStateLocked(
+        JSONObject state,
+        String reason
+    ) throws Exception {
+        if (state == null) {
+            throw new IllegalArgumentException(
+                "translation state cannot be null when canceling"
+            );
+        }
+        String currentStatus = state.optString("status", "");
+        if (!STATUS_QUEUED.equals(currentStatus)
+            && !STATUS_RUNNING.equals(currentStatus)) {
+            throw new IllegalStateException(
+                "cannot cancel translation job from status=" + currentStatus
+            );
+        }
+        state.put("status", STATUS_CANCELED);
+        state.put(
+            "delivery_state",
+            TerminalOutcome.DeliveryState.NOT_REQUIRED.wireValue()
+        );
+        state.put("updated_at", System.currentTimeMillis());
+        if (reason != null && !reason.trim().isEmpty()) {
+            // Keep a compact, non-authoritative diagnostic without changing
+            // the cancellation schema or carrying caller-controlled text.
+            state.put("cancel_reason", reason.trim());
+        }
+    }
+
+    /**
      * Startup runs after SceneContextStore has resolved the outer Review
      * journal. A surviving publication marker therefore belongs to a
      * committed Job whose process-local publication was interrupted.
@@ -5051,6 +5259,9 @@ public final class TranslationJobStore {
             );
         }
         String status = state.optString("status", "");
+        if (STATUS_CANCELED.equals(status)) {
+            throw new CanceledJobException(requestId);
+        }
         if (!STATUS_RUNNING.equals(status)) {
             throw new IllegalStateException(
                 "translation job is not running requestId="
