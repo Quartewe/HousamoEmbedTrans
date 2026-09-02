@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Housamo pending process entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "entry_number",
+    "filename",
+    "pending_key",
+    "kind",
+    "canonical_id",
+    "created_at",
+    "reason",
+    "restore",
+    "sync",
+    "payload"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "entry_number": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740990
+    },
+    "filename": {
+      "type": "string",
+      "pattern": "^pending_process_[1-9][0-9]*\\.json$",
+      "maxLength": 40
+    },
+    "pending_key": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "pattern": "^[^/\\\\]+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "scene",
+        "language",
+        "context",
+        "group",
+        "character",
+        "term",
+        "damaged_translation_job"
+      ]
+    },
+    "canonical_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 384,
+      "pattern": "^[^/\\\\]+$"
+    },
+    "created_at": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "restore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["snapshot", "delete_only"]
+        },
+        "relations": {}
+      }
+    },
+    "sync": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on_permanent_delete"],
+      "properties": {
+        "on_permanent_delete": {
+          "type": "string",
+          "enum": ["none", "delete_scene_on_next_sync"]
+        }
+      }
+    },
+    "payload": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "snapshot"],
+          "properties": {
+            "type": {
+              "const": "snapshot"
+            },
+            "snapshot": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "owner", "id"],
+          "properties": {
+            "type": {
+              "const": "external_reference"
+            },
+            "owner": {
+              "type": "string",
+              "enum": ["translation_job"]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+\\-]{0,255}$"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -2,6 +2,7 @@ package com.quarty.housamoembedtrans.context.store;
 import com.quarty.housamoembedtrans.context.model.GroupContextEntry;
 import com.quarty.housamoembedtrans.context.review.ReviewTransactionJournal;
 import com.quarty.housamoembedtrans.context.schema.ContextGroupSchemaValidator;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
 import com.quarty.housamoembedtrans.storage.json.AtomicJsonFileIo;
 
 import android.content.Context;
@@ -11,6 +12,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -102,6 +104,7 @@ public final class SceneContextStore {
     private final ContextStore contextStore;
     private final GroupStore groupStore;
     private final SceneContextIndexStore indexStore;
+    private final PendingProcessStore pendingProcessStore;
     private volatile ActiveContextChangeListener activeContextChangeListener =
         (previous, current) -> { };
 
@@ -112,7 +115,8 @@ public final class SceneContextStore {
                 DIRECTORY_NAME
             ),
             ContextGroupSchemaValidator.loadFromAssets(context),
-            AtomicJsonFileIo.android()
+            AtomicJsonFileIo.android(),
+            new PendingProcessStore(requireContext(context))
         );
     }
 
@@ -122,6 +126,15 @@ public final class SceneContextStore {
         ContextGroupSchemaValidator validator,
         AtomicJsonFileIo io
     ) {
+        this(rootDirectory, validator, io, null);
+    }
+
+    private SceneContextStore(
+        File rootDirectory,
+        ContextGroupSchemaValidator validator,
+        AtomicJsonFileIo io,
+        PendingProcessStore pendingProcessStore
+    ) {
         if (rootDirectory == null || validator == null || io == null) {
             throw new IllegalArgumentException(
                 "rootDirectory, validator and io are required"
@@ -130,6 +143,7 @@ public final class SceneContextStore {
         this.rootDirectory = rootDirectory;
         this.validator = validator;
         this.io = io;
+        this.pendingProcessStore = pendingProcessStore;
         contextStore = new ContextStore(
             new File(rootDirectory, ContextStore.DIRECTORY_NAME),
             validator,
@@ -291,6 +305,8 @@ public final class SceneContextStore {
                 "import bundle requires contexts and groups arrays"
             );
         }
+        PendingProcessStore.ReferenceSnapshot references =
+            snapshotPendingReferencesForImport();
 
         List<String> contextIds = new ArrayList<>();
         Set<String> importedContextIds = new LinkedHashSet<>();
@@ -311,6 +327,7 @@ public final class SceneContextStore {
                     "duplicate imported Context id: " + id
                 );
             }
+            rejectPendingImportId(references, "context", id);
             contextIds.add(id);
         }
 
@@ -334,6 +351,7 @@ public final class SceneContextStore {
                     "duplicate imported Group id: " + id
                 );
             }
+            rejectPendingImportId(references, "group", id);
             groupIds.add(id);
             importedGroups.add(copy);
         }
@@ -407,6 +425,56 @@ public final class SceneContextStore {
             conflictingGroupIds,
             groupsWithMissingReferences
         );
+    }
+
+    private PendingProcessStore.ReferenceSnapshot
+        snapshotPendingReferencesForImport() throws StorageException {
+        if (pendingProcessStore == null) {
+            return null;
+        }
+        try {
+            return pendingProcessStore.snapshotReferences();
+        } catch (IOException e) {
+            throw new StorageException(
+                FailureKind.IO,
+                "could not inspect PendingProcess references for import",
+                e
+            );
+        } catch (RuntimeException e) {
+            throw new StorageException(
+                FailureKind.IO,
+                "PendingProcess references are malformed",
+                e
+            );
+        }
+    }
+
+    private static void rejectPendingImportId(
+        PendingProcessStore.ReferenceSnapshot references,
+        String kind,
+        String canonicalId
+    ) throws StorageException {
+        if (references == null) {
+            return;
+        }
+        try {
+            if (references.isPending(kind, canonicalId)) {
+                throw new StorageException(
+                    FailureKind.CONFLICT,
+                    "cannot import " + kind
+                        + " while its PendingProcess entry exists: "
+                        + canonicalId
+                );
+            }
+        } catch (StorageException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new StorageException(
+                FailureKind.IO,
+                "PendingProcess reference identity is malformed",
+                e
+            );
+        }
     }
 
     /**
@@ -521,6 +589,8 @@ public final class SceneContextStore {
                 "import bundle requires contexts and groups arrays"
             );
         }
+        PendingProcessStore.ReferenceSnapshot references =
+            snapshotPendingReferencesForImport();
 
         List<JSONObject> importedContexts = new ArrayList<>();
         Set<String> importedContextIds = new HashSet<>();
@@ -541,6 +611,7 @@ public final class SceneContextStore {
                     "duplicate imported Context id: " + id
                 );
             }
+            rejectPendingImportId(references, "context", id);
             importedContexts.add(copy);
         }
 
@@ -563,6 +634,7 @@ public final class SceneContextStore {
                     "duplicate imported Group id: " + id
                 );
             }
+            rejectPendingImportId(references, "group", id);
             importedGroups.add(copy);
         }
 
@@ -1599,8 +1671,54 @@ public final class SceneContextStore {
         return context;
     }
 
+    /** Captures the Context document and every ordered Group membership. */
+    public synchronized JSONObject snapshotContextForPending(String contextId)
+        throws StorageException {
+        JSONObject index = readIndex();
+        JSONObject contextMap = index.optJSONObject("contexts");
+        String storageFile = contextMap == null
+            ? null
+            : contextMap.optString(contextId, null);
+        if (storageFile == null || storageFile.isEmpty()) {
+            throw new StorageException(
+                FailureKind.NOT_FOUND,
+                "context not found: " + contextId
+            );
+        }
+        requireValidStorageFileName(storageFile, "context");
+        return buildPendingContextSnapshot(
+            index,
+            contextId,
+            storageFile,
+            readContextByStorage(contextId, storageFile)
+        );
+    }
+
+    /**
+     * Removes one exact Context snapshot from the live index and Groups.
+     * Replaying an already completed hide is a success.
+     */
+    public synchronized void hideContextForPending(
+        String contextId,
+        JSONObject pendingSnapshot
+    ) throws StorageException {
+        deleteContextInternal(
+            contextId,
+            requirePendingContextSnapshot(contextId, pendingSnapshot),
+            true
+        );
+    }
+
     public synchronized void deleteContext(String contextId)
         throws StorageException {
+        deleteContextInternal(contextId, null, false);
+    }
+
+    private void deleteContextInternal(
+        String contextId,
+        JSONObject expectedPendingSnapshot,
+        boolean allowAlreadyHidden
+    ) throws StorageException {
         while (true) {
             JSONObject snapshotIndex = readIndex();
             JSONObject snapshotContextMap = snapshotIndex.optJSONObject(
@@ -1610,6 +1728,13 @@ public final class SceneContextStore {
                 ? null
                 : snapshotContextMap.optString(contextId, null);
             if (storageName == null || storageName.isEmpty()) {
+                if (allowAlreadyHidden) {
+                    confirmContextPermanentlyDeletedForPending(
+                        contextId,
+                        expectedPendingSnapshot
+                    );
+                    return;
+                }
                 throw new StorageException(
                     FailureKind.NOT_FOUND,
                     "context not found: " + contextId
@@ -1647,6 +1772,13 @@ public final class SceneContextStore {
                     : contextMap.optString(contextId, null);
                 if (currentStorageName == null
                     || currentStorageName.isEmpty()) {
+                    if (allowAlreadyHidden) {
+                        confirmContextPermanentlyDeletedForPending(
+                            contextId,
+                            expectedPendingSnapshot
+                        );
+                        return true;
+                    }
                     throw new StorageException(
                         FailureKind.NOT_FOUND,
                         "context not found: " + contextId
@@ -1659,6 +1791,25 @@ public final class SceneContextStore {
                         index.optJSONObject("groups")
                     )) {
                     return false;
+                }
+
+                if (expectedPendingSnapshot != null) {
+                    JSONObject currentSnapshot = buildPendingContextSnapshot(
+                        index,
+                        contextId,
+                        currentStorageName,
+                        readContextByStorage(contextId, currentStorageName)
+                    );
+                    if (!jsonValueEquals(
+                        currentSnapshot,
+                        expectedPendingSnapshot
+                    )) {
+                        throw new StorageException(
+                            FailureKind.CONFLICT,
+                            "context changed after PendingProcess snapshot: "
+                                + contextId
+                        );
+                    }
                 }
 
                 List<Mutation> mutations = new ArrayList<>();
@@ -1713,6 +1864,9 @@ public final class SceneContextStore {
                     "active_context_id"
                 ))) {
                     putNullableString(index, "active_context_id", null);
+                    if (expectedPendingSnapshot != null) {
+                        putNullableString(index, "active_group_id", null);
+                    }
                 }
                 mutations.add(mutationIndex(index));
                 commitMutations(mutations);
@@ -1724,7 +1878,330 @@ public final class SceneContextStore {
         }
     }
 
+    /** Restores a Context and its saved Group positions as one transaction. */
+    public synchronized void restoreContextFromPending(
+        String contextId,
+        JSONObject pendingSnapshot
+    ) throws StorageException {
+        JSONObject snapshot = requirePendingContextSnapshot(
+            contextId,
+            pendingSnapshot
+        );
+        restorePendingContextLocked(contextId, snapshot);
+    }
+
+    /** Verifies that the Context owner has already been physically hidden. */
+    public synchronized void confirmContextPermanentlyDeletedForPending(
+        String contextId,
+        JSONObject pendingSnapshot
+    ) throws StorageException {
+        JSONObject snapshot = requirePendingContextSnapshot(
+            contextId,
+            pendingSnapshot
+        );
+        JSONObject index = readIndex();
+        JSONObject contexts = index.optJSONObject("contexts");
+        if (contexts != null && contexts.has(contextId)) {
+            throw new StorageException(
+                FailureKind.CONFLICT,
+                "context is live while PendingProcess entry exists: " + contextId
+            );
+        }
+        File contextFile = new File(
+            contextStore.getDirectory(),
+            snapshot.optString("storage_file", "")
+        );
+        if (io.exists(contextFile)) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "hidden context file still exists: " + contextId
+            );
+        }
+        JSONObject groups = index.optJSONObject("groups");
+        for (String groupId : sortedKeys(groups)) {
+            JSONObject group = readGroupByStorage(
+                groupId,
+                groups.optString(groupId, "")
+            );
+            if (containsContext(group, contextId)) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "hidden context is still referenced by group " + groupId
+                );
+            }
+        }
+    }
+
     // ── Group CRUD ──────────────────────────────────────────────────────
+
+    /**
+     * Captures every ordered Context membership of one Scene. Moving a Scene
+     * to PendingProcess intentionally leaves these entries in place so hidden
+     * membership can survive Context edits; this snapshot is the recovery
+     * fallback when an older writer drops one of those entries.
+     */
+    public synchronized JSONObject snapshotSceneRelationsForPending(
+        String sceneName
+    ) throws StorageException {
+        sceneName = requirePendingSceneName(sceneName);
+        JSONObject index = readIndex();
+        JSONObject contexts = index.optJSONObject("contexts");
+        JSONArray relations = new JSONArray();
+        for (String contextId : sortedKeys(contexts)) {
+            String storageFile = contexts.optString(contextId, null);
+            if (storageFile == null || storageFile.isEmpty()) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "index references missing context file name for "
+                        + contextId
+                );
+            }
+            requireValidStorageFileName(storageFile, "context");
+            JSONObject context = readContextByStorage(
+                contextId,
+                storageFile
+            );
+            JSONArray scenes = context.optJSONArray("scenes");
+            int position = indexOfScene(scenes, sceneName);
+            if (position < 0) {
+                continue;
+            }
+            JSONObject relation = new JSONObject();
+            put(relation, "context_id", contextId);
+            put(relation, "context_storage_file", storageFile);
+            put(relation, "position", position);
+            put(
+                relation,
+                "entry",
+                copySceneEntry(scenes.optJSONObject(position), position)
+            );
+            putNullableString(
+                relation,
+                "previous_entry_id",
+                position > 0
+                    ? sceneEntryIdAt(scenes, position - 1)
+                    : null
+            );
+            putNullableString(
+                relation,
+                "next_entry_id",
+                position + 1 < scenes.length()
+                    ? sceneEntryIdAt(scenes, position + 1)
+                    : null
+            );
+            relations.put(relation);
+        }
+        JSONObject snapshot = new JSONObject();
+        put(snapshot, "scene_name", sceneName);
+        put(snapshot, "relations", relations);
+        return snapshot;
+    }
+
+    /**
+     * Restores missing Scene memberships without recreating Contexts that were
+     * themselves moved to PendingProcess or permanently deleted. Existing
+     * exact entries are repositioned by saved neighbours; conflicting entries
+     * are never overwritten.
+     */
+    public synchronized void restoreSceneRelationsFromPending(
+        String sceneName,
+        JSONObject pendingSnapshot
+    ) throws StorageException {
+        JSONObject snapshot = requirePendingSceneRelationsSnapshot(
+            sceneName,
+            pendingSnapshot
+        );
+        JSONArray relations = snapshot.optJSONArray("relations");
+        while (true) {
+            JSONObject initialIndex = readIndex();
+            JSONObject initialContexts = initialIndex.optJSONObject(
+                "contexts"
+            );
+            List<File> lockFiles = new ArrayList<>();
+            lockFiles.add(indexStore.getFile());
+            for (int index = 0; index < relations.length(); index++) {
+                JSONObject relation = relations.optJSONObject(index);
+                String contextId = relation.optString("context_id", "");
+                String expectedStorage = relation.optString(
+                    "context_storage_file",
+                    ""
+                );
+                String currentStorage = initialContexts == null
+                    ? null
+                    : initialContexts.optString(contextId, null);
+                if (currentStorage == null || currentStorage.isEmpty()) {
+                    continue;
+                }
+                if (!expectedStorage.equals(currentStorage)) {
+                    throw new StorageException(
+                        FailureKind.CONFLICT,
+                        "context id was reused while Scene was pending: "
+                            + contextId
+                    );
+                }
+                lockFiles.add(new File(
+                    contextStore.getDirectory(),
+                    currentStorage
+                ));
+            }
+            boolean completed = withEntityLocks(lockFiles, () -> {
+                JSONObject currentIndex = readIndex();
+                JSONObject currentContexts = currentIndex.optJSONObject(
+                    "contexts"
+                );
+                if (!sameSceneRelationStorageMapping(
+                    relations,
+                    initialContexts,
+                    currentContexts
+                )) {
+                    return false;
+                }
+                List<Mutation> mutations = new ArrayList<>();
+                for (int index = 0; index < relations.length(); index++) {
+                    JSONObject relation = relations.optJSONObject(index);
+                    String contextId = relation.optString("context_id", "");
+                    String expectedStorage = relation.optString(
+                        "context_storage_file",
+                        ""
+                    );
+                    String currentStorage = currentContexts == null
+                        ? null
+                        : currentContexts.optString(contextId, null);
+                    if (currentStorage == null || currentStorage.isEmpty()) {
+                        // A Context PendingProcess snapshot carries its own
+                        // complete scenes[] list and will restore this relation.
+                        continue;
+                    }
+                    if (!expectedStorage.equals(currentStorage)) {
+                        throw new StorageException(
+                            FailureKind.CONFLICT,
+                            "context id was reused while Scene was pending: "
+                                + contextId
+                        );
+                    }
+                    JSONObject context = readContextByStorage(
+                        contextId,
+                        currentStorage
+                    );
+                    JSONArray existing = context.optJSONArray("scenes");
+                    JSONArray restored = restorePendingSceneRelation(
+                        existing,
+                        relation,
+                        sceneName
+                    );
+                    if (jsonValueEquals(existing, restored)) {
+                        continue;
+                    }
+                    put(context, "scenes", restored);
+                    put(
+                        context,
+                        "revision",
+                        context.optLong("revision", 0L) + 1L
+                    );
+                    put(context, "updated_at", System.currentTimeMillis());
+                    validateContextDocument(context);
+                    mutations.add(mutation(
+                        "contexts/" + currentStorage,
+                        contextStore.getDirectory(),
+                        context
+                    ));
+                }
+                commitMutations(mutations);
+                return true;
+            });
+            if (completed) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Removes every current Context reference to a permanently deleted Scene,
+     * including references added after the original pending snapshot. The
+     * operation is idempotent and commits all affected Contexts atomically.
+     */
+    public synchronized void removeSceneRelationsForPending(
+        String sceneName,
+        JSONObject pendingSnapshot
+    ) throws StorageException {
+        final String pendingSceneName = requirePendingSceneName(sceneName);
+        requirePendingSceneRelationsSnapshot(
+            pendingSceneName,
+            pendingSnapshot
+        );
+        while (true) {
+            JSONObject initialIndex = readIndex();
+            JSONObject initialContexts = initialIndex.optJSONObject(
+                "contexts"
+            );
+            List<File> lockFiles = new ArrayList<>();
+            lockFiles.add(indexStore.getFile());
+            for (String contextId : sortedKeys(initialContexts)) {
+                String storageFile = initialContexts.optString(
+                    contextId,
+                    null
+                );
+                if (storageFile == null || storageFile.isEmpty()) {
+                    throw new StorageException(
+                        FailureKind.INVALID_STATE,
+                        "index references missing context file name for "
+                            + contextId
+                    );
+                }
+                requireValidStorageFileName(storageFile, "context");
+                lockFiles.add(new File(
+                    contextStore.getDirectory(),
+                    storageFile
+                ));
+            }
+            boolean completed = withEntityLocks(lockFiles, () -> {
+                JSONObject currentIndex = readIndex();
+                JSONObject currentContexts = currentIndex.optJSONObject(
+                    "contexts"
+                );
+                if (!sameStorageMapping(initialContexts, currentContexts)) {
+                    return false;
+                }
+                List<Mutation> mutations = new ArrayList<>();
+                for (String contextId : sortedKeys(currentContexts)) {
+                    String storageFile = currentContexts.optString(
+                        contextId,
+                        ""
+                    );
+                    JSONObject context = readContextByStorage(
+                        contextId,
+                        storageFile
+                    );
+                    JSONArray existing = context.optJSONArray("scenes");
+                    JSONArray retained = removeSceneEntries(
+                        existing,
+                        pendingSceneName
+                    );
+                    if (existing.length() == retained.length()) {
+                        continue;
+                    }
+                    put(context, "scenes", retained);
+                    put(
+                        context,
+                        "revision",
+                        context.optLong("revision", 0L) + 1L
+                    );
+                    put(context, "updated_at", System.currentTimeMillis());
+                    validateContextDocument(context);
+                    mutations.add(mutation(
+                        "contexts/" + storageFile,
+                        contextStore.getDirectory(),
+                        context
+                    ));
+                }
+                commitMutations(mutations);
+                return true;
+            });
+            if (completed) {
+                return;
+            }
+        }
+    }
 
     public synchronized JSONObject createGroup(JSONObject draft)
         throws StorageException {
@@ -1946,8 +2423,49 @@ public final class SceneContextStore {
         return group;
     }
 
+    /** Captures one Group document under its exact canonical storage name. */
+    public synchronized JSONObject snapshotGroupForPending(String groupId)
+        throws StorageException {
+        JSONObject index = readIndex();
+        JSONObject groupMap = index.optJSONObject("groups");
+        String storageFile = groupMap == null
+            ? null
+            : groupMap.optString(groupId, null);
+        if (storageFile == null || storageFile.isEmpty()) {
+            throw new StorageException(
+                FailureKind.NOT_FOUND,
+                "group not found: " + groupId
+            );
+        }
+        return buildPendingGroupSnapshot(
+            groupId,
+            storageFile,
+            readGroupByStorage(groupId, storageFile)
+        );
+    }
+
+    /** Hides one exact Group snapshot; replay after success is idempotent. */
+    public synchronized void hideGroupForPending(
+        String groupId,
+        JSONObject pendingSnapshot
+    ) throws StorageException {
+        deleteGroupInternal(
+            groupId,
+            requirePendingGroupSnapshot(groupId, pendingSnapshot),
+            true
+        );
+    }
+
     public synchronized void deleteGroup(String groupId)
         throws StorageException {
+        deleteGroupInternal(groupId, null, false);
+    }
+
+    private void deleteGroupInternal(
+        String groupId,
+        JSONObject expectedPendingSnapshot,
+        boolean allowAlreadyHidden
+    ) throws StorageException {
         while (true) {
             JSONObject snapshotIndex = readIndex();
             JSONObject snapshotGroupMap = snapshotIndex.optJSONObject("groups");
@@ -1955,6 +2473,13 @@ public final class SceneContextStore {
                 ? null
                 : snapshotGroupMap.optString(groupId, null);
             if (storageName == null || storageName.isEmpty()) {
+                if (allowAlreadyHidden) {
+                    confirmGroupPermanentlyDeletedForPending(
+                        groupId,
+                        expectedPendingSnapshot
+                    );
+                    return;
+                }
                 throw new StorageException(
                     FailureKind.NOT_FOUND,
                     "group not found: " + groupId
@@ -1973,6 +2498,13 @@ public final class SceneContextStore {
                     : groupMap.optString(groupId, null);
                 if (currentStorageName == null
                     || currentStorageName.isEmpty()) {
+                    if (allowAlreadyHidden) {
+                        confirmGroupPermanentlyDeletedForPending(
+                            groupId,
+                            expectedPendingSnapshot
+                        );
+                        return true;
+                    }
                     throw new StorageException(
                         FailureKind.NOT_FOUND,
                         "group not found: " + groupId
@@ -1985,6 +2517,24 @@ public final class SceneContextStore {
                         groupMap
                     )) {
                     return false;
+                }
+
+                if (expectedPendingSnapshot != null) {
+                    JSONObject currentSnapshot = buildPendingGroupSnapshot(
+                        groupId,
+                        currentStorageName,
+                        readGroupByStorage(groupId, currentStorageName)
+                    );
+                    if (!jsonValueEquals(
+                        currentSnapshot,
+                        expectedPendingSnapshot
+                    )) {
+                        throw new StorageException(
+                            FailureKind.CONFLICT,
+                            "group changed after PendingProcess snapshot: "
+                                + groupId
+                        );
+                    }
                 }
 
                 List<Mutation> mutations = new ArrayList<>();
@@ -2009,6 +2559,1046 @@ public final class SceneContextStore {
                 return;
             }
         }
+    }
+
+    /** Restores one Group only when all referenced Contexts are live. */
+    public synchronized void restoreGroupFromPending(
+        String groupId,
+        JSONObject pendingSnapshot
+    ) throws StorageException {
+        restorePendingGroupLocked(
+            groupId,
+            requirePendingGroupSnapshot(groupId, pendingSnapshot)
+        );
+    }
+
+    /** Verifies that the Group owner is absent before dropping its snapshot. */
+    public synchronized void confirmGroupPermanentlyDeletedForPending(
+        String groupId,
+        JSONObject pendingSnapshot
+    ) throws StorageException {
+        JSONObject snapshot = requirePendingGroupSnapshot(
+            groupId,
+            pendingSnapshot
+        );
+        JSONObject index = readIndex();
+        JSONObject groups = index.optJSONObject("groups");
+        if (groups != null && groups.has(groupId)) {
+            throw new StorageException(
+                FailureKind.CONFLICT,
+                "group is live while PendingProcess entry exists: " + groupId
+            );
+        }
+        File groupFile = new File(
+            groupStore.getDirectory(),
+            snapshot.optString("storage_file", "")
+        );
+        if (io.exists(groupFile)) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "hidden group file still exists: " + groupId
+            );
+        }
+    }
+
+    private JSONObject buildPendingContextSnapshot(
+        JSONObject index,
+        String contextId,
+        String storageFile,
+        JSONObject context
+    ) throws StorageException {
+        JSONObject snapshot = new JSONObject();
+        put(snapshot, "entity", copyJsonForImport(context, "context", 0));
+        put(snapshot, "storage_file", storageFile);
+        JSONArray memberships = new JSONArray();
+        JSONObject groups = index.optJSONObject("groups");
+        for (String groupId : sortedKeys(groups)) {
+            String groupStorage = groups.optString(groupId, null);
+            if (groupStorage == null || groupStorage.isEmpty()) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "index references missing group file name for " + groupId
+                );
+            }
+            JSONObject group = readGroupByStorage(groupId, groupStorage);
+            JSONArray entries = group.optJSONArray("contexts");
+            int position = GroupContextEntry.indexOfContextId(
+                entries,
+                contextId
+            );
+            if (position < 0) {
+                continue;
+            }
+            JSONObject membership = new JSONObject();
+            put(membership, "group_id", groupId);
+            put(membership, "group_storage_file", groupStorage);
+            put(membership, "position", position);
+            put(
+                membership,
+                "entry",
+                copyJsonForImport(
+                    GroupContextEntry.require(entries, position),
+                    "group context entry",
+                    position
+                )
+            );
+            putNullableString(
+                membership,
+                "previous_entry_id",
+                position > 0
+                    ? GroupContextEntry.entryIdAt(entries, position - 1)
+                    : null
+            );
+            putNullableString(
+                membership,
+                "next_entry_id",
+                position + 1 < entries.length()
+                    ? GroupContextEntry.entryIdAt(entries, position + 1)
+                    : null
+            );
+            memberships.put(membership);
+        }
+        put(snapshot, "memberships", memberships);
+        return snapshot;
+    }
+
+    private JSONObject buildPendingGroupSnapshot(
+        String groupId,
+        String storageFile,
+        JSONObject group
+    ) throws StorageException {
+        if (!groupId.equals(group.optString("id", ""))) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "group file id does not match PendingProcess target " + groupId
+            );
+        }
+        JSONObject snapshot = new JSONObject();
+        put(snapshot, "entity", copyJsonForImport(group, "group", 0));
+        put(snapshot, "storage_file", storageFile);
+        return snapshot;
+    }
+
+    private JSONObject requirePendingSceneRelationsSnapshot(
+        String sceneName,
+        JSONObject source
+    ) throws StorageException {
+        sceneName = requirePendingSceneName(sceneName);
+        if (source == null
+            || !hasExactlyKeys(source, "scene_name", "relations")
+            || !sceneName.equals(source.optString("scene_name", ""))) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess Scene relation snapshot identity is invalid"
+            );
+        }
+        JSONObject snapshot = copyJsonForImport(
+            source,
+            "PendingProcess Scene relation snapshot",
+            0
+        );
+        JSONArray relations = snapshot.optJSONArray("relations");
+        if (relations == null) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess Scene relations are missing"
+            );
+        }
+        Set<String> contextIds = new HashSet<>();
+        for (int index = 0; index < relations.length(); index++) {
+            JSONObject relation = relations.optJSONObject(index);
+            if (relation == null
+                || !hasExactlyKeys(
+                    relation,
+                    "context_id",
+                    "context_storage_file",
+                    "position",
+                    "entry",
+                    "previous_entry_id",
+                    "next_entry_id"
+                )) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "PendingProcess Scene relation is invalid at index "
+                        + index
+                );
+            }
+            String contextId = relation.optString("context_id", "");
+            validateIdOrNull(contextId, "pending Scene relation context id");
+            if (contextId.isEmpty() || !contextIds.add(contextId)) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "PendingProcess Scene relation context is duplicated"
+                );
+            }
+            requireValidStorageFileName(
+                relation.optString("context_storage_file", ""),
+                "context"
+            );
+            requirePendingPosition(relation.opt("position"));
+            JSONObject entry = relation.optJSONObject("entry");
+            requirePendingSceneEntry(sceneName, entry, index);
+            requireNullableEntryId(relation, "previous_entry_id");
+            requireNullableEntryId(relation, "next_entry_id");
+            String entryId = entry.optString("entry_id", "");
+            if (entryId.equals(nullableString(
+                    relation,
+                    "previous_entry_id"
+                ))
+                || entryId.equals(nullableString(
+                    relation,
+                    "next_entry_id"
+                ))) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "PendingProcess Scene relation points at itself"
+                );
+            }
+        }
+        return snapshot;
+    }
+
+    private static void requirePendingSceneEntry(
+        String sceneName,
+        JSONObject entry,
+        int index
+    ) throws StorageException {
+        if (entry == null
+            || !hasExactlyKeys(
+                entry,
+                "entry_id",
+                "scene",
+                "scene_file",
+                "created_at",
+                "updated_at",
+                "summaries"
+            )
+            || !sceneName.equals(entry.optString("scene", ""))
+            || !(sceneName + ".json").equals(
+                entry.optString("scene_file", "")
+            )
+            || entry.optJSONObject("summaries") == null) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess Scene entry is invalid at index " + index
+            );
+        }
+        String entryId = entry.optString("entry_id", "");
+        validateIdOrNull(entryId, "pending Scene relation entry id");
+        if (entryId.isEmpty()) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess Scene relation entry id is empty"
+            );
+        }
+        requireNonNegativeLong(entry.opt("created_at"), "created_at");
+        requireNonNegativeLong(entry.opt("updated_at"), "updated_at");
+    }
+
+    private static JSONArray restorePendingSceneRelation(
+        JSONArray current,
+        JSONObject relation,
+        String sceneName
+    ) throws StorageException {
+        JSONArray entries = copySceneEntries(current);
+        JSONObject expected = copySceneEntry(
+            relation.optJSONObject("entry"),
+            requirePendingPosition(relation.opt("position"))
+        );
+        int existingSceneIndex = indexOfScene(entries, sceneName);
+        if (existingSceneIndex >= 0
+            && !jsonValueEquals(
+                entries.optJSONObject(existingSceneIndex),
+                expected
+            )) {
+            throw new StorageException(
+                FailureKind.CONFLICT,
+                "Context already contains another entry for Scene "
+                    + sceneName
+            );
+        }
+        String entryId = expected.optString("entry_id", "");
+        int existingEntryIdIndex = indexOfSceneEntryId(entries, entryId);
+        if (existingEntryIdIndex >= 0
+            && existingEntryIdIndex != existingSceneIndex) {
+            throw new StorageException(
+                FailureKind.CONFLICT,
+                "Context Scene entry id was reused: " + entryId
+            );
+        }
+        if (existingSceneIndex >= 0) {
+            entries = removeSceneAt(entries, existingSceneIndex);
+        }
+        String previous = nullableString(relation, "previous_entry_id");
+        String next = nullableString(relation, "next_entry_id");
+        int previousIndex = indexOfSceneEntryId(entries, previous);
+        int nextIndex = indexOfSceneEntryId(entries, next);
+        int position;
+        if (previousIndex >= 0 && nextIndex >= 0) {
+            if (previousIndex >= nextIndex) {
+                throw new StorageException(
+                    FailureKind.CONFLICT,
+                    "saved Context neighbours were reordered while Scene was pending"
+                );
+            }
+            position = nextIndex;
+        } else if (previousIndex >= 0) {
+            position = previousIndex + 1;
+        } else if (nextIndex >= 0) {
+            position = nextIndex;
+        } else {
+            position = Math.min(
+                requirePendingPosition(relation.opt("position")),
+                entries.length()
+            );
+        }
+        JSONArray restored = insertSceneEntry(entries, expected, position);
+        validateSceneEntries(restored);
+        return restored;
+    }
+
+    private static boolean sameSceneRelationStorageMapping(
+        JSONArray relations,
+        JSONObject left,
+        JSONObject right
+    ) {
+        for (int index = 0; index < relations.length(); index++) {
+            JSONObject relation = relations.optJSONObject(index);
+            String contextId = relation.optString("context_id", "");
+            String leftValue = left == null
+                ? null
+                : left.optString(contextId, null);
+            String rightValue = right == null
+                ? null
+                : right.optString(contextId, null);
+            if (leftValue == null
+                ? rightValue != null
+                : !leftValue.equals(rightValue)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static JSONArray removeSceneEntries(
+        JSONArray current,
+        String sceneName
+    ) throws StorageException {
+        JSONArray retained = new JSONArray();
+        if (current == null) {
+            return retained;
+        }
+        for (int index = 0; index < current.length(); index++) {
+            JSONObject entry = copySceneEntry(
+                current.optJSONObject(index),
+                index
+            );
+            if (!sceneName.equals(entry.optString("scene", ""))) {
+                retained.put(entry);
+            }
+        }
+        return retained;
+    }
+
+    private static JSONArray copySceneEntries(JSONArray source)
+        throws StorageException {
+        JSONArray copy = new JSONArray();
+        if (source == null) {
+            return copy;
+        }
+        for (int index = 0; index < source.length(); index++) {
+            copy.put(copySceneEntry(source.optJSONObject(index), index));
+        }
+        return copy;
+    }
+
+    private static JSONObject copySceneEntry(JSONObject entry, int index)
+        throws StorageException {
+        if (entry == null) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "Context Scene entry is invalid at index " + index
+            );
+        }
+        return copyJsonForImport(entry, "Context Scene entry", index);
+    }
+
+    private static int indexOfScene(JSONArray scenes, String sceneName) {
+        if (scenes == null || sceneName == null) {
+            return -1;
+        }
+        for (int index = 0; index < scenes.length(); index++) {
+            JSONObject entry = scenes.optJSONObject(index);
+            if (entry != null
+                && sceneName.equals(entry.optString("scene", ""))) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private static int indexOfSceneEntryId(JSONArray scenes, String entryId) {
+        if (scenes == null || entryId == null) {
+            return -1;
+        }
+        for (int index = 0; index < scenes.length(); index++) {
+            JSONObject entry = scenes.optJSONObject(index);
+            if (entry != null
+                && entryId.equals(entry.optString("entry_id", ""))) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private static String sceneEntryIdAt(JSONArray scenes, int index)
+        throws StorageException {
+        JSONObject entry = scenes == null ? null : scenes.optJSONObject(index);
+        String entryId = entry == null ? "" : entry.optString("entry_id", "");
+        if (entryId.isEmpty()) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "Context Scene entry id is missing at index " + index
+            );
+        }
+        return entryId;
+    }
+
+    private static JSONArray removeSceneAt(JSONArray scenes, int removedIndex)
+        throws StorageException {
+        JSONArray result = new JSONArray();
+        for (int index = 0; index < scenes.length(); index++) {
+            if (index != removedIndex) {
+                result.put(copySceneEntry(
+                    scenes.optJSONObject(index),
+                    index
+                ));
+            }
+        }
+        return result;
+    }
+
+    private static JSONArray insertSceneEntry(
+        JSONArray scenes,
+        JSONObject entry,
+        int position
+    ) throws StorageException {
+        if (position < 0 || position > scenes.length()) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess Scene relation position is invalid"
+            );
+        }
+        JSONArray result = new JSONArray();
+        for (int index = 0; index <= scenes.length(); index++) {
+            if (index == position) {
+                result.put(copySceneEntry(entry, index));
+            }
+            if (index < scenes.length()) {
+                result.put(copySceneEntry(
+                    scenes.optJSONObject(index),
+                    index
+                ));
+            }
+        }
+        return result;
+    }
+
+    private static String requirePendingSceneName(String sceneName)
+        throws StorageException {
+        if (sceneName == null
+            || sceneName.isEmpty()
+            || sceneName.length() > 235) {
+            throw new StorageException(
+                FailureKind.INVALID_ARGUMENT,
+                "pending Scene name is invalid"
+            );
+        }
+        for (int index = 0; index < sceneName.length(); index++) {
+            char value = sceneName.charAt(index);
+            boolean allowed = (value >= 'a' && value <= 'z')
+                || (value >= 'A' && value <= 'Z')
+                || (value >= '0' && value <= '9')
+                || value == '_'
+                || value == '-';
+            if (!allowed) {
+                throw new StorageException(
+                    FailureKind.INVALID_ARGUMENT,
+                    "pending Scene name is invalid"
+                );
+            }
+        }
+        return sceneName;
+    }
+
+    private static long requireNonNegativeLong(Object value, String label)
+        throws StorageException {
+        if (!(value instanceof Number)) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess Scene entry " + label + " is invalid"
+            );
+        }
+        try {
+            long result = new BigDecimal(String.valueOf(value))
+                .longValueExact();
+            if (result < 0L) {
+                throw new ArithmeticException("negative");
+            }
+            return result;
+        } catch (ArithmeticException | NumberFormatException e) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess Scene entry " + label + " is invalid",
+                e
+            );
+        }
+    }
+
+    private JSONObject requirePendingContextSnapshot(
+        String contextId,
+        JSONObject source
+    ) throws StorageException {
+        validateIdOrNull(contextId, "pending context id");
+        if (contextId == null
+            || source == null
+            || !hasExactlyKeys(source, "entity", "storage_file", "memberships")) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess context snapshot shape is invalid"
+            );
+        }
+        JSONObject snapshot = copyJsonForImport(
+            source,
+            "PendingProcess context snapshot",
+            0
+        );
+        JSONObject entity = snapshot.optJSONObject("entity");
+        String storageFile = snapshot.optString("storage_file", "");
+        JSONArray memberships = snapshot.optJSONArray("memberships");
+        if (entity == null || memberships == null) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess context snapshot payload is missing"
+            );
+        }
+        validateContextDocument(entity);
+        if (!contextId.equals(entity.optString("id", ""))) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess context snapshot id does not match"
+            );
+        }
+        requireValidStorageFileName(storageFile, "context");
+        if (!(entity.optString("storage_name", "") + ".json").equals(
+            storageFile
+        )) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess context storage identity does not match"
+            );
+        }
+        Set<String> groupIds = new HashSet<>();
+        Set<String> entryIds = new HashSet<>();
+        for (int index = 0; index < memberships.length(); index++) {
+            JSONObject membership = memberships.optJSONObject(index);
+            if (membership == null
+                || !hasExactlyKeys(
+                    membership,
+                    "group_id",
+                    "group_storage_file",
+                    "position",
+                    "entry",
+                    "previous_entry_id",
+                    "next_entry_id"
+                )) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "PendingProcess context membership is invalid"
+                );
+            }
+            String groupId = membership.optString("group_id", "");
+            validateIdOrNull(groupId, "pending membership group id");
+            if (groupId.isEmpty() || !groupIds.add(groupId)) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "PendingProcess context membership group is duplicated"
+                );
+            }
+            requireValidStorageFileName(
+                membership.optString("group_storage_file", ""),
+                "group"
+            );
+            requirePendingPosition(membership.opt("position"));
+            JSONObject entry = membership.optJSONObject("entry");
+            if (entry == null
+                || !contextId.equals(entry.optString(
+                    GroupContextEntry.CONTEXT_ID,
+                    ""
+                ))) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "PendingProcess group entry points at another context"
+                );
+            }
+            String entryId = entry.optString(GroupContextEntry.ENTRY_ID, "");
+            if (entryId.isEmpty() || !entryIds.add(entryId)) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "PendingProcess group entry identity is invalid"
+                );
+            }
+            requireNullableEntryId(membership, "previous_entry_id");
+            requireNullableEntryId(membership, "next_entry_id");
+        }
+        return snapshot;
+    }
+
+    private JSONObject requirePendingGroupSnapshot(
+        String groupId,
+        JSONObject source
+    ) throws StorageException {
+        validateIdOrNull(groupId, "pending group id");
+        if (groupId == null
+            || source == null
+            || !hasExactlyKeys(source, "entity", "storage_file")) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess group snapshot shape is invalid"
+            );
+        }
+        JSONObject snapshot = copyJsonForImport(
+            source,
+            "PendingProcess group snapshot",
+            0
+        );
+        JSONObject entity = snapshot.optJSONObject("entity");
+        String storageFile = snapshot.optString("storage_file", "");
+        if (entity == null) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess group snapshot payload is missing"
+            );
+        }
+        validateGroupDocument(entity);
+        if (!groupId.equals(entity.optString("id", ""))) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess group snapshot id does not match"
+            );
+        }
+        requireValidStorageFileName(storageFile, "group");
+        if (!(entity.optString("storage_name", "") + ".json").equals(
+            storageFile
+        )) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess group storage identity does not match"
+            );
+        }
+        return snapshot;
+    }
+
+    private void restorePendingContextLocked(
+        String contextId,
+        JSONObject snapshot
+    ) throws StorageException {
+        JSONObject entity = snapshot.optJSONObject("entity");
+        String storageFile = snapshot.optString("storage_file", "");
+        JSONArray memberships = snapshot.optJSONArray("memberships");
+        File contextFile = new File(contextStore.getDirectory(), storageFile);
+        List<File> lockFiles = new ArrayList<>();
+        lockFiles.add(indexStore.getFile());
+        lockFiles.add(contextFile);
+        JSONObject initialIndex = readIndex();
+        JSONObject initialGroups = initialIndex.optJSONObject("groups");
+        for (int index = 0; index < memberships.length(); index++) {
+            JSONObject membership = memberships.optJSONObject(index);
+            String groupId = membership.optString("group_id", "");
+            String expectedStorage = membership.optString(
+                "group_storage_file",
+                ""
+            );
+            String currentStorage = initialGroups == null
+                ? null
+                : initialGroups.optString(groupId, null);
+            if (!expectedStorage.equals(currentStorage)) {
+                throw new StorageException(
+                    FailureKind.CONFLICT,
+                    "cannot restore context before its group is restored: "
+                        + groupId
+                );
+            }
+            lockFiles.add(new File(groupStore.getDirectory(), currentStorage));
+        }
+        withEntityLocks(lockFiles, () -> {
+            JSONObject index = readIndex();
+            JSONObject contextMap = index.optJSONObject("contexts");
+            String currentStorage = contextMap.optString(contextId, null);
+            boolean createContext = currentStorage == null
+                || currentStorage.isEmpty();
+            if (createContext) {
+                if (mapContainsStorageFile(contextMap, contextId, storageFile)) {
+                    throw new StorageException(
+                        FailureKind.CONFLICT,
+                        "context storage file was reused while pending: "
+                            + storageFile
+                    );
+                }
+                if (io.exists(contextFile)) {
+                    throw new StorageException(
+                        FailureKind.INVALID_STATE,
+                        "unindexed context file blocks restore: " + storageFile
+                    );
+                }
+                put(contextMap, contextId, storageFile);
+                validateIndexDocument(index);
+            } else {
+                if (!storageFile.equals(currentStorage)) {
+                    throw new StorageException(
+                        FailureKind.CONFLICT,
+                        "context id was reused while pending: " + contextId
+                    );
+                }
+                JSONObject current = readContextByStorage(
+                    contextId,
+                    currentStorage
+                );
+                if (!jsonValueEquals(current, entity)) {
+                    throw new StorageException(
+                        FailureKind.CONFLICT,
+                        "context id now contains another document: " + contextId
+                    );
+                }
+            }
+
+            List<Mutation> mutations = new ArrayList<>();
+            if (createContext) {
+                mutations.add(mutation(
+                    "contexts/" + storageFile,
+                    contextStore.getDirectory(),
+                    entity
+                ));
+            }
+            JSONObject groups = index.optJSONObject("groups");
+            for (int memberIndex = 0;
+                memberIndex < memberships.length();
+                memberIndex++) {
+                JSONObject membership = memberships.optJSONObject(memberIndex);
+                String groupId = membership.optString("group_id", "");
+                String expectedStorage = membership.optString(
+                    "group_storage_file",
+                    ""
+                );
+                String groupStorage = groups == null
+                    ? null
+                    : groups.optString(groupId, null);
+                if (!expectedStorage.equals(groupStorage)) {
+                    throw new StorageException(
+                        FailureKind.CONFLICT,
+                        "group changed while restoring context: " + groupId
+                    );
+                }
+                JSONObject group = readGroupByStorage(groupId, groupStorage);
+                JSONArray currentEntries = group.optJSONArray("contexts");
+                JSONArray restoredEntries = insertPendingMembership(
+                    currentEntries,
+                    membership,
+                    contextId
+                );
+                if (!jsonValueEquals(currentEntries, restoredEntries)) {
+                    put(group, "contexts", restoredEntries);
+                    put(
+                        group,
+                        "revision",
+                        group.optLong("revision", 0L) + 1L
+                    );
+                    put(group, "updated_at", System.currentTimeMillis());
+                    validateGroupDocument(group);
+                    validateGroupContextIds(restoredEntries, index);
+                    mutations.add(mutation(
+                        "groups/" + groupStorage,
+                        groupStore.getDirectory(),
+                        group
+                    ));
+                }
+            }
+            if (createContext) {
+                mutations.add(mutationIndex(index));
+            }
+            commitMutations(mutations);
+            return true;
+        });
+    }
+
+    private void restorePendingGroupLocked(
+        String groupId,
+        JSONObject snapshot
+    ) throws StorageException {
+        JSONObject entity = snapshot.optJSONObject("entity");
+        String storageFile = snapshot.optString("storage_file", "");
+        File groupFile = new File(groupStore.getDirectory(), storageFile);
+        List<File> lockFiles = new ArrayList<>();
+        lockFiles.add(indexStore.getFile());
+        lockFiles.add(groupFile);
+        withEntityLocks(lockFiles, () -> {
+            JSONObject index = readIndex();
+            JSONObject groupMap = index.optJSONObject("groups");
+            String currentStorage = groupMap.optString(groupId, null);
+            if (currentStorage != null && !currentStorage.isEmpty()) {
+                if (!storageFile.equals(currentStorage)
+                    || !jsonValueEquals(
+                        readGroupByStorage(groupId, currentStorage),
+                        entity
+                    )) {
+                    throw new StorageException(
+                        FailureKind.CONFLICT,
+                        "group id was reused while pending: " + groupId
+                    );
+                }
+                validateGroupContextIds(entity.optJSONArray("contexts"), index);
+                return true;
+            }
+            if (mapContainsStorageFile(groupMap, groupId, storageFile)) {
+                throw new StorageException(
+                    FailureKind.CONFLICT,
+                    "group storage file was reused while pending: " + storageFile
+                );
+            }
+            if (io.exists(groupFile)) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "unindexed group file blocks restore: " + storageFile
+                );
+            }
+            validateGroupContextIds(entity.optJSONArray("contexts"), index);
+            put(groupMap, groupId, storageFile);
+            validateIndexDocument(index);
+            List<Mutation> mutations = new ArrayList<>();
+            mutations.add(mutation(
+                "groups/" + storageFile,
+                groupStore.getDirectory(),
+                entity
+            ));
+            mutations.add(mutationIndex(index));
+            commitMutations(mutations);
+            return true;
+        });
+    }
+
+    private static JSONArray insertPendingMembership(
+        JSONArray current,
+        JSONObject membership,
+        String contextId
+    ) throws StorageException {
+        JSONArray entries = GroupContextEntry.cloneEntries(current);
+        JSONObject expected = membership.optJSONObject("entry");
+        int existingIndex = GroupContextEntry.indexOfContextId(
+            entries,
+            contextId
+        );
+        if (existingIndex >= 0) {
+            if (!jsonValueEquals(
+                GroupContextEntry.require(entries, existingIndex),
+                expected
+            )) {
+                throw new StorageException(
+                    FailureKind.CONFLICT,
+                    "group already contains another entry for context "
+                        + contextId
+                );
+            }
+            return entries;
+        }
+        String entryId = expected.optString(GroupContextEntry.ENTRY_ID, "");
+        if (GroupContextEntry.indexOfEntryId(entries, entryId) >= 0) {
+            throw new StorageException(
+                FailureKind.CONFLICT,
+                "group context entry id was reused: " + entryId
+            );
+        }
+        String previous = nullableString(membership, "previous_entry_id");
+        String next = nullableString(membership, "next_entry_id");
+        int previousIndex = GroupContextEntry.indexOfEntryId(entries, previous);
+        int nextIndex = GroupContextEntry.indexOfEntryId(entries, next);
+        int position;
+        if (previousIndex >= 0 && nextIndex >= 0) {
+            if (previousIndex >= nextIndex) {
+                throw new StorageException(
+                    FailureKind.CONFLICT,
+                    "saved group neighbours were reordered while context was pending"
+                );
+            }
+            position = nextIndex;
+        } else if (previousIndex >= 0) {
+            position = previousIndex + 1;
+        } else if (nextIndex >= 0) {
+            position = nextIndex;
+        } else {
+            position = Math.min(
+                requirePendingPosition(membership.opt("position")),
+                entries.length()
+            );
+        }
+        JSONArray result = new JSONArray();
+        for (int index = 0; index <= entries.length(); index++) {
+            if (index == position) {
+                result.put(copyJsonForImport(
+                    expected,
+                    "PendingProcess group entry",
+                    index
+                ));
+            }
+            if (index < entries.length()) {
+                result.put(GroupContextEntry.require(entries, index));
+            }
+        }
+        return result;
+    }
+
+    private JSONObject readContextByStorage(
+        String contextId,
+        String storageFile
+    ) throws StorageException {
+        requireValidStorageFileName(storageFile, "context");
+        String storageName = storageFile.substring(
+            0,
+            storageFile.length() - 5
+        );
+        try {
+            JSONObject context = contextStore.read(storageName);
+            if (!contextId.equals(context.optString("id", ""))) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "context file id does not match index for " + contextId
+                );
+            }
+            return context;
+        } catch (ContextGroupSchemaValidator.ValidationException e) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "context file is schema-invalid: " + contextId,
+                e
+            );
+        } catch (IOException e) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "context file is missing or unreadable: " + contextId,
+                e
+            );
+        }
+    }
+
+    private static int requirePendingPosition(Object value)
+        throws StorageException {
+        try {
+            int position = new BigDecimal(String.valueOf(value)).intValueExact();
+            if (position < 0) {
+                throw new ArithmeticException("negative");
+            }
+            return position;
+        } catch (RuntimeException e) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess membership position is invalid",
+                e
+            );
+        }
+    }
+
+    private static void requireNullableEntryId(
+        JSONObject object,
+        String key
+    ) throws StorageException {
+        Object value = object.opt(key);
+        if (value == null || value == JSONObject.NULL) {
+            return;
+        }
+        if (!(value instanceof String) || ((String) value).isEmpty()) {
+            throw new StorageException(
+                FailureKind.INVALID_STATE,
+                "PendingProcess membership " + key + " is invalid"
+            );
+        }
+    }
+
+    private static boolean mapContainsStorageFile(
+        JSONObject map,
+        String targetId,
+        String storageFile
+    ) {
+        for (String id : sortedKeys(map)) {
+            if (!id.equals(targetId)
+                && storageFile.equals(map.optString(id, null))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasExactlyKeys(JSONObject object, String... keys) {
+        if (object == null || object.length() != keys.length) {
+            return false;
+        }
+        Set<String> expected = new HashSet<>();
+        Collections.addAll(expected, keys);
+        java.util.Iterator<String> iterator = object.keys();
+        while (iterator.hasNext()) {
+            if (!expected.contains(iterator.next())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean jsonValueEquals(Object left, Object right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (left == JSONObject.NULL || right == JSONObject.NULL) {
+            return left == JSONObject.NULL && right == JSONObject.NULL;
+        }
+        if (left instanceof JSONObject && right instanceof JSONObject) {
+            JSONObject a = (JSONObject) left;
+            JSONObject b = (JSONObject) right;
+            if (a.length() != b.length()) {
+                return false;
+            }
+            java.util.Iterator<String> keys = a.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (!b.has(key) || !jsonValueEquals(a.opt(key), b.opt(key))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (left instanceof JSONArray && right instanceof JSONArray) {
+            JSONArray a = (JSONArray) left;
+            JSONArray b = (JSONArray) right;
+            if (a.length() != b.length()) {
+                return false;
+            }
+            for (int index = 0; index < a.length(); index++) {
+                if (!jsonValueEquals(a.opt(index), b.opt(index))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (left instanceof Number && right instanceof Number) {
+            try {
+                return new BigDecimal(left.toString()).compareTo(
+                    new BigDecimal(right.toString())
+                ) == 0;
+            } catch (NumberFormatException ignored) {
+                return left.toString().equals(right.toString());
+            }
+        }
+        return left.equals(right);
     }
 
     // ── Listing ─────────────────────────────────────────────────────────

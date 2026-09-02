@@ -32,6 +32,18 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
         byte[] readCompletedResult(String requestId) throws Exception;
 
         byte[] readFailedError(String requestId) throws Exception;
+
+        /** Reclaims leases admitted by a callback generation being removed. */
+        default void revokeTerminalDeliveryGeneration(long generation)
+            throws Exception {
+            // Older host fixtures may not keep process-local lease state.
+        }
+
+        /** Returns whether this callback generation currently owns a lease. */
+        default boolean hasActiveTerminalDeliveryGeneration(long generation)
+            throws Exception {
+            return false;
+        }
     }
 
     public interface Callback {
@@ -39,13 +51,15 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
             String requestId,
             String scene,
             String targetLanguage,
+            long connectionGeneration,
             byte[] resultJson
         ) throws Exception;
 
         void sendFailed(
             String requestId,
             String errorType,
-            String message
+            String message,
+            long connectionGeneration
         ) throws Exception;
     }
 
@@ -117,13 +131,22 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
         if (callback == null) {
             throw new IllegalArgumentException("callback cannot be null");
         }
+        long replacedGeneration;
         synchronized (lock) {
             ensureOpenLocked();
+            replacedGeneration = generation;
+            if (this.callback != null
+                && hasActiveLeaseLocked(replacedGeneration)) {
+                throw new IllegalStateException(
+                    "terminal delivery callback replacement is busy"
+                );
+            }
             generation++;
             cancelAttemptsLocked();
             cancelReplayScanLocked();
             this.callback = callback;
         }
+        revokeGeneration(replacedGeneration);
         if (released) {
             scheduleReplay();
         }
@@ -152,13 +175,88 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
         }
     }
 
-    /** Invalidates the callback and every timer for the old Binder. */
-    public void unbind() {
+    /**
+     * Invalidates the callback and every timer for the old Binder.  An
+     * explicit unregister is refused while a callback generation owns a
+     * terminal lease; the reader must ACK/release it before the Binder can be
+     * replaced.  Binder death uses {@link #unbindAfterConnectionDeath()} so
+     * that an unreachable callback can reclaim its leases.
+     *
+     * @return {@code true} when the callback was removed, or {@code false}
+     *     when an active lease kept it installed
+     */
+    public boolean unbind() {
+        return unbindInternal(false);
+    }
+
+    /** Reclaims an unreachable callback generation after Binder death. */
+    public void unbindAfterConnectionDeath() {
+        unbindInternal(true);
+    }
+
+    private boolean unbindInternal(boolean reclaimLeases) {
+        long removedGeneration;
         synchronized (lock) {
+            if (!reclaimLeases && hasActiveLeaseLocked(generation)) {
+                return false;
+            }
+            removedGeneration = generation;
             generation++;
             cancelAttemptsLocked();
             cancelReplayScanLocked();
             callback = null;
+        }
+        if (reclaimLeases) {
+            revokeGeneration(removedGeneration);
+        }
+        return true;
+    }
+
+    /** Returns true only for the callback generation currently installed. */
+    public boolean isGenerationActive(long expectedGeneration) {
+        synchronized (lock) {
+            return !closed
+                && callback != null
+                && generation == expectedGeneration;
+        }
+    }
+
+    /** Returns whether the installed callback's current generation owns a lease. */
+    public boolean hasActiveLeaseForCurrentGeneration() {
+        synchronized (lock) {
+            return hasActiveLeaseLocked(generation);
+        }
+    }
+
+    private boolean hasActiveLeaseLocked(long expectedGeneration) {
+        if (expectedGeneration <= 0L || callback == null) {
+            return false;
+        }
+        try {
+            return store.hasActiveTerminalDeliveryGeneration(
+                expectedGeneration
+            );
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                "Could not inspect terminal delivery leases",
+                e
+            );
+        }
+    }
+
+    private void revokeGeneration(long generationToRevoke) {
+        if (generationToRevoke <= 0L) {
+            return;
+        }
+        try {
+            store.revokeTerminalDeliveryGeneration(generationToRevoke);
+        } catch (Exception e) {
+            Log.w(
+                TAG,
+                "Could not reclaim terminal leases generation="
+                    + generationToRevoke,
+                e
+            );
         }
     }
 
@@ -354,6 +452,7 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
                     job.getRequestId(),
                     job.getScene(),
                     job.getTargetLanguage(),
+                    attempt.generation,
                     result
                 );
             } else {
@@ -367,7 +466,12 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
                 String message = job.getErrorMessage().isEmpty()
                     ? new String(error, java.nio.charset.StandardCharsets.UTF_8)
                     : job.getErrorMessage();
-                callbackSnapshot.sendFailed(job.getRequestId(), type, message);
+                callbackSnapshot.sendFailed(
+                    job.getRequestId(),
+                    type,
+                    message,
+                    attempt.generation
+                );
             }
         } catch (Exception e) {
             // Keep pending responsibility and use the same bounded schedule.

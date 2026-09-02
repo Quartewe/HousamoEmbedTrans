@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.text.TextUtils;
 import android.view.Gravity;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -37,6 +38,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.json.JSONArray;
@@ -55,8 +57,10 @@ import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.LinkedHashSet;
 
 /**
  * Scene Context / Context Group management page. In review mode it also serves
@@ -81,6 +85,8 @@ public final class SceneContextActivity extends AppCompatActivity {
     private GroupCompressionCoordinator groupCompressionCoordinator;
     private ContextReviewCoordinator contextReviewCoordinator;
     private SceneStore sceneStore;
+    private PendingProcessMoveController pendingMoveController;
+    private ManagementBatchController managementBatchController;
 
     private final List<JSONObject> contexts = new ArrayList<>();
     private final List<JSONObject> groups = new ArrayList<>();
@@ -96,9 +102,11 @@ public final class SceneContextActivity extends AppCompatActivity {
     private Spinner activeGroupSpinner;
     private LinearLayout contextContainer;
     private LinearLayout groupContainer;
+    private MenuItem managementBatchMenuItem;
     private TextView resultView;
     private boolean reviewMode;
     private boolean busy;
+    private boolean batchMode;
     private String selectedActiveContextId;
     private String selectedActiveGroupId;
     private ArrayAdapter<String> activeContextAdapter;
@@ -133,10 +141,19 @@ public final class SceneContextActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(
             view -> onBackPressed()
         );
+        toolbar.inflateMenu(R.menu.menu_management_batch);
+        managementBatchMenuItem = toolbar.getMenu().findItem(
+            R.id.action_management_batch
+        );
+        managementBatchMenuItem.setOnMenuItemClickListener(item -> {
+            toggleManagementBatch();
+            return true;
+        });
 
         reviewMode = ContextReviewGate.get().isPending()
             || (getIntent() != null
                 && getIntent().getBooleanExtra(EXTRA_REVIEW_MODE, false));
+        managementBatchMenuItem.setVisible(!reviewMode);
 
         sceneContextStore = new SceneContextStore(this);
         translationJobStore = TranslationJobStore.getInstance(this);
@@ -158,9 +175,51 @@ public final class SceneContextActivity extends AppCompatActivity {
             groupCompressionCoordinator
         );
         sceneStore = new SceneStore(this);
+        pendingMoveController = new PendingProcessMoveController(this);
 
         bindViews();
         refreshAsync();
+        managementBatchController = ManagementBatchController.attach(
+            this,
+            findViewById(R.id.root_scene_context),
+            new ContextBatchDataSource(),
+            savedInstanceState
+        );
+    }
+
+    private void toggleManagementBatch() {
+        if (managementBatchController == null) {
+            return;
+        }
+        if (managementBatchController.isActive()) {
+            managementBatchController.exit();
+        } else {
+            managementBatchController.enter();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (managementBatchController != null) {
+            managementBatchController.onStart();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        if (managementBatchController != null) {
+            managementBatchController.onStop();
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (managementBatchController != null) {
+            managementBatchController.saveState(outState);
+        }
+        super.onSaveInstanceState(outState);
     }
 
     private void bindViews() {
@@ -245,6 +304,7 @@ public final class SceneContextActivity extends AppCompatActivity {
                 new Intent(this, SceneBatchEditActivity.class)
             )
         );
+
         findViewById(R.id.btn_import_context_group).setOnClickListener(
             view -> chooseContextGroupImport()
         );
@@ -273,6 +333,13 @@ public final class SceneContextActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        if (managementBatchController != null
+            && managementBatchController.isActive()) {
+            // Batch mode is an inline editing state; back first restores the
+            // existing context/group rows instead of finishing the Activity.
+            managementBatchController.exit();
+            return;
+        }
         if (reviewMode && ContextReviewGate.get().isPending()) {
             new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.scene_context_review_skip_title)
@@ -293,6 +360,14 @@ public final class SceneContextActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (managementBatchController != null) {
+            managementBatchController.close();
+            managementBatchController = null;
+        }
+        if (pendingMoveController != null) {
+            pendingMoveController.close();
+            pendingMoveController = null;
+        }
         ioExecutor.shutdownNow();
         super.onDestroy();
     }
@@ -892,6 +967,10 @@ public final class SceneContextActivity extends AppCompatActivity {
                     }
                     render(activeContextId, activeGroupId);
                     setBusy(false);
+                    if (managementBatchController != null
+                        && managementBatchController.isActive()) {
+                        managementBatchController.onHostRowsChanged();
+                    }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
@@ -912,6 +991,11 @@ public final class SceneContextActivity extends AppCompatActivity {
         rebuildActiveSpinners(activeContextId, activeGroupId);
         renderContextRows();
         renderGroupRows();
+        if (managementBatchController != null
+            && managementBatchController.isActive()) {
+            managementBatchController.refreshHostCatalog();
+            managementBatchController.onHostRowsChanged();
+        }
     }
 
     private void rebuildActiveSpinners(
@@ -952,6 +1036,9 @@ public final class SceneContextActivity extends AppCompatActivity {
                 : context.optJSONArray("scenes").length();
             boolean active = id.equals(selectedActiveContextId);
             contextContainer.addView(buildRow(
+                ManagementBatchController.KIND_CONTEXT,
+                id,
+                context,
                 getString(
                     R.string.scene_context_row_summary,
                     name,
@@ -960,7 +1047,7 @@ public final class SceneContextActivity extends AppCompatActivity {
                 ),
                 view -> showContextEditor(copyJson(context)),
                 view -> setActiveContext(id),
-                view -> confirmDeleteContext(context)
+                view -> moveContextToPending(context)
             ));
         }
     }
@@ -976,6 +1063,9 @@ public final class SceneContextActivity extends AppCompatActivity {
                 : group.optJSONArray("contexts").length();
             boolean active = id.equals(selectedActiveGroupId);
             groupContainer.addView(buildRow(
+                ManagementBatchController.KIND_GROUP,
+                id,
+                group,
                 getString(
                     R.string.scene_context_group_row_summary,
                     name,
@@ -984,12 +1074,15 @@ public final class SceneContextActivity extends AppCompatActivity {
                 ),
                 view -> showGroupEditor(copyJson(group)),
                 view -> setActiveGroup(id),
-                view -> confirmDeleteGroup(group)
+                view -> moveGroupToPending(group)
             ));
         }
     }
 
     private LinearLayout buildRow(
+        String kind,
+        String canonicalId,
+        JSONObject payload,
         String text,
         View.OnClickListener editListener,
         View.OnClickListener activateListener,
@@ -999,6 +1092,21 @@ public final class SceneContextActivity extends AppCompatActivity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, 8, 0, 8);
+
+        if (batchMode) {
+            ManagementBatchSelection.register(kind, canonicalId, text, payload);
+            MaterialCheckBox check = new MaterialCheckBox(this);
+            String key = kind + ":" + canonicalId;
+            check.setChecked(ManagementBatchSelection.contains(key));
+            check.setContentDescription(text);
+            check.setOnCheckedChangeListener((button, checked) -> {
+                ManagementBatchSelection.set(key, checked);
+                if (managementBatchController != null) {
+                    managementBatchController.onHostRowsChanged();
+                }
+            });
+            row.addView(check);
+        }
 
         TextView label = new TextView(this);
         label.setText(text);
@@ -1011,9 +1119,11 @@ public final class SceneContextActivity extends AppCompatActivity {
         label.setLayoutParams(labelParams);
         row.addView(label);
 
-        row.addView(textButton(R.string.scene_context_edit, editListener));
-        row.addView(textButton(R.string.scene_context_activate, activateListener));
-        row.addView(textButton(R.string.scene_context_delete, deleteListener));
+        if (!batchMode) {
+            row.addView(textButton(R.string.scene_context_edit, editListener));
+            row.addView(textButton(R.string.scene_context_activate, activateListener));
+            row.addView(textButton(R.string.pending_process_move, deleteListener));
+        }
         return row;
     }
 
@@ -1050,52 +1160,44 @@ public final class SceneContextActivity extends AppCompatActivity {
         renderGroupRows();
     }
 
-    private void confirmDeleteContext(JSONObject context) {
-        new MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.scene_context_delete_context_title)
-            .setMessage(getString(
-                R.string.scene_context_delete_context_message,
-                context.optString("display_name", "?")
-            ))
-            .setNegativeButton(R.string.cancel_action, null)
-            .setPositiveButton(
-                R.string.scene_context_delete,
-                (dialog, which) -> {
-                    contexts.removeIf(candidate ->
-                        candidate.optString("id", "")
-                            .equals(context.optString("id", ""))
-                    );
-                    for (JSONObject group : groups) {
-                        removeGroupContext(
-                            group,
-                            context.optString("id", "")
-                        );
-                    }
-                    render(selectedActiveContextId, selectedActiveGroupId);
+    private void moveContextToPending(JSONObject context) {
+        final String id = context.optString("id", "");
+        pendingMoveController.confirmMove(
+            "context",
+            id,
+            context.optString("display_name", id),
+            () -> {
+                contexts.removeIf(candidate ->
+                    id.equals(candidate.optString("id", ""))
+                );
+                for (JSONObject group : groups) {
+                    removeGroupContext(group, id);
                 }
-            )
-            .show();
+                if (id.equals(selectedActiveContextId)) {
+                    selectedActiveContextId = null;
+                    selectedActiveGroupId = null;
+                }
+                render(selectedActiveContextId, selectedActiveGroupId);
+            }
+        );
     }
 
-    private void confirmDeleteGroup(JSONObject group) {
-        new MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.scene_context_delete_group_title)
-            .setMessage(getString(
-                R.string.scene_context_delete_group_message,
-                group.optString("display_name", "?")
-            ))
-            .setNegativeButton(R.string.cancel_action, null)
-            .setPositiveButton(
-                R.string.scene_context_delete,
-                (dialog, which) -> {
-                    groups.removeIf(candidate ->
-                        candidate.optString("id", "")
-                            .equals(group.optString("id", ""))
-                    );
-                    render(selectedActiveContextId, selectedActiveGroupId);
+    private void moveGroupToPending(JSONObject group) {
+        final String id = group.optString("id", "");
+        pendingMoveController.confirmMove(
+            "group",
+            id,
+            group.optString("display_name", id),
+            () -> {
+                groups.removeIf(candidate ->
+                    id.equals(candidate.optString("id", ""))
+                );
+                if (id.equals(selectedActiveGroupId)) {
+                    selectedActiveGroupId = null;
                 }
-            )
-            .show();
+                render(selectedActiveContextId, selectedActiveGroupId);
+            }
+        );
     }
 
     private void showContextEditor(final JSONObject draft) {
@@ -2081,13 +2183,159 @@ public final class SceneContextActivity extends AppCompatActivity {
         }
     }
 
+    private final class ContextBatchDataSource
+        implements ManagementBatchController.BatchDataSource {
+        @Override
+        public String initialKind() {
+            return ManagementBatchController.KIND_CONTEXT;
+        }
+
+        @Override
+        public Set<String> ownedKinds() {
+            return new LinkedHashSet<>(Arrays.asList(
+                ManagementBatchController.KIND_CONTEXT,
+                ManagementBatchController.KIND_GROUP
+            ));
+        }
+
+        @Override
+        public String currentFilter() {
+            return "";
+        }
+
+        @Override
+        public List<ManagementBatchController.Item> snapshotItems()
+            throws Exception {
+            List<ManagementBatchController.Item> output = new ArrayList<>();
+            // Read a complete immutable store snapshot.  The UI lists are
+            // rebuilt on the main thread and must never be traversed by the
+            // controller's background catalog refresh.
+            for (JSONObject context : sceneContextStore.listContexts()) {
+                addItem(
+                    output,
+                    ManagementBatchController.KIND_CONTEXT,
+                    context,
+                    R.string.management_batch_context_label
+                );
+            }
+            for (JSONObject group : sceneContextStore.listGroups()) {
+                addItem(
+                    output,
+                    ManagementBatchController.KIND_GROUP,
+                    group,
+                    R.string.management_batch_group_label
+                );
+            }
+            return output;
+        }
+
+        @Override
+        public List<ManagementBatchController.Item> currentVisibleItems()
+            throws Exception {
+            List<ManagementBatchController.Item> output = new ArrayList<>();
+            for (JSONObject context : contexts) {
+                addItem(
+                    output,
+                    ManagementBatchController.KIND_CONTEXT,
+                    context,
+                    R.string.management_batch_context_label
+                );
+            }
+            for (JSONObject group : groups) {
+                addItem(
+                    output,
+                    ManagementBatchController.KIND_GROUP,
+                    group,
+                    R.string.management_batch_group_label
+                );
+            }
+            return output;
+        }
+
+        private void addItem(
+            List<ManagementBatchController.Item> output,
+            String kind,
+            JSONObject source,
+            int labelRes
+        ) throws Exception {
+            if (source == null) {
+                return;
+            }
+            String id = source.optString("id", "").trim();
+            if (id.isEmpty()) {
+                return;
+            }
+            JSONObject payload = new JSONObject(source.toString());
+            payload.put("id", id);
+            payload.put("key", id);
+            output.add(new ManagementBatchController.Item(
+                kind,
+                id,
+                getString(labelRes, source.optString("display_name", id)),
+                payload
+            ));
+        }
+
+        @Override
+        public void onBatchModeChanged(boolean enabled) {
+            batchMode = enabled;
+            View root = findViewById(R.id.root_scene_context);
+            int scrollY = root == null ? 0 : root.getScrollY();
+            findViewById(R.id.btn_add_context).setEnabled(!enabled && !busy);
+            findViewById(R.id.btn_add_group).setEnabled(!enabled && !busy);
+            findViewById(R.id.btn_edit_all_scenes).setEnabled(!enabled && !busy);
+            findViewById(R.id.btn_import_context_group).setEnabled(!enabled && !busy);
+            findViewById(R.id.btn_export_context_group).setEnabled(!enabled && !busy);
+            findViewById(R.id.spinner_active_context).setEnabled(!enabled && !busy);
+            findViewById(R.id.spinner_active_group).setEnabled(!enabled && !busy);
+            setManagementBatchActionEnabled(!enabled && !busy);
+            renderContextRows();
+            renderGroupRows();
+            if (root != null) {
+                root.post(() -> root.scrollTo(0, scrollY));
+            }
+        }
+
+        @Override
+        public void onBatchSelectionChanged() {
+            View root = findViewById(R.id.root_scene_context);
+            int scrollY = root == null ? 0 : root.getScrollY();
+            renderContextRows();
+            renderGroupRows();
+            if (root != null) {
+                root.post(() -> root.scrollTo(0, scrollY));
+            }
+            if (managementBatchController != null) {
+                managementBatchController.onHostRowsChanged();
+            }
+        }
+
+        @Override
+        public void onBatchItemsMoved(List<String> succeededKeys) {
+            // Context/group owners update several related files and indexes;
+            // reload through the existing host path so every relation and
+            // current selection is refreshed consistently.
+            refreshAsync();
+        }
+    }
+
     private void setBusy(boolean busy) {
         this.busy = busy;
-        findViewById(R.id.btn_add_context).setEnabled(!busy);
-        findViewById(R.id.btn_add_group).setEnabled(!busy);
-        findViewById(R.id.btn_edit_all_scenes).setEnabled(!busy);
-        activeContextSpinner.setEnabled(!busy);
-        activeGroupSpinner.setEnabled(!busy);
+        findViewById(R.id.btn_add_context).setEnabled(!busy && !batchMode);
+        findViewById(R.id.btn_add_group).setEnabled(!busy && !batchMode);
+        findViewById(R.id.btn_edit_all_scenes).setEnabled(!busy && !batchMode);
+        setManagementBatchActionEnabled(!busy && !batchMode);
+        findViewById(R.id.btn_import_context_group).setEnabled(!busy && !batchMode);
+        findViewById(R.id.btn_export_context_group).setEnabled(!busy && !batchMode);
+        activeContextSpinner.setEnabled(!busy && !batchMode);
+        activeGroupSpinner.setEnabled(!busy && !batchMode);
+    }
+
+    private void setManagementBatchActionEnabled(boolean enabled) {
+        if (managementBatchMenuItem != null) {
+            managementBatchMenuItem.setVisible(!reviewMode);
+            managementBatchMenuItem.setEnabled(enabled && !reviewMode);
+        }
     }
 
     private void showResult(String message) {

@@ -37,6 +37,8 @@ public final class TerminalOutcome {
 
     public enum DeliveryState {
         PENDING("pending"),
+        /** A native delivery attempt owns this outcome until ACK/revoke. */
+        IN_FLIGHT("in_flight"),
         ACKNOWLEDGED("acknowledged"),
         NOT_REQUIRED("not_required");
 

@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.storage.config;
 import com.quarty.housamoembedtrans.provider.ApiConcurrencySettings;
 import com.quarty.housamoembedtrans.provider.ThinkingStrength;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
 import com.quarty.housamoembedtrans.scene.sync.SceneSyncSettings;
 
 import com.quarty.housamoembedtrans.util.IoUtils;
@@ -16,6 +17,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import java.util.Set;
 
 /**
  * Stores user-editable JSON resources in the module app's private files directory.
@@ -132,9 +135,12 @@ public final class ConfigStore {
     }
 
     private final Context context;
+    private final PendingProcessStore pendingProcessStore;
 
     public ConfigStore(Context context) {
-        this.context = context.getApplicationContext();
+        Context appContext = context.getApplicationContext();
+        this.context = appContext != null ? appContext : context;
+        this.pendingProcessStore = new PendingProcessStore(this.context);
     }
 
     public LoadResult load() throws Exception {
@@ -239,9 +245,323 @@ public final class ConfigStore {
     }
 
     public void saveJson(String name, JSONObject json) throws IOException {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            File userFile = getUserFile(name);
+            rejectPendingDictionaryKeys(name, json);
+            writeJsonUnrestricted(userFile, name, json);
+        }
+    }
+
+    /** Reads one character record without exposing the mutable dictionary. */
+    public JSONObject readCharacterRecordForManagement(String name)
+        throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            return readManagedRecordUnlocked(CHARDICT_FILE_NAME, name);
+        }
+    }
+
+    /** Reads one game-term record without exposing the mutable dictionary. */
+    public JSONObject readGameTermRecordForManagement(String name)
+        throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            return readManagedRecordUnlocked(GAMETERMS_FILE_NAME, name);
+        }
+    }
+
+    /** Idempotently removes the exact snapshotted character record. */
+    public void removeCharacterRecordForManagement(
+        String name,
+        JSONObject expectedRecord
+    ) throws Exception {
+        if ("mc".equals(name)) {
+            throw new IllegalArgumentException(
+                "the Main Character record is reserved"
+            );
+        }
+        synchronized (CONFIG_ACCESS_LOCK) {
+            removeManagedRecordUnlocked(
+                CHARDICT_FILE_NAME,
+                name,
+                expectedRecord
+            );
+        }
+    }
+
+    /** Idempotently restores a character record when the key is still free. */
+    public void restoreCharacterRecordForManagement(
+        String name,
+        JSONObject record
+    ) throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            restoreManagedRecordUnlocked(CHARDICT_FILE_NAME, name, record);
+        }
+    }
+
+    /** Idempotently removes the exact snapshotted game-term record. */
+    public void removeGameTermRecordForManagement(
+        String name,
+        JSONObject expectedRecord
+    ) throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            removeManagedRecordUnlocked(
+                GAMETERMS_FILE_NAME,
+                name,
+                expectedRecord
+            );
+        }
+    }
+
+    /** Idempotently restores a game-term record when the key is still free. */
+    public void restoreGameTermRecordForManagement(
+        String name,
+        JSONObject record
+    ) throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            restoreManagedRecordUnlocked(GAMETERMS_FILE_NAME, name, record);
+        }
+    }
+
+    private JSONObject readManagedRecordUnlocked(String fileName, String name)
+        throws Exception {
+        requireManagedRecordName(name);
+        JsonLoadResult loaded = loadJson(fileName);
+        if (loaded.invalidUserOverride) {
+            throw new IOException(
+                "cannot manage a record while " + fileName
+                    + " has an invalid user override"
+            );
+        }
+        JSONObject record = loaded.json.optJSONObject(name);
+        if (record == null) {
+            return null;
+        }
+        return copyJsonObject(record);
+    }
+
+    private void removeManagedRecordUnlocked(
+        String fileName,
+        String name,
+        JSONObject expectedRecord
+    ) throws Exception {
+        requireManagedRecordName(name);
+        requireManagedRecord(fileName, name, expectedRecord);
+        JsonLoadResult loaded = loadJson(fileName);
+        if (loaded.invalidUserOverride) {
+            throw new IOException(
+                "cannot manage a record while " + fileName
+                    + " has an invalid user override"
+            );
+        }
+        JSONObject current = loaded.json.optJSONObject(name);
+        if (current == null) {
+            return;
+        }
+        if (!jsonValueEquals(current, expectedRecord)) {
+            throw new IOException(
+                "managed record changed after snapshot: "
+                    + fileName + "#" + name
+            );
+        }
+        JSONObject updated = copyJsonObject(loaded.json);
+        updated.remove(name);
+        validateResource(fileName, updated);
+        writeJsonUnrestricted(getUserFile(fileName), fileName, updated);
+    }
+
+    private void restoreManagedRecordUnlocked(
+        String fileName,
+        String name,
+        JSONObject record
+    ) throws Exception {
+        requireManagedRecordName(name);
+        requireManagedRecord(fileName, name, record);
+        JsonLoadResult loaded = loadJson(fileName);
+        if (loaded.invalidUserOverride) {
+            throw new IOException(
+                "cannot manage a record while " + fileName
+                    + " has an invalid user override"
+            );
+        }
+        JSONObject current = loaded.json.optJSONObject(name);
+        if (current != null) {
+            if (jsonValueEquals(current, record)) {
+                return;
+            }
+            throw new IOException(
+                "managed record key was reused while pending: "
+                    + fileName + "#" + name
+            );
+        }
+        JSONObject updated = copyJsonObject(loaded.json);
+        updated.put(name, copyJsonObject(record));
+        validateResource(fileName, updated);
+        writeJsonUnrestricted(getUserFile(fileName), fileName, updated);
+    }
+
+    private static void requireManagedRecord(
+        String fileName,
+        String name,
+        JSONObject record
+    ) throws Exception {
+        if (record == null) {
+            throw new IllegalArgumentException("managed record is required");
+        }
+        if (CHARDICT_FILE_NAME.equals(fileName)) {
+            validateCharacterRecord(name, record);
+        } else if (GAMETERMS_FILE_NAME.equals(fileName)) {
+            validateGameTermRecord(name, record);
+        } else {
+            throw new IllegalArgumentException(
+                "unsupported managed dictionary: " + fileName
+            );
+        }
+    }
+
+    private static void requireManagedRecordName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                "managed record name must not be empty"
+            );
+        }
+    }
+
+    private static JSONObject copyJsonObject(JSONObject value)
+        throws IOException {
+        try {
+            return new JSONObject(value.toString());
+        } catch (org.json.JSONException e) {
+            throw new IOException("could not copy managed JSON object", e);
+        }
+    }
+
+    private static boolean jsonValueEquals(Object left, Object right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (left == JSONObject.NULL || right == JSONObject.NULL) {
+            return left == JSONObject.NULL && right == JSONObject.NULL;
+        }
+        if (left instanceof JSONObject && right instanceof JSONObject) {
+            JSONObject leftObject = (JSONObject) left;
+            JSONObject rightObject = (JSONObject) right;
+            if (leftObject.length() != rightObject.length()) {
+                return false;
+            }
+            Iterator<String> keys = leftObject.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (!rightObject.has(key)
+                    || !jsonValueEquals(
+                        leftObject.opt(key),
+                        rightObject.opt(key)
+                    )) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (left instanceof JSONArray && right instanceof JSONArray) {
+            JSONArray leftArray = (JSONArray) left;
+            JSONArray rightArray = (JSONArray) right;
+            if (leftArray.length() != rightArray.length()) {
+                return false;
+            }
+            for (int index = 0; index < leftArray.length(); index++) {
+                if (!jsonValueEquals(
+                    leftArray.opt(index),
+                    rightArray.opt(index)
+                )) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (left instanceof Number && right instanceof Number) {
+            return left.toString().equals(right.toString());
+        }
+        return left.equals(right);
+    }
+
+    private void rejectPendingDictionaryKeys(
+        String name,
+        JSONObject json
+    ) throws IOException {
+        String kind = pendingKindForDictionary(name);
+        if (kind == null || pendingProcessStore == null || json == null) {
+            return;
+        }
+        PendingProcessStore.ReferenceSnapshot references =
+            snapshotPendingReferencesForConfig();
+        if (references == null || references.isEmpty()) {
+            return;
+        }
+        Set<String> pendingIds = references.canonicalIdsForKind(kind);
+        Iterator<String> keys = json.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            if (pendingIds.contains(key)) {
+                throw new IOException(
+                    "cannot save " + name
+                        + " while its PendingProcess key exists: " + key
+                );
+            }
+        }
+    }
+
+    private void rejectPendingDictionaryDeletion(String name)
+        throws IOException {
+        String kind = pendingKindForDictionary(name);
+        if (kind == null || pendingProcessStore == null) {
+            return;
+        }
+        PendingProcessStore.ReferenceSnapshot references =
+            snapshotPendingReferencesForConfig();
+        if (references == null || references.isEmpty()) {
+            return;
+        }
+        if (!references.canonicalIdsForKind(kind).isEmpty()) {
+            throw new IOException(
+                "cannot delete " + name
+                    + " while a PendingProcess key exists"
+            );
+        }
+    }
+
+    private PendingProcessStore.ReferenceSnapshot
+        snapshotPendingReferencesForConfig() throws IOException {
+        try {
+            return pendingProcessStore.snapshotReferences();
+        } catch (IOException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new IOException(
+                "PendingProcess references are malformed",
+                e
+            );
+        }
+    }
+
+    private static String pendingKindForDictionary(String name) {
+        if (CHARDICT_FILE_NAME.equals(name)) {
+            return "character";
+        }
+        if (GAMETERMS_FILE_NAME.equals(name)) {
+            return "term";
+        }
+        return null;
+    }
+
+    private static void writeJsonUnrestricted(
+        File userFile,
+        String name,
+        JSONObject json
+    ) throws IOException {
         try {
             IoUtils.writeAtomically(
-                getUserFile(name),
+                userFile,
                 (json.toString(2) + "\n").getBytes(StandardCharsets.UTF_8)
             );
         } catch (Exception e) {
@@ -250,7 +570,11 @@ public final class ConfigStore {
     }
 
     public void deleteUserFile(String name) throws IOException {
-        new AtomicFile(getUserFile(name)).delete();
+        synchronized (CONFIG_ACCESS_LOCK) {
+            File userFile = getUserFile(name);
+            rejectPendingDictionaryDeletion(name);
+            new AtomicFile(userFile).delete();
+        }
     }
 
     /**
@@ -1100,13 +1424,9 @@ public final class ConfigStore {
 
     public static void validateGameTermDictionary(JSONObject dictionary)
         throws Exception {
-        if (dictionary.length() == 0) {
-            throw new IllegalArgumentException("game term dictionary must not be empty");
-        }
-
         JSONArray names = dictionary.names();
         if (names == null) {
-            throw new IllegalArgumentException("game term dictionary has no entries");
+            return;
         }
 
         for (int index = 0; index < names.length(); index++) {

@@ -1,11 +1,14 @@
 package com.quarty.housamoembedtrans.summary.job;
 import com.quarty.housamoembedtrans.context.model.GroupContextEntry;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.storage.job.PersistentApiJobStore;
 import com.quarty.housamoembedtrans.storage.json.AtomicJsonFileIo;
 
 import com.quarty.housamoembedtrans.util.JobValidator;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -28,9 +31,10 @@ import java.util.Set;
  * <p>Summary jobs use {@code request.json} for the immutable semantic input
  * ({@code request_kind/owner_type/owner_id/target_lang/cutoff/source_hash}) and
  * {@code state.json} only for mutable scheduling state
- * ({@code status/created_at/updated_at/rerun_required/notified/user_requested}). The store
- * does not own HTTP/assembly/write-back; that is the Summary request executor's
- * job. It owns the ready-job claim and the one-shot error-notification flag.</p>
+ * ({@code status/created_at/updated_at/rerun_required/notified/user_requested}
+ * plus terminal diagnostic fields). The store does not own HTTP/assembly/
+ * write-back; that is the Summary request executor's job. It owns the
+ * ready-job claim and the one-shot error-notification flag.</p>
  */
 public final class SummaryJobStore {
 
@@ -50,6 +54,12 @@ public final class SummaryJobStore {
     private static final String STATUS_AWAITING_USER = "awaiting_user";
     private static final String STATUS_FAILED = "failed";
     private static final String STATUS_CANCELED = "canceled";
+
+    /** Durable reason for a job whose Context/Group owner was deleted. */
+    public static final String OWNER_DELETED_REASON = "owner_deleted";
+    private static final String INVALIDATED_REASON_FIELD =
+        "invalidated_reason";
+    private static final String PRIOR_STATUS_FIELD = "prior_status";
 
     private static final Set<String> REQUEST_KINDS =
         Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
@@ -357,6 +367,8 @@ public final class SummaryJobStore {
     }
 
     private final PersistentApiJobStore store;
+    private final PendingProcessStore pendingProcessStore;
+    private final SceneContextStore sceneContextStore;
     private boolean preparedForServiceStart;
     private boolean recoveryAutoRecover;
     private boolean recoveryCommitted;
@@ -391,14 +403,24 @@ public final class SummaryJobStore {
             MAX_REQUEST_BYTES,
             MAX_STATE_BYTES,
             io
-        ));
+        ), null, null);
     }
 
     public SummaryJobStore(PersistentApiJobStore store) {
+        this(store, null, null);
+    }
+
+    private SummaryJobStore(
+        PersistentApiJobStore store,
+        PendingProcessStore pendingProcessStore,
+        SceneContextStore sceneContextStore
+    ) {
         if (store == null) {
             throw new IllegalArgumentException("store is required");
         }
         this.store = store;
+        this.pendingProcessStore = pendingProcessStore;
+        this.sceneContextStore = sceneContextStore;
     }
 
     public static SummaryJobStore createForAndroid(File root) {
@@ -421,8 +443,19 @@ public final class SummaryJobStore {
         if (context == null) {
             throw new IllegalArgumentException("context is required");
         }
-        SummaryJobStore result = createForAndroid(
-            new File(context.getFilesDir(), DIRECTORY_NAME)
+        android.content.Context appContext = context.getApplicationContext();
+        android.content.Context safeContext = appContext != null
+            ? appContext
+            : context;
+        SummaryJobStore result = new SummaryJobStore(
+            PersistentApiJobStore.createForAndroid(
+                new File(safeContext.getFilesDir(), DIRECTORY_NAME),
+                PersistentApiJobStore.RequestIdFormat.SHA256_HEX,
+                MAX_REQUEST_BYTES,
+                MAX_STATE_BYTES
+            ),
+            new PendingProcessStore(safeContext),
+            new SceneContextStore(safeContext)
         );
         result.setAdmissionListener(
             requestId -> SummaryJobWakeup.signal(context)
@@ -681,11 +714,35 @@ public final class SummaryJobStore {
             "summary request"
         );
         JSONObject owner = readValidOwner(sceneContextStore, request);
-        if (owner == null || !targetStillExists(owner, request)) {
+        boolean ownerPending = owner == null
+            && hasPendingOwnerReference(request);
+        if (owner == null) {
+            // A missing owner is normally the durable result of a Context or
+            // Group permanent delete.  Keep the request/state directory as
+            // history and make it an explicit terminal record.  A hidden
+            // owner still has a PendingProcess reference and must remain
+            // recoverable when that reference is restored.
+            if (ownerPending) {
+                if (inspection.state != null) {
+                    return inspection.state;
+                }
+            } else {
+                return markOwnerDeletedStateLocked(
+                    directory,
+                    inspection.state
+                );
+            }
+        }
+        if (isOwnerDeletedState(inspection.state)) {
+            // Restoring an owner must not resurrect a job that was already
+            // invalidated by its previous permanent deletion.
+            return inspection.state;
+        }
+        if (owner != null && !targetStillExists(owner, request)) {
             deleteJobDirectoryLocked(directory);
             return null;
         }
-        if (derivedSummaryMatches(owner, request)) {
+        if (owner != null && derivedSummaryMatches(owner, request)) {
             deleteJobDirectoryLocked(directory);
             return null;
         }
@@ -889,7 +946,10 @@ public final class SummaryJobStore {
             try {
                 JSONObject state = store.readState(directory);
                 if (state == null
-                    || !STATUS_FAILED.equals(state.optString("status", ""))) {
+                    || !STATUS_FAILED.equals(state.optString("status", ""))
+                    || OWNER_DELETED_REASON.equals(
+                        state.optString(INVALIDATED_REASON_FIELD, "")
+                    )) {
                     continue;
                 }
                 JSONObject request = JobValidator.parseJsonObject(
@@ -929,6 +989,12 @@ public final class SummaryJobStore {
         synchronized (TARGET_ADMISSION_LOCK) {
             File directory = requireJobDirectory(requestId);
             JSONObject state = readState(requestId);
+            if (isOwnerDeletedState(state)) {
+                throw new IllegalStateException(
+                    "summary job owner was permanently deleted requestId="
+                        + requestId
+                );
+            }
             if (!STATUS_FAILED.equals(state.optString("status", ""))) {
                 throw new IllegalStateException(
                     "summary job is not failed requestId=" + requestId
@@ -1090,24 +1156,42 @@ public final class SummaryJobStore {
     }
 
     public void markRunning(String requestId) throws Exception {
-        mutateUnderRoot(() -> updateStatus(requestId, STATUS_RUNNING));
+        mutateUnderRoot(() -> {
+            synchronized (TARGET_ADMISSION_LOCK) {
+                if (!isOwnerDeletedState(readState(requestId))) {
+                    updateStatus(requestId, STATUS_RUNNING);
+                }
+            }
+        });
     }
 
     public void markFailed(String requestId) throws Exception {
-        mutateUnderRoot(() -> updateStatus(requestId, STATUS_FAILED));
+        mutateUnderRoot(() -> {
+            synchronized (TARGET_ADMISSION_LOCK) {
+                if (!isOwnerDeletedState(readState(requestId))) {
+                    updateStatus(requestId, STATUS_FAILED);
+                }
+            }
+        });
     }
 
-    public void failJob(
+    public boolean failJob(
         String requestId,
         String errorMessage
     ) throws Exception {
-        mutateUnderRoot(() -> {
-            File directory = requireJobDirectory(requestId);
-            JSONObject state = readState(requestId);
-            state.put("status", STATUS_FAILED);
-            state.put("error", errorMessage == null ? "" : errorMessage);
-            state.put("updated_at", System.currentTimeMillis());
-            store.writeState(directory, state);
+        return queryUnderRoot(() -> {
+            synchronized (TARGET_ADMISSION_LOCK) {
+                File directory = requireJobDirectory(requestId);
+                JSONObject state = readState(requestId);
+                if (isOwnerDeletedState(state)) {
+                    return false;
+                }
+                state.put("status", STATUS_FAILED);
+                state.put("error", errorMessage == null ? "" : errorMessage);
+                state.put("updated_at", System.currentTimeMillis());
+                store.writeState(directory, state);
+                return true;
+            }
         });
     }
 
@@ -1184,14 +1268,54 @@ public final class SummaryJobStore {
     }
 
     /** Returns true when any Summary Job is queued and claimable now. */
-    public synchronized boolean hasPendingJobs() throws IOException {
+    public boolean hasPendingJobs() throws IOException {
+        try {
+            return SceneContextStore.withRootAccess(() -> {
+                synchronized (this) {
+                    return hasPendingJobsLocked();
+                }
+            });
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException(
+                "could not inspect queued Summary Jobs",
+                e
+            );
+        }
+    }
+
+    private boolean hasPendingJobsLocked() throws IOException {
+        PendingProcessStore.ReferenceSnapshot references =
+            pendingProcessStore == null
+                ? null
+                : pendingProcessStore.snapshotReferences();
         for (File directory : store.listValidJobDirectories()) {
             JSONObject state = store.readState(directory);
             if (state == null) {
                 continue;
             }
-            if (STATUS_QUEUED.equals(state.optString("status", ""))) {
-                return true;
+            if (!STATUS_QUEUED.equals(state.optString("status", ""))) {
+                continue;
+            }
+            try {
+                JSONObject request = JobValidator.parseJsonObject(
+                    store.readRequest(directory),
+                    MAX_REQUEST_BYTES,
+                    "summary request"
+                );
+                if (!isBlockedByManagementPendingLocked(
+                    request,
+                    references
+                )) {
+                    return true;
+                }
+            } catch (Exception e) {
+                throw new IOException(
+                    "could not inspect queued Summary Job "
+                        + directory.getName(),
+                    e
+                );
             }
         }
         return false;
@@ -1205,12 +1329,27 @@ public final class SummaryJobStore {
     public String claimNextReadyJob() throws Exception {
         return queryUnderRoot(() -> {
             synchronized (TARGET_ADMISSION_LOCK) {
+                PendingProcessStore.ReferenceSnapshot references =
+                    pendingProcessStore == null
+                        ? null
+                        : pendingProcessStore.snapshotReferences();
                 for (File directory : store.listValidJobDirectories()) {
                     JSONObject state = store.readState(directory);
                     if (state == null) {
                         continue;
                     }
                     if (!STATUS_QUEUED.equals(state.optString("status", ""))) {
+                        continue;
+                    }
+                    JSONObject request = JobValidator.parseJsonObject(
+                        store.readRequest(directory),
+                        MAX_REQUEST_BYTES,
+                        "summary request"
+                    );
+                    if (isBlockedByManagementPendingLocked(
+                        request,
+                        references
+                    )) {
                         continue;
                     }
                     String requestId = directory.getName();
@@ -1223,6 +1362,295 @@ public final class SummaryJobStore {
     }
 
     /**
+     * Rechecks management Pending references for a claimed Summary request.
+     * The read-only check takes the same ROOT_ACCESS_LOCK -> this lock order as
+     * claim and write-back callers.  File/host seams have no Context facade and
+     * therefore retain direct-owner Pending checks only.
+     */
+    boolean isBlockedByManagementPending(JSONObject request)
+        throws Exception {
+        return queryUnderRoot(() -> {
+            PendingProcessStore.ReferenceSnapshot references =
+                pendingProcessStore == null
+                    ? null
+                    : pendingProcessStore.snapshotReferences();
+            return isBlockedByManagementPendingLocked(request, references);
+        });
+    }
+
+    /**
+     * Returns whether a Summary Job has been durably invalidated because its
+     * Context/Group owner was permanently deleted.  This marker is checked by
+     * the executor before every prepared-result/write-back step so restoring a
+     * same-id owner cannot revive an old request.
+     */
+    public boolean isOwnerDeleted(String requestId) throws Exception {
+        return queryUnderRoot(() -> {
+            if (!store.jobDirectoryExists(requestId)) {
+                return false;
+            }
+            return isOwnerDeletedState(readState(requestId));
+        });
+    }
+
+    /**
+     * Marks one job owner-deleted when its live owner is already absent.  The
+     * operation is idempotent and deliberately leaves request/error history in
+     * place.  A hidden PendingProcess owner is not treated as permanently
+     * deleted; its reference still gives restore a chance to release the job.
+     *
+     * @return true when the job is (or has become) owner-deleted
+     */
+    public boolean ensureOwnerDeletedIfMissing(String requestId)
+        throws Exception {
+        return queryUnderRoot(() -> {
+            synchronized (TARGET_ADMISSION_LOCK) {
+                File directory = requireJobDirectory(requestId);
+                JSONObject state = readState(requestId);
+                if (isOwnerDeletedState(state)) {
+                    return true;
+                }
+                JSONObject request = JobValidator.parseJsonObject(
+                    store.readRequest(directory),
+                    MAX_REQUEST_BYTES,
+                    "summary request"
+                );
+                if (hasPendingOwnerReference(request)
+                    || sceneContextStore == null) {
+                    return false;
+                }
+                String ownerType = request.optString("owner_type", "");
+                String ownerId = request.optString("owner_id", "");
+                try {
+                    if ("context".equals(ownerType)) {
+                        sceneContextStore.getContext(ownerId);
+                    } else if ("group".equals(ownerType)) {
+                        sceneContextStore.getGroup(ownerId);
+                    } else {
+                        return false;
+                    }
+                    return false;
+                } catch (SceneContextStore.StorageException e) {
+                    if (e.kind != SceneContextStore.FailureKind.NOT_FOUND) {
+                        throw e;
+                    }
+                    markOwnerDeletedStateLocked(directory, state);
+                    return true;
+                }
+            }
+        });
+    }
+
+    private boolean hasPendingOwnerReference(JSONObject request)
+        throws IOException {
+        if (pendingProcessStore == null || request == null) {
+            return false;
+        }
+        PendingProcessStore.ReferenceSnapshot references =
+            pendingProcessStore.snapshotReferences();
+        if (references == null || references.isEmpty()) {
+            return false;
+        }
+        return isPendingReference(
+            references,
+            request.optString("owner_type", ""),
+            request.optString("owner_id", "")
+        );
+    }
+
+    private boolean isBlockedByManagementPendingLocked(
+        JSONObject request,
+        PendingProcessStore.ReferenceSnapshot references
+    ) throws Exception {
+        validateRequest(request);
+        String ownerType = request.optString("owner_type", "");
+        String ownerId = request.optString("owner_id", "");
+        if (references != null
+            && !references.isEmpty()
+            && isPendingReference(references, ownerType, ownerId)) {
+            return true;
+        }
+        if (sceneContextStore == null) {
+            return false;
+        }
+        String targetLang = request.optString("target_lang", "");
+        if ("context".equals(ownerType)) {
+            return hasPendingContextScene(
+                sceneContextStore.getContext(ownerId),
+                targetLang,
+                references
+            );
+        }
+        if ("group".equals(ownerType)) {
+            return hasPendingGroupScene(
+                sceneContextStore.getGroup(ownerId),
+                targetLang,
+                references
+            );
+        }
+        return false;
+    }
+
+    private boolean hasPendingGroupScene(
+        JSONObject group,
+        String targetLang,
+        PendingProcessStore.ReferenceSnapshot references
+    ) throws Exception {
+        if (group == null) {
+            throw new IOException("live Summary Group is missing");
+        }
+        Object value = group.opt("contexts");
+        if (!(value instanceof JSONArray)) {
+            throw new IOException("live Summary Group contexts are malformed");
+        }
+        JSONArray contexts = (JSONArray) value;
+        for (int index = 0; index < contexts.length(); index++) {
+            String contextId;
+            try {
+                contextId = GroupContextEntry.contextIdAt(contexts, index);
+            } catch (RuntimeException e) {
+                throw new IOException(
+                    "live Summary Group context reference is malformed",
+                    e
+                );
+            }
+            if (contextId == null || contextId.trim().isEmpty()) {
+                throw new IOException(
+                    "live Summary Group context reference is empty"
+                );
+            }
+            if (isPendingReference(references, "context", contextId)) {
+                return true;
+            }
+            JSONObject context = sceneContextStore.getContext(contextId);
+            if (hasPendingContextScene(context, targetLang, references)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasPendingContextScene(
+        JSONObject context,
+        String targetLang,
+        PendingProcessStore.ReferenceSnapshot references
+    ) throws IOException {
+        if (context == null) {
+            throw new IOException("live Summary Context is missing");
+        }
+        Object value = context.opt("scenes");
+        if (!(value instanceof JSONArray)) {
+            throw new IOException("live Summary Context scenes are malformed");
+        }
+        JSONArray scenes = (JSONArray) value;
+        for (int index = 0; index < scenes.length(); index++) {
+            JSONObject entry = scenes.optJSONObject(index);
+            if (entry == null) {
+                throw new IOException(
+                    "live Summary Context scene reference is malformed"
+                );
+            }
+            Object sceneValue = entry.opt("scene");
+            if (!(sceneValue instanceof String)
+                || ((String) sceneValue).trim().isEmpty()) {
+                throw new IOException(
+                    "live Summary Context scene reference is empty"
+                );
+            }
+            String sceneName = (String) sceneValue;
+            if (isPendingReference(references, "scene", sceneName)) {
+                return true;
+            }
+            final String languageId;
+            try {
+                languageId = SceneStore.languageCanonicalId(
+                    sceneName,
+                    targetLang
+                );
+            } catch (IOException e) {
+                throw new IOException(
+                    "live Summary Context scene language identity is invalid",
+                    e
+                );
+            } catch (RuntimeException e) {
+                throw new IOException(
+                    "live Summary Context scene identity is invalid",
+                    e
+                );
+            }
+            if (isPendingReference(references, "language", languageId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isPendingReference(
+        PendingProcessStore.ReferenceSnapshot references,
+        String kind,
+        String canonicalId
+    ) throws IOException {
+        if (references == null) {
+            return false;
+        }
+        try {
+            return references.isPending(kind, canonicalId);
+        } catch (RuntimeException e) {
+            throw new IOException(
+                "management Pending reference identity is invalid",
+                e
+            );
+        }
+    }
+
+    private static boolean isOwnerDeletedState(JSONObject state) {
+        return state != null
+            && STATUS_CANCELED.equals(state.optString("status", ""))
+            && OWNER_DELETED_REASON.equals(
+                state.optString(INVALIDATED_REASON_FIELD, "")
+            );
+    }
+
+    /** Persists owner invalidation without discarding the request/history. */
+    private JSONObject markOwnerDeletedStateLocked(
+        File directory,
+        JSONObject existingState
+    ) throws Exception {
+        long now = System.currentTimeMillis();
+        JSONObject state = existingState == null
+            ? new JSONObject()
+            : existingState;
+        String previousStatus = state.optString("status", "");
+        if (!previousStatus.isEmpty()
+            && !STATUS_CANCELED.equals(previousStatus)
+            && !state.has(PRIOR_STATUS_FIELD)) {
+            state.put(PRIOR_STATUS_FIELD, previousStatus);
+        }
+        state.put("status", STATUS_CANCELED);
+        state.put(INVALIDATED_REASON_FIELD, OWNER_DELETED_REASON);
+        if (!state.has("created_at")) {
+            long createdAt = directory.lastModified();
+            if (createdAt <= 0L || createdAt > now) {
+                createdAt = now;
+            }
+            state.put("created_at", createdAt);
+        }
+        if (!state.has("rerun_required")) {
+            state.put("rerun_required", false);
+        }
+        if (!state.has("notified")) {
+            state.put("notified", false);
+        }
+        if (!state.has("user_requested")) {
+            state.put("user_requested", false);
+        }
+        state.put("updated_at", now);
+        store.writeState(directory, state);
+        startupRecoveryIds.remove(directory.getName());
+        return state;
+    }
+
+    /**
      * Deletes a Summary Job directory after the derived summary record has
      * been atomically written. This is the final step of the success path.
      */
@@ -1230,65 +1658,69 @@ public final class SummaryJobStore {
         throws Exception {
         mutateUnderRoot(() -> {
             synchronized (TARGET_ADMISSION_LOCK) {
-                deleteJobDirectoryLocked(requireJobDirectory(requestId));
+                File directory = requireJobDirectory(requestId);
+                if (!isOwnerDeletedState(readState(requestId))) {
+                    deleteJobDirectoryLocked(directory);
+                }
             }
         });
     }
 
     /**
-     * Removes Summary Jobs owned by deleted Context/Group entities.  Queued,
-     * awaiting-user and terminal records are no longer actionable once their
-     * owner disappears.  A running job is retained until its executor reaches
-     * the prepared-result boundary, where it archives an invalidated result
-     * instead of turning the job into a generic failure.
+     * Invalidates Summary Jobs owned by deleted Context/Group entities while
+     * retaining their request/state directories as history.  Every status is
+     * moved to the explicit canceled terminal state and receives an
+     * {@code invalidated_reason=owner_deleted} marker; the previous status and
+     * any existing error are left in place for diagnostics.  This also covers
+     * running jobs so a restart cannot put them back into recovery; the active
+     * executor observes the marker at its prepared-result boundary and archives
+     * any late provider result instead of writing an orphan summary.
      */
-    public int removeJobsForOwners(
+    public int invalidateJobsForOwners(
         Set<String> contextIds,
         Set<String> groupIds
     ) throws Exception {
         return queryUnderRoot(() -> {
             synchronized (TARGET_ADMISSION_LOCK) {
-            Set<String> contexts = contextIds == null
-                ? Collections.emptySet()
-                : new HashSet<>(contextIds);
-            Set<String> groups = groupIds == null
-                ? Collections.emptySet()
-                : new HashSet<>(groupIds);
-            if (contexts.isEmpty() && groups.isEmpty()) {
-                return 0;
-            }
-            int removed = 0;
-            for (File directory : store.listValidJobDirectories()) {
-                String requestId = directory.getName();
-                JSONObject request;
-                JSONObject state;
-                try {
-                    request = JobValidator.parseJsonObject(
-                        store.readRequest(directory),
-                        MAX_REQUEST_BYTES,
-                        "summary request"
-                    );
-                    state = store.readState(directory);
-                } catch (Exception ignored) {
-                    continue;
+                Set<String> contexts = contextIds == null
+                    ? Collections.emptySet()
+                    : new HashSet<>(contextIds);
+                Set<String> groups = groupIds == null
+                    ? Collections.emptySet()
+                    : new HashSet<>(groupIds);
+                if (contexts.isEmpty() && groups.isEmpty()) {
+                    return 0;
                 }
-                if (state == null) {
-                    continue;
+                int invalidated = 0;
+                for (File directory : store.listValidJobDirectories()) {
+                    String requestId = directory.getName();
+                    JSONObject request;
+                    JSONObject state;
+                    try {
+                        request = JobValidator.parseJsonObject(
+                            store.readRequest(directory),
+                            MAX_REQUEST_BYTES,
+                            "summary request"
+                        );
+                        state = store.readState(directory);
+                    } catch (Exception ignored) {
+                        continue;
+                    }
+                    String ownerType = request.optString("owner_type", "");
+                    String ownerId = request.optString("owner_id", "");
+                    boolean owned = ("context".equals(ownerType)
+                            && contexts.contains(ownerId))
+                        || ("group".equals(ownerType)
+                            && groups.contains(ownerId));
+                    if (!owned) {
+                        continue;
+                    }
+                    if (!isOwnerDeletedState(state)) {
+                        markOwnerDeletedStateLocked(directory, state);
+                        invalidated++;
+                    }
                 }
-                String ownerType = request.optString("owner_type", "");
-                String ownerId = request.optString("owner_id", "");
-                boolean owned = ("context".equals(ownerType)
-                        && contexts.contains(ownerId))
-                    || ("group".equals(ownerType) && groups.contains(ownerId));
-                if (!owned || STATUS_RUNNING.equals(
-                    state.optString("status", "")
-                )) {
-                    continue;
-                }
-                deleteJobDirectoryLocked(directory);
-                removed++;
-            }
-                return removed;
+                return invalidated;
             }
         });
     }
@@ -1309,6 +1741,9 @@ public final class SummaryJobStore {
                 return false;
             }
             if (!store.jobDirectoryExists(requestId)) {
+                return false;
+            }
+            if (isOwnerDeletedState(readState(requestId))) {
                 return false;
             }
             JSONObject request = readRequest(requestId);

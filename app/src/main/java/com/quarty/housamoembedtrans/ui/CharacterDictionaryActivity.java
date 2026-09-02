@@ -11,6 +11,7 @@ import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -27,6 +28,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -74,6 +76,8 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     };
 
     private ConfigStore configStore;
+    private PendingProcessMoveController pendingProcessMoveController;
+    private ManagementBatchController managementBatchController;
     private JSONObject dictionary;
     private boolean dirty;
     private boolean userOverride;
@@ -83,10 +87,12 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     private TextView statusView;
     private ListView characterList;
     private Button saveButton;
+    private MenuItem managementBatchMenuItem;
 
     private final List<String> allNames = new ArrayList<>();
     private final List<String> visibleNames = new ArrayList<>();
     private CharacterAdapter adapter;
+    private boolean batchMode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,8 +103,17 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(
             view -> getOnBackPressedDispatcher().onBackPressed()
         );
+        toolbar.inflateMenu(R.menu.menu_management_batch);
+        managementBatchMenuItem = toolbar.getMenu().findItem(
+            R.id.action_management_batch
+        );
+        managementBatchMenuItem.setOnMenuItemClickListener(item -> {
+            toggleManagementBatch();
+            return true;
+        });
 
         configStore = new ConfigStore(this);
+        pendingProcessMoveController = new PendingProcessMoveController(this);
         searchInput = findViewById(R.id.et_character_search);
         statusView = findViewById(R.id.tv_chardict_status);
         characterList = findViewById(R.id.list_characters);
@@ -108,7 +123,21 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         characterList.setAdapter(adapter);
         characterList.setEmptyView(findViewById(R.id.tv_character_empty));
         characterList.setOnItemClickListener((parent, view, position, id) -> {
-            editCharacter(visibleNames.get(position));
+            String name = visibleNames.get(position);
+            if (batchMode) {
+                ManagementBatchSelection.set(
+                    ManagementBatchController.KIND_CHARACTER + ":" + name,
+                    !ManagementBatchSelection.contains(
+                        ManagementBatchController.KIND_CHARACTER + ":" + name
+                    )
+                );
+                adapter.notifyDataSetChanged();
+                if (managementBatchController != null) {
+                    managementBatchController.onHostRowsChanged();
+                }
+            } else {
+                editCharacter(name);
+            }
         });
 
         searchInput.addTextChangedListener(new TextWatcher() {
@@ -129,6 +158,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         findViewById(R.id.btn_add_character).setOnClickListener(view -> editCharacter(null));
         findViewById(R.id.btn_edit_mc).setOnClickListener(view -> editCharacter("mc"));
         findViewById(R.id.btn_restore_chardict).setOnClickListener(view -> confirmRestore());
+
         saveButton.setOnClickListener(view -> saveDictionary());
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -139,6 +169,47 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         });
 
         loadDictionary();
+        managementBatchController = ManagementBatchController.attach(
+            this,
+            findViewById(R.id.root_character_dictionary),
+            new CharacterBatchDataSource(),
+            savedInstanceState
+        );
+    }
+
+    private void toggleManagementBatch() {
+        if (managementBatchController == null) {
+            return;
+        }
+        if (managementBatchController.isActive()) {
+            managementBatchController.exit();
+        } else {
+            managementBatchController.enter();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (managementBatchController != null) {
+            managementBatchController.onStart();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        if (managementBatchController != null) {
+            managementBatchController.onStop();
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (managementBatchController != null) {
+            managementBatchController.saveState(outState);
+        }
+        super.onSaveInstanceState(outState);
     }
 
     private void loadDictionary() {
@@ -193,8 +264,15 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                 visibleNames.add(name);
             }
         }
+        if (batchMode && dictionary.has("mc")
+            && (needle.isEmpty() || recordMatches("mc", needle))) {
+            visibleNames.add(0, "mc");
+        }
 
         adapter.notifyDataSetChanged();
+        if (batchMode && managementBatchController != null) {
+            managementBatchController.onHostRowsChanged();
+        }
     }
 
     private boolean recordMatches(String name, String needle) {
@@ -281,7 +359,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             .setPositiveButton(R.string.save_character, null);
 
         if (existing && !editingMc) {
-            builder.setNeutralButton(R.string.delete_character, null);
+            builder.setNeutralButton(R.string.pending_process_move, null);
         }
 
         AlertDialog dialog = builder.create();
@@ -297,7 +375,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
 
             if (existing && !editingMc) {
                 dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
-                    confirmDelete(dialog, originalName);
+                    moveCharacterToPending(dialog, originalName);
                 });
             }
         });
@@ -675,19 +753,47 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         field.setTextIsSelectable(true);
     }
 
-    private void confirmDelete(AlertDialog editorDialog, String name) {
-        new MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.delete_character_title)
-            .setMessage(getString(R.string.delete_character_message, name))
-            .setNegativeButton(R.string.cancel_action, null)
-            .setPositiveButton(R.string.delete_character, (dialog, which) -> {
-                dictionary.remove(name);
-                dirty = true;
-                rebuildNames();
-                updateStatus();
-                editorDialog.dismiss();
-            })
-            .show();
+    private void moveCharacterToPending(AlertDialog editorDialog, String name) {
+        if (dictionary == null || name == null || "mc".equals(name)) {
+            return;
+        }
+        pendingProcessMoveController.confirmMove(
+            "character",
+            name,
+            name,
+            () -> removeCharacterAfterPendingMove(editorDialog, name)
+        );
+    }
+
+    /** Removes only the local in-memory reference after the durable move succeeds. */
+    private void removeCharacterAfterPendingMove(
+        AlertDialog editorDialog,
+        String name
+    ) {
+        if (dictionary == null || "mc".equals(name)) {
+            return;
+        }
+        dictionary.remove(name);
+        userOverride = true;
+        invalidUserOverride = false;
+        rebuildNames();
+        updateStatus();
+        if (editorDialog != null) {
+            editorDialog.dismiss();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (managementBatchController != null) {
+            managementBatchController.close();
+            managementBatchController = null;
+        }
+        if (pendingProcessMoveController != null) {
+            pendingProcessMoveController.close();
+            pendingProcessMoveController = null;
+        }
+        super.onDestroy();
     }
 
     private void saveDictionary() {
@@ -755,16 +861,23 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         }
 
         statusView.setText(getString(statusId, characterCount()));
-        saveButton.setEnabled(dirty || !userOverride);
+        saveButton.setEnabled(!batchMode && (dirty || !userOverride));
     }
 
     private void setEditorEnabled(boolean enabled) {
         searchInput.setEnabled(enabled);
         characterList.setEnabled(enabled);
-        findViewById(R.id.btn_edit_mc).setEnabled(enabled);
-        findViewById(R.id.btn_add_character).setEnabled(enabled);
-        findViewById(R.id.btn_restore_chardict).setEnabled(enabled);
-        saveButton.setEnabled(enabled);
+        findViewById(R.id.btn_edit_mc).setEnabled(enabled && !batchMode);
+        findViewById(R.id.btn_add_character).setEnabled(enabled && !batchMode);
+        findViewById(R.id.btn_restore_chardict).setEnabled(enabled && !batchMode);
+        setManagementBatchActionEnabled(enabled && !batchMode);
+        saveButton.setEnabled(enabled && !batchMode);
+    }
+
+    private void setManagementBatchActionEnabled(boolean enabled) {
+        if (managementBatchMenuItem != null) {
+            managementBatchMenuItem.setEnabled(enabled);
+        }
     }
 
     private static JSONObject newCharacterRecord() throws Exception {
@@ -801,6 +914,13 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     }
 
     private void handleBackPressed(OnBackPressedCallback callback) {
+        if (managementBatchController != null
+            && managementBatchController.isActive()) {
+            // Leaving batch mode must keep this Activity, its current filter,
+            // and the host ListView position intact.
+            managementBatchController.exit();
+            return;
+        }
         if (!dirty) {
             callback.setEnabled(false);
             getOnBackPressedDispatcher().onBackPressed();
@@ -832,6 +952,120 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         return TextUtils.isEmpty(message)
             ? throwable.getClass().getSimpleName()
             : message;
+    }
+
+    private final class CharacterBatchDataSource
+        implements ManagementBatchController.BatchDataSource {
+        @Override
+        public String initialKind() {
+            return ManagementBatchController.KIND_CHARACTER;
+        }
+
+        @Override
+        public Set<String> ownedKinds() {
+            return Collections.singleton(ManagementBatchController.KIND_CHARACTER);
+        }
+
+        @Override
+        public String currentFilter() {
+            return textOf(searchInput);
+        }
+
+        @Override
+        public List<ManagementBatchController.Item> snapshotItems()
+            throws Exception {
+            List<ManagementBatchController.Item> output = new ArrayList<>();
+            if (dictionary == null) {
+                return output;
+            }
+            List<String> names = new ArrayList<>(allNames);
+            if (dictionary.has("mc")) {
+                names.add(0, "mc");
+            }
+            for (String name : names) {
+                JSONObject record = dictionary.optJSONObject(name);
+                if (record == null) {
+                    continue;
+                }
+                JSONObject payload = new JSONObject(record.toString());
+                payload.put("id", name);
+                payload.put("key", name);
+                String label = "mc".equals(name)
+                    ? getString(R.string.management_batch_main_character_label)
+                    : getString(
+                        R.string.management_batch_character_label,
+                        name
+                    );
+                output.add(new ManagementBatchController.Item(
+                    ManagementBatchController.KIND_CHARACTER,
+                    name,
+                    label,
+                    payload
+                ));
+            }
+            return output;
+        }
+
+        @Override
+        public List<ManagementBatchController.Item> currentVisibleItems()
+            throws Exception {
+            List<ManagementBatchController.Item> all = snapshotItems();
+            Set<String> visible = new LinkedHashSet<>(visibleNames);
+            all.removeIf(item -> !visible.contains(item.canonicalId));
+            return all;
+        }
+
+        @Override
+        public void onBatchModeChanged(boolean enabled) {
+            batchMode = enabled;
+            applyFilter(textOf(searchInput));
+            findViewById(R.id.btn_edit_mc).setEnabled(!enabled && dictionary != null);
+            findViewById(R.id.btn_add_character).setEnabled(!enabled && dictionary != null);
+            findViewById(R.id.btn_restore_chardict).setEnabled(!enabled && dictionary != null);
+            saveButton.setEnabled(!enabled && dictionary != null);
+            setManagementBatchActionEnabled(!enabled && dictionary != null);
+        }
+
+        @Override
+        public void onBatchSelectionChanged() {
+            if (adapter != null) {
+                adapter.notifyDataSetChanged();
+            }
+            if (managementBatchController != null) {
+                managementBatchController.onHostRowsChanged();
+            }
+        }
+
+        @Override
+        public void onBatchItemsMoved(List<String> succeededKeys) {
+            if (dictionary == null || succeededKeys == null) {
+                return;
+            }
+            boolean changed = false;
+            String prefix = ManagementBatchController.KIND_CHARACTER + ":";
+            for (String key : succeededKeys) {
+                if (key == null || !key.startsWith(prefix)) {
+                    continue;
+                }
+                String name = key.substring(prefix.length());
+                if (name.isEmpty() || "mc".equals(name)) {
+                    continue;
+                }
+                if (dictionary.has(name)) {
+                    dictionary.remove(name);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                // The durable owner already removed the records. Keep the
+                // current editor snapshot in sync without reloading and
+                // discarding unrelated unsaved edits.
+                userOverride = true;
+                invalidUserOverride = false;
+                rebuildNames();
+                updateStatus();
+            }
+        }
     }
 
     private final class ArrayFieldEditor {
@@ -1211,6 +1445,36 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
+            if (batchMode) {
+                String name = getItem(position);
+                LinearLayout row = new LinearLayout(
+                    CharacterDictionaryActivity.this
+                );
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                MaterialCheckBox check = new MaterialCheckBox(
+                    CharacterDictionaryActivity.this
+                );
+                check.setText(name);
+                check.setMinHeight(Math.round(
+                    56 * getResources().getDisplayMetrics().density
+                ));
+                check.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ));
+                String key = ManagementBatchController.KIND_CHARACTER
+                    + ":" + name;
+                check.setChecked(ManagementBatchSelection.contains(key));
+                check.setOnCheckedChangeListener((button, checked) -> {
+                    ManagementBatchSelection.set(key, checked);
+                    if (managementBatchController != null) {
+                        managementBatchController.onHostRowsChanged();
+                    }
+                });
+                row.addView(check);
+                return row;
+            }
             View view = super.getView(position, convertView, parent);
             String name = getItem(position);
             TextView title = view.findViewById(android.R.id.text1);

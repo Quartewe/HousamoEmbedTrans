@@ -15,27 +15,36 @@ import android.provider.OpenableColumns;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.view.MenuItem;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.checkbox.MaterialCheckBox;
+
+import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -61,6 +70,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
         Executors.newSingleThreadExecutor();
 
     private SceneStore sceneStore;
+    private PendingProcessMoveController pendingMoveController;
+    private ManagementBatchController managementBatchController;
     private TextView summary;
     private TextView lastResult;
     private TextView runtimeStatus;
@@ -73,6 +84,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
     private MaterialButton deleteFileButton;
     private MaterialButton refreshButton;
     private MaterialButton conflictsButton;
+    private MenuItem managementBatchMenuItem;
+    private LinearLayout batchRows;
     private Typeface conflictsButtonTypeface;
     private Spinner sceneFileSpinner;
     private Spinner sceneLanguageSpinner;
@@ -83,6 +96,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
     private SceneSyncRuntimeState.Snapshot runtimeSnapshot =
         runtimeState.getSnapshot();
     private boolean busy = true;
+    private boolean batchMode;
     private boolean refreshRequestPending;
 
     @Override
@@ -94,8 +108,17 @@ public final class SceneFilesActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(
             view -> getOnBackPressedDispatcher().onBackPressed()
         );
+        toolbar.inflateMenu(R.menu.menu_management_batch);
+        managementBatchMenuItem = toolbar.getMenu().findItem(
+            R.id.action_management_batch
+        );
+        managementBatchMenuItem.setOnMenuItemClickListener(item -> {
+            toggleManagementBatch();
+            return true;
+        });
 
         sceneStore = new SceneStore(this);
+        pendingMoveController = new PendingProcessMoveController(this);
         summary = findViewById(R.id.tv_scene_summary);
         lastResult = findViewById(R.id.tv_scene_last_result);
         runtimeStatus = findViewById(R.id.tv_scene_sync_runtime_status);
@@ -108,6 +131,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
         deleteFileButton = findViewById(R.id.btn_delete_scene_file);
         refreshButton = findViewById(R.id.btn_refresh_scene_sync);
         conflictsButton = findViewById(R.id.btn_scene_conflicts);
+        batchRows = findViewById(R.id.container_scene_batch_rows);
+        batchRows.setVisibility(View.GONE);
         conflictsButtonTypeface = conflictsButton.getTypeface();
         sceneFileSpinner = findViewById(R.id.spinner_scene_file);
         sceneLanguageSpinner = findViewById(R.id.spinner_scene_language);
@@ -149,13 +174,29 @@ public final class SceneFilesActivity extends AppCompatActivity {
         }));
         exportButton.setOnClickListener(view -> exportLauncher.launch(null));
         deleteLanguageButton.setOnClickListener(
-            view -> confirmDeleteLanguage()
+            view -> moveSelectedLanguageToPending()
         );
-        deleteFileButton.setOnClickListener(view -> confirmDeleteFile());
+        deleteFileButton.setOnClickListener(
+            view -> moveSelectedSceneToPending()
+        );
         refreshButton.setOnClickListener(view -> requestSceneRefresh());
         conflictsButton.setOnClickListener(view -> startActivity(
             new Intent(this, SceneConflictsActivity.class)
         ));
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (managementBatchController != null
+                    && managementBatchController.isActive()) {
+                    // Restore the existing scene/language rows before the
+                    // Activity can be finished.
+                    managementBatchController.exit();
+                    return;
+                }
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+            }
+        });
         sceneFileSpinner.setOnItemSelectedListener(
             new AdapterView.OnItemSelectedListener() {
                 @Override
@@ -195,16 +236,47 @@ public final class SceneFilesActivity extends AppCompatActivity {
         renderRuntimeSnapshot(runtimeSnapshot);
         updateActionState();
         refreshScenesAsync();
+        managementBatchController = ManagementBatchController.attach(
+            this,
+            findViewById(R.id.root_scene_files),
+            new SceneBatchDataSource(),
+            savedInstanceState
+        );
+    }
+
+    private void toggleManagementBatch() {
+        if (managementBatchController == null) {
+            return;
+        }
+        if (managementBatchController.isActive()) {
+            managementBatchController.exit();
+        } else {
+            managementBatchController.enter();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (managementBatchController != null) {
+            managementBatchController.saveState(outState);
+        }
+        super.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         runtimeBinding.start();
+        if (managementBatchController != null) {
+            managementBatchController.onStart();
+        }
     }
 
     @Override
     protected void onStop() {
+        if (managementBatchController != null) {
+            managementBatchController.onStop();
+        }
         runtimeBinding.stop();
         super.onStop();
     }
@@ -740,6 +812,11 @@ public final class SceneFilesActivity extends AppCompatActivity {
         }
         summary.setText(sceneSummary);
         updateLanguageChoices(wantedLanguage);
+        renderBatchRows();
+        if (managementBatchController != null
+            && managementBatchController.isActive()) {
+            managementBatchController.onHostRowsChanged();
+        }
     }
 
     private void setBusy(boolean busy) {
@@ -763,7 +840,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private boolean canRequestSceneRefresh() {
-        return !busy
+        return !batchMode
+            && !busy
             && !refreshRequestPending
             && runtimeSnapshot.phase == SceneSyncRuntimeState.Phase.IDLE
             && runtimeSnapshot.activeApiJobs == 0;
@@ -773,14 +851,216 @@ public final class SceneFilesActivity extends AppCompatActivity {
         boolean hasScene = selectedScene() != null;
         boolean hasLanguage = selectedLanguage() != null;
         boolean localUiBusy = busy || refreshRequestPending;
-        importButton.setEnabled(!localUiBusy);
-        exportButton.setEnabled(!localUiBusy && !scenes.isEmpty());
-        sceneFileSpinner.setEnabled(!localUiBusy && hasScene);
-        sceneLanguageSpinner.setEnabled(!localUiBusy && hasLanguage);
-        deleteLanguageButton.setEnabled(!localUiBusy && hasLanguage);
-        deleteFileButton.setEnabled(!localUiBusy && hasScene);
-        refreshButton.setEnabled(canRequestSceneRefresh());
-        conflictsButton.setEnabled(true);
+        importButton.setEnabled(!localUiBusy && !batchMode);
+        exportButton.setEnabled(!localUiBusy && !batchMode && !scenes.isEmpty());
+        sceneFileSpinner.setEnabled(!localUiBusy && hasScene && !batchMode);
+        sceneLanguageSpinner.setEnabled(!localUiBusy && hasLanguage && !batchMode);
+        deleteLanguageButton.setEnabled(!localUiBusy && hasLanguage && !batchMode);
+        deleteFileButton.setEnabled(!localUiBusy && hasScene && !batchMode);
+        refreshButton.setEnabled(!batchMode && canRequestSceneRefresh());
+        conflictsButton.setEnabled(!batchMode);
+        managementBatchMenuItem.setEnabled(!localUiBusy && !batchMode);
+    }
+
+    /** Renders selection affordances for the same Scene model as the spinner. */
+    private void renderBatchRows() {
+        if (batchRows == null) {
+            return;
+        }
+        int scrollY = findViewById(R.id.root_scene_files).getScrollY();
+        batchRows.removeAllViews();
+        if (!batchMode) {
+            batchRows.setVisibility(View.GONE);
+            return;
+        }
+        batchRows.setVisibility(View.VISIBLE);
+        for (SceneStore.SceneInfo scene : scenes) {
+            if (scene == null || scene.sceneName == null
+                || scene.sceneName.trim().isEmpty()) {
+                continue;
+            }
+            String key = ManagementBatchController.KIND_SCENE + ":"
+                + scene.sceneName;
+            MaterialCheckBox check = new MaterialCheckBox(this);
+            check.setText(scene.sceneName);
+            check.setMinHeight(Math.round(
+                56 * getResources().getDisplayMetrics().density
+            ));
+            check.setChecked(ManagementBatchSelection.contains(key));
+            check.setOnCheckedChangeListener((button, checked) -> {
+                ManagementBatchSelection.set(key, checked);
+                if (managementBatchController != null) {
+                    managementBatchController.onHostRowsChanged();
+                }
+            });
+            batchRows.addView(check);
+            for (String language : scene.languages) {
+                if (language == null || language.trim().isEmpty()) {
+                    continue;
+                }
+                String languageKey = ManagementBatchController.KIND_LANGUAGE
+                    + ":" + SceneStore.languageCanonicalId(
+                        scene.sceneName,
+                        language
+                    );
+                MaterialCheckBox languageCheck = new MaterialCheckBox(this);
+                languageCheck.setText(getString(
+                    R.string.management_batch_language_label,
+                    scene.sceneName,
+                    language
+                ));
+                languageCheck.setMinHeight(Math.round(
+                    48 * getResources().getDisplayMetrics().density
+                ));
+                languageCheck.setPadding(
+                    Math.round(20 * getResources().getDisplayMetrics().density),
+                    0,
+                    0,
+                    0
+                );
+                languageCheck.setChecked(
+                    ManagementBatchSelection.contains(languageKey)
+                );
+                languageCheck.setOnCheckedChangeListener((button, checked) -> {
+                    ManagementBatchSelection.set(languageKey, checked);
+                    if (managementBatchController != null) {
+                        managementBatchController.onHostRowsChanged();
+                    }
+                });
+                batchRows.addView(languageCheck);
+            }
+        }
+        if (batchRows.getChildCount() == 0) {
+            TextView empty = new TextView(this);
+            empty.setText(R.string.scene_files_empty);
+            batchRows.addView(empty);
+        }
+        findViewById(R.id.root_scene_files).post(() ->
+            findViewById(R.id.root_scene_files).scrollTo(0, scrollY)
+        );
+    }
+
+    private final class SceneBatchDataSource
+        implements ManagementBatchController.BatchDataSource {
+        @Override
+        public String initialKind() {
+            return ManagementBatchController.KIND_SCENE;
+        }
+
+        @Override
+        public Set<String> ownedKinds() {
+            return new LinkedHashSet<>(Arrays.asList(
+                ManagementBatchController.KIND_SCENE,
+                ManagementBatchController.KIND_LANGUAGE
+            ));
+        }
+
+        @Override
+        public String currentFilter() {
+            return "";
+        }
+
+        @Override
+        public List<ManagementBatchController.Item> snapshotItems()
+            throws Exception {
+            List<ManagementBatchController.Item> output = new ArrayList<>();
+            for (SceneStore.ValidatedScene scene : sceneStore.listValidScenes()) {
+                if (scene == null || scene.sceneName == null) {
+                    continue;
+                }
+                JSONObject payload = new JSONObject(new String(
+                    scene.bytes,
+                    java.nio.charset.StandardCharsets.UTF_8
+                ));
+                payload.put("id", scene.sceneName);
+                payload.put("key", scene.sceneName);
+                output.add(new ManagementBatchController.Item(
+                    ManagementBatchController.KIND_SCENE,
+                    scene.sceneName,
+                    getString(
+                        R.string.management_batch_scene_label,
+                        scene.sceneName
+                    ),
+                    payload
+                ));
+                JSONObject translated = payload.optJSONObject("translated");
+                for (String language : scene.languages) {
+                    if (language == null || language.trim().isEmpty()) {
+                        continue;
+                    }
+                    JSONObject languagePayload = new JSONObject()
+                        .put("scene", scene.sceneName)
+                        .put("language", language)
+                        .put("id", SceneStore.languageCanonicalId(
+                            scene.sceneName,
+                            language
+                        ));
+                    if (translated != null && translated.has(language)) {
+                        languagePayload.put("value", translated.opt(language));
+                    }
+                    output.add(new ManagementBatchController.Item(
+                        ManagementBatchController.KIND_LANGUAGE,
+                        SceneStore.languageCanonicalId(
+                            scene.sceneName,
+                            language
+                        ),
+                        getString(
+                            R.string.management_batch_language_label,
+                            scene.sceneName,
+                            language
+                        ),
+                        languagePayload
+                    ));
+                }
+            }
+            return output;
+        }
+
+        @Override
+        public List<ManagementBatchController.Item> currentVisibleItems()
+            throws Exception {
+            List<ManagementBatchController.Item> all = snapshotItems();
+            java.util.Set<String> visible = new java.util.LinkedHashSet<>();
+            for (SceneStore.SceneInfo scene : scenes) {
+                if (scene != null) {
+                    visible.add(scene.sceneName);
+                }
+            }
+            all.removeIf(item -> {
+                if (item == null) {
+                    return true;
+                }
+                String ownerScene = ManagementBatchController.KIND_LANGUAGE
+                    .equals(item.kind)
+                    ? item.payload.optString("scene", "")
+                    : item.canonicalId;
+                return !visible.contains(ownerScene);
+            });
+            return all;
+        }
+
+        @Override
+        public void onBatchModeChanged(boolean enabled) {
+            batchMode = enabled;
+            renderBatchRows();
+            updateActionState();
+        }
+
+        @Override
+        public void onBatchSelectionChanged() {
+            renderBatchRows();
+            if (managementBatchController != null) {
+                managementBatchController.onHostRowsChanged();
+            }
+        }
+
+        @Override
+        public void onBatchItemsMoved(List<String> succeededKeys) {
+            // Scene/language owners update the scene files atomically; reload
+            // through the existing host path so both spinner and batch rows
+            // drop only the successful identities.
+            refreshScenesAsync();
+        }
     }
 
     private SceneStore.SceneInfo selectedScene() {
@@ -813,125 +1093,39 @@ public final class SceneFilesActivity extends AppCompatActivity {
         return -1;
     }
 
-    private void confirmDeleteLanguage() {
+    private void moveSelectedLanguageToPending() {
         SceneStore.SceneInfo scene = selectedScene();
         String language = selectedLanguage();
         if (scene == null || language == null) {
             return;
         }
-
-        new MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.delete_scene_language_title)
-            .setMessage(getString(
-                R.string.delete_scene_language_message,
-                language,
-                scene.sceneName
-            ))
-            .setNegativeButton(R.string.cancel_action, null)
-            .setPositiveButton(
-                R.string.delete_scene_language,
-                (dialog, which) -> deleteLanguage(scene.sceneName, language)
-            )
-            .show();
+        try {
+            String canonicalId = SceneStore.languageCanonicalId(
+                scene.sceneName,
+                language
+            );
+            pendingMoveController.confirmMove(
+                "language",
+                canonicalId,
+                scene.sceneName + " · " + language,
+                this::refreshScenesAsync
+            );
+        } catch (Exception failure) {
+            showOperationFailure(safeMessage(failure));
+        }
     }
 
-    private void deleteLanguage(String sceneName, String language) {
-        setBusy(true);
-        ioExecutor.execute(() -> {
-            try {
-                SceneStore.MutationReceipt<SceneStore.ValidatedScene> receipt =
-                    sceneStore.removeLanguage(sceneName, language);
-                List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
-                runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) {
-                        return;
-                    }
-                    updateScenes(refreshedScenes, sceneName, null);
-                    setBusy(false);
-                    String message = receipt.disposition
-                        == SceneStore.MutationDisposition.DEFERRED
-                        ? getString(
-                            R.string.scene_mutation_deferred,
-                            sceneName
-                        )
-                        : getString(
-                            R.string.scene_language_deleted,
-                            language,
-                            sceneName
-                        );
-                    showResult(message, "");
-                });
-            } catch (Exception e) {
-                showOperationFailure(safeMessage(e));
-            }
-        });
-    }
-
-    private void confirmDeleteFile() {
+    private void moveSelectedSceneToPending() {
         SceneStore.SceneInfo scene = selectedScene();
         if (scene == null) {
             return;
         }
-
-        String preferredSceneName = neighboringSceneName(
-            sceneFileSpinner.getSelectedItemPosition()
+        pendingMoveController.confirmMove(
+            "scene",
+            scene.sceneName,
+            scene.sceneName,
+            this::refreshScenesAsync
         );
-        new MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.delete_scene_file_title)
-            .setMessage(getString(
-                R.string.delete_scene_file_message,
-                scene.sceneName
-            ))
-            .setNegativeButton(R.string.cancel_action, null)
-            .setPositiveButton(
-                R.string.delete_scene_file,
-                (dialog, which) -> deleteFile(
-                    scene.sceneName,
-                    preferredSceneName
-                )
-            )
-            .show();
-    }
-
-    private String neighboringSceneName(int selectedIndex) {
-        if (scenes.size() <= 1 || selectedIndex < 0) {
-            return null;
-        }
-        int neighborIndex = selectedIndex + 1 < scenes.size()
-            ? selectedIndex + 1
-            : selectedIndex - 1;
-        return scenes.get(neighborIndex).sceneName;
-    }
-
-    private void deleteFile(String sceneName, String preferredSceneName) {
-        setBusy(true);
-        ioExecutor.execute(() -> {
-            try {
-                SceneStore.MutationReceipt<Void> receipt =
-                    sceneStore.deleteScene(sceneName);
-                List<SceneStore.SceneInfo> refreshedScenes = sceneStore.listSceneInfos();
-                runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) {
-                        return;
-                    }
-                    updateScenes(refreshedScenes, preferredSceneName, null);
-                    setBusy(false);
-                    String message = receipt.disposition
-                        == SceneStore.MutationDisposition.DEFERRED
-                        ? getString(
-                            R.string.scene_mutation_deferred,
-                            sceneName
-                        )
-                        : getString(
-                            R.string.scene_file_deleted,
-                            sceneName
-                        );
-                    showResult(message, "");
-                });
-            } catch (Exception e) {
-                showOperationFailure(safeMessage(e));
-            }
-        });
     }
 
     private void showOperationFailure(String reason) {
@@ -987,8 +1181,16 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (managementBatchController != null) {
+            managementBatchController.close();
+            managementBatchController = null;
+        }
         runtimeBinding.stop();
         visibilityFlag.close();
+        if (pendingMoveController != null) {
+            pendingMoveController.close();
+            pendingMoveController = null;
+        }
         ioExecutor.shutdownNow();
         super.onDestroy();
     }

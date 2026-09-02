@@ -625,6 +625,10 @@ public final class SummaryTaskExecutor {
         try {
             store.markRunning(requestId);
             request = store.readRequest(requestId);
+            if (store.isOwnerDeleted(requestId)) {
+                discardInvalidatedJob(requestId, request, null);
+                return;
+            }
             final JSONObject requestSnapshot = request;
             PreparedFacts preparedFacts;
             try {
@@ -664,6 +668,13 @@ public final class SummaryTaskExecutor {
                 // latest facts.
                 boolean userRequested = store.isUserRequested(requestId);
                 removeStaleClaimedJob(requestId, request);
+                if (store.isOwnerDeleted(requestId)) {
+                    // Permanent owner deletion wins the stale-source race;
+                    // do not admit a successor for an owner that no longer
+                    // exists.
+                    discardInvalidatedJob(requestId, request, null);
+                    return;
+                }
                 createSuccessorForCurrentFacts(
                     request,
                     currentSourceHash,
@@ -708,6 +719,16 @@ public final class SummaryTaskExecutor {
             while (true) {
                 String providerSummary = null;
                 try {
+                    if (store.isBlockedByManagementPending(request)) {
+                        throw new TargetInvalidatedException(
+                            "summary target became management-pending"
+                        );
+                    }
+                    if (store.isOwnerDeleted(requestId)) {
+                        throw new TargetInvalidatedException(
+                            "summary target owner was permanently deleted"
+                        );
+                    }
                     JSONObject providerResponse = transport.send(
                         snapshot.config,
                         frozenBody
@@ -720,6 +741,7 @@ public final class SummaryTaskExecutor {
                         );
                     WritebackDecision writebackDecision =
                         writeBackIfFactsStillMatch(
+                            requestId,
                             request,
                             providerSummary,
                             snapshot
@@ -802,6 +824,7 @@ public final class SummaryTaskExecutor {
                 } catch (Exception e) {
                     if (isTargetInvalidation(e)) {
                         if (providerSummary != null) {
+                            ensureOwnerDeletionMarker(requestId);
                             archiveInvalidatedResult(
                                 requestId,
                                 providerSummary,
@@ -1012,6 +1035,13 @@ public final class SummaryTaskExecutor {
         Throwable reason
     ) {
         try {
+            // A permanent owner delete keeps the job directory as history.
+            // The check also closes the crash window where the owner vanished
+            // before the deletion callback could write the marker.
+            if (store.ensureOwnerDeletedIfMissing(requestId)
+                || store.isOwnerDeleted(requestId)) {
+                return;
+            }
             store.removeCompletedJob(requestId);
         } catch (Exception cleanupFailure) {
             logWarn(
@@ -1028,19 +1058,44 @@ public final class SummaryTaskExecutor {
         Throwable reason
     ) {
         try {
+            String archiveReason = "target_invalidated";
+            try {
+                if (store.isOwnerDeleted(requestId)) {
+                    archiveReason = SummaryJobStore.OWNER_DELETED_REASON;
+                }
+            } catch (Exception stateFailure) {
+                logWarn(
+                    "Could not inspect Summary invalidation state requestId="
+                        + requestId,
+                    stateFailure
+                );
+            }
             archiveRejected(
                 requestId,
-                "target_invalidated",
+                archiveReason,
                 "legal",
                 new JSONObject()
                     .put("summary", summary)
                     .put("reason", safeMessage(reason))
+                    .put("invalidation_reason", archiveReason)
             );
         } catch (Exception archiveFailure) {
             logWarn(
                 "Could not archive invalidated Summary result requestId="
                     + requestId,
                 archiveFailure
+            );
+        }
+    }
+
+    private void ensureOwnerDeletionMarker(String requestId) {
+        try {
+            store.ensureOwnerDeletedIfMissing(requestId);
+        } catch (Exception markerFailure) {
+            logWarn(
+                "Could not persist Summary owner-deleted marker requestId="
+                    + requestId,
+                markerFailure
             );
         }
     }
@@ -1256,16 +1311,27 @@ public final class SummaryTaskExecutor {
      * never written against a context edited after the request was sent.
      */
     private WritebackDecision writeBackIfFactsStillMatch(
+        String requestId,
         JSONObject request,
         String summaryText,
         Snapshot snapshot
     ) throws Exception {
         return SceneContextStore.withRootAccess(() -> {
+            if (store.isOwnerDeleted(requestId)) {
+                throw new TargetInvalidatedException(
+                    "summary target owner was permanently deleted"
+                );
+            }
             String currentSourceHash = recomputeSourceHash(request);
             if (!request.optString("source_hash", "").equals(
                 currentSourceHash
             )) {
                 return WritebackDecision.stale(currentSourceHash);
+            }
+            if (store.isBlockedByManagementPending(request)) {
+                throw new TargetInvalidatedException(
+                    "summary target became management-pending"
+                );
             }
             if (isManualSuppressed(request, snapshot)) {
                 return WritebackDecision.manual();
@@ -1359,6 +1425,9 @@ public final class SummaryTaskExecutor {
             return;
         }
         try {
+            if (store.isOwnerDeleted(requestId)) {
+                return;
+            }
             String currentSourceHash = recomputeSourceHash(completedRequest);
             if (currentSourceHash.equals(
                 completedRequest.optString("source_hash", "")
@@ -1484,7 +1553,16 @@ public final class SummaryTaskExecutor {
     ) {
         try {
             boolean notified = store.isErrorNotified(requestId);
-            store.failJob(requestId, safeMessage(error));
+            boolean transitioned = store.failJob(
+                requestId,
+                safeMessage(error)
+            );
+            if (!transitioned) {
+                // Owner-deleted jobs are terminal invalidations, not ordinary
+                // provider failures.  Keep their original error/history and
+                // suppress the normal failure notification.
+                return;
+            }
             if (!notified) {
                 errorNotifier.onSummaryFailed(
                     requestId,

@@ -26,6 +26,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 /**
@@ -62,17 +63,21 @@ public final class TranslationServiceClient {
     public interface ResultSink {
         void onQuestPatch(String requestId, byte[] patchJson);
 
-        void onSceneCompleted(
+        boolean onSceneCompleted(
             String requestId,
             String scene,
             String targetLanguage,
-            byte[] resultJson
+            byte[] resultJson,
+            String leaseToken,
+            long connectionGeneration
         );
 
-        void onTranslationFailed(
+        boolean onTranslationFailed(
             String requestId,
             String errorType,
-            String message
+            String message,
+            String leaseToken,
+            long connectionGeneration
         );
     }
 
@@ -181,18 +186,22 @@ public final class TranslationServiceClient {
                 String requestId,
                 String scene,
                 String targetLanguage,
+                long connectionGeneration,
                 ParcelFileDescriptor resultFd
             ) {
-                readTerminalPayloadAfterPreflight(
+                readTerminalPayloadAfterLease(
                     "scene result",
                     requestId,
                     "completed",
+                    connectionGeneration,
                     resultFd,
-                    bytes -> resultSink.onSceneCompleted(
+                    (bytes, leaseToken) -> resultSink.onSceneCompleted(
                         requestId,
                         scene,
                         targetLanguage,
-                        bytes
+                        bytes,
+                        leaseToken,
+                        connectionGeneration
                     )
                 );
             }
@@ -201,12 +210,14 @@ public final class TranslationServiceClient {
             public void onTranslationFailed(
                 String requestId,
                 String errorType,
-                String message
+                String message,
+                long connectionGeneration
             ) {
-                dispatchTerminalFailureAfterPreflight(
+                dispatchTerminalFailureAfterLease(
                     requestId,
                     errorType,
-                    message
+                    message,
+                    connectionGeneration
                 );
             }
         };
@@ -543,6 +554,12 @@ public final class TranslationServiceClient {
                 "Translation requires an Active Context/Group correction: "
                     + requestId
             );
+        } else if (enqueueResult
+            == HetBridgeContract.ENQUEUE_RESULT_MANAGEMENT_PENDING) {
+            throw new AdmissionRejectedException(
+                "management_pending",
+                "Translation is held by PendingProcess: " + requestId
+            );
         } else {
             throw new IllegalStateException(
                 "TranslationService returned unknown enqueue result "
@@ -585,22 +602,47 @@ public final class TranslationServiceClient {
         return requireRemote().cancelTranslation(requestId);
     }
 
-    /** Synchronous terminal preflight performed before native consumption. */
-    public boolean preflightTerminal(
+    /** Grants a terminal delivery lease for this callback generation. */
+    public String acquireTerminalDelivery(
         String requestId,
-        String terminalKind
+        String terminalKind,
+        long connectionGeneration
     ) throws RemoteException {
-        ITranslationService service = requireRemote();
-        return service.preflightTerminal(requestId, terminalKind);
+        return requireRemote().acquireTerminalDelivery(
+            requestId,
+            terminalKind,
+            connectionGeneration
+        );
     }
 
-    /** Synchronous, durable and idempotent delivery acknowledgement. */
+    /** Completes the exact terminal delivery lease. */
     public boolean acknowledgeTerminal(
         String requestId,
-        String terminalKind
+        String terminalKind,
+        String leaseToken,
+        long connectionGeneration
     ) throws RemoteException {
-        ITranslationService service = requireRemote();
-        return service.acknowledgeTerminal(requestId, terminalKind);
+        return requireRemote().acknowledgeTerminal(
+            requestId,
+            terminalKind,
+            leaseToken,
+            connectionGeneration
+        );
+    }
+
+    /** Returns an uncompleted lease to the durable replay queue. */
+    public boolean releaseTerminalDelivery(
+        String requestId,
+        String terminalKind,
+        String leaseToken,
+        long connectionGeneration
+    ) throws RemoteException {
+        return requireRemote().releaseTerminalDelivery(
+            requestId,
+            terminalKind,
+            leaseToken,
+            connectionGeneration
+        );
     }
 
     /** Best-effort one-way report from the native Scene production hook. */
@@ -725,46 +767,134 @@ public final class TranslationServiceClient {
         return remote != null;
     }
 
-    public synchronized void close() {
-        if (closed) {
-            return;
-        }
-        closed = true;
-        ITranslationService service = remote;
-        if (service != null) {
-            IGameScenePort port = gameScenePort;
-            if (port != null) {
-                try {
-                    service.unregisterGameScenePort(port);
-                } catch (RemoteException ignored) {
-                    // Binder death performs identity-checked cleanup.
+    public void close() {
+        final ITranslationService service;
+        final IGameScenePort port;
+        final boolean wasBound;
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            service = remote;
+            port = gameScenePort;
+            wasBound = bound;
+
+            // Stop accepting callbacks first, then close every descriptor
+            // still queued.  A running task is deliberately left alone so
+            // its terminal lease can ACK/release through the captured Binder.
+            callbackReader.shutdown();
+            List<Runnable> pending = new ArrayList<>();
+            callbackReader.getQueue().drainTo(pending);
+            for (Runnable runnable : pending) {
+                if (runnable instanceof DescriptorCallbackTask) {
+                    ((DescriptorCallbackTask) runnable).discard();
                 }
             }
-            try {
-                service.unregisterTranslationCallback(callback);
-            } catch (RemoteException ignored) {
-                // Binder death performs identity-checked cleanup.
-            }
+            // Wake awaitConnected callers without waiting for the reader.
+            notifyAll();
         }
+
         resetSceneProductionPolicy();
-        remote = null;
-        if (bound) {
-            try {
-                context.unbindService(connection);
-            } catch (IllegalArgumentException ignored) {
-                // Binding may already have died.
+
+        // Explicit callback unregister is rejected while a terminal lease is
+        // active.  Finish cleanup off the caller thread so a callback task can
+        // acquire this client's monitor for ACK/release without deadlocking
+        // close(), while queued PFDs have already been discarded above.
+        Thread cleanup = new Thread(() -> {
+            boolean interrupted = false;
+            for (;;) {
+                try {
+                    if (callbackReader.awaitTermination(
+                        100L,
+                        TimeUnit.MILLISECONDS
+                    )) {
+                        break;
+                    }
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
             }
-            bound = false;
-        }
-        callbackReader.shutdown();
-        List<Runnable> pending = new ArrayList<>();
-        callbackReader.getQueue().drainTo(pending);
-        for (Runnable runnable : pending) {
-            if (runnable instanceof DescriptorCallbackTask) {
-                ((DescriptorCallbackTask) runnable).discard();
+
+            if (service != null) {
+                boolean callbackRemoved = false;
+                boolean busyLogged = false;
+                while (!callbackRemoved) {
+                    try {
+                        service.unregisterTranslationCallback(callback);
+                        callbackRemoved = true;
+                    } catch (RemoteException e) {
+                        log(
+                            "Could not unregister TranslationService callback: "
+                                + safeMessage(e)
+                        );
+                        break;
+                    } catch (RuntimeException e) {
+                        // A live terminal lease can keep the callback
+                        // installed.  Retry from this daemon thread until
+                        // the reader's release becomes visible to the Service.
+                        String message = e.getMessage();
+                        boolean busy = message != null
+                            && message.contains(
+                                "terminal delivery callback is busy"
+                            );
+                        if (!busy) {
+                            log(
+                                "Could not unregister TranslationService "
+                                    + "callback: "
+                                    + safeMessage(e)
+                            );
+                            break;
+                        }
+                        if (!busyLogged) {
+                            busyLogged = true;
+                            log(
+                                "TranslationService callback unregister is "
+                                    + "busy; waiting for terminal lease"
+                            );
+                        }
+                        try {
+                            Thread.sleep(50L);
+                        } catch (InterruptedException interruptedException) {
+                            interrupted = true;
+                        }
+                    }
+                }
+
+                if (port != null) {
+                    try {
+                        service.unregisterGameScenePort(port);
+                    } catch (RemoteException | RuntimeException e) {
+                        log(
+                            "Could not unregister game Scene port: "
+                                + safeMessage(e)
+                        );
+                    }
+                }
             }
-        }
-        notifyAll();
+
+            if (wasBound) {
+                try {
+                    context.unbindService(connection);
+                } catch (RuntimeException e) {
+                    log(
+                        "Could not unbind TranslationService: "
+                            + safeMessage(e)
+                    );
+                }
+            }
+
+            synchronized (TranslationServiceClient.this) {
+                remote = null;
+                bound = false;
+                notifyAll();
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }, "HET-translation-client-close");
+        cleanup.setDaemon(true);
+        cleanup.start();
     }
 
     private void registerGameScenePort(ITranslationService service)
@@ -921,16 +1051,18 @@ public final class TranslationServiceClient {
     }
 
     /**
-     * A terminal PFD is not consumed until the durable HET state authorizes
-     * this request/kind.  This avoids draining a stale callback body when a
-     * rerun or ACK won the race while the game process was disconnected.
+     * A terminal PFD is not consumed until a durable lease authorizes this
+     * request/kind.  The callback generation is part of the lease identity;
+     * a replaced/dead Binder can therefore never settle a newer connection's
+     * attempt.
      */
-    private void readTerminalPayloadAfterPreflight(
+    private void readTerminalPayloadAfterLease(
         String label,
         String requestId,
         String terminalKind,
+        long connectionGeneration,
         ParcelFileDescriptor descriptor,
-        Consumer<byte[]> consumer
+        BiFunction<byte[], String, Boolean> consumer
     ) {
         if (descriptor == null) {
             log(
@@ -944,15 +1076,27 @@ public final class TranslationServiceClient {
         DescriptorCallbackTask task = new DescriptorCallbackTask(
             descriptor,
             input -> {
+                ITranslationService service = null;
+                String leaseToken = null;
                 try {
-                    ITranslationService service = remote;
-                    if (service == null
-                        || !service.preflightTerminal(
-                            requestId,
-                            terminalKind
-                        )) {
+                    service = remote;
+                    if (service == null) {
                         log(
-                            "Rejected terminal PFD before read label="
+                            "Rejected terminal PFD without service label="
+                                + label
+                                + " requestId="
+                                + requestId
+                        );
+                        return;
+                    }
+                    leaseToken = service.acquireTerminalDelivery(
+                        requestId,
+                        terminalKind,
+                        connectionGeneration
+                    );
+                    if (leaseToken == null || leaseToken.isEmpty()) {
+                        log(
+                            "Rejected terminal PFD without delivery lease label="
                                 + label
                                 + " requestId="
                                 + requestId
@@ -963,16 +1107,37 @@ public final class TranslationServiceClient {
                         input,
                         MAX_CALLBACK_BYTES
                     );
-                    consumer.accept(bytes);
+                    Boolean settled = consumer.apply(bytes, leaseToken);
+                    if (Boolean.TRUE.equals(settled)) {
+                        leaseToken = null;
+                    }
                 } catch (Exception e) {
                     log(
-                        "Could not preflight/read "
+                        "Could not acquire/read "
                             + label
                             + " requestId="
                             + requestId
                             + ": "
                             + safeMessage(e)
                     );
+                } finally {
+                    if (leaseToken != null && service != null) {
+                        try {
+                            service.releaseTerminalDelivery(
+                                requestId,
+                                terminalKind,
+                                leaseToken,
+                                connectionGeneration
+                            );
+                        } catch (RemoteException | RuntimeException releaseFailure) {
+                            log(
+                                "Could not release terminal lease requestId="
+                                    + requestId
+                                    + ": "
+                                    + safeMessage(releaseFailure)
+                            );
+                        }
+                    }
                 }
             }
         );
@@ -989,38 +1154,71 @@ public final class TranslationServiceClient {
         }
     }
 
-    private void dispatchTerminalFailureAfterPreflight(
+    private void dispatchTerminalFailureAfterLease(
         String requestId,
         String errorType,
-        String message
+        String message,
+        long connectionGeneration
     ) {
         try {
             callbackReader.execute(() -> {
+                ITranslationService service = null;
+                String leaseToken = null;
                 try {
-                    ITranslationService service = remote;
-                    if (service == null
-                        || !service.preflightTerminal(
-                            requestId,
-                            "failed"
-                        )) {
+                    service = remote;
+                    if (service == null) {
                         log(
-                            "Rejected terminal failure before delivery requestId="
+                            "Rejected terminal failure without service requestId="
                                 + requestId
                         );
                         return;
                     }
-                    resultSink.onTranslationFailed(
+                    leaseToken = service.acquireTerminalDelivery(
+                        requestId,
+                        "failed",
+                        connectionGeneration
+                    );
+                    if (leaseToken == null || leaseToken.isEmpty()) {
+                        log(
+                            "Rejected terminal failure without delivery lease requestId="
+                                + requestId
+                        );
+                        return;
+                    }
+                    if (resultSink.onTranslationFailed(
                         requestId,
                         errorType,
-                        message
-                    );
+                        message,
+                        leaseToken,
+                        connectionGeneration
+                    )) {
+                        leaseToken = null;
+                    }
                 } catch (Exception e) {
                     log(
-                        "Could not preflight/deliver translation failure requestId="
+                        "Could not acquire/deliver translation failure requestId="
                             + requestId
                             + ": "
                             + safeMessage(e)
                     );
+                } finally {
+                    if (leaseToken != null && service != null) {
+                        try {
+                            service.releaseTerminalDelivery(
+                                requestId,
+                                "failed",
+                                leaseToken,
+                                connectionGeneration
+                            );
+                        } catch (RemoteException | RuntimeException releaseFailure) {
+                            log(
+                                "Could not release terminal failure lease requestId="
+                                    + requestId
+                                    + ": "
+                                    + safeMessage(releaseFailure)
+                            );
+                        }
+                    }
                 }
             });
         } catch (RejectedExecutionException e) {

@@ -313,6 +313,7 @@ public final class JobValidator {
             : null;
         Set<String> deliveryValues = new HashSet<>();
         deliveryValues.add("pending");
+        deliveryValues.add("in_flight");
         deliveryValues.add("acknowledged");
         deliveryValues.add("not_required");
         if (deliveryState != null && !deliveryValues.contains(deliveryState)) {

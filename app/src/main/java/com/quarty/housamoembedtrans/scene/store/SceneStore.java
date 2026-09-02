@@ -1,4 +1,5 @@
 package com.quarty.housamoembedtrans.scene.store;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
 import com.quarty.housamoembedtrans.storage.json.JsonSchemaValidator;
 
 import com.quarty.housamoembedtrans.util.IoUtils;
@@ -19,7 +20,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
+import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /** Stores schema-valid scene JSON files under the module app's files/scenes directory. */
 public final class SceneStore {
@@ -37,7 +44,13 @@ public final class SceneStore {
     public static final String DIRECTORY_NAME = "scenes";
     public static final String SCHEMA_ASSET_PATH = "schema/scene_schema.json";
     public static final int MAX_SCENE_BYTES = 32 * 1024 * 1024;
+    /** Pending quarantine keeps oversized damaged files out of JSON payloads. */
+    private static final String PENDING_QUARANTINE_DIRECTORY_NAME =
+        ".pending_quarantine";
+    private static final Pattern PENDING_QUARANTINE_FILE_PATTERN =
+        Pattern.compile("scene_[0-9a-f]{64}\\.bin");
     public static final int MAX_SCENE_NAME_BYTES = 235;
+    public static final int MAX_PENDING_LANGUAGE_BYTES = 96;
     public static final String MUTATION_POOL_DIRECTORY_NAME =
         "scene_mutation_pool";
     private static final String MUTATION_POOL_META_NAME = "meta.json";
@@ -48,9 +61,6 @@ public final class SceneStore {
     private static final int MAX_MUTATION_POOL_ENTRIES = 1024;
     private static final long MAX_MUTATION_POOL_BYTES = 256L * 1024L * 1024L;
     private static final int MAX_FILE_NAME_BYTES = 240;
-    /** Process-local delete intents; intentionally never persisted. */
-    private static final SceneDeletionIntentRegistry PROCESS_DELETION_INTENTS =
-        new SceneDeletionIntentRegistry();
     private static final MutationAdmission MUTATION_ADMISSION =
         new MutationAdmission();
     private static final Object MUTATION_POOL_SNAPSHOT_LOCK = new Object();
@@ -676,6 +686,35 @@ public final class SceneStore {
         }
     }
 
+    /** Stable failures exposed by the management PendingProcess boundary. */
+    public enum PendingFailureKind {
+        NOT_FOUND,
+        CONFLICT,
+        INVALID_ARGUMENT,
+        INVALID_STATE,
+        IO
+    }
+
+    /** Typed failure for one Scene or language PendingProcess operation. */
+    public static final class PendingException extends IOException {
+        private static final long serialVersionUID = 1L;
+        public final PendingFailureKind kind;
+
+        public PendingException(PendingFailureKind kind, String message) {
+            super(message);
+            this.kind = kind;
+        }
+
+        public PendingException(
+            PendingFailureKind kind,
+            String message,
+            Throwable cause
+        ) {
+            super(message, cause);
+            this.kind = kind;
+        }
+    }
+
     public enum RawSceneWriteFailureKind {
         START,
         COPY,
@@ -793,6 +832,7 @@ public final class SceneStore {
                 throw new IOException("raw Scene write session is closed");
             }
             try {
+                requireSceneFamilyNotManagementPending(sceneName);
                 if (deferred) {
                     long sequence = MUTATION_ADMISSION
                         .persistDeferredMutationWithSequence(
@@ -820,7 +860,7 @@ public final class SceneStore {
                 );
             } finally {
                 if (!committed) {
-                    releaseAdmission();
+                    abort();
                 }
             }
         }
@@ -922,14 +962,19 @@ public final class SceneStore {
     private final Context context;
     private final File sceneDirectory;
     private final File incomingDirectory;
+    private final File pendingQuarantineDirectory;
     private final File mutationPoolRoot;
     private final File mutationPoolEntries;
     private final String mutationPoolSnapshotKey;
+    /** Durable deletion intents scoped to this Scene root. */
+    private final SceneDeletionIntentRegistry deletionIntentRegistry;
     private final Object mutationPoolLock = new Object();
     private volatile int deferredMutationCount;
     private volatile String deferredMutationDiagnostic = "";
     private boolean mutationPoolEnumerationFailed;
     private final JsonSchemaValidator schemaValidator;
+    /** Null for explicit host/fixture seams; bound only by the Android default. */
+    private final PendingProcessStore pendingProcessStore;
 
     public SceneStore(Context context) {
         this(
@@ -942,7 +987,8 @@ public final class SceneStore {
                 requireContext(context).getFilesDir(),
                 MUTATION_POOL_DIRECTORY_NAME
             ),
-            loadSchema(requireContext(context))
+            loadSchema(requireContext(context)),
+            true
         );
     }
 
@@ -959,7 +1005,8 @@ public final class SceneStore {
                 parentOrSelf(sceneDirectory),
                 MUTATION_POOL_DIRECTORY_NAME
             ),
-            schema
+            schema,
+            false
         );
     }
 
@@ -994,6 +1041,16 @@ public final class SceneStore {
         File mutationPoolRoot,
         JSONObject schema
     ) {
+        this(context, sceneDirectory, mutationPoolRoot, schema, false);
+    }
+
+    private SceneStore(
+        Context context,
+        File sceneDirectory,
+        File mutationPoolRoot,
+        JSONObject schema,
+        boolean bindPendingProcessStore
+    ) {
         Context applicationContext = requireContext(context).getApplicationContext();
         this.context = applicationContext != null
             ? applicationContext
@@ -1005,6 +1062,11 @@ public final class SceneStore {
         }
         this.sceneDirectory = sceneDirectory;
         incomingDirectory = new File(sceneDirectory, ".incoming");
+        pendingQuarantineDirectory = new File(
+            sceneDirectory,
+            PENDING_QUARANTINE_DIRECTORY_NAME
+        );
+        deletionIntentRegistry = new SceneDeletionIntentRegistry(sceneDirectory);
         this.mutationPoolRoot = mutationPoolRoot;
         mutationPoolSnapshotKey = mutationPoolSnapshotKey(mutationPoolRoot);
         mutationPoolEntries = new File(
@@ -1012,11 +1074,116 @@ public final class SceneStore {
             MUTATION_POOL_ENTRIES_NAME
         );
         schemaValidator = new JsonSchemaValidator(schema);
+        pendingProcessStore = bindPendingProcessStore
+            ? new PendingProcessStore(this.context)
+            : null;
         initializeMutationPool();
     }
 
     public File getMutationPoolRoot() {
         return mutationPoolRoot;
+    }
+
+    /**
+     * Captures the management-pending Scene families once for a sync cycle.
+     * A language reference is encoded as {@code <scene>.<base64url-lang>};
+     * malformed references fail closed instead of being treated as absence.
+     */
+    public Set<String> snapshotManagementPendingSceneNames()
+        throws IOException {
+        if (pendingProcessStore == null) {
+            return Collections.emptySet();
+        }
+        PendingProcessStore.ReferenceSnapshot references =
+            pendingProcessStore.snapshotReferences();
+        Set<String> sceneNames = new HashSet<>();
+        for (String sceneName : references.canonicalIdsForKind("scene")) {
+            try {
+                sceneNames.add(requireSceneName(sceneName));
+            } catch (IllegalArgumentException e) {
+                throw new IOException(
+                    "management pending Scene identity is invalid",
+                    e
+                );
+            }
+        }
+        for (String languageId : references.canonicalIdsForKind("language")) {
+            sceneNames.add(sceneNameForPendingLanguageId(languageId));
+        }
+        return Collections.unmodifiableSet(sceneNames);
+    }
+
+    private static String sceneNameForPendingLanguageId(String languageId)
+        throws IOException {
+        if (languageId == null) {
+            throw new IOException("management pending language identity is null");
+        }
+        int separator = languageId.indexOf('.');
+        if (separator <= 0
+            || separator != languageId.lastIndexOf('.')
+            || separator >= languageId.length() - 1) {
+            throw new IOException(
+                "management pending language identity is malformed"
+            );
+        }
+        String sceneName = languageId.substring(0, separator);
+        try {
+            requireSceneName(sceneName);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(
+                "management pending language Scene identity is invalid",
+                e
+            );
+        }
+        String encodedLanguage = languageId.substring(separator + 1);
+        final byte[] languageBytes;
+        try {
+            languageBytes = Base64.getUrlDecoder().decode(encodedLanguage);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(
+                "management pending language identity is not Base64url",
+                e
+            );
+        }
+        if (languageBytes.length == 0
+            || !encodedLanguage.equals(
+                Base64.getUrlEncoder()
+                    .withoutPadding()
+                    .encodeToString(languageBytes)
+            )) {
+            throw new IOException(
+                "management pending language identity is not canonical"
+            );
+        }
+        final String language;
+        try {
+            language = decodeStrictUtf8(languageBytes);
+            requirePendingLanguage(language);
+        } catch (CharacterCodingException e) {
+            throw new IOException(
+                "management pending language identity is not UTF-8",
+                e
+            );
+        } catch (PendingException e) {
+            throw new IOException(
+                "management pending language identity is invalid",
+                e
+            );
+        }
+        return sceneName;
+    }
+
+    private void requireSceneFamilyNotManagementPending(String sceneName)
+        throws IOException {
+        if (pendingProcessStore == null) {
+            return;
+        }
+        if (snapshotManagementPendingSceneNames().contains(sceneName)) {
+            throw new IOException(
+                "Scene mutation rejected: management pending Scene family "
+                    + sceneName
+            );
+        }
     }
 
     public int getDeferredMutationCount() {
@@ -1875,6 +2042,7 @@ public final class SceneStore {
             DeferredMutationOperation.valueOf(state.getString("operation"));
         String sceneName = requireSceneName(state.getString("scene"));
         synchronized (this) {
+            requireSceneFamilyNotManagementPending(sceneName);
             switch (operation) {
                 case PUT_SCENE:
                     byte[] bytes;
@@ -1895,7 +2063,7 @@ public final class SceneStore {
                         if (message == null || !message.contains("does not exist")) {
                             throw e;
                         }
-                        PROCESS_DELETION_INTENTS.record(sceneName);
+                        deletionIntentRegistry.record(sceneName);
                     }
                     break;
                 case DELETE_SCENE_FOR_SYNC:
@@ -1935,6 +2103,7 @@ public final class SceneStore {
         ValidatedScene scene = validate(
             IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES)
         );
+        requireSceneFamilyNotManagementPending(scene.sceneName);
         MutationAdmission.ExternalAdmission admission =
             MUTATION_ADMISSION.beginExternalMutation(
                 this,
@@ -2086,6 +2255,7 @@ public final class SceneStore {
             || snapshot.bytes.length > MAX_SCENE_BYTES) {
             throw new IOException("raw Scene body length is outside the limit");
         }
+        requireSceneFamilyNotManagementPending(sceneName);
         MutationAdmission.ExternalAdmission admission =
             MUTATION_ADMISSION.beginExternalMutation(this, null);
         if (admission.deferred) {
@@ -2097,6 +2267,463 @@ public final class SceneStore {
         try {
             saveRawSceneSnapshotInternal(snapshot);
             return MutationReceipt.committed(sceneName, null);
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /** Returns bounded confirmation metadata without copying a Scene body. */
+    public synchronized JSONObject previewSceneForPending(String sceneName)
+        throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            PendingSceneSnapshot snapshot =
+                readPendingSceneSnapshot(sceneName);
+            JSONArray languages = new JSONArray();
+            if (!snapshot.missing && "valid".equals(snapshot.validationKind)) {
+                try {
+                    RawSceneSnapshot valid = validateRawSceneBytes(
+                        sceneName,
+                        snapshot.bytes
+                    );
+                    for (String language : valid.languages) {
+                        languages.put(language);
+                    }
+                } catch (RawSceneFailure ignored) {
+                    // The variant was captured as invalid concurrently; the
+                    // durable snapshot below still carries its exact bytes.
+                }
+            }
+            JSONObject preview = pendingObject()
+                .put("scene_name", sceneName)
+                .put(
+                    "state",
+                    snapshot.missing
+                        ? "missing"
+                        : "valid".equals(snapshot.validationKind)
+                            ? "valid"
+                            : "invalid"
+                )
+                .put(
+                    "byte_length",
+                    snapshot.byteLength
+                )
+                .put("validation_kind", snapshot.validationKind)
+                .put("languages", languages);
+            if (snapshot.sidecarId != null) {
+                preview
+                    .put("snapshot_type", "damaged_scene_sidecar")
+                    .put("sidecar_id", snapshot.sidecarId)
+                    .put("raw_sha256", snapshot.sha256)
+                    .put("verified", true);
+            }
+            return preview;
+        } catch (org.json.JSONException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "could not encode Scene pending preview",
+                e
+            );
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /** Returns bounded confirmation metadata for one translated language. */
+    public synchronized JSONObject previewLanguageForPending(
+        String sceneName,
+        String language
+    ) throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        language = requirePendingLanguage(language);
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            RawSceneSnapshot snapshot = readRawSceneForPending(sceneName);
+            if (!snapshot.languages.contains(language)) {
+                throw pendingFailure(
+                    PendingFailureKind.NOT_FOUND,
+                    "Scene does not contain pending language " + language,
+                    null
+                );
+            }
+            return pendingObject()
+                .put("scene_name", sceneName)
+                .put("language", language);
+        } catch (org.json.JSONException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "could not encode language pending preview",
+                e
+            );
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /** Captures the exact validated Scene bytes for a restorable move. */
+    public synchronized JSONObject snapshotSceneForPending(String sceneName)
+        throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            return encodePendingSceneSnapshot(
+                readPendingSceneSnapshot(sceneName)
+            );
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /**
+     * Captures only one language's values plus a language-insensitive Scene
+     * structure fingerprint. Other languages are deliberately not copied.
+     */
+    public synchronized JSONObject snapshotLanguageForPending(
+        String sceneName,
+        String language
+    ) throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        language = requirePendingLanguage(language);
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            RawSceneSnapshot raw = readRawSceneForPending(sceneName);
+            if (!raw.languages.contains(language)) {
+                throw pendingFailure(
+                    PendingFailureKind.NOT_FOUND,
+                    "Scene does not contain pending language " + language,
+                    null
+                );
+            }
+            JSONObject scene = pendingSceneJson(raw);
+            JSONArray values = collectPendingLanguageValues(scene, language);
+            if (values.length() == 0) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "Scene language index has no matching values",
+                    null
+                );
+            }
+            try {
+                return pendingObject()
+                    .put("scene_name", sceneName)
+                    .put("language", language)
+                    .put("structure_sha256", pendingStructureHash(scene))
+                    .put("values", values);
+            } catch (org.json.JSONException e) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "could not encode language pending snapshot",
+                    e
+                );
+            }
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /** Hides exactly the captured Scene without creating a sync delete intent. */
+    public synchronized void hideSceneForPending(
+        String sceneName,
+        JSONObject pendingSnapshot
+    ) throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        PendingSceneSnapshot expected = decodePendingSceneSnapshot(
+            sceneName,
+            pendingSnapshot
+        );
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            if (expected.sidecarId != null) {
+                hideOversizedSceneForPending(sceneName, expected);
+                return;
+            }
+            PendingSceneSnapshot current =
+                readPendingSceneSnapshotOrNull(sceneName);
+            if (current == null || current.missing) {
+                // The Pending entry is published before this owner-side hide.
+                // If the process stops after the file deletion but before the
+                // journal advances to OWNER_APPLIED, replay observes the
+                // explicit missing variant.  Treat that state as an already
+                // completed hide for every captured snapshot; otherwise a
+                // valid/invalid Scene move would remain stuck in a replayable
+                // journal forever.  A concurrently removed Scene is equally
+                // safe to leave absent because the durable Pending snapshot is
+                // now the sole restore source.
+                return;
+            }
+            if (expected.missing || !Arrays.equals(current.bytes, expected.bytes)) {
+                throw pendingFailure(
+                    PendingFailureKind.CONFLICT,
+                    "Scene changed before it could be moved to PendingProcess",
+                    null
+                );
+            }
+            try {
+                deleteSceneForSyncInternal(sceneName);
+            } catch (IOException e) {
+                throw pendingFailure(
+                    PendingFailureKind.IO,
+                    "could not hide Scene for PendingProcess",
+                    e
+                );
+            }
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /** Restores a Scene only when its canonical name is still free. */
+    public synchronized void restoreSceneFromPending(
+        String sceneName,
+        JSONObject pendingSnapshot
+    ) throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        PendingSceneSnapshot expected = decodePendingSceneSnapshot(
+            sceneName,
+            pendingSnapshot
+        );
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            if (expected.sidecarId != null) {
+                restoreOversizedSceneFromPending(sceneName, expected);
+                return;
+            }
+            PendingSceneSnapshot current =
+                readPendingSceneSnapshotOrNull(sceneName);
+            if (expected.missing) {
+                if (current != null && !current.missing) {
+                    throw pendingFailure(
+                        PendingFailureKind.CONFLICT,
+                        "Scene canonical name was reused while pending",
+                        null
+                    );
+                }
+                try {
+                    deletionIntentRegistry.clear(sceneName);
+                } catch (IOException e) {
+                    throw pendingFailure(
+                        PendingFailureKind.IO,
+                        "could not restore missing Scene state",
+                        e
+                    );
+                }
+                return;
+            }
+            if (current != null && current.missing) {
+                // A missing current file is compatible with restoring the
+                // captured invalid bytes below.
+            } else if (current != null
+                && !Arrays.equals(current.bytes, expected.bytes)) {
+                throw pendingFailure(
+                    PendingFailureKind.CONFLICT,
+                    "Scene canonical name was reused while pending",
+                    null
+                );
+            }
+            try {
+                // Always publish the snapshot. This also clears a stale
+                // durable deletion intent from an interrupted replay. The
+                // PendingProcess journal retries this write/clear pair if
+                // the process stops between the two durable operations.
+                saveRawSceneBytesInternal(expected.sceneName, expected.bytes, true);
+            } catch (IOException e) {
+                throw pendingFailure(
+                    PendingFailureKind.IO,
+                    "could not restore Scene from PendingProcess",
+                    e
+                );
+            }
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /**
+     * Converts a soft-hidden Scene into a durable next-sync deletion intent.
+     * A re-created Scene with different bytes is never deleted.
+     */
+    public synchronized void permanentlyDeleteSceneFromPending(
+        String sceneName,
+        JSONObject pendingSnapshot
+    ) throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        PendingSceneSnapshot expected = decodePendingSceneSnapshot(
+            sceneName,
+            pendingSnapshot
+        );
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            if (expected.sidecarId != null) {
+                permanentlyDeleteOversizedSceneFromPending(sceneName, expected);
+                return;
+            }
+            PendingSceneSnapshot current =
+                readPendingSceneSnapshotOrNull(sceneName);
+            if (current == null || current.missing) {
+                try {
+                    deletionIntentRegistry.record(sceneName);
+                } catch (IOException e) {
+                    throw pendingFailure(
+                        PendingFailureKind.IO,
+                        "could not persist Scene deletion intent",
+                        e
+                    );
+                }
+                return;
+            }
+            if (expected.missing || !Arrays.equals(current.bytes, expected.bytes)) {
+                throw pendingFailure(
+                    PendingFailureKind.CONFLICT,
+                    "Scene canonical name was reused while pending",
+                    null
+                );
+            }
+            try {
+                deleteSceneInternal(sceneName);
+            } catch (IOException e) {
+                throw pendingFailure(
+                    PendingFailureKind.IO,
+                    "could not permanently delete pending Scene",
+                    e
+                );
+            }
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /** Removes exactly one captured language and preserves all other values. */
+    public synchronized void hideLanguageForPending(
+        String sceneName,
+        String language,
+        JSONObject pendingSnapshot
+    ) throws PendingException {
+        PendingLanguageSnapshot expected = decodePendingLanguageSnapshot(
+            sceneName,
+            language,
+            pendingSnapshot
+        );
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            RawSceneSnapshot currentRaw = readRawSceneForPendingOrNull(
+                expected.sceneName
+            );
+            if (currentRaw == null) {
+                return;
+            }
+            JSONObject current = pendingSceneJson(currentRaw);
+            JSONArray currentValues = collectPendingLanguageValues(
+                current,
+                expected.language
+            );
+            if (currentValues.length() == 0) {
+                return;
+            }
+            requirePendingLanguageState(current, currentValues, expected);
+            removePendingLanguageInternal(
+                expected.sceneName,
+                expected.language,
+                current
+            );
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /** Restores one language while retaining edits made to every other language. */
+    public synchronized void restoreLanguageFromPending(
+        String sceneName,
+        String language,
+        JSONObject pendingSnapshot
+    ) throws PendingException {
+        PendingLanguageSnapshot expected = decodePendingLanguageSnapshot(
+            sceneName,
+            language,
+            pendingSnapshot
+        );
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            RawSceneSnapshot currentRaw = readRawSceneForPendingOrNull(
+                expected.sceneName
+            );
+            if (currentRaw == null) {
+                throw pendingFailure(
+                    PendingFailureKind.NOT_FOUND,
+                    "owning Scene must be restored before its language",
+                    null
+                );
+            }
+            JSONObject current = pendingSceneJson(currentRaw);
+            JSONArray currentValues = collectPendingLanguageValues(
+                current,
+                expected.language
+            );
+            requirePendingStructure(current, expected);
+            if (currentValues.length() != 0) {
+                if (!jsonEquals(currentValues, expected.values)) {
+                    throw pendingFailure(
+                        PendingFailureKind.CONFLICT,
+                        "Scene language changed while PendingProcess was active",
+                        null
+                    );
+                }
+                return;
+            }
+            applyPendingLanguageValues(
+                current,
+                expected.language,
+                expected.values
+            );
+            savePendingSceneJson(expected.sceneName, current);
+        } finally {
+            admission.lease.close();
+        }
+    }
+
+    /** Permanently removes only the captured language, never the Scene. */
+    public synchronized void permanentlyDeleteLanguageFromPending(
+        String sceneName,
+        String language,
+        JSONObject pendingSnapshot
+    ) throws PendingException {
+        PendingLanguageSnapshot expected = decodePendingLanguageSnapshot(
+            sceneName,
+            language,
+            pendingSnapshot
+        );
+        MutationAdmission.ExternalAdmission admission =
+            beginImmediatePendingAccess();
+        try {
+            RawSceneSnapshot currentRaw = readRawSceneForPendingOrNull(
+                expected.sceneName
+            );
+            if (currentRaw == null) {
+                return;
+            }
+            JSONObject current = pendingSceneJson(currentRaw);
+            JSONArray currentValues = collectPendingLanguageValues(
+                current,
+                expected.language
+            );
+            if (currentValues.length() == 0) {
+                return;
+            }
+            requirePendingLanguageState(current, currentValues, expected);
+            removePendingLanguageInternal(
+                expected.sceneName,
+                expected.language,
+                current
+            );
         } finally {
             admission.lease.close();
         }
@@ -2231,19 +2858,40 @@ public final class SceneStore {
     private synchronized void saveRawSceneSnapshotInternal(
         RawSceneSnapshot snapshot
     ) throws IOException {
+        saveRawSceneSnapshotInternal(snapshot, false);
+    }
+
+    private synchronized void saveRawSceneSnapshotInternal(
+        RawSceneSnapshot snapshot,
+        boolean bypassManagementPending
+    ) throws IOException {
         if (snapshot == null) {
             throw new IllegalArgumentException("snapshot is null");
         }
-        String sceneName = requireSceneName(snapshot.sceneName);
-        if (snapshot.bytes == null
-            || snapshot.bytes.length < 1
-            || snapshot.bytes.length > MAX_SCENE_BYTES) {
+        saveRawSceneBytesInternal(
+            snapshot.sceneName,
+            snapshot.bytes,
+            bypassManagementPending
+        );
+    }
+
+    /** Writes a bounded snapshot variant, including deliberately invalid raw bytes. */
+    private synchronized void saveRawSceneBytesInternal(
+        String sceneName,
+        byte[] bytes,
+        boolean bypassManagementPending
+    ) throws IOException {
+        sceneName = requireSceneName(sceneName);
+        if (bytes == null || bytes.length > MAX_SCENE_BYTES) {
             throw new IOException("raw Scene body length is outside the limit");
+        }
+        if (!bypassManagementPending) {
+            requireSceneFamilyNotManagementPending(sceneName);
         }
         ensureDirectories();
         IoUtils.writeAtomically(
             new File(sceneDirectory, fileNameForScene(sceneName)),
-            snapshot.bytes
+            bytes
         );
         clearSceneDeletionIntent(sceneName);
     }
@@ -2349,6 +2997,7 @@ public final class SceneStore {
             || scene.bytes.length > MAX_SCENE_BYTES) {
             throw new IOException("Scene body length is outside the limit");
         }
+        requireSceneFamilyNotManagementPending(sceneName);
         MutationAdmission.ExternalAdmission admission =
             MUTATION_ADMISSION.beginExternalMutation(this, null);
         if (admission.deferred) {
@@ -2372,6 +3021,7 @@ public final class SceneStore {
         }
         ensureDirectories();
         String sceneName = requireSceneName(scene.sceneName);
+        requireSceneFamilyNotManagementPending(sceneName);
         String fileName = fileNameForScene(sceneName);
         ValidatedScene existing = null;
         try {
@@ -2398,6 +3048,7 @@ public final class SceneStore {
         if (language == null || language.isEmpty()) {
             throw new IllegalArgumentException("language key is empty");
         }
+        requireSceneFamilyNotManagementPending(sceneName);
         MutationAdmission.ExternalAdmission admission =
             MUTATION_ADMISSION.beginExternalMutation(this, null);
         if (admission.deferred) {
@@ -2462,6 +3113,7 @@ public final class SceneStore {
     public synchronized MutationReceipt<Void> deleteScene(String sceneName)
         throws IOException {
         sceneName = requireSceneName(sceneName);
+        requireSceneFamilyNotManagementPending(sceneName);
         MutationAdmission.ExternalAdmission admission =
             MUTATION_ADMISSION.beginExternalMutation(this, null);
         if (admission.deferred) {
@@ -2482,24 +3134,148 @@ public final class SceneStore {
         throws IOException {
         sceneName = requireSceneName(sceneName);
         File file = new File(sceneDirectory, fileNameForScene(sceneName));
-        if (PROCESS_DELETION_INTENTS.contains(sceneName)
+        if (deletionIntentRegistry.contains(sceneName)
             && !IoUtils.atomicFileExists(file)) {
             return;
         }
         if (!IoUtils.atomicFileExists(file)) {
-            throw new IOException("scene file does not exist");
+            // Persist the tombstone even when the formal file has already
+            // disappeared. The next sync must still converge the game-side
+            // mirror to the requested deletion.
+            deletionIntentRegistry.record(sceneName);
+            return;
         }
-        new AtomicFile(file).delete();
-        if (IoUtils.atomicFileExists(file)) {
-            throw new IOException("could not delete scene file");
+        // Record before deleting. If the process dies after this write but
+        // before AtomicFile.delete(), the next sync will remove the leftover
+        // local file before acknowledging and clearing the same token.
+        SceneDeletionIntentRegistry.Intent intent =
+            deletionIntentRegistry.record(sceneName);
+        try {
+            new AtomicFile(file).delete();
+            if (IoUtils.atomicFileExists(file)) {
+                throw new IOException("could not delete scene file");
+            }
+        } catch (IOException e) {
+            // A normal failed delete must not leave a durable tombstone that
+            // hides an otherwise recoverable Scene. A crash has no chance to
+            // execute this rollback, so sync replay still converges safely.
+            if (IoUtils.atomicFileExists(file)) {
+                deletionIntentRegistry.clearMatching(sceneName, intent.token);
+            }
+            throw e;
         }
-        PROCESS_DELETION_INTENTS.record(sceneName);
+    }
+
+    /**
+     * Internal PendingProcess representation for one Scene snapshot.  A
+     * normal Scene carries validated bytes; a damaged Scene carries either
+     * bounded exact invalid bytes, an explicit missing marker, or a verified
+     * stream fingerprint for bytes quarantined outside JSON.  Keeping the
+     * variant in the same snapshot protocol makes move/replay/restore/delete
+     * idempotent without pretending that an invalid file is a valid Scene.
+     */
+    private static final class PendingSceneSnapshot {
+        final String sceneName;
+        final byte[] bytes;
+        final boolean missing;
+        final String validationKind;
+        /** Non-null only when the bytes live in the private quarantine. */
+        final String sidecarId;
+        final long byteLength;
+        final String sha256;
+
+        private PendingSceneSnapshot(
+            String sceneName,
+            byte[] bytes,
+            boolean missing,
+            String validationKind
+        ) {
+            this(
+                sceneName,
+                bytes,
+                missing,
+                validationKind,
+                null,
+                bytes == null ? 0L : bytes.length,
+                null
+            );
+        }
+
+        private PendingSceneSnapshot(
+            String sceneName,
+            byte[] bytes,
+            boolean missing,
+            String validationKind,
+            String sidecarId,
+            long byteLength,
+            String sha256
+        ) {
+            this.sceneName = sceneName;
+            this.bytes = bytes == null ? null : bytes.clone();
+            this.missing = missing;
+            this.validationKind = validationKind == null
+                ? ""
+                : validationKind;
+            this.sidecarId = sidecarId;
+            this.byteLength = byteLength;
+            this.sha256 = sha256;
+        }
+
+        static PendingSceneSnapshot valid(RawSceneSnapshot snapshot) {
+            return new PendingSceneSnapshot(
+                snapshot.sceneName,
+                snapshot.bytes,
+                false,
+                "valid"
+            );
+        }
+
+        static PendingSceneSnapshot missing(String sceneName) {
+            return new PendingSceneSnapshot(
+                sceneName,
+                null,
+                true,
+                "missing"
+            );
+        }
+
+        static PendingSceneSnapshot invalid(
+            String sceneName,
+            byte[] bytes,
+            RawSceneFailureKind failureKind
+        ) {
+            return new PendingSceneSnapshot(
+                sceneName,
+                bytes,
+                false,
+                failureKind == null ? "invalid" : failureKind.name()
+            );
+        }
+
+        static PendingSceneSnapshot sidecar(
+            String sceneName,
+            String sidecarId,
+            long byteLength,
+            String sha256,
+            RawSceneFailureKind failureKind
+        ) {
+            return new PendingSceneSnapshot(
+                sceneName,
+                null,
+                false,
+                failureKind == null ? "TOO_LARGE" : failureKind.name(),
+                sidecarId,
+                byteLength,
+                sha256
+            );
+        }
     }
 
     /** Deletes a game-side mirror without creating an HET delete intent. */
     public synchronized MutationReceipt<Void> deleteSceneForSync(String sceneName)
         throws IOException {
         sceneName = requireSceneName(sceneName);
+        requireSceneFamilyNotManagementPending(sceneName);
         MutationAdmission.ExternalAdmission admission =
             MUTATION_ADMISSION.beginExternalMutation(this, null);
         if (admission.deferred) {
@@ -2548,6 +3324,7 @@ public final class SceneStore {
                     + ", not requested SceneName " + expectedSceneName
             );
         }
+        requireSceneFamilyNotManagementPending(scene.sceneName);
         MutationAdmission.ExternalAdmission admission =
             MUTATION_ADMISSION.beginExternalMutation(this, null);
         MutationReceipt<Void> receipt;
@@ -2630,43 +3407,85 @@ public final class SceneStore {
         return names;
     }
 
-    /** Returns process-local delete intents; no filesystem marker is used. */
+    /** Returns durable delete intents scoped to this Scene root. */
     public List<String> listDeletedSceneNames() {
-        return PROCESS_DELETION_INTENTS.names();
+        try {
+            return deletionIntentRegistry.names();
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                "could not read Scene deletion intents",
+                e
+            );
+        }
     }
 
     /** Captures name/token pairs once at a sync-cycle boundary. */
     public Map<String, DeletionIntent> snapshotDeletionIntents() {
         Map<String, DeletionIntent> snapshot = new HashMap<>();
-        for (Map.Entry<String, SceneDeletionIntentRegistry.Intent> entry
-            : PROCESS_DELETION_INTENTS.snapshot().entrySet()) {
-            snapshot.put(
-                entry.getKey(),
-                new DeletionIntent(entry.getKey(), entry.getValue().token)
+        try {
+            for (Map.Entry<String, SceneDeletionIntentRegistry.Intent> entry
+                : deletionIntentRegistry.snapshot().entrySet()) {
+                snapshot.put(
+                    entry.getKey(),
+                    new DeletionIntent(entry.getKey(), entry.getValue().token)
+                );
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                "could not read Scene deletion intents",
+                e
             );
         }
         return Collections.unmodifiableMap(snapshot);
     }
 
-    /** Returns whether the current HET process still owns a delete intent. */
+    /** Returns whether this Scene root still owns a delete intent. */
     public boolean hasSceneDeletionIntent(String sceneName) {
         sceneName = requireSceneName(sceneName);
-        return PROCESS_DELETION_INTENTS.contains(sceneName);
+        try {
+            return deletionIntentRegistry.contains(sceneName);
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                "could not read Scene deletion intent",
+                e
+            );
+        }
     }
 
     /** Clears an intent only after the peer has acknowledged DELETE_SCENE. */
-    private void clearSceneDeletionIntent(String sceneName) {
+    private void clearSceneDeletionIntent(String sceneName) throws IOException {
         sceneName = requireSceneName(sceneName);
-        PROCESS_DELETION_INTENTS.clear(sceneName);
+        deletionIntentRegistry.clear(sceneName);
     }
 
     /** Clears only the intent token captured by a completed operation. */
     private boolean clearMatchingDeletionIntentInternal(
         String sceneName,
         long token
-    ) {
-        sceneName = requireSceneName(sceneName);
-        return PROCESS_DELETION_INTENTS.clearMatching(sceneName, token);
+    ) throws IOException {
+        final String validatedSceneName = requireSceneName(sceneName);
+        // A crash can leave the formal file behind after record-before-delete.
+        // Keep token validation, residual cleanup, and durable ACK clear under
+        // one root lock; a newer intent/recreated Scene must never be touched
+        // by an old sync acknowledgement.
+        return deletionIntentRegistry.clearMatching(
+            validatedSceneName,
+            token,
+            () -> {
+                File file = new File(
+                    sceneDirectory,
+                    fileNameForScene(validatedSceneName)
+                );
+                if (IoUtils.atomicFileExists(file)) {
+                    new AtomicFile(file).delete();
+                    if (IoUtils.atomicFileExists(file)) {
+                        throw new IOException(
+                            "could not remove residual Scene before clearing deletion intent"
+                        );
+                    }
+                }
+            }
+        );
     }
 
     public synchronized ValidatedScene readValidSceneByName(
@@ -2739,7 +3558,14 @@ public final class SceneStore {
     }
 
     private boolean isSceneDeleted(String sceneName) {
-        return PROCESS_DELETION_INTENTS.contains(sceneName);
+        try {
+            return deletionIntentRegistry.contains(sceneName);
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                "could not read Scene deletion intent",
+                e
+            );
+        }
     }
 
     private static List<String> collectLanguages(JSONObject json) {
@@ -2815,9 +3641,1645 @@ public final class SceneStore {
         return removed;
     }
 
+    private MutationAdmission.ExternalAdmission beginImmediatePendingAccess()
+        throws PendingException {
+        final MutationAdmission.ExternalAdmission admission;
+        try {
+            admission = MUTATION_ADMISSION.beginExternalMutation(this, null);
+        } catch (IOException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "could not enter Scene pending mutation boundary",
+                e
+            );
+        }
+        if (admission.deferred) {
+            admission.lease.close();
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene pending operations are unavailable during full sync",
+                null
+            );
+        }
+        return admission;
+    }
+
+    private RawSceneSnapshot readRawSceneForPending(String sceneName)
+        throws PendingException {
+        RawSceneSnapshot snapshot = readRawSceneForPendingOrNull(sceneName);
+        if (snapshot == null) {
+            throw pendingFailure(
+                PendingFailureKind.NOT_FOUND,
+                "Scene file does not exist: " + sceneName,
+                null
+            );
+        }
+        return snapshot;
+    }
+
+    private RawSceneSnapshot readRawSceneForPendingOrNull(String sceneName)
+        throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        File file = new File(sceneDirectory, fileNameForScene(sceneName));
+        if (isSceneDeleted(sceneName) || !IoUtils.atomicFileExists(file)) {
+            return null;
+        }
+        try {
+            return readRawSceneSnapshot(sceneName);
+        } catch (RawSceneFailure e) {
+            if (e.kind == RawSceneFailureKind.READ
+                && !IoUtils.atomicFileExists(file)) {
+                return null;
+            }
+            PendingFailureKind kind = e.kind == RawSceneFailureKind.READ
+                ? PendingFailureKind.IO
+                : PendingFailureKind.INVALID_STATE;
+            throw pendingFailure(
+                kind,
+                "Scene is not a valid pending owner: " + sceneName,
+                e
+            );
+        }
+    }
+
+    /**
+     * Captures a Scene for the management boundary without requiring schema
+     * validation.  Missing files and invalid bounded bytes are explicit
+     * snapshot variants; an unreadable file remains an I/O failure rather
+     * than being misreported as missing.
+     */
+    private PendingSceneSnapshot readPendingSceneSnapshot(
+        String sceneName
+    ) throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        File file = new File(sceneDirectory, fileNameForScene(sceneName));
+        if (isSceneDeleted(sceneName) || !IoUtils.atomicFileExists(file)) {
+            return PendingSceneSnapshot.missing(sceneName);
+        }
+        // Avoid allocating a 32 MiB buffer merely to discover that an invalid
+        // file is larger than the ordinary parser limit.  The .bak length is
+        // included because AtomicFile may promote it during openRead().
+        if (pendingFileLengthHint(file) > MAX_SCENE_BYTES) {
+            return readOversizedPendingSceneSnapshot(sceneName, file);
+        }
+        final byte[] raw;
+        try {
+            try (InputStream input = new AtomicFile(file).openRead()) {
+                raw = IoUtils.readAllBytesLimited(input, MAX_SCENE_BYTES);
+            }
+        } catch (IoUtils.InputLimitExceededException e) {
+            // A concurrent append can cross the limit after the length hint.
+            // Re-open and hash the complete stream instead of retaining it in
+            // a JSON byte[]/Base64 payload.
+            return readOversizedPendingSceneSnapshot(sceneName, file);
+        } catch (IOException e) {
+            if (!IoUtils.atomicFileExists(file)) {
+                return PendingSceneSnapshot.missing(sceneName);
+            }
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "could not read damaged Scene file",
+                e
+            );
+        }
+        try {
+            return PendingSceneSnapshot.valid(
+                validateRawSceneBytes(sceneName, raw)
+            );
+        } catch (RawSceneFailure e) {
+            if (e.kind == RawSceneFailureKind.READ
+                || e.kind == RawSceneFailureKind.TOO_LARGE) {
+                throw pendingFailure(
+                    PendingFailureKind.IO,
+                    "could not read damaged Scene file",
+                    e
+                );
+            }
+            return PendingSceneSnapshot.invalid(sceneName, raw, e.kind);
+        }
+    }
+
+    private PendingSceneSnapshot readOversizedPendingSceneSnapshot(
+        String sceneName,
+        File file
+    ) throws PendingException {
+        if (!IoUtils.atomicFileExists(file)) {
+            return PendingSceneSnapshot.missing(sceneName);
+        }
+        StreamFingerprint fingerprint = fingerprintSceneFile(file);
+        if (fingerprint.byteLength <= MAX_SCENE_BYTES) {
+            // The file shrank while it was being inspected.  Re-enter the
+            // bounded path so <=32 MiB damaged/valid snapshots keep their
+            // existing schema and exact-byte behavior.
+            return readPendingSceneSnapshot(sceneName);
+        }
+        return PendingSceneSnapshot.sidecar(
+            sceneName,
+            sidecarIdForScene(sceneName, fingerprint.sha256),
+            fingerprint.byteLength,
+            fingerprint.sha256,
+            RawSceneFailureKind.TOO_LARGE
+        );
+    }
+
+    private static long pendingFileLengthHint(File file) {
+        long length = file.length();
+        File backup = new File(file.getPath() + ".bak");
+        return Math.max(length, backup.length());
+    }
+
+    private StreamFingerprint fingerprintSceneFile(File file)
+        throws PendingException {
+        return fingerprintAtomicFile(file, "Scene");
+    }
+
+    private StreamFingerprint fingerprintAtomicFile(
+        File file,
+        String subject
+    ) throws PendingException {
+        try (InputStream input = new AtomicFile(file).openRead()) {
+            return fingerprintStream(input);
+        } catch (PendingException e) {
+            throw e;
+        } catch (IOException e) {
+            if (!IoUtils.atomicFileExists(file)) {
+                throw pendingFailure(
+                    PendingFailureKind.NOT_FOUND,
+                    subject + " file disappeared while it was being inspected",
+                    e
+                );
+            }
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "could not fingerprint " + subject + " file",
+                e
+            );
+        }
+    }
+
+    private static StreamFingerprint fingerprintStream(InputStream input)
+        throws PendingException {
+        if (input == null) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "Scene fingerprint input is null",
+                null
+            );
+        }
+        final MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "SHA-256 is unavailable",
+                e
+            );
+        }
+        byte[] buffer = new byte[8192];
+        long total = 0L;
+        try {
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                if (read == 0) {
+                    continue;
+                }
+                if (Long.MAX_VALUE - total < read) {
+                    throw new IOException("Scene file length overflow");
+                }
+                total += read;
+                digest.update(buffer, 0, read);
+            }
+        } catch (IOException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "could not fingerprint Scene file",
+                e
+            );
+        }
+        return new StreamFingerprint(total, digestHex(digest.digest()));
+    }
+
+    private static final class StreamFingerprint {
+        final long byteLength;
+        final String sha256;
+
+        StreamFingerprint(long byteLength, String sha256) {
+            this.byteLength = byteLength;
+            this.sha256 = sha256;
+        }
+    }
+
+    private String sidecarIdForScene(String sceneName, String rawSha256)
+        throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        if (rawSha256 == null || !rawSha256.matches("[0-9a-f]{64}")) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "damaged Scene sidecar digest is invalid",
+                null
+            );
+        }
+        return "scene_" + sha256Hex(
+            ("scene:" + sceneName + ":" + rawSha256)
+                .getBytes(StandardCharsets.UTF_8)
+        ) + ".bin";
+    }
+
+    /** Resolves only the deterministic, canonical quarantine filename. */
+    private File sidecarFileForId(String sidecarId) throws PendingException {
+        if (sidecarId == null
+            || !PENDING_QUARANTINE_FILE_PATTERN.matcher(sidecarId).matches()) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "damaged Scene sidecar reference is invalid",
+                null
+            );
+        }
+        try {
+            File root = pendingQuarantineDirectory.getCanonicalFile();
+            File candidate = new File(root, sidecarId).getCanonicalFile();
+            if (!root.equals(candidate.getParentFile())) {
+                throw new IOException("sidecar path escapes quarantine directory");
+            }
+            return candidate;
+        } catch (IOException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "could not resolve Scene sidecar path",
+                e
+            );
+        }
+    }
+
+    private File formalSceneFile(String sceneName) throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        return new File(sceneDirectory, fileNameForScene(sceneName));
+    }
+
+    private void requirePendingFingerprint(
+        StreamFingerprint actual,
+        PendingSceneSnapshot expected,
+        String message
+    ) throws PendingException {
+        if (actual == null
+            || expected == null
+            || expected.sidecarId == null
+            || actual.byteLength != expected.byteLength
+            || expected.sha256 == null
+            || !expected.sha256.equals(actual.sha256)) {
+            throw pendingFailure(
+                PendingFailureKind.CONFLICT,
+                message,
+                null
+            );
+        }
+    }
+
+    /** Copies a formal/sidecar stream through AtomicFile without buffering it. */
+    private void copyAtomicFile(
+        File source,
+        File target,
+        PendingSceneSnapshot expected,
+        String action
+    ) throws PendingException {
+        if (!IoUtils.atomicFileExists(source)) {
+            throw pendingFailure(
+                PendingFailureKind.NOT_FOUND,
+                action + " source is missing",
+                null
+            );
+        }
+        try {
+            ensureDirectories();
+        } catch (IOException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                action + " could not prepare storage",
+                e
+            );
+        }
+        AtomicFile targetAtomic = new AtomicFile(target);
+        FileOutputStream output = null;
+        try (InputStream input = new AtomicFile(source).openRead()) {
+            output = targetAtomic.startWrite();
+            MessageDigest digest;
+            try {
+                digest = MessageDigest.getInstance("SHA-256");
+            } catch (NoSuchAlgorithmException e) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "SHA-256 is unavailable",
+                    e
+                );
+            }
+            byte[] buffer = new byte[8192];
+            long total = 0L;
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                if (read == 0) {
+                    continue;
+                }
+                if (Long.MAX_VALUE - total < read) {
+                    throw new IOException("Scene file length overflow");
+                }
+                total += read;
+                digest.update(buffer, 0, read);
+                output.write(buffer, 0, read);
+            }
+            String sha256 = digestHex(digest.digest());
+            if (expected == null
+                || total != expected.byteLength
+                || expected.sha256 == null
+                || !expected.sha256.equals(sha256)) {
+                throw pendingFailure(
+                    PendingFailureKind.CONFLICT,
+                    action + " source changed while it was being copied",
+                    null
+                );
+            }
+            output.getFD().sync();
+            targetAtomic.finishWrite(output);
+            output = null;
+        } catch (PendingException e) {
+            if (output != null) {
+                targetAtomic.failWrite(output);
+            }
+            throw e;
+        } catch (IOException e) {
+            if (output != null) {
+                targetAtomic.failWrite(output);
+            }
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                action + " could not copy Scene bytes",
+                e
+            );
+        }
+    }
+
+    private void deletePendingSidecar(File sidecar, String action)
+        throws PendingException {
+        if (!IoUtils.atomicFileExists(sidecar)) {
+            return;
+        }
+        try {
+            new AtomicFile(sidecar).delete();
+        } catch (RuntimeException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                action + " could not delete Scene sidecar",
+                e
+            );
+        }
+        if (IoUtils.atomicFileExists(sidecar)) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                action + " could not delete Scene sidecar",
+                null
+            );
+        }
+    }
+
+    private void clearPendingSceneDeletionIntent(
+        String sceneName,
+        String action
+    ) throws PendingException {
+        try {
+            clearSceneDeletionIntent(sceneName);
+        } catch (IOException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                action + " could not clear Scene deletion intent",
+                e
+            );
+        }
+    }
+
+    private void ensurePendingSceneDeletionIntent(
+        String sceneName,
+        String action
+    ) throws PendingException {
+        try {
+            if (!deletionIntentRegistry.contains(sceneName)) {
+                deletionIntentRegistry.record(sceneName);
+            }
+        } catch (IOException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                action + " could not persist Scene deletion intent",
+                e
+            );
+        }
+    }
+
+    private void hideOversizedSceneForPending(
+        String sceneName,
+        PendingSceneSnapshot expected
+    ) throws PendingException {
+        File source = formalSceneFile(sceneName);
+        File sidecar = sidecarFileForId(expected.sidecarId);
+        boolean sourceExists = IoUtils.atomicFileExists(source);
+        boolean sidecarExists = IoUtils.atomicFileExists(sidecar);
+        if (sidecarExists) {
+            requirePendingFingerprint(
+                fingerprintAtomicFile(sidecar, "Scene sidecar"),
+                expected,
+                "Scene sidecar contents do not match pending snapshot"
+            );
+            if (!sourceExists) {
+                return;
+            }
+            requirePendingFingerprint(
+                fingerprintSceneFile(source),
+                expected,
+                "Scene changed before pending hide completed"
+            );
+            try {
+                deleteSceneForSyncInternal(sceneName);
+            } catch (IOException e) {
+                throw pendingFailure(
+                    PendingFailureKind.IO,
+                    "could not hide oversized Scene for PendingProcess",
+                    e
+                );
+            }
+            return;
+        }
+        if (!sourceExists) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "oversized Scene source and sidecar are both missing",
+                null
+            );
+        }
+        try {
+            copyAtomicFile(
+                source,
+                sidecar,
+                expected,
+                "pending oversized Scene quarantine"
+            );
+        } catch (PendingException e) {
+            if (e.kind == PendingFailureKind.NOT_FOUND) {
+                throw pendingFailure(
+                    PendingFailureKind.IO,
+                    "oversized Scene source disappeared before quarantine",
+                    e
+                );
+            }
+            throw e;
+        }
+        try {
+            deleteSceneForSyncInternal(sceneName);
+        } catch (IOException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "could not hide oversized Scene for PendingProcess",
+                e
+            );
+        }
+    }
+
+    private void restoreOversizedSceneFromPending(
+        String sceneName,
+        PendingSceneSnapshot expected
+    ) throws PendingException {
+        File source = formalSceneFile(sceneName);
+        File sidecar = sidecarFileForId(expected.sidecarId);
+        boolean sourceExists = IoUtils.atomicFileExists(source);
+        boolean sidecarExists = IoUtils.atomicFileExists(sidecar);
+        if (!sidecarExists) {
+            if (!sourceExists) {
+                throw pendingFailure(
+                    PendingFailureKind.NOT_FOUND,
+                    "oversized Scene sidecar is missing",
+                    null
+                );
+            }
+            requirePendingFingerprint(
+                fingerprintSceneFile(source),
+                expected,
+                "Scene canonical name was reused while pending"
+            );
+            clearPendingSceneDeletionIntent(
+                sceneName,
+                "restore oversized Scene"
+            );
+            return;
+        }
+        requirePendingFingerprint(
+            fingerprintAtomicFile(sidecar, "Scene sidecar"),
+            expected,
+            "Scene sidecar contents do not match pending snapshot"
+        );
+        if (sourceExists) {
+            requirePendingFingerprint(
+                fingerprintSceneFile(source),
+                expected,
+                "Scene canonical name was reused while pending"
+            );
+        } else {
+            copyAtomicFile(
+                sidecar,
+                source,
+                expected,
+                "restore oversized Scene"
+            );
+        }
+        // Clear the tombstone only after the complete formal stream is
+        // durable.  Keeping the sidecar until this point makes a crash
+        // replayable; a later retry sees either both matching copies or the
+        // restored formal file and can safely remove the sidecar.
+        clearPendingSceneDeletionIntent(sceneName, "restore oversized Scene");
+        deletePendingSidecar(sidecar, "restore oversized Scene");
+    }
+
+    private void permanentlyDeleteOversizedSceneFromPending(
+        String sceneName,
+        PendingSceneSnapshot expected
+    ) throws PendingException {
+        File source = formalSceneFile(sceneName);
+        File sidecar = sidecarFileForId(expected.sidecarId);
+        boolean sourceExists = IoUtils.atomicFileExists(source);
+        boolean sidecarExists = IoUtils.atomicFileExists(sidecar);
+        if (sidecarExists) {
+            requirePendingFingerprint(
+                fingerprintAtomicFile(sidecar, "Scene sidecar"),
+                expected,
+                "Scene sidecar contents do not match pending snapshot"
+            );
+        }
+        if (sourceExists) {
+            requirePendingFingerprint(
+                fingerprintSceneFile(source),
+                expected,
+                "Scene canonical name was reused while pending"
+            );
+            try {
+                deleteSceneInternal(sceneName);
+            } catch (IOException e) {
+                throw pendingFailure(
+                    PendingFailureKind.IO,
+                    "could not permanently delete oversized pending Scene",
+                    e
+                );
+            }
+        } else {
+            // Register the existing Scene deletion intent even when the
+            // formal file was already hidden by a prior crash/replay.
+            ensurePendingSceneDeletionIntent(
+                sceneName,
+                "permanently delete oversized Scene"
+            );
+        }
+        if (sidecarExists) {
+            deletePendingSidecar(
+                sidecar,
+                "permanently delete oversized Scene"
+            );
+        }
+    }
+
+    /** Returns the explicit missing variant when no formal Scene exists. */
+    private PendingSceneSnapshot readPendingSceneSnapshotOrNull(
+        String sceneName
+    ) throws PendingException {
+        return readPendingSceneSnapshot(sceneName);
+    }
+
+    private JSONObject encodePendingSceneSnapshot(PendingSceneSnapshot snapshot)
+        throws PendingException {
+        try {
+            if (!snapshot.missing && "valid".equals(snapshot.validationKind)) {
+                return pendingObject()
+                    .put("scene_name", snapshot.sceneName)
+                    .put(
+                        "raw_scene_base64",
+                        Base64.getEncoder().encodeToString(snapshot.bytes)
+                    );
+            }
+            if (!snapshot.missing && snapshot.sidecarId != null) {
+                return pendingObject()
+                    .put("snapshot_type", "damaged_scene_sidecar")
+                    .put("scene_name", snapshot.sceneName)
+                    .put("state", "invalid")
+                    .put("sidecar_id", snapshot.sidecarId)
+                    .put("byte_length", snapshot.byteLength)
+                    .put("raw_sha256", snapshot.sha256)
+                    .put("validation_kind", snapshot.validationKind)
+                    .put("verified", true);
+            }
+            byte[] bytes = snapshot.bytes == null
+                ? new byte[0]
+                : snapshot.bytes;
+            return pendingObject()
+                .put("snapshot_type", "damaged_scene")
+                .put("scene_name", snapshot.sceneName)
+                .put("state", snapshot.missing ? "missing" : "invalid")
+                .put(
+                    "raw_scene_base64",
+                    Base64.getEncoder().encodeToString(bytes)
+                )
+                .put("raw_sha256", sha256Hex(bytes))
+                .put("validation_kind", snapshot.validationKind);
+        } catch (org.json.JSONException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "could not encode Scene pending snapshot",
+                e
+            );
+        }
+    }
+
+    private PendingSceneSnapshot decodePendingSceneSnapshot(
+        String expectedSceneName,
+        JSONObject snapshot
+    ) throws PendingException {
+        expectedSceneName = requirePendingSceneName(expectedSceneName);
+        if (snapshot != null
+            && "damaged_scene_sidecar".equals(
+                snapshot.optString("snapshot_type", "")
+            )) {
+            if (!hasExactlyKeys(
+                snapshot,
+                "snapshot_type",
+                "scene_name",
+                "state",
+                "sidecar_id",
+                "byte_length",
+                "raw_sha256",
+                "validation_kind",
+                "verified"
+            ) || !expectedSceneName.equals(
+                snapshot.optString("scene_name", "")
+            )) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene sidecar snapshot identity is invalid",
+                    null
+                );
+            }
+            if (!"invalid".equals(snapshot.optString("state", ""))) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene sidecar snapshot state is invalid",
+                    null
+                );
+            }
+            Object verified = snapshot.opt("verified");
+            if (!(verified instanceof Boolean)
+                || !((Boolean) verified).booleanValue()) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene sidecar snapshot is not verified",
+                    null
+                );
+            }
+            Object sidecarValue = snapshot.opt("sidecar_id");
+            String sidecarId = sidecarValue instanceof String
+                ? (String) sidecarValue
+                : "";
+            if (!PENDING_QUARANTINE_FILE_PATTERN.matcher(sidecarId).matches()) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene sidecar reference is invalid",
+                    null
+                );
+            }
+            Object lengthValue = snapshot.opt("byte_length");
+            if (!(lengthValue instanceof Integer)
+                && !(lengthValue instanceof Long)) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene sidecar length is not an integer",
+                    null
+                );
+            }
+            long byteLength = ((Number) lengthValue).longValue();
+            if (byteLength <= MAX_SCENE_BYTES) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene sidecar length is not oversized",
+                    null
+                );
+            }
+            String sha256 = snapshot.optString("raw_sha256", "");
+            String validationKind = snapshot.optString(
+                "validation_kind",
+                ""
+            );
+            if (!sha256.matches("[0-9a-f]{64}")
+                || !RawSceneFailureKind.TOO_LARGE.name().equals(
+                    validationKind
+                )
+                || !sidecarId.equals(
+                    sidecarIdForScene(expectedSceneName, sha256)
+                )) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene sidecar metadata is invalid",
+                    null
+                );
+            }
+            return PendingSceneSnapshot.sidecar(
+                expectedSceneName,
+                sidecarId,
+                byteLength,
+                sha256,
+                RawSceneFailureKind.TOO_LARGE
+            );
+        }
+        if (snapshot != null
+            && "damaged_scene".equals(snapshot.optString("snapshot_type", ""))) {
+            if (!hasExactlyKeys(
+                snapshot,
+                "snapshot_type",
+                "scene_name",
+                "state",
+                "raw_scene_base64",
+                "raw_sha256",
+                "validation_kind"
+            ) || !expectedSceneName.equals(
+                snapshot.optString("scene_name", "")
+            )) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene pending snapshot identity is invalid",
+                    null
+                );
+            }
+            String state = snapshot.optString("state", "");
+            if (!("missing".equals(state) || "invalid".equals(state))) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene pending snapshot state is invalid",
+                    null
+                );
+            }
+            String encoded = snapshot.optString("raw_scene_base64", "");
+            final byte[] raw;
+            try {
+                raw = Base64.getDecoder().decode(encoded);
+            } catch (IllegalArgumentException e) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene pending bytes are not Base64",
+                    e
+                );
+            }
+            if (raw.length > MAX_SCENE_BYTES
+                || !encoded.equals(Base64.getEncoder().encodeToString(raw))
+                || !snapshot.optString("raw_sha256", "").equals(
+                    sha256Hex(raw)
+                )) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene pending bytes are not canonical",
+                    null
+                );
+            }
+            if ("missing".equals(state) && raw.length != 0) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "missing Scene pending snapshot cannot carry bytes",
+                    null
+                );
+            }
+            String validationKind = snapshot.optString(
+                "validation_kind",
+                ""
+            );
+            if (!isPendingSnapshotValidationKind(state, validationKind)) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "damaged Scene pending validation kind is invalid",
+                    null
+                );
+            }
+            return new PendingSceneSnapshot(
+                expectedSceneName,
+                raw,
+                "missing".equals(state),
+                validationKind
+            );
+        }
+        if (snapshot == null
+            || !hasExactlyKeys(
+                snapshot,
+                "scene_name",
+                "raw_scene_base64"
+            )
+            || !expectedSceneName.equals(
+                snapshot.optString("scene_name", "")
+            )) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene pending snapshot identity is invalid",
+                null
+            );
+        }
+        String encoded = snapshot.optString("raw_scene_base64", "");
+        int maxEncodedLength = ((MAX_SCENE_BYTES + 2) / 3) * 4;
+        if (encoded.isEmpty() || encoded.length() > maxEncodedLength) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene pending snapshot body is outside the limit",
+                null
+            );
+        }
+        final byte[] raw;
+        try {
+            raw = Base64.getDecoder().decode(encoded);
+        } catch (IllegalArgumentException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene pending snapshot body is not canonical Base64",
+                e
+            );
+        }
+        if (!encoded.equals(Base64.getEncoder().encodeToString(raw))) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene pending snapshot body is not canonical Base64",
+                null
+            );
+        }
+        try {
+            return PendingSceneSnapshot.valid(
+                validateRawSceneBytes(expectedSceneName, raw)
+            );
+        } catch (RawSceneFailure e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene pending snapshot no longer validates",
+                e
+            );
+        }
+    }
+
+    /**
+     * Keeps the damaged snapshot discriminator closed over the values that
+     * {@link #readPendingSceneSnapshot(String)} can actually produce.  In
+     * particular, a missing marker must never be relabeled as an invalid raw
+     * file (or vice versa) by a hand-edited/corrupt Pending entry.
+     */
+    private static boolean isPendingSnapshotValidationKind(
+        String state,
+        String validationKind
+    ) {
+        if (validationKind == null || validationKind.isEmpty()) {
+            return false;
+        }
+        if ("missing".equals(state)) {
+            return "missing".equals(validationKind);
+        }
+        if (!"invalid".equals(state)) {
+            return false;
+        }
+        if ("invalid".equals(validationKind)) {
+            return true;
+        }
+        try {
+            RawSceneFailureKind kind = RawSceneFailureKind.valueOf(
+                validationKind
+            );
+            return kind != RawSceneFailureKind.READ
+                && kind != RawSceneFailureKind.TOO_LARGE;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private PendingLanguageSnapshot decodePendingLanguageSnapshot(
+        String expectedSceneName,
+        String expectedLanguage,
+        JSONObject snapshot
+    ) throws PendingException {
+        expectedSceneName = requirePendingSceneName(expectedSceneName);
+        expectedLanguage = requirePendingLanguage(expectedLanguage);
+        if (snapshot == null
+            || !hasExactlyKeys(
+                snapshot,
+                "scene_name",
+                "language",
+                "structure_sha256",
+                "values"
+            )
+            || !expectedSceneName.equals(
+                snapshot.optString("scene_name", "")
+            )
+            || !expectedLanguage.equals(snapshot.optString("language", ""))) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "language pending snapshot identity is invalid",
+                null
+            );
+        }
+        String structureHash = snapshot.optString("structure_sha256", "");
+        if (!structureHash.matches("[0-9a-f]{64}")) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "language pending structure fingerprint is invalid",
+                null
+            );
+        }
+        JSONArray values = snapshot.optJSONArray("values");
+        if (values == null || values.length() == 0) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "language pending values are missing",
+                null
+            );
+        }
+        JSONArray copiedValues = copyJsonArray(values);
+        validatePendingLanguageValues(copiedValues);
+        return new PendingLanguageSnapshot(
+            expectedSceneName,
+            expectedLanguage,
+            structureHash,
+            copiedValues
+        );
+    }
+
+    private JSONObject pendingSceneJson(RawSceneSnapshot snapshot)
+        throws PendingException {
+        try {
+            String source = decodeStrictUtf8(snapshot.bytes);
+            if (!source.isEmpty() && source.charAt(0) == '\uFEFF') {
+                source = source.substring(1);
+            }
+            return new JSONObject(source);
+        } catch (Exception e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "validated Scene could not be decoded for PendingProcess",
+                e
+            );
+        }
+    }
+
+    private void requirePendingLanguageState(
+        JSONObject current,
+        JSONArray currentValues,
+        PendingLanguageSnapshot expected
+    ) throws PendingException {
+        requirePendingStructure(current, expected);
+        if (!jsonEquals(currentValues, expected.values)) {
+            throw pendingFailure(
+                PendingFailureKind.CONFLICT,
+                "Scene language changed while PendingProcess was active",
+                null
+            );
+        }
+    }
+
+    private void requirePendingStructure(
+        JSONObject current,
+        PendingLanguageSnapshot expected
+    ) throws PendingException {
+        String currentHash = pendingStructureHash(current);
+        if (!expected.structureHash.equals(currentHash)) {
+            throw pendingFailure(
+                PendingFailureKind.CONFLICT,
+                "Scene structure changed while its language was pending",
+                null
+            );
+        }
+    }
+
+    private void removePendingLanguageInternal(
+        String sceneName,
+        String language,
+        JSONObject current
+    ) throws PendingException {
+        boolean removed = false;
+        removed |= removeObjectKey(current.optJSONObject("translated"), language);
+        removed |= removeObjectKey(current.optJSONObject("provider"), language);
+        removed |= removeObjectKey(current.optJSONObject("model"), language);
+        removed |= removeObjectKey(current.optJSONObject("summary"), language);
+        removed |= removeTranslationLanguage(
+            current.optJSONArray("scene_items"),
+            language
+        );
+        if (!removed) {
+            return;
+        }
+        savePendingSceneJson(sceneName, current);
+    }
+
+    private void savePendingSceneJson(String sceneName, JSONObject scene)
+        throws PendingException {
+        final RawSceneSnapshot normalized;
+        try {
+            normalized = validateRawSceneBytes(
+                sceneName,
+                serializeScene(scene)
+            );
+            saveRawSceneSnapshotInternal(normalized, true);
+        } catch (RawSceneFailure e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "pending language mutation produced an invalid Scene",
+                e
+            );
+        } catch (IOException e) {
+            throw pendingFailure(
+                PendingFailureKind.IO,
+                "could not commit pending language mutation",
+                e
+            );
+        } catch (RuntimeException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "could not encode pending language mutation",
+                e
+            );
+        }
+    }
+
+    private static JSONArray collectPendingLanguageValues(
+        JSONObject scene,
+        String language
+    ) throws PendingException {
+        JSONArray output = new JSONArray();
+        for (String key : PENDING_ROOT_LANGUAGE_MAPS) {
+            JSONObject map = scene.optJSONObject(key);
+            if (map != null && map.has(language)) {
+                JSONArray path = new JSONArray();
+                path.put(key);
+                appendPendingLanguageValue(
+                    output,
+                    path,
+                    map.opt(language)
+                );
+            }
+        }
+        JSONArray sceneItems = scene.optJSONArray("scene_items");
+        JSONArray rootPath = new JSONArray();
+        rootPath.put("scene_items");
+        collectNestedPendingLanguageValues(
+            sceneItems,
+            rootPath,
+            language,
+            output
+        );
+        return output;
+    }
+
+    private static void collectNestedPendingLanguageValues(
+        Object value,
+        JSONArray path,
+        String language,
+        JSONArray output
+    ) throws PendingException {
+        if (value instanceof JSONObject) {
+            JSONObject object = (JSONObject) value;
+            JSONObject translations = object.optJSONObject("translations");
+            if (translations != null && translations.has(language)) {
+                JSONArray translationPath = copyJsonArray(path);
+                translationPath.put("translations");
+                appendPendingLanguageValue(
+                    output,
+                    translationPath,
+                    translations.opt(language)
+                );
+            }
+            List<String> keys = sortedJsonKeys(object);
+            for (String key : keys) {
+                if ("translations".equals(key)) {
+                    continue;
+                }
+                JSONArray childPath = copyJsonArray(path);
+                childPath.put(key);
+                collectNestedPendingLanguageValues(
+                    object.opt(key),
+                    childPath,
+                    language,
+                    output
+                );
+            }
+        } else if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray) value;
+            for (int index = 0; index < array.length(); index++) {
+                JSONArray childPath = copyJsonArray(path);
+                childPath.put(index);
+                collectNestedPendingLanguageValues(
+                    array.opt(index),
+                    childPath,
+                    language,
+                    output
+                );
+            }
+        }
+    }
+
+    private static void appendPendingLanguageValue(
+        JSONArray output,
+        JSONArray path,
+        Object value
+    ) throws PendingException {
+        if (!(value instanceof String) && !(value instanceof Boolean)) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene language value has an unsupported type",
+                null
+            );
+        }
+        try {
+            output.put(pendingObject()
+                .put("path", path)
+                .put("value", value));
+        } catch (org.json.JSONException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "could not encode Scene language value",
+                e
+            );
+        }
+    }
+
+    private static void validatePendingLanguageValues(JSONArray values)
+        throws PendingException {
+        Set<String> paths = new HashSet<>();
+        for (int index = 0; index < values.length(); index++) {
+            JSONObject item = values.optJSONObject(index);
+            if (item == null
+                || !hasExactlyKeys(item, "path", "value")) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "language pending value record is invalid",
+                    null
+                );
+            }
+            JSONArray path = item.optJSONArray("path");
+            if (!isPendingLanguagePath(path)
+                || !paths.add(path.toString())) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "language pending value path is invalid or duplicated",
+                    null
+                );
+            }
+            Object value = item.opt("value");
+            String terminal = path.optString(path.length() - 1, "");
+            boolean validValue = "translated".equals(terminal)
+                ? value instanceof Boolean
+                : value instanceof String && !((String) value).isEmpty();
+            if (!validValue) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "language pending value type does not match its path",
+                    null
+                );
+            }
+        }
+    }
+
+    private static boolean isPendingLanguagePath(JSONArray path) {
+        if (path == null || path.length() == 0 || path.length() > 1024) {
+            return false;
+        }
+        String terminal = path.optString(path.length() - 1, "");
+        if (path.length() == 1) {
+            return PENDING_ROOT_LANGUAGE_MAP_SET.contains(terminal);
+        }
+        if (!"scene_items".equals(path.optString(0, ""))
+            || !"translations".equals(terminal)) {
+            return false;
+        }
+        for (int index = 0; index < path.length(); index++) {
+            Object component = path.opt(index);
+            if (component instanceof String) {
+                if (((String) component).isEmpty()) {
+                    return false;
+                }
+            } else if (component instanceof Number) {
+                double number = ((Number) component).doubleValue();
+                if (number < 0
+                    || number > Integer.MAX_VALUE
+                    || number != Math.rint(number)) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void applyPendingLanguageValues(
+        JSONObject scene,
+        String language,
+        JSONArray values
+    ) throws PendingException {
+        validatePendingLanguageValues(values);
+        for (int index = 0; index < values.length(); index++) {
+            JSONObject item = values.optJSONObject(index);
+            JSONArray path = item.optJSONArray("path");
+            JSONObject languageMap = resolvePendingLanguageMap(scene, path);
+            try {
+                languageMap.put(language, copyPendingJsonValue(item.opt("value")));
+            } catch (org.json.JSONException e) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_STATE,
+                    "could not apply pending language value",
+                    e
+                );
+            }
+        }
+    }
+
+    private static JSONObject resolvePendingLanguageMap(
+        JSONObject scene,
+        JSONArray path
+    ) throws PendingException {
+        Object current = scene;
+        for (int index = 0; index < path.length(); index++) {
+            Object component = path.opt(index);
+            if (current instanceof JSONObject && component instanceof String) {
+                current = ((JSONObject) current).opt((String) component);
+            } else if (current instanceof JSONArray && component instanceof Number) {
+                int position = ((Number) component).intValue();
+                current = ((JSONArray) current).opt(position);
+            } else {
+                throw pendingFailure(
+                    PendingFailureKind.CONFLICT,
+                    "Scene structure no longer contains a language value path",
+                    null
+                );
+            }
+        }
+        if (!(current instanceof JSONObject)) {
+            throw pendingFailure(
+                PendingFailureKind.CONFLICT,
+                "Scene language value path no longer resolves to a map",
+                null
+            );
+        }
+        return (JSONObject) current;
+    }
+
+    private static String pendingStructureHash(JSONObject scene)
+        throws PendingException {
+        final JSONObject skeleton;
+        try {
+            skeleton = new JSONObject(scene.toString());
+        } catch (org.json.JSONException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "could not copy Scene structure",
+                e
+            );
+        }
+        for (String key : PENDING_ROOT_LANGUAGE_MAPS) {
+            clearJsonObject(skeleton.optJSONObject(key));
+        }
+        clearNestedTranslationMaps(skeleton.optJSONArray("scene_items"));
+        StringBuilder canonical = new StringBuilder();
+        appendCanonicalJson(skeleton, canonical);
+        final byte[] digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256").digest(
+                canonical.toString().getBytes(StandardCharsets.UTF_8)
+            );
+        } catch (NoSuchAlgorithmException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "SHA-256 is unavailable",
+                e
+            );
+        }
+        StringBuilder hex = new StringBuilder(digest.length * 2);
+        for (byte value : digest) {
+            hex.append(Character.forDigit((value >>> 4) & 0x0F, 16));
+            hex.append(Character.forDigit(value & 0x0F, 16));
+        }
+        return hex.toString();
+    }
+
+    private static String sha256Hex(byte[] bytes) throws PendingException {
+        final byte[] digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256").digest(
+                bytes == null ? new byte[0] : bytes
+            );
+        } catch (NoSuchAlgorithmException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "SHA-256 is unavailable",
+                e
+            );
+        }
+        return digestHex(digest);
+    }
+
+    private static String digestHex(byte[] digest) {
+        StringBuilder hex = new StringBuilder(digest.length * 2);
+        for (byte value : digest) {
+            hex.append(Character.forDigit((value >>> 4) & 0x0F, 16));
+            hex.append(Character.forDigit(value & 0x0F, 16));
+        }
+        return hex.toString();
+    }
+
+    private static void clearJsonObject(JSONObject object) {
+        if (object == null) {
+            return;
+        }
+        for (String key : sortedJsonKeys(object)) {
+            object.remove(key);
+        }
+    }
+
+    private static void clearNestedTranslationMaps(Object value) {
+        if (value instanceof JSONObject) {
+            JSONObject object = (JSONObject) value;
+            clearJsonObject(object.optJSONObject("translations"));
+            for (String key : sortedJsonKeys(object)) {
+                if (!"translations".equals(key)) {
+                    clearNestedTranslationMaps(object.opt(key));
+                }
+            }
+        } else if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray) value;
+            for (int index = 0; index < array.length(); index++) {
+                clearNestedTranslationMaps(array.opt(index));
+            }
+        }
+    }
+
+    private static void appendCanonicalJson(Object value, StringBuilder output)
+        throws PendingException {
+        if (value == null || value == JSONObject.NULL) {
+            output.append("null");
+        } else if (value instanceof JSONObject) {
+            output.append('{');
+            List<String> keys = sortedJsonKeys((JSONObject) value);
+            for (int index = 0; index < keys.size(); index++) {
+                if (index != 0) {
+                    output.append(',');
+                }
+                String key = keys.get(index);
+                output.append(JSONObject.quote(key)).append(':');
+                appendCanonicalJson(((JSONObject) value).opt(key), output);
+            }
+            output.append('}');
+        } else if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray) value;
+            output.append('[');
+            for (int index = 0; index < array.length(); index++) {
+                if (index != 0) {
+                    output.append(',');
+                }
+                appendCanonicalJson(array.opt(index), output);
+            }
+            output.append(']');
+        } else if (value instanceof String || value instanceof Character) {
+            output.append(JSONObject.quote(value.toString()));
+        } else if (value instanceof Boolean) {
+            output.append(value.toString());
+        } else if (value instanceof Number) {
+            output.append(canonicalJsonNumber((Number) value));
+        } else {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene structure contains an unsupported JSON value",
+                null
+            );
+        }
+    }
+
+    private static String canonicalJsonNumber(Number value)
+        throws PendingException {
+        try {
+            BigDecimal decimal = new BigDecimal(value.toString())
+                .stripTrailingZeros();
+            if (decimal.signum() == 0) {
+                return "0";
+            }
+            return decimal.toPlainString();
+        } catch (NumberFormatException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "Scene structure contains an invalid JSON number",
+                e
+            );
+        }
+    }
+
+    private static List<String> sortedJsonKeys(JSONObject object) {
+        List<String> keys = new ArrayList<>();
+        if (object == null) {
+            return keys;
+        }
+        Iterator<String> iterator = object.keys();
+        while (iterator.hasNext()) {
+            keys.add(iterator.next());
+        }
+        Collections.sort(keys);
+        return keys;
+    }
+
+    private static JSONArray copyJsonArray(JSONArray value)
+        throws PendingException {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new JSONArray(value.toString());
+        } catch (org.json.JSONException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_STATE,
+                "could not copy pending JSON array",
+                e
+            );
+        }
+    }
+
+    private static Object copyPendingJsonValue(Object value)
+        throws org.json.JSONException {
+        if (value instanceof JSONObject) {
+            return new JSONObject(value.toString());
+        }
+        if (value instanceof JSONArray) {
+            return new JSONArray(value.toString());
+        }
+        return value == null ? JSONObject.NULL : value;
+    }
+
+    private static boolean jsonEquals(Object left, Object right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (left == JSONObject.NULL || right == JSONObject.NULL) {
+            return left == JSONObject.NULL && right == JSONObject.NULL;
+        }
+        if (left instanceof JSONObject && right instanceof JSONObject) {
+            JSONObject a = (JSONObject) left;
+            JSONObject b = (JSONObject) right;
+            if (a.length() != b.length()) {
+                return false;
+            }
+            Iterator<String> keys = a.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (!b.has(key) || !jsonEquals(a.opt(key), b.opt(key))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (left instanceof JSONArray && right instanceof JSONArray) {
+            JSONArray a = (JSONArray) left;
+            JSONArray b = (JSONArray) right;
+            if (a.length() != b.length()) {
+                return false;
+            }
+            for (int index = 0; index < a.length(); index++) {
+                if (!jsonEquals(a.opt(index), b.opt(index))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (left instanceof Number && right instanceof Number) {
+            try {
+                return new BigDecimal(left.toString()).compareTo(
+                    new BigDecimal(right.toString())
+                ) == 0;
+            } catch (NumberFormatException ignored) {
+                return left.toString().equals(right.toString());
+            }
+        }
+        return left.equals(right);
+    }
+
+    private static boolean hasExactlyKeys(JSONObject object, String... keys) {
+        if (object == null || object.length() != keys.length) {
+            return false;
+        }
+        Set<String> expected = new HashSet<>();
+        Collections.addAll(expected, keys);
+        Iterator<String> iterator = object.keys();
+        while (iterator.hasNext()) {
+            if (!expected.contains(iterator.next())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static JSONObject pendingObject() {
+        return new JSONObject();
+    }
+
+    private static String requirePendingSceneName(String sceneName)
+        throws PendingException {
+        try {
+            return requireSceneName(sceneName);
+        } catch (IllegalArgumentException e) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_ARGUMENT,
+                "invalid pending Scene name",
+                e
+            );
+        }
+    }
+
+    private static String requirePendingLanguage(String language)
+        throws PendingException {
+        if (language == null || language.isEmpty()) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_ARGUMENT,
+                "pending language is empty",
+                null
+            );
+        }
+        byte[] utf8 = language.getBytes(StandardCharsets.UTF_8);
+        if (utf8.length > MAX_PENDING_LANGUAGE_BYTES) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_ARGUMENT,
+                "pending language is too long",
+                null
+            );
+        }
+        int first = language.codePointAt(0);
+        int last = language.codePointBefore(language.length());
+        if (Character.isWhitespace(first)
+            || Character.isSpaceChar(first)
+            || Character.isWhitespace(last)
+            || Character.isSpaceChar(last)) {
+            throw pendingFailure(
+                PendingFailureKind.INVALID_ARGUMENT,
+                "pending language has boundary whitespace",
+                null
+            );
+        }
+        for (int offset = 0; offset < language.length();) {
+            int codePoint = language.codePointAt(offset);
+            if ((codePoint >= Character.MIN_SURROGATE
+                    && codePoint <= Character.MAX_SURROGATE)
+                || Character.isISOControl(codePoint)) {
+                throw pendingFailure(
+                    PendingFailureKind.INVALID_ARGUMENT,
+                    "pending language contains invalid characters",
+                    null
+                );
+            }
+            offset += Character.charCount(codePoint);
+        }
+        return language;
+    }
+
+    private static PendingException pendingFailure(
+        PendingFailureKind kind,
+        String message,
+        Throwable cause
+    ) {
+        return cause == null
+            ? new PendingException(kind, message)
+            : new PendingException(kind, message, cause);
+    }
+
+    private static final String[] PENDING_ROOT_LANGUAGE_MAPS = {
+        "translated",
+        "provider",
+        "model",
+        "summary"
+    };
+
+    private static final Set<String> PENDING_ROOT_LANGUAGE_MAP_SET =
+        Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            PENDING_ROOT_LANGUAGE_MAPS
+        )));
+
+    private static final class PendingLanguageSnapshot {
+        private final String sceneName;
+        private final String language;
+        private final String structureHash;
+        private final JSONArray values;
+
+        private PendingLanguageSnapshot(
+            String sceneName,
+            String language,
+            String structureHash,
+            JSONArray values
+        ) {
+            this.sceneName = sceneName;
+            this.language = language;
+            this.structureHash = structureHash;
+            this.values = values;
+        }
+    }
+
     private void ensureDirectories() throws IOException {
         IoUtils.ensureDirectory(sceneDirectory);
         IoUtils.ensureDirectory(incomingDirectory);
+        IoUtils.ensureDirectory(pendingQuarantineDirectory);
     }
 
     private static Context requireContext(Context context) {
@@ -2998,6 +5460,19 @@ public final class SceneStore {
             }
         }
         return true;
+    }
+
+    /** Stable reversible identity used by the language PendingProcess owner. */
+    public static String languageCanonicalId(
+        String sceneName,
+        String language
+    ) throws PendingException {
+        sceneName = requirePendingSceneName(sceneName);
+        language = requirePendingLanguage(language);
+        String encoded = Base64.getUrlEncoder()
+            .withoutPadding()
+            .encodeToString(language.getBytes(StandardCharsets.UTF_8));
+        return sceneName + "." + encoded;
     }
 
     private static boolean deleteRecursively(File file) {

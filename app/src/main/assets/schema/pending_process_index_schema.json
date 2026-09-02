@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Housamo pending process index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "next_entry_number", "entries"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "next_entry_number": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "$ref": "#/$defs/indexEntry"
+      }
+    }
+  },
+  "$defs": {
+    "pendingKind": {
+      "type": "string",
+      "enum": [
+        "scene",
+        "language",
+        "context",
+        "group",
+        "character",
+        "term",
+        "damaged_translation_job"
+      ]
+    },
+    "safePendingKey": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "pattern": "^[^/\\\\]+$"
+    },
+    "safeCanonicalId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 384,
+      "pattern": "^[^/\\\\]+$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "restoreMode": {
+      "type": "string",
+      "enum": ["snapshot", "delete_only"]
+    },
+    "syncIntent": {
+      "type": "string",
+      "enum": ["none", "delete_scene_on_next_sync"]
+    },
+    "entryNumber": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740990
+    },
+    "indexEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pending_key",
+        "entry_number",
+        "filename",
+        "kind",
+        "canonical_id",
+        "created_at",
+        "reason",
+        "restore_mode",
+        "sync_on_permanent_delete"
+      ],
+      "properties": {
+        "pending_key": {
+          "$ref": "#/$defs/safePendingKey"
+        },
+        "entry_number": {
+          "$ref": "#/$defs/entryNumber"
+        },
+        "filename": {
+          "type": "string",
+          "pattern": "^pending_process_[1-9][0-9]*\\.json$",
+          "maxLength": 40
+        },
+        "kind": {
+          "$ref": "#/$defs/pendingKind"
+        },
+        "canonical_id": {
+          "$ref": "#/$defs/safeCanonicalId"
+        },
+        "created_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reason": {
+          "$ref": "#/$defs/reason"
+        },
+        "restore_mode": {
+          "$ref": "#/$defs/restoreMode"
+        },
+        "sync_on_permanent_delete": {
+          "$ref": "#/$defs/syncIntent"
+        }
+      }
+    }
+  }
+}

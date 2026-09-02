@@ -87,7 +87,7 @@ public final class SceneApplyCoordinator implements AutoCloseable {
      * Sends one publisher-prepared policy command without re-encoding it.
      * The publisher reuses the same immutable byte target for every retry.
      */
-    SceneSyncWireCodec.ApplyResult replaceBlockedScenesBlocking(
+    public SceneSyncWireCodec.ApplyResult replaceBlockedScenesBlocking(
         long generation,
         IGameScenePort port,
         byte[] encodedCommand

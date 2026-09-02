@@ -5,6 +5,7 @@ import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.scene.store.PendingSceneApplyStore;
 import com.quarty.housamoembedtrans.scene.store.SceneDigest;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessManager;
 
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
@@ -686,7 +687,8 @@ public final class SceneSyncOperation implements AutoCloseable {
 
     private Result runCycle() {
         ScenePolicyPublisher.CycleSnapshot preCycle = null;
-        PendingResult pending;
+        Set<String> managementPendingSceneNames = Collections.emptySet();
+        PendingResult pending = null;
         try {
         try {
             if (isCancellationRequested()) {
@@ -699,7 +701,32 @@ public final class SceneSyncOperation implements AutoCloseable {
                 );
             } else {
                 preCycle = policyPublisher.snapshotForCycle(policyTarget);
-                pending = runInternal();
+                try {
+                    managementPendingSceneNames =
+                        sceneStore.snapshotManagementPendingSceneNames();
+                } catch (Exception e) {
+                    logTechnicalFailure(
+                        "management_pending_snapshot",
+                        "het_internal",
+                        "unknown",
+                        "PENDING_PROCESS_INDEX",
+                        "unknown",
+                        -1L,
+                        "one valid management pending Scene family snapshot",
+                        e.getClass().getSimpleName(),
+                        e
+                    );
+                    pending = failure(
+                        FailureKind.HET_READ,
+                        concurrentSet(),
+                        concurrentSet(),
+                        concurrentSet(),
+                        concurrentSet()
+                    );
+                }
+                if (pending == null) {
+                    pending = runInternal(managementPendingSceneNames);
+                }
             }
         } catch (OutOfMemoryError e) {
             Log.e(
@@ -746,7 +773,11 @@ public final class SceneSyncOperation implements AutoCloseable {
             if (!pending.success
                 && pending.failureKind != FailureKind.POLICY_FAILED
                 && preCycle != null) {
-                publishPreCycleAfterFailure(preCycle, pending.failureKind);
+                publishPreCycleAfterFailure(
+                    preCycle,
+                    pending.failureKind,
+                    managementPendingSceneNames
+                );
             }
             return pending.snapshot();
         } finally {
@@ -762,7 +793,9 @@ public final class SceneSyncOperation implements AutoCloseable {
         }
     }
 
-    private PendingResult runInternal() {
+    private PendingResult runInternal(
+        Set<String> managementPendingSceneNames
+    ) {
         Set<String> gameNames = concurrentSet();
         Set<String> hetOnlyNames = concurrentSet();
         Set<String> rejectedNames = concurrentSet();
@@ -784,7 +817,13 @@ public final class SceneSyncOperation implements AutoCloseable {
         // are read only when the matching fixed export body is encountered.
         Set<String> pendingApplyNames = new HashSet<>();
         Map<String, SceneStore.DeletionIntent> deletionIntents =
-            sceneStore.snapshotDeletionIntents();
+            new HashMap<>();
+        for (Map.Entry<String, SceneStore.DeletionIntent> entry
+            : sceneStore.snapshotDeletionIntents().entrySet()) {
+            if (!managementPendingSceneNames.contains(entry.getKey())) {
+                deletionIntents.put(entry.getKey(), entry.getValue());
+            }
+        }
         Set<String> hetNames;
         List<String> formalNames;
 
@@ -793,17 +832,30 @@ public final class SceneSyncOperation implements AutoCloseable {
                 initialPendingRecovery != null
                     ? initialPendingRecovery
                     : pendingApplyStore.recover();
-            pendingApplyNames.addAll(pendingRecovery.validSceneNames);
+            for (String sceneName : pendingRecovery.validSceneNames) {
+                if (!managementPendingSceneNames.contains(sceneName)) {
+                    pendingApplyNames.add(sceneName);
+                }
+            }
             // Preserve one diagnostic identity per damaged directive for
             // this cycle; do not recreate a Scene or a formal conflict.
-            rejectedNames.addAll(pendingRecovery.discardedSceneNames);
+            for (String sceneName : pendingRecovery.discardedSceneNames) {
+                if (!managementPendingSceneNames.contains(sceneName)) {
+                    rejectedNames.add(sceneName);
+                }
+            }
+            List<String> discardedSceneNames =
+                namesOutsideManagementPending(
+                    pendingRecovery.discardedSceneNames,
+                    managementPendingSceneNames
+                );
             recordDirections(
-                pendingRecovery.discardedSceneNames,
+                discardedSceneNames,
                 Direction.LOCAL
             );
             if (!addAllSceneNames(
                 allSceneNames,
-                pendingRecovery.discardedSceneNames
+                discardedSceneNames
             ) || !addAllSceneNames(allSceneNames, pendingApplyNames)) {
                 return failure(
                     FailureKind.IDENTITY_LIMIT,
@@ -835,6 +887,10 @@ public final class SceneSyncOperation implements AutoCloseable {
         try {
             List<String> claimedConflicts =
                 conflictResolver.listClaimedSceneNamesStrict();
+            claimedConflicts = namesOutsideManagementPending(
+                claimedConflicts,
+                managementPendingSceneNames
+            );
             if (claimedConflicts.size() > SceneSyncWireCodec.MAX_SCENES) {
                 return failure(
                     FailureKind.IDENTITY_LIMIT,
@@ -867,6 +923,10 @@ public final class SceneSyncOperation implements AutoCloseable {
 
         try {
             formalNames = sceneStore.listFormalSceneNamesStrict();
+            formalNames = namesOutsideManagementPending(
+                formalNames,
+                managementPendingSceneNames
+            );
             if (formalNames.size() > SceneSyncWireCodec.MAX_SCENES) {
                 return failure(
                     FailureKind.IDENTITY_LIMIT,
@@ -1023,6 +1083,12 @@ public final class SceneSyncOperation implements AutoCloseable {
                         int bodyLength,
                         InputStream body
                     ) throws IOException {
+                        if (managementPendingSceneNames.contains(sceneName)) {
+                            // Consume the complete wire body without
+                            // allocating a full pending Scene snapshot.
+                            consumeBody(body, bodyLength);
+                            return;
+                        }
                         allSceneNames.add(sceneName);
                         if (allSceneNames.size()
                             > SceneSyncWireCodec.MAX_SCENES) {
@@ -1075,6 +1141,9 @@ public final class SceneSyncOperation implements AutoCloseable {
 
                     @Override
                     public void onRejected(String sceneName, int errorCode) {
+                        if (managementPendingSceneNames.contains(sceneName)) {
+                            return;
+                        }
                         Log.w(
                             TAG,
                             "direction=game_to_het/export"
@@ -1328,7 +1397,10 @@ public final class SceneSyncOperation implements AutoCloseable {
 
         final ScenePolicyPublisher.PublishResult publication;
         try {
-            publication = publishFinalBlockedScenes(blockedNames);
+            publication = publishFinalBlockedScenes(
+                blockedNames,
+                managementPendingSceneNames
+            );
         } catch (Exception e) {
             logTechnicalFailure(
                 "policy_prepare",
@@ -1631,7 +1703,8 @@ public final class SceneSyncOperation implements AutoCloseable {
     }
 
     private ScenePolicyPublisher.PublishResult publishFinalBlockedScenes(
-        Set<String> blockedScenes
+        Set<String> blockedScenes,
+        Set<String> managementPendingSceneNames
     ) throws Exception {
         if (!exportHoldLease.beginPublication()) {
             throw new IOException(
@@ -1640,20 +1713,28 @@ public final class SceneSyncOperation implements AutoCloseable {
         }
         boolean published = false;
         try {
-            ScenePolicyPublisher.PublishResult result =
-                policyPublisher.publishCycleTarget(
-                    policyTarget,
-                    snapshotNames(blockedScenes),
-                    encodedCommand ->
-                        policyApplyCoordinator.replaceBlockedScenesBlocking(
-                            policyTarget.generation,
-                            gamePort,
-                            encodedCommand
-                        )
-                );
-            published = result.isPublished();
-            logPolicyPublication("cycle_target", result);
-            return result;
+            synchronized (PendingProcessManager.POLICY_PUBLICATION_LOCK) {
+                Set<String> freshManagement =
+                    snapshotManagementPendingSceneNames(
+                        managementPendingSceneNames
+                    );
+                ScenePolicyPublisher.PublishResult result =
+                    policyPublisher.publishCycleTargetWithManagementOverlay(
+                        policyTarget,
+                        blockedScenes,
+                        freshManagement,
+                        encodedCommand ->
+                            policyApplyCoordinator
+                                .replaceBlockedScenesBlocking(
+                                    policyTarget.generation,
+                                    gamePort,
+                                    encodedCommand
+                                )
+                    );
+                published = result.isPublished();
+                logPolicyPublication("cycle_target", result);
+                return result;
+            }
         } finally {
             exportHoldLease.finishPublication(published);
         }
@@ -1661,7 +1742,8 @@ public final class SceneSyncOperation implements AutoCloseable {
 
     private void publishPreCycleAfterFailure(
         ScenePolicyPublisher.CycleSnapshot snapshot,
-        FailureKind failureKind
+        FailureKind failureKind,
+        Set<String> managementPendingSceneNames
     ) {
         abortGameSceneActivityOnce();
         boolean publicationStarted = false;
@@ -1674,23 +1756,31 @@ public final class SceneSyncOperation implements AutoCloseable {
                         + "started"
                 );
             }
-            ScenePolicyPublisher.PublishResult result =
-                policyPublisher.publishPreCycleTarget(
-                    policyTarget,
-                    snapshot,
-                    encodedCommand ->
-                        cleanupPolicyApplyCoordinator
-                            .replaceBlockedScenesBlocking(
-                                policyTarget.generation,
-                                gamePort,
-                                encodedCommand
-                            )
+            synchronized (PendingProcessManager.POLICY_PUBLICATION_LOCK) {
+                Set<String> freshManagement =
+                    snapshotManagementPendingSceneNames(
+                        managementPendingSceneNames
+                    );
+                ScenePolicyPublisher.PublishResult result =
+                    policyPublisher.publishPreCycleTarget(
+                        policyTarget,
+                        snapshot.withManagementPendingScenes(
+                            freshManagement
+                        ),
+                        encodedCommand ->
+                            cleanupPolicyApplyCoordinator
+                                .replaceBlockedScenesBlocking(
+                                    policyTarget.generation,
+                                    gamePort,
+                                    encodedCommand
+                                )
+                    );
+                logPolicyPublication(
+                    "failure_restore_" + failureKind.name(),
+                    result
                 );
-            logPolicyPublication(
-                "failure_restore_" + failureKind.name(),
-                result
-            );
-            published = result.isPublished();
+                published = result.isPublished();
+            }
         } catch (Exception e) {
             logTechnicalFailure(
                 "failure_policy_restore",
@@ -1707,6 +1797,23 @@ public final class SceneSyncOperation implements AutoCloseable {
             if (publicationStarted) {
                 exportHoldLease.finishPublication(published);
             }
+        }
+    }
+
+    private Set<String> snapshotManagementPendingSceneNames(
+        Set<String> fallback
+    ) {
+        try {
+            return sceneStore.snapshotManagementPendingSceneNames();
+        } catch (Exception e) {
+            Log.w(
+                TAG,
+                "Could not refresh management pending Scene policy overlay",
+                e
+            );
+            return fallback == null
+                ? Collections.emptySet()
+                : new HashSet<>(fallback);
         }
     }
 
@@ -1993,6 +2100,20 @@ public final class SceneSyncOperation implements AutoCloseable {
             sceneDirections.put(sceneName, direction);
         }
     }
+
+    private static List<String> namesOutsideManagementPending(
+        Collection<String> names,
+        Set<String> managementPendingSceneNames
+    ) {
+        List<String> filtered = new ArrayList<>();
+        for (String sceneName : names) {
+            if (!managementPendingSceneNames.contains(sceneName)) {
+                filtered.add(sceneName);
+            }
+        }
+        return filtered;
+    }
+
     private static List<String> snapshotNames(Set<String> names) {
         List<String> snapshot;
         synchronized (names) {
@@ -2000,6 +2121,15 @@ public final class SceneSyncOperation implements AutoCloseable {
         }
         Collections.sort(snapshot);
         return snapshot;
+    }
+
+    private static Set<String> policyBlockedScenes(
+        Set<String> blockedScenes,
+        Set<String> managementPendingSceneNames
+    ) {
+        Set<String> policyScenes = new HashSet<>(blockedScenes);
+        policyScenes.addAll(managementPendingSceneNames);
+        return policyScenes;
     }
 
     private static List<String> formalNamesSorted(Set<String> names) {
@@ -2029,6 +2159,29 @@ public final class SceneSyncOperation implements AutoCloseable {
             offset += read;
         }
         return bytes;
+    }
+
+    private static void consumeBody(InputStream input, int bodyLength)
+        throws IOException {
+        if (bodyLength < 0) {
+            throw new IOException("negative Scene body length");
+        }
+        byte[] buffer = new byte[Math.min(8192, Math.max(1, bodyLength))];
+        int remaining = bodyLength;
+        while (remaining > 0) {
+            int read = input.read(
+                buffer,
+                0,
+                Math.min(buffer.length, remaining)
+            );
+            if (read < 0) {
+                throw new IOException("early EOF while consuming Scene body");
+            }
+            if (read == 0) {
+                continue;
+            }
+            remaining -= read;
+        }
     }
 
     private PendingResult failure(

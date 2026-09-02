@@ -1,5 +1,7 @@
 package com.quarty.housamoembedtrans.translation;
 import com.quarty.housamoembedtrans.context.review.ContextReviewGate;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessManager;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
 import com.quarty.housamoembedtrans.provider.ApiConcurrencyGate;
 import com.quarty.housamoembedtrans.runtime.StartupCoordinator;
 import com.quarty.housamoembedtrans.scene.sync.SceneConflictResolver;
@@ -57,9 +59,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -289,6 +293,11 @@ public final class TranslationService extends Service {
         void send(ParcelFileDescriptor descriptor) throws RemoteException;
     }
 
+    @FunctionalInterface
+    private interface PendingControlOperation {
+        Object run(PendingProcessManager manager) throws Exception;
+    }
+
     private final Object callbackLock = new Object();
     private final Object contextStoreLock = new Object();
     private CallbackRecord currentCallback;
@@ -320,8 +329,14 @@ public final class TranslationService extends Service {
         Executors.newSingleThreadExecutor(runnable ->
             new Thread(runnable, "HET-scene-sync-operation")
         );
+    private final Object pendingPolicyRefreshLock = new Object();
+    private long pendingPolicyRefreshGeneration;
+    private long pendingPolicyRefreshSuppressedGeneration = -1L;
+    private boolean pendingPolicyRefreshRequested;
+    private boolean pendingPolicyRefreshRunning;
 
     private volatile TranslationJobStore jobStore;
+    private volatile PendingProcessManager pendingProcessManager;
     private volatile SummaryJobStore summaryJobStore;
     private volatile SummaryJobStore publishedSummaryRecoveryStore;
     private final long serviceEpoch = NEXT_SERVICE_EPOCH.incrementAndGet();
@@ -808,13 +823,19 @@ public final class TranslationService extends Service {
                             + " disposition="
                             + e.getDisposition()
                     );
-                    return "execution_not_settled".equals(
+                    if ("execution_not_settled".equals(
                         e.getDisposition()
-                    )
-                        ? HetBridgeContract
-                            .ENQUEUE_RESULT_EXECUTION_NOT_SETTLED
-                        : HetBridgeContract
-                            .ENQUEUE_RESULT_DUPLICATE_REJECTED;
+                    )) {
+                        return HetBridgeContract
+                            .ENQUEUE_RESULT_EXECUTION_NOT_SETTLED;
+                    }
+                    if ("management_pending".equals(
+                        e.getDisposition()
+                    )) {
+                        return HetBridgeContract
+                            .ENQUEUE_RESULT_MANAGEMENT_PENDING;
+                    }
+                    return HetBridgeContract.ENQUEUE_RESULT_DUPLICATE_REJECTED;
                 } catch (Exception e) {
                     Log.e(
                         TAG,
@@ -904,32 +925,50 @@ public final class TranslationService extends Service {
             }
 
             @Override
-            public boolean preflightTerminal(
+            public String acquireTerminalDelivery(
                 String requestId,
-                String terminalKind
+                String terminalKind,
+                long connectionGeneration
             ) {
                 enforceAllowedCaller();
                 TerminalOutcome.Kind kind =
                     TerminalOutcome.Kind.fromWireValue(terminalKind);
                 if (kind == null || jobStore == null) {
-                    return false;
+                    return null;
                 }
                 try {
-                    return jobStore.preflightTerminal(requestId, kind);
+                    synchronized (callbackLock) {
+                        TerminalDeliveryCoordinator coordinator =
+                            terminalDelivery;
+                        if (coordinator == null
+                            || !coordinator.isGenerationActive(
+                                connectionGeneration
+                            )) {
+                            return null;
+                        }
+                        return jobStore.acquireTerminalDelivery(
+                            requestId,
+                            kind,
+                            connectionGeneration
+                        );
+                    }
                 } catch (Exception e) {
                     Log.w(
                         TAG,
-                        "Terminal preflight failed requestId=" + requestId,
+                        "Terminal delivery acquire failed requestId="
+                            + requestId,
                         e
                     );
-                    return false;
+                    return null;
                 }
             }
 
             @Override
             public boolean acknowledgeTerminal(
                 String requestId,
-                String terminalKind
+                String terminalKind,
+                String leaseToken,
+                long connectionGeneration
             ) {
                 enforceAllowedCaller();
                 TerminalOutcome.Kind kind =
@@ -938,25 +977,33 @@ public final class TranslationService extends Service {
                     return false;
                 }
                 try {
-                    boolean acknowledged = jobStore.acknowledgeTerminal(
-                        requestId,
-                        kind
-                    );
-                    if (acknowledged) {
+                    synchronized (callbackLock) {
                         TerminalDeliveryCoordinator coordinator =
                             terminalDelivery;
-                        if (coordinator != null) {
-                            coordinator.onAcknowledged(requestId);
+                        if (coordinator == null
+                            || !coordinator.isGenerationActive(
+                                connectionGeneration
+                            )) {
+                            return false;
                         }
-                        Log.i(
-                            TAG,
-                            "Acknowledged terminal requestId="
-                                + requestId
-                                + " kind="
-                                + terminalKind
+                        boolean acknowledged = jobStore.acknowledgeTerminal(
+                            requestId,
+                            kind,
+                            leaseToken,
+                            connectionGeneration
                         );
+                        if (acknowledged) {
+                            coordinator.onAcknowledged(requestId);
+                            Log.i(
+                                TAG,
+                                "Acknowledged terminal requestId="
+                                    + requestId
+                                    + " kind="
+                                    + terminalKind
+                            );
+                        }
+                        return acknowledged;
                     }
-                    return acknowledged;
                 } catch (Exception e) {
                     Log.w(
                         TAG,
@@ -988,6 +1035,109 @@ public final class TranslationService extends Service {
                 enforceAllowedCaller();
                 reportSceneProductionRejectedInternal(sceneName, reasonCode);
             }
+
+            @Override
+            public boolean releaseTerminalDelivery(
+                String requestId,
+                String terminalKind,
+                String leaseToken,
+                long connectionGeneration
+            ) {
+                enforceAllowedCaller();
+                TerminalOutcome.Kind kind =
+                    TerminalOutcome.Kind.fromWireValue(terminalKind);
+                if (kind == null || jobStore == null) {
+                    return false;
+                }
+                try {
+                    synchronized (callbackLock) {
+                        TerminalDeliveryCoordinator coordinator =
+                            terminalDelivery;
+                        if (coordinator == null
+                            || !coordinator.isGenerationActive(
+                                connectionGeneration
+                            )) {
+                            return false;
+                        }
+                        return jobStore.releaseTerminalDelivery(
+                            requestId,
+                            kind,
+                            leaseToken,
+                            connectionGeneration
+                        );
+                    }
+                } catch (Exception e) {
+                    Log.w(
+                        TAG,
+                        "Terminal delivery release failed requestId="
+                            + requestId,
+                        e
+                    );
+                    return false;
+                }
+            }
+
+            @Override
+            public ParcelFileDescriptor previewPendingMove(
+                String kind,
+                String canonicalId
+            ) {
+                enforceSelfUidCaller();
+                return pendingControlResult(manager ->
+                    manager.previewMove(kind, canonicalId)
+                );
+            }
+
+            @Override
+            public ParcelFileDescriptor movePendingProcess(
+                String kind,
+                String canonicalId,
+                String reason
+            ) {
+                enforceSelfUidCaller();
+                return pendingControlResult(manager ->
+                    movePendingProcessLinearized(
+                        manager,
+                        kind,
+                        canonicalId,
+                        reason
+                    )
+                );
+            }
+
+            @Override
+            public ParcelFileDescriptor listPendingProcesses() {
+                enforceSelfUidCaller();
+                return pendingControlResult(PendingProcessManager::listPending);
+            }
+
+            @Override
+            public ParcelFileDescriptor readPendingProcess(String pendingKey) {
+                enforceSelfUidCaller();
+                return pendingControlResult(manager ->
+                    manager.readPending(pendingKey)
+                );
+            }
+
+            @Override
+            public ParcelFileDescriptor restorePendingProcess(
+                String pendingKey
+            ) {
+                enforceSelfUidCaller();
+                return pendingControlResult(manager ->
+                    manager.restore(pendingKey)
+                );
+            }
+
+            @Override
+            public ParcelFileDescriptor permanentlyDeletePendingProcess(
+                String pendingKey
+            ) {
+                enforceSelfUidCaller();
+                return pendingControlResult(manager ->
+                    manager.permanentlyDelete(pendingKey)
+                );
+            }
         };
 
     @Override
@@ -1017,6 +1167,10 @@ public final class TranslationService extends Service {
                         generation
                     );
                     if (coordinator == null) {
+                        // The port can arrive before background startup builds
+                        // the coordinator. Preserve a dirty policy generation;
+                        // replay/full-sync completion will retry it later.
+                        requestPendingPolicyRefresh();
                         publishRuntimeState(
                             SceneSyncRuntimeState.Action.PORT_REGISTERED,
                             SceneSyncRuntimeState.Outcome.FAILED
@@ -1029,6 +1183,10 @@ public final class TranslationService extends Service {
                         generation,
                         sceneWorkerCount
                     );
+                    // Register first so a refresh can never capture the old or
+                    // null coordinator port. If FULL_SYNC started, the dirty
+                    // request remains queued until its completion callback.
+                    requestPendingPolicyRefresh();
                 } catch (RuntimeException e) {
                     publishRuntimeState(
                         SceneSyncRuntimeState.Action.PORT_REGISTERED,
@@ -1261,6 +1419,7 @@ public final class TranslationService extends Service {
         acceptingSummaryWake = false;
         foregroundStarted = false;
         apiWorkOpen = false;
+        pendingProcessManager = null;
         clearActiveSummaryRecoveryStore(summaryJobStore);
         SummaryJobWakeup.clearServiceWakeCallback(summaryWakeCallback);
         clearScenePort();
@@ -1766,6 +1925,293 @@ public final class TranslationService extends Service {
             Log.w(TAG, e.getMessage());
             throw e;
         }
+    }
+
+    /** Management controls are callable only by the HET application UID. */
+    private void enforceSelfUidCaller() {
+        int callingUid = Binder.getCallingUid();
+        int selfUid = Process.myUid();
+        if (callingUid != selfUid) {
+            SecurityException failure = new SecurityException(
+                "PendingProcess management requires the HET application UID"
+                    + " callingUid=" + callingUid
+                    + " selfUid=" + selfUid
+            );
+            Log.w(TAG, failure.getMessage());
+            throw failure;
+        }
+    }
+
+    /**
+     * Scene-family moves are not acknowledged until the same serialized Scene
+     * operation has published the newly indexed Pending reference.  With no
+     * registered game port the durable move remains valid and the ordinary
+     * refresh path will publish it after the next registration.
+     */
+    private JSONObject movePendingProcessLinearized(
+        PendingProcessManager manager,
+        String kind,
+        String canonicalId,
+        String reason
+    ) throws Exception {
+        if (!("scene".equals(kind) || "language".equals(kind))) {
+            return manager.moveToPending(kind, canonicalId, reason);
+        }
+
+        final SceneSyncCoordinator coordinator = sceneSyncCoordinator;
+        if (coordinator == null) {
+            return manager.moveToPending(kind, canonicalId, reason);
+        }
+
+        final CountDownLatch completion = new CountDownLatch(1);
+        final AtomicReference<JSONObject> movedEntry = new AtomicReference<>();
+        final AtomicReference<Exception> operationFailure =
+            new AtomicReference<>();
+        SceneSyncCoordinator.CancelableSnapshotSyncAction action =
+            new SceneSyncCoordinator.CancelableSnapshotSyncAction() {
+                private final AtomicBoolean started = new AtomicBoolean();
+                private final AtomicBoolean completed = new AtomicBoolean();
+                private final AtomicBoolean cancelled = new AtomicBoolean();
+
+                @Override
+                public void run(SceneSyncCoordinator.PortSnapshot snapshot) {
+                    if (!started.compareAndSet(false, true)
+                        || completed.get()) {
+                        return;
+                    }
+                    try {
+                        requirePendingMoveNotCancelled(cancelled);
+                        JSONObject result;
+                        if (snapshot == null) {
+                            result = manager.moveToPending(
+                                kind,
+                                canonicalId,
+                                reason
+                            );
+                        } else {
+                            try {
+                                result = manager.moveToPending(
+                                    kind,
+                                    canonicalId,
+                                    reason,
+                                    (indexedKind, indexedId, pendingEntry) -> {
+                                        requirePendingMoveNotCancelled(cancelled);
+                                        if (!publishPendingPolicyOverlay(
+                                                snapshot,
+                                                manager
+                                            )) {
+                                            throw new IOException(
+                                                "Pending Scene policy was not "
+                                                    + "published"
+                                            );
+                                        }
+                                        requirePendingMoveNotCancelled(cancelled);
+                                    }
+                                );
+                            } catch (Exception moveFailure) {
+                                // The store has either rolled the indexed entry
+                                // back or retained a replayable journal. Publish
+                                // the actual durable index before returning the
+                                // failure; a failed convergence also requests a
+                                // fail-open refresh while the generation is live.
+                                try {
+                                    if (!publishPendingPolicyOverlay(
+                                            snapshot,
+                                            manager
+                                        )) {
+                                        throw new IOException(
+                                            "Could not converge Pending Scene "
+                                                + "policy after move failure"
+                                        );
+                                    }
+                                } catch (Exception convergenceFailure) {
+                                    moveFailure.addSuppressed(
+                                        convergenceFailure
+                                    );
+                                    requestPendingPolicyRefresh();
+                                }
+                                throw moveFailure;
+                            }
+                        }
+                        complete(result, null);
+                    } catch (Exception failure) {
+                        complete(null, failure);
+                    }
+                }
+
+                @Override
+                public void cancel() {
+                    cancelled.set(true);
+                    if (!started.get()) {
+                        complete(
+                            null,
+                            pendingMoveConflict(
+                                "Scene connection changed before Pending move"
+                            )
+                        );
+                    }
+                }
+
+                private void complete(JSONObject result, Exception failure) {
+                    if (!completed.compareAndSet(false, true)) {
+                        return;
+                    }
+                    movedEntry.set(result);
+                    operationFailure.set(failure);
+                    completion.countDown();
+                }
+            };
+
+        SceneSyncCoordinator.TriggerResult trigger =
+            coordinator.requestManualApply(action);
+        if (trigger != SceneSyncCoordinator.TriggerResult.STARTED) {
+            throw pendingMoveConflict(
+                "Pending Scene move could not enter serialized apply: "
+                    + trigger
+            );
+        }
+
+        boolean interrupted = false;
+        while (true) {
+            try {
+                completion.await();
+                break;
+            } catch (InterruptedException ignored) {
+                interrupted = true;
+            }
+        }
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
+        Exception failure = operationFailure.get();
+        if (failure != null) {
+            throw failure;
+        }
+        JSONObject result = movedEntry.get();
+        if (result == null) {
+            throw new PendingProcessStore.PendingProcessException(
+                PendingProcessStore.FailureKind.INVALID_STATE,
+                "Serialized Pending Scene move completed without a result"
+            );
+        }
+        return result;
+    }
+
+    private static void requirePendingMoveNotCancelled(
+        AtomicBoolean cancelled
+    ) throws PendingProcessStore.PendingProcessException {
+        if (cancelled != null && cancelled.get()) {
+            throw pendingMoveConflict(
+                "Scene connection changed during Pending move"
+            );
+        }
+    }
+
+    private static PendingProcessStore.PendingProcessException
+        pendingMoveConflict(String message) {
+        return new PendingProcessStore.PendingProcessException(
+            PendingProcessStore.FailureKind.CONFLICT,
+            message
+        );
+    }
+
+    /**
+     * Executes one management operation and serializes its result through a
+     * bounded pipe.  A null manager is a normal startup/shutdown state and is
+     * represented by a stable error envelope instead of a Binder exception.
+     */
+    private ParcelFileDescriptor pendingControlResult(
+        PendingControlOperation operation
+    ) {
+        JSONObject envelope = new JSONObject();
+        PendingProcessManager manager = pendingProcessManager;
+        try {
+            if (manager == null) {
+                envelope.put("ok", false);
+                envelope.put("error", "manager_not_ready");
+                envelope.put(
+                    "message",
+                    "PendingProcess manager is not ready"
+                );
+            } else {
+                Object result = operation.run(manager);
+                envelope.put("ok", true);
+                envelope.put(
+                    "result",
+                    result == null ? JSONObject.NULL : result
+                );
+            }
+        } catch (Exception failure) {
+            String error = "operation_failed";
+            if (failure
+                instanceof PendingProcessStore.PendingProcessException) {
+                PendingProcessStore.FailureKind kind =
+                    ((PendingProcessStore.PendingProcessException) failure)
+                        .kind;
+                if (kind != null) {
+                    error = "pending_"
+                        + kind.name().toLowerCase(Locale.ROOT);
+                }
+            }
+            try {
+                envelope.put("ok", false);
+                envelope.put("error", error);
+                envelope.put(
+                    "message",
+                    truncate(failure.getMessage(), 4096)
+                );
+            } catch (Exception envelopeFailure) {
+                Log.e(
+                    TAG,
+                    "Could not create PendingProcess error envelope",
+                    envelopeFailure
+                );
+                return null;
+            }
+            Log.w(
+                TAG,
+                "PendingProcess control operation failed error=" + error,
+                failure
+            );
+        }
+        return openPendingControlPipe(envelope);
+    }
+
+    /** Writes a JSON envelope asynchronously so Binder callers never block on pipe capacity. */
+    private ParcelFileDescriptor openPendingControlPipe(JSONObject envelope) {
+        final byte[] payload;
+        try {
+            payload = envelope.toString().getBytes(StandardCharsets.UTF_8);
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Could not serialize PendingProcess envelope", e);
+            return null;
+        }
+        final ParcelFileDescriptor[] pipe;
+        try {
+            pipe = ParcelFileDescriptor.createPipe();
+        } catch (IOException e) {
+            Log.e(TAG, "Could not create PendingProcess control pipe", e);
+            return null;
+        }
+        try {
+            callbackIoExecutor.execute(() -> {
+                try (OutputStream output =
+                         new ParcelFileDescriptor.AutoCloseOutputStream(
+                             pipe[1]
+                         )) {
+                    output.write(payload);
+                    output.flush();
+                } catch (IOException e) {
+                    Log.w(TAG, "Could not write PendingProcess control payload", e);
+                }
+            });
+        } catch (RuntimeException e) {
+            closeQuietly(pipe[0]);
+            closeQuietly(pipe[1]);
+            Log.w(TAG, "PendingProcess control writer is unavailable", e);
+            return null;
+        }
+        return pipe[0];
     }
 
     private void abortActiveSceneOperation(IGameScenePort port) {
@@ -2360,6 +2806,10 @@ public final class TranslationService extends Service {
 
     private void prepareStartupStoresOnce() throws Exception {
         ensureTranslationJobStore();
+        if (pendingProcessManager == null) {
+            pendingProcessManager = PendingProcessManager.createForAndroid(this);
+        }
+        pendingProcessManager.recover();
         ContextReviewGate.get().prepare(isStartupReviewEnabled());
 
         // All persistent Stores/Executors/Coordinators are built on the
@@ -2522,8 +2972,35 @@ public final class TranslationService extends Service {
                     throws Exception {
                     return jobStore.readFailedError(requestId);
                 }
+
+                @Override
+                public void revokeTerminalDeliveryGeneration(
+                    long generation
+                ) throws Exception {
+                    jobStore.revokeTerminalDeliveryGeneration(generation);
+                }
+
+                @Override
+                public boolean hasActiveTerminalDeliveryGeneration(
+                    long generation
+                ) {
+                    return jobStore.hasActiveTerminalDeliveryGeneration(
+                        generation
+                    );
+                }
             }
         );
+        PendingProcessManager preparedPendingProcessManager =
+            pendingProcessManager;
+        if (preparedPendingProcessManager != null) {
+            preparedPendingProcessManager.addReferenceChangeListener(() -> {
+                requestPendingPolicyRefresh();
+                TerminalDeliveryCoordinator delivery = terminalDelivery;
+                if (delivery != null) {
+                    delivery.onStoreStateChanged();
+                }
+            });
+        }
         bindCurrentCallbackToTerminalDelivery();
 
         JSONObject userSettings = new ConfigStore(this)
@@ -2642,6 +3119,7 @@ public final class TranslationService extends Service {
         pendingSceneApplyStore = null;
         conflictStore = null;
         sceneStore = null;
+        pendingProcessManager = null;
     }
 
     private void publishActiveSummaryRecoveryStore(SummaryJobStore store) {
@@ -2712,6 +3190,272 @@ public final class TranslationService extends Service {
             && operationKind
                 == SceneSyncCoordinator.SyncOperationKind.AUTO_FULL_SYNC) {
             scheduleInitialAutoSyncBarrier(startupRepairGeneration);
+        }
+        if (current) {
+            if (operationKind == null) {
+                kickPendingPolicyRefresh();
+            } else {
+                retryPendingPolicyRefreshForExternalEvent();
+            }
+        }
+    }
+
+    /** Marks a Pending reference change for an immediate serialized policy refresh. */
+    private void requestPendingPolicyRefresh() {
+        synchronized (pendingPolicyRefreshLock) {
+            if (pendingPolicyRefreshGeneration == Long.MAX_VALUE) {
+                pendingPolicyRefreshGeneration = 1L;
+                pendingPolicyRefreshSuppressedGeneration = -1L;
+            } else {
+                pendingPolicyRefreshGeneration++;
+            }
+            pendingPolicyRefreshRequested = true;
+        }
+        kickPendingPolicyRefresh();
+    }
+
+    /** Re-enables a dirty generation after a port or Scene lifecycle event. */
+    private void retryPendingPolicyRefreshForExternalEvent() {
+        synchronized (pendingPolicyRefreshLock) {
+            pendingPolicyRefreshSuppressedGeneration = -1L;
+        }
+        kickPendingPolicyRefresh();
+    }
+
+    /**
+     * Schedules one MANUAL_APPLY action.  SceneSyncCoordinator supplies the
+     * current port generation and serializes this action behind FULL_SYNC;
+     * the shared publication lock prevents a late full-sync target from
+     * overwriting the just-captured Pending overlay.
+     */
+    private void kickPendingPolicyRefresh() {
+        final SceneSyncCoordinator coordinator = sceneSyncCoordinator;
+        if (coordinator == null) {
+            synchronized (pendingPolicyRefreshLock) {
+                pendingPolicyRefreshRequested = true;
+            }
+            return;
+        }
+        final long attemptGeneration;
+        synchronized (pendingPolicyRefreshLock) {
+            if (!pendingPolicyRefreshRequested
+                || pendingPolicyRefreshRunning
+                || pendingPolicyRefreshSuppressedGeneration
+                    == pendingPolicyRefreshGeneration) {
+                return;
+            }
+            attemptGeneration = pendingPolicyRefreshGeneration;
+            pendingPolicyRefreshRequested = false;
+            pendingPolicyRefreshRunning = true;
+        }
+        SceneSyncCoordinator.CancelableSnapshotSyncAction action =
+            new SceneSyncCoordinator.CancelableSnapshotSyncAction() {
+                private final AtomicBoolean cancelled = new AtomicBoolean();
+                private final AtomicBoolean started = new AtomicBoolean();
+                private final AtomicBoolean finished = new AtomicBoolean();
+
+                @Override
+                public void run(SceneSyncCoordinator.PortSnapshot snapshot) {
+                    if (!started.compareAndSet(false, true)
+                        || finished.get()) {
+                        return;
+                    }
+                    boolean published = false;
+                    try {
+                        if (!cancelled.get() && snapshot != null) {
+                            published = publishPendingPolicyOverlay(snapshot);
+                        }
+                    } catch (Exception e) {
+                        Log.w(
+                            TAG,
+                            "Could not publish Pending Scene policy overlay",
+                            e
+                        );
+                    } finally {
+                        finish(published && !cancelled.get());
+                    }
+                }
+
+                @Override
+                public void cancel() {
+                    cancelled.set(true);
+                    if (!started.get()) {
+                        finish(false);
+                    }
+                }
+
+                private void finish(boolean published) {
+                    if (!finished.compareAndSet(false, true)) {
+                        return;
+                    }
+                    boolean rerun;
+                    synchronized (pendingPolicyRefreshLock) {
+                        pendingPolicyRefreshRunning = false;
+                        if (published) {
+                            if (pendingPolicyRefreshGeneration
+                                == attemptGeneration) {
+                                pendingPolicyRefreshRequested = false;
+                            }
+                            if (pendingPolicyRefreshSuppressedGeneration
+                                == attemptGeneration) {
+                                pendingPolicyRefreshSuppressedGeneration = -1L;
+                            }
+                        } else {
+                            pendingPolicyRefreshRequested = true;
+                            pendingPolicyRefreshSuppressedGeneration =
+                                attemptGeneration;
+                        }
+                        // Only a genuinely newer reference generation may
+                        // immediately follow a failed/cancelled attempt.
+                        rerun = pendingPolicyRefreshRequested
+                            && pendingPolicyRefreshGeneration
+                                != attemptGeneration;
+                    }
+                    if (rerun) {
+                        kickPendingPolicyRefresh();
+                    }
+                }
+            };
+        SceneSyncCoordinator.TriggerResult result =
+            coordinator.requestManualApply(action);
+        if (result != SceneSyncCoordinator.TriggerResult.STARTED) {
+            synchronized (pendingPolicyRefreshLock) {
+                pendingPolicyRefreshRunning = false;
+                pendingPolicyRefreshRequested = true;
+                if (result
+                    != SceneSyncCoordinator.TriggerResult.REJECTED_BUSY) {
+                    pendingPolicyRefreshSuppressedGeneration =
+                        attemptGeneration;
+                }
+            }
+        }
+    }
+
+    private boolean publishPendingPolicyOverlay(
+        SceneSyncCoordinator.PortSnapshot snapshot
+    ) throws Exception {
+        return publishPendingPolicyOverlay(snapshot, pendingProcessManager);
+    }
+
+    private boolean publishPendingPolicyOverlay(
+        SceneSyncCoordinator.PortSnapshot snapshot,
+        PendingProcessManager manager
+    ) throws Exception {
+        if (!(snapshot.port instanceof IGameScenePort)) {
+            return false;
+        }
+        IGameScenePort port = (IGameScenePort) snapshot.port;
+        ScenePolicyPublisher.Target target = scenePolicyPublisher.capture(
+            port,
+            snapshot.binder,
+            snapshot.generation
+        );
+        if (target == null || manager == null) {
+            return false;
+        }
+        synchronized (PendingProcessManager.POLICY_PUBLICATION_LOCK) {
+            Set<String> pendingNames = manager
+                .snapshotManagementPendingSceneNames();
+            SceneApplyCoordinator transport = new SceneApplyCoordinator();
+            try {
+                ScenePolicyPublisher.PublishResult result =
+                    scenePolicyPublisher.publishManagementOverlay(
+                        target,
+                        pendingNames,
+                        encoded -> transport.replaceBlockedScenesBlocking(
+                            snapshot.generation,
+                            port,
+                            encoded
+                        )
+                    );
+                if (result != null && result.isPublished()) {
+                    Log.i(
+                        TAG,
+                        "Pending Scene policy overlay outcome="
+                            + result.outcome
+                            + " attempts="
+                            + result.attempts
+                            + " target_count="
+                            + result.targetBlockedScenes.size()
+                            + "; acknowledging generation="
+                            + snapshot.generation
+                    );
+                    // Native clears the hold when the replacement succeeds,
+                    // but Java must consume the same generation lease before
+                    // this coordinator action returns.
+                    try {
+                        port.completeSceneProductionPolicy(
+                            snapshot.generation
+                        );
+                    } catch (RemoteException | RuntimeException ackFailure) {
+                        // The Native replacement is already committed.  A
+                        // bookkeeping callback failure must not turn the
+                        // successful move/publication into a retry that
+                        // clears the newly published policy.
+                        Log.w(
+                            TAG,
+                            "Could not acknowledge successful Pending Scene "
+                                + "policy generation="
+                                + snapshot.generation
+                                + "; leaving published result intact",
+                            ackFailure
+                        );
+                    }
+                    return true;
+                }
+                String outcome = result == null
+                    ? "null"
+                    : String.valueOf(result.outcome);
+                Log.w(
+                    TAG,
+                    "Pending Scene policy overlay outcome="
+                        + outcome
+                        + "; fail-open reset generation="
+                        + snapshot.generation
+                );
+                resetPendingPolicyOverlay(
+                    port,
+                    snapshot.generation,
+                    null
+                );
+                return false;
+            } catch (Exception error) {
+                Log.w(
+                    TAG,
+                    "Pending Scene policy overlay failed; fail-open reset "
+                        + "generation="
+                        + snapshot.generation,
+                    error
+                );
+                resetPendingPolicyOverlay(
+                    port,
+                    snapshot.generation,
+                    error
+                );
+                throw error;
+            } finally {
+                transport.close();
+            }
+        }
+    }
+
+    private void resetPendingPolicyOverlay(
+        IGameScenePort port,
+        long generation,
+        Throwable cause
+    ) {
+        try {
+            port.resetSceneProductionPolicy(generation);
+        } catch (RemoteException | RuntimeException resetFailure) {
+            if (cause != null) {
+                cause.addSuppressed(resetFailure);
+            }
+            Log.w(
+                TAG,
+                "Could not fail-open Pending Scene policy generation="
+                    + generation,
+                cause == null ? resetFailure : cause
+            );
         }
     }
 
@@ -3646,6 +4390,18 @@ public final class TranslationService extends Service {
         );
         RuntimeException bindFailure = null;
         synchronized (callbackLock) {
+            TerminalDeliveryCoordinator coordinator = terminalDelivery;
+            if (coordinator != null
+                && coordinator.hasActiveLeaseForCurrentGeneration()) {
+                // callbackReader is asynchronous: replacing the Binder here
+                // would revoke a lease while the old task could still apply
+                // the native result.  Keep the old record installed and let
+                // the caller retry after that task ACKs or releases.
+                unlinkCallback(installed);
+                throw new IllegalStateException(
+                    "terminal delivery callback replacement is busy"
+                );
+            }
             replaced = currentCallback;
             currentCallback = installed;
             if (replaced != null) {
@@ -3655,7 +4411,6 @@ public final class TranslationService extends Service {
                 // after this cleanup.
                 closeActivePayloadWriters();
             }
-            TerminalDeliveryCoordinator coordinator = terminalDelivery;
             if (coordinator != null) {
                 try {
                     // The Binder record and the coordinator generation must
@@ -3663,17 +4418,18 @@ public final class TranslationService extends Service {
                     // unregister/death can unbind a newly installed record.
                     coordinator.bind(createTerminalDeliveryCallback(installed));
                 } catch (RuntimeException e) {
+                    // bind() performs its lease check before changing the
+                    // coordinator generation. Restore the old record as a
+                    // transaction and leave its death recipient linked.
                     if (currentCallback == installed) {
-                        currentCallback = null;
+                        currentCallback = replaced;
                     }
-                    coordinator.unbind();
                     bindFailure = e;
                 }
             }
         }
         if (bindFailure != null) {
             unlinkCallback(installed);
-            unlinkCallback(replaced);
             throw new IllegalStateException(
                 "Could not bind terminal delivery callback",
                 bindFailure
@@ -3707,12 +4463,28 @@ public final class TranslationService extends Service {
     }
 
     private void removeCallback(IBinder expectedBinder) {
-        removeCallback(expectedBinder, null);
+        if (!removeCallback(expectedBinder, null, false)) {
+            throw new IllegalStateException(
+                "terminal delivery callback is busy; retry unregister"
+            );
+        }
     }
 
     private void removeCallback(
         IBinder expectedBinder,
         IBinder.DeathRecipient expectedDeathRecipient
+    ) {
+        removeCallback(
+            expectedBinder,
+            expectedDeathRecipient,
+            expectedDeathRecipient != null
+        );
+    }
+
+    private boolean removeCallback(
+        IBinder expectedBinder,
+        IBinder.DeathRecipient expectedDeathRecipient,
+        boolean reclaimLeases
     ) {
         CallbackRecord removed = null;
         synchronized (callbackLock) {
@@ -3723,19 +4495,26 @@ public final class TranslationService extends Service {
                         && (expectedDeathRecipient == null
                             || current.deathRecipient
                                 == expectedDeathRecipient)))) {
-                removed = currentCallback;
-                currentCallback = null;
-                closeActivePayloadWriters();
                 TerminalDeliveryCoordinator coordinator = terminalDelivery;
                 if (coordinator != null) {
                     // Keep unbind in the same critical section as clearing
                     // currentCallback, so an old remove cannot invalidate a
                     // replacement that has already installed its generation.
-                    coordinator.unbind();
+                    if (reclaimLeases) {
+                        coordinator.unbindAfterConnectionDeath();
+                    } else if (!coordinator.unbind()) {
+                        // An explicit unregister must leave both callback
+                        // records intact until its active lease settles.
+                        return false;
+                    }
                 }
+                removed = currentCallback;
+                currentCallback = null;
+                closeActivePayloadWriters();
             }
         }
         unlinkCallback(removed);
+        return true;
     }
 
     private CallbackRecord getCallback() {
@@ -3745,7 +4524,7 @@ public final class TranslationService extends Service {
     }
 
     private void clearCallbacks() {
-        removeCallback(null);
+        removeCallback(null, null, true);
     }
 
     private static void unlinkCallback(CallbackRecord record) {
@@ -3763,6 +4542,7 @@ public final class TranslationService extends Service {
                 String requestId,
                 String scene,
                 String targetLanguage,
+                long connectionGeneration,
                 byte[] resultJson
             ) throws Exception {
                 if (!sendPayload(
@@ -3773,6 +4553,7 @@ public final class TranslationService extends Service {
                         requestId,
                         scene,
                         targetLanguage,
+                        connectionGeneration,
                         descriptor
                     )
                 )) {
@@ -3784,13 +4565,15 @@ public final class TranslationService extends Service {
             public void sendFailed(
                 String requestId,
                 String errorType,
-                String message
+                String message,
+                long connectionGeneration
             ) throws Exception {
                 try {
                     boundRecord.callback.onTranslationFailed(
                         requestId,
                         errorType,
-                        truncate(message, 4096)
+                        truncate(message, 4096),
+                        connectionGeneration
                     );
                 } catch (RemoteException | RuntimeException e) {
                     throw e;

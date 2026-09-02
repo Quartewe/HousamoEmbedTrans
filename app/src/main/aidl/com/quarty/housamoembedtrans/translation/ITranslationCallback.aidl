@@ -19,12 +19,14 @@ oneway interface ITranslationCallback {
         String requestId,
         String scene,
         String targetLang,
+        long connectionGeneration,
         in ParcelFileDescriptor resultFd
     );
 
     void onTranslationFailed(
         String requestId,
         String errorType,
-        String message
+        String message,
+        long connectionGeneration
     );
 }

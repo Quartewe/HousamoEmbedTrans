@@ -2,8 +2,11 @@ package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessControlClient;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
+import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 import com.quarty.housamoembedtrans.summary.job.SummaryJobStore;
 import com.quarty.housamoembedtrans.translation.delivery.TerminalOutcome;
 import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
@@ -36,11 +39,15 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /** Lets the user number the startup jobs held out of the dispatch queue. */
 public final class TranslationQueueActivity extends AppCompatActivity {
@@ -48,9 +55,30 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private static final String STATE_SELECTED_IDS = "selected_ids";
     private static final String STATE_SELECTED_SUMMARY_IDS =
         "selected_summary_ids";
+    private static final String STATE_SELECTED_PENDING_TARGETS =
+        "selected_pending_targets";
+    private static final String PENDING_REASON_USER_REQUESTED =
+        "user_requested";
     /** Opens the same page in persistent failed-job management mode. */
     public static final String EXTRA_MANAGEMENT_ONLY =
         "com.quarty.housamoembedtrans.extra.MANAGEMENT_ONLY";
+
+    /** Exact owner identity captured from a live management store. */
+    private static final class PendingMoveTarget {
+        final String kind;
+        final String canonicalId;
+        final String label;
+
+        PendingMoveTarget(String kind, String canonicalId, String label) {
+            this.kind = kind;
+            this.canonicalId = canonicalId;
+            this.label = label;
+        }
+
+        String selectionKey() {
+            return kind + ":" + canonicalId;
+        }
+    }
 
     private final ExecutorService ioExecutor =
         Executors.newSingleThreadExecutor();
@@ -78,6 +106,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private TranslationJobStore jobStore;
     private SummaryJobStore summaryJobStore;
     private SceneContextStore sceneContextStore;
+    private PendingProcessControlClient pendingClient;
+    private PendingProcessMoveController pendingMoveController;
     private List<TranslationJobStore.HeldQueuedJob> jobs =
         new ArrayList<>();
     private List<TranslationJobStore.TerminalJob> failedJobs =
@@ -116,6 +146,19 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private int summaryRecoveryWaitAttempts;
     /** Store identity that produced the currently rendered recovery rows. */
     private SummaryJobStore renderedSummaryRecoveryStore;
+    private LinearLayout pendingSection;
+    private LinearLayout pendingItemContainer;
+    private TextView pendingSummary;
+    private TextView pendingEmptyMessage;
+    private MaterialButton pendingRefreshButton;
+    private MaterialButton pendingMoveButton;
+    private List<JSONObject> pendingProcesses = new ArrayList<>();
+    private List<String> damagedPendingCandidates = new ArrayList<>();
+    private final Set<String> selectedPendingMoveKeys = new HashSet<>();
+    private boolean pendingReady;
+    private boolean pendingLoading;
+    private boolean pendingActive;
+    private int pendingRefreshGeneration;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -149,8 +192,17 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         failedSummaryItemContainer = findViewById(R.id.summary_failed_items);
         submitButton = findViewById(R.id.btn_submit_translation_queue);
         summarySubmitButton = findViewById(R.id.btn_submit_summary_recovery);
+        pendingSection = findViewById(R.id.pending_process_section);
+        pendingItemContainer = findViewById(R.id.pending_process_items);
+        pendingSummary = findViewById(R.id.tv_pending_process_summary);
+        pendingEmptyMessage = findViewById(R.id.tv_pending_process_empty);
+        pendingRefreshButton = findViewById(R.id.btn_refresh_pending_processes);
+        pendingMoveButton = findViewById(R.id.btn_move_pending_process);
 
         if (managementOnly) {
+            pendingClient = new PendingProcessControlClient(this);
+            pendingMoveController = new PendingProcessMoveController(this);
+            pendingSection.setVisibility(View.VISIBLE);
             findViewById(R.id.tv_translation_queue_intro).setVisibility(
                 View.GONE
             );
@@ -184,6 +236,13 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             if (restoredSummary != null) {
                 selectedSummaryRequestIds.addAll(restoredSummary);
             }
+            ArrayList<String> restoredPendingTargets =
+                savedInstanceState.getStringArrayList(
+                    STATE_SELECTED_PENDING_TARGETS
+                );
+            if (restoredPendingTargets != null) {
+                selectedPendingMoveKeys.addAll(restoredPendingTargets);
+            }
         }
 
         MaterialToolbar toolbar = findViewById(
@@ -197,6 +256,26 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         );
         submitButton.setOnClickListener(view -> submitOrder());
         summarySubmitButton.setOnClickListener(view -> submitSummaryRecovery());
+        pendingRefreshButton.setOnClickListener(view -> {
+            if (!busy && pendingClient != null) {
+                if (!pendingClient.isConnected()) {
+                    ensureTranslationService();
+                    try {
+                        pendingClient.bind();
+                    } catch (RuntimeException error) {
+                        showPendingOperationFailure(error);
+                    }
+                    renderPendingProcesses();
+                    return;
+                }
+                refreshPendingProcesses();
+            }
+        });
+        pendingMoveButton.setOnClickListener(view -> {
+            if (!busy) {
+                showPendingMoveDialog();
+            }
+        });
 
         refreshJobs();
     }
@@ -209,17 +288,54 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         if (!busy && !submitted) {
             refreshJobs();
         }
+        if (managementOnly && pendingClient != null) {
+            if (pendingClient.isConnected()) {
+                refreshPendingProcesses();
+            } else {
+                // The first real read is triggered by onServiceConnected;
+                // keep the management page in an explicit waiting state while
+                // Binder is still completing the asynchronous bind.
+                renderPendingProcesses();
+            }
+        }
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         jobStore.setQueueListener(queueListener);
+        if (managementOnly && pendingClient != null) {
+            pendingActive = true;
+            pendingClient.setConnectionListener(connected -> {
+                if (!connected) {
+                    return;
+                }
+                runOnUiThread(() -> {
+                    if (isPendingUiActive()) {
+                        refreshPendingProcesses();
+                    }
+                });
+            });
+            // A bind-only Service instance does not run its startup sequence.
+            // Wake the existing exported Service before reading its manager.
+            ensureTranslationService();
+            try {
+                pendingClient.bind();
+            } catch (RuntimeException error) {
+                showPendingOperationFailure(error);
+            }
+        }
     }
 
     @Override
     protected void onStop() {
         jobStore.clearQueueListener(queueListener);
+        if (managementOnly && pendingClient != null) {
+            pendingActive = false;
+            pendingRefreshGeneration++;
+            pendingClient.setConnectionListener(null);
+            pendingClient.unbind();
+        }
         super.onStop();
     }
 
@@ -233,6 +349,10 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             STATE_SELECTED_SUMMARY_IDS,
             new ArrayList<>(selectedSummaryRequestIds)
         );
+        outState.putStringArrayList(
+            STATE_SELECTED_PENDING_TARGETS,
+            new ArrayList<>(selectedPendingMoveKeys)
+        );
         super.onSaveInstanceState(outState);
     }
 
@@ -245,6 +365,14 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     protected void onDestroy() {
         summaryRecoveryHandler.removeCallbacks(summaryRecoveryRefresh);
         ioExecutor.shutdownNow();
+        pendingActive = false;
+        pendingRefreshGeneration++;
+        if (pendingClient != null) {
+            pendingClient.close();
+        }
+        if (pendingMoveController != null) {
+            pendingMoveController.close();
+        }
         super.onDestroy();
     }
 
@@ -495,6 +623,841 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         renderSummaryRecovery();
         renderFailedSummaryJobs();
         renderUserActionJobs();
+    }
+
+    private boolean isPendingUiActive() {
+        return managementOnly
+            && pendingActive
+            && !isDestroyed()
+            && !isFinishing();
+    }
+
+    /** Reads the Service-owned pending index on the Activity I/O executor. */
+    private void refreshPendingProcesses() {
+        if (!isPendingUiActive() || pendingClient == null) {
+            return;
+        }
+        final int generation = ++pendingRefreshGeneration;
+        pendingLoading = true;
+        renderPendingProcesses();
+        ioExecutor.execute(() -> {
+            final List<JSONObject> loaded = new ArrayList<>();
+            final List<String> loadedDamaged = new ArrayList<>();
+            try {
+                JSONArray entries = pendingClient.listPendingProcesses();
+                for (int index = 0; index < entries.length(); index++) {
+                    JSONObject entry = entries.optJSONObject(index);
+                    if (entry != null) {
+                        loaded.add(new JSONObject(entry.toString()));
+                    }
+                }
+                loadedDamaged.addAll(jobStore.getDamagedRequestIds());
+                loadedDamaged.sort(String::compareToIgnoreCase);
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()
+                        || generation != pendingRefreshGeneration) {
+                        return;
+                    }
+                    pendingLoading = false;
+                    pendingReady = false;
+                    pendingProcesses = new ArrayList<>();
+                    damagedPendingCandidates = new ArrayList<>();
+                    renderPendingProcesses();
+                    if (!(error instanceof
+                        PendingProcessControlClient.ServiceNotReadyException)) {
+                        Toast.makeText(
+                            this,
+                            getString(
+                                R.string.pending_process_load_failed,
+                                safeMessage(error)
+                            ),
+                            Toast.LENGTH_LONG
+                        ).show();
+                    }
+                });
+                return;
+            }
+            runOnUiThread(() -> {
+                if (!isPendingUiActive()
+                    || generation != pendingRefreshGeneration) {
+                    return;
+                }
+                pendingLoading = false;
+                pendingReady = true;
+                pendingProcesses = loaded;
+                damagedPendingCandidates = loadedDamaged;
+                renderPendingProcesses();
+            });
+        });
+    }
+
+    private void renderPendingProcesses() {
+        if (!managementOnly || pendingSection == null) {
+            return;
+        }
+        pendingSection.setVisibility(View.VISIBLE);
+        pendingItemContainer.removeAllViews();
+        if (pendingLoading) {
+            pendingSummary.setVisibility(View.GONE);
+            pendingEmptyMessage.setText(R.string.pending_process_loading);
+            pendingEmptyMessage.setVisibility(View.VISIBLE);
+            pendingRefreshButton.setEnabled(false);
+            pendingMoveButton.setEnabled(false);
+            return;
+        }
+        if (!pendingReady) {
+            pendingSummary.setVisibility(View.GONE);
+            pendingEmptyMessage.setText(
+                pendingClient != null && pendingClient.isConnected()
+                    ? R.string.pending_process_service_not_ready
+                    : R.string.pending_process_service_unavailable
+            );
+            pendingEmptyMessage.setVisibility(View.VISIBLE);
+            pendingRefreshButton.setEnabled(!busy);
+            pendingMoveButton.setEnabled(false);
+            return;
+        }
+
+        pendingSummary.setText(getString(
+            R.string.pending_process_count,
+            pendingProcesses.size()
+        ));
+        pendingSummary.setVisibility(
+            pendingProcesses.isEmpty() ? View.GONE : View.VISIBLE
+        );
+        pendingEmptyMessage.setText(R.string.pending_process_empty);
+        pendingEmptyMessage.setVisibility(
+            pendingProcesses.isEmpty() ? View.VISIBLE : View.GONE
+        );
+        pendingRefreshButton.setEnabled(!busy);
+        pendingMoveButton.setEnabled(
+            !busy && pendingClient != null && pendingClient.isConnected()
+        );
+
+        LayoutInflater inflater = LayoutInflater.from(this);
+        DateFormat dateFormat = DateFormat.getDateTimeInstance(
+            DateFormat.MEDIUM,
+            DateFormat.SHORT
+        );
+        for (JSONObject entry : pendingProcesses) {
+            View item = inflater.inflate(
+                R.layout.item_pending_process,
+                pendingItemContainer,
+                false
+            );
+            MaterialCardView card = item.findViewById(
+                R.id.card_pending_process
+            );
+            TextView kind = item.findViewById(R.id.tv_pending_process_kind);
+            TextView canonicalId = item.findViewById(
+                R.id.tv_pending_process_canonical_id
+            );
+            TextView pendingKey = item.findViewById(
+                R.id.tv_pending_process_key
+            );
+            TextView reason = item.findViewById(
+                R.id.tv_pending_process_reason
+            );
+            TextView created = item.findViewById(
+                R.id.tv_pending_process_created
+            );
+            TextView mode = item.findViewById(R.id.tv_pending_process_mode);
+            MaterialButton details = item.findViewById(
+                R.id.btn_pending_process_details
+            );
+            MaterialButton restore = item.findViewById(
+                R.id.btn_pending_process_restore
+            );
+            MaterialButton delete = item.findViewById(
+                R.id.btn_pending_process_delete
+            );
+
+            String key = entry.optString("pending_key", "");
+            kind.setText(entry.optString("kind", ""));
+            canonicalId.setText(entry.optString("canonical_id", ""));
+            pendingKey.setText(getString(
+                R.string.pending_process_key,
+                key
+            ));
+            reason.setText(getString(
+                R.string.pending_process_reason,
+                entry.optString("reason", "")
+            ));
+            created.setText(getString(
+                R.string.pending_process_created,
+                dateFormat.format(new Date(entry.optLong("created_at", 0L)))
+            ));
+            mode.setText(getString(
+                R.string.pending_process_mode,
+                entry.optString("restore_mode", "")
+            ));
+            details.setOnClickListener(view -> showPendingDetails(key));
+            restore.setEnabled(
+                !busy && "snapshot".equals(
+                    entry.optString("restore_mode", "")
+                )
+            );
+            restore.setOnClickListener(view ->
+                confirmRestorePending(entry)
+            );
+            delete.setEnabled(!busy);
+            delete.setOnClickListener(view ->
+                confirmPermanentDeletePending(key)
+            );
+            card.setEnabled(!busy);
+            details.setEnabled(!busy);
+            pendingItemContainer.addView(item);
+        }
+
+        if (!damagedPendingCandidates.isEmpty()) {
+            TextView heading = new TextView(this);
+            heading.setText(R.string.pending_process_damaged_candidates_title);
+            heading.setTextAppearance(
+                R.style.TextAppearance_MaterialComponents_Subtitle2
+            );
+            int topPadding = Math.round(
+                12 * getResources().getDisplayMetrics().density
+            );
+            heading.setPadding(0, topPadding, 0, 0);
+            pendingItemContainer.addView(heading);
+            for (String requestId : damagedPendingCandidates) {
+                MaterialButton action = new MaterialButton(this);
+                action.setAllCaps(false);
+                action.setText(getString(
+                    R.string.pending_process_move_damaged_job,
+                    requestId
+                ));
+                action.setEnabled(!busy);
+                action.setOnClickListener(view -> previewPendingMove(
+                    "damaged_translation_job",
+                    requestId,
+                    PENDING_REASON_USER_REQUESTED
+                ));
+                pendingItemContainer.addView(
+                    action,
+                    new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                );
+            }
+        }
+    }
+
+    private void showPendingDetails(String pendingKey) {
+        if (!isPendingUiActive() || busy || pendingKey == null) {
+            return;
+        }
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                JSONObject entry = pendingClient.readPendingProcess(pendingKey);
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()) {
+                        return;
+                    }
+                    setBusy(false);
+                    new MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.pending_process_details_title)
+                        .setMessage(prettyJson(entry))
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
+                });
+            } catch (Exception error) {
+                showPendingOperationFailure(error);
+            }
+        });
+    }
+
+    private void confirmRestorePending(JSONObject entry) {
+        if (!isPendingUiActive() || busy || entry == null) {
+            return;
+        }
+        String pendingKey = entry.optString("pending_key", "");
+        if (!"snapshot".equals(entry.optString("restore_mode", ""))) {
+            Toast.makeText(
+                this,
+                R.string.pending_process_restore_unavailable,
+                Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+        new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.pending_process_restore_title)
+            .setMessage(getString(
+                R.string.pending_process_restore_message,
+                entry.optString("canonical_id", "")
+            ))
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.pending_process_restore,
+                (dialog, which) -> restorePending(pendingKey)
+            )
+            .show();
+    }
+
+    private void restorePending(String pendingKey) {
+        if (!isPendingUiActive() || busy || pendingKey == null) {
+            return;
+        }
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                pendingClient.restorePendingProcess(pendingKey);
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()) {
+                        return;
+                    }
+                    setBusy(false);
+                    Toast.makeText(
+                        this,
+                        R.string.pending_process_restored,
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    refreshPendingProcesses();
+                });
+            } catch (Exception error) {
+                showPendingOperationFailure(error);
+            }
+        });
+    }
+
+    private void confirmPermanentDeletePending(String pendingKey) {
+        if (!isPendingUiActive() || busy || pendingKey == null) {
+            return;
+        }
+        new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.pending_process_delete_title)
+            .setMessage(R.string.pending_process_delete_message)
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.pending_process_delete,
+                (dialog, which) -> permanentlyDeletePending(pendingKey)
+            )
+            .show();
+    }
+
+    private void permanentlyDeletePending(String pendingKey) {
+        if (!isPendingUiActive() || busy || pendingKey == null) {
+            return;
+        }
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                pendingClient.permanentlyDeletePendingProcess(pendingKey);
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()) {
+                        return;
+                    }
+                    setBusy(false);
+                    Toast.makeText(
+                        this,
+                        R.string.pending_process_deleted,
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    refreshPendingProcesses();
+                });
+            } catch (Exception error) {
+                showPendingOperationFailure(error);
+            }
+        });
+    }
+
+    private void showPendingMoveDialog() {
+        if (!isPendingUiActive() || busy || pendingClient == null) {
+            return;
+        }
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                List<PendingMoveTarget> targets = loadPendingMoveTargets();
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()) {
+                        return;
+                    }
+                    setBusy(false);
+                    showStructuredPendingMoveDialog(targets);
+                });
+            } catch (Exception error) {
+                showPendingOperationFailure(error);
+            }
+        });
+    }
+
+    /**
+     * Builds batch candidates from live stores so callers never type internal
+     * kind/canonical-id pairs. Pending owners are already hidden by each store.
+     */
+    private List<PendingMoveTarget> loadPendingMoveTargets() throws Exception {
+        List<PendingMoveTarget> targets = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+
+        SceneStore candidateSceneStore = new SceneStore(this);
+        for (SceneStore.SceneInfo scene :
+            candidateSceneStore.listSceneInfos()) {
+            addPendingMoveTarget(
+                targets,
+                seen,
+                "scene",
+                scene.sceneName,
+                "scene · " + scene.sceneName
+            );
+            for (String language : scene.languages) {
+                addPendingMoveTarget(
+                    targets,
+                    seen,
+                    "language",
+                    SceneStore.languageCanonicalId(
+                        scene.sceneName,
+                        language
+                    ),
+                    "language · " + scene.sceneName + " / " + language
+                );
+            }
+        }
+
+        for (JSONObject context : sceneContextStore.listContexts()) {
+            String id = context.optString("id", "");
+            addPendingMoveTarget(
+                targets,
+                seen,
+                "context",
+                id,
+                "context · " + context.optString("display_name", id)
+            );
+        }
+        for (JSONObject group : sceneContextStore.listGroups()) {
+            String id = group.optString("id", "");
+            addPendingMoveTarget(
+                targets,
+                seen,
+                "group",
+                id,
+                "group · " + group.optString("display_name", id)
+            );
+        }
+
+        ConfigStore candidateConfigStore = new ConfigStore(this);
+        addDictionaryPendingTargets(
+            targets,
+            seen,
+            "character",
+            candidateConfigStore.loadJson(
+                ConfigStore.CHARDICT_FILE_NAME
+            ).json
+        );
+        addDictionaryPendingTargets(
+            targets,
+            seen,
+            "term",
+            candidateConfigStore.loadJson(
+                ConfigStore.GAMETERMS_FILE_NAME
+            ).json
+        );
+        for (String requestId : jobStore.getDamagedRequestIds()) {
+            addPendingMoveTarget(
+                targets,
+                seen,
+                "damaged_translation_job",
+                requestId,
+                "damaged task · " + requestId
+            );
+        }
+        targets.sort((left, right) -> {
+            int kindOrder = left.kind.compareToIgnoreCase(right.kind);
+            return kindOrder != 0
+                ? kindOrder
+                : left.label.compareToIgnoreCase(right.label);
+        });
+        return targets;
+    }
+
+    private static void addDictionaryPendingTargets(
+        List<PendingMoveTarget> targets,
+        Set<String> seen,
+        String kind,
+        JSONObject dictionary
+    ) {
+        if (dictionary == null) {
+            return;
+        }
+        Iterator<String> keys = dictionary.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            addPendingMoveTarget(
+                targets,
+                seen,
+                kind,
+                key,
+                kind + " · " + key
+            );
+        }
+    }
+
+    private static void addPendingMoveTarget(
+        List<PendingMoveTarget> targets,
+        Set<String> seen,
+        String kind,
+        String canonicalId,
+        String label
+    ) {
+        if (kind == null || kind.isEmpty()
+            || canonicalId == null || canonicalId.isEmpty()) {
+            return;
+        }
+        PendingMoveTarget target = new PendingMoveTarget(
+            kind,
+            canonicalId,
+            label
+        );
+        if (seen.add(target.selectionKey())) {
+            targets.add(target);
+        }
+    }
+
+    private void showStructuredPendingMoveDialog(
+        List<PendingMoveTarget> targets
+    ) {
+        if (targets == null || targets.isEmpty()) {
+            Toast.makeText(
+                this,
+                R.string.pending_process_batch_empty,
+                Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+        Set<String> availableKeys = new HashSet<>();
+        CharSequence[] labels = new CharSequence[targets.size()];
+        boolean[] checked = new boolean[targets.size()];
+        for (int index = 0; index < targets.size(); index++) {
+            PendingMoveTarget target = targets.get(index);
+            String key = target.selectionKey();
+            availableKeys.add(key);
+            labels[index] = target.label;
+            checked[index] = selectedPendingMoveKeys.contains(key);
+        }
+        selectedPendingMoveKeys.retainAll(availableKeys);
+
+        new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.pending_process_batch_select_title)
+            .setMultiChoiceItems(labels, checked, (dialog, which, selected) -> {
+                String key = targets.get(which).selectionKey();
+                if (selected) {
+                    selectedPendingMoveKeys.add(key);
+                } else {
+                    selectedPendingMoveKeys.remove(key);
+                }
+            })
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(R.string.pending_process_preview, (dialog, which) -> {
+                List<PendingMoveTarget> selected = new ArrayList<>();
+                for (PendingMoveTarget target : targets) {
+                    if (selectedPendingMoveKeys.contains(
+                        target.selectionKey()
+                    )) {
+                        selected.add(target);
+                    }
+                }
+                if (selected.isEmpty()) {
+                    Toast.makeText(
+                        this,
+                        R.string.pending_process_batch_none_selected,
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    return;
+                }
+                for (PendingMoveTarget target : selected) {
+                    if ("character".equals(target.kind)
+                        && "mc".equals(target.canonicalId)) {
+                        Toast.makeText(
+                            this,
+                            R.string.pending_process_batch_main_character_rejected,
+                            Toast.LENGTH_LONG
+                        ).show();
+                        return;
+                    }
+                }
+                previewPendingBatch(selected);
+            })
+            .show();
+    }
+
+    private void previewPendingBatch(List<PendingMoveTarget> selected) {
+        if (!isPendingUiActive() || busy || pendingClient == null) {
+            return;
+        }
+        final List<PendingMoveTarget> ordered = new ArrayList<>(selected);
+        ordered.sort((left, right) -> {
+            int priority = Integer.compare(
+                pendingMovePriority(left.kind),
+                pendingMovePriority(right.kind)
+            );
+            return priority != 0
+                ? priority
+                : left.selectionKey().compareToIgnoreCase(
+                    right.selectionKey()
+                );
+        });
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                JSONArray previews = new JSONArray();
+                for (PendingMoveTarget target : ordered) {
+                    JSONObject item = new JSONObject();
+                    item.put("kind", target.kind);
+                    item.put("canonical_id", target.canonicalId);
+                    item.put(
+                        "impact",
+                        pendingClient.previewPendingMove(
+                            target.kind,
+                            target.canonicalId
+                        )
+                    );
+                    previews.put(item);
+                }
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()) {
+                        return;
+                    }
+                    setBusy(false);
+                    showPendingBatchConfirmation(ordered, previews);
+                });
+            } catch (Exception error) {
+                showPendingOperationFailure(error);
+            }
+        });
+    }
+
+    private static int pendingMovePriority(String kind) {
+        if ("language".equals(kind) || "context".equals(kind)) {
+            return 0;
+        }
+        if ("scene".equals(kind) || "group".equals(kind)) {
+            return 2;
+        }
+        return 1;
+    }
+
+    private void showPendingBatchConfirmation(
+        List<PendingMoveTarget> targets,
+        JSONArray previews
+    ) {
+        StringBuilder labels = new StringBuilder();
+        for (PendingMoveTarget target : targets) {
+            if (labels.length() > 0) {
+                labels.append('\n');
+            }
+            labels.append("• ").append(target.label);
+        }
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("items", previews);
+        } catch (Exception ignored) {
+            // JSONArray values created above are always valid JSON values.
+        }
+        new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.pending_process_batch_preview_title)
+            .setMessage(getString(
+                R.string.pending_process_batch_preview_message,
+                targets.size(),
+                labels.toString(),
+                prettyJson(payload)
+            ))
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.pending_process_move,
+                (dialog, which) -> movePendingBatch(targets)
+            )
+            .show();
+    }
+
+    private void movePendingBatch(List<PendingMoveTarget> targets) {
+        if (!isPendingUiActive() || busy || pendingClient == null) {
+            return;
+        }
+        final List<PendingMoveTarget> ordered = new ArrayList<>(targets);
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            List<String> movedKeys = new ArrayList<>();
+            try {
+                for (PendingMoveTarget target : ordered) {
+                    pendingClient.movePendingProcess(
+                        target.kind,
+                        target.canonicalId,
+                        PENDING_REASON_USER_REQUESTED
+                    );
+                    movedKeys.add(target.selectionKey());
+                }
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()) {
+                        return;
+                    }
+                    selectedPendingMoveKeys.removeAll(movedKeys);
+                    setBusy(false);
+                    Toast.makeText(
+                        this,
+                        getString(
+                            R.string.pending_process_batch_moved,
+                            movedKeys.size()
+                        ),
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    refreshPendingProcesses();
+                });
+            } catch (Exception error) {
+                showPendingBatchFailure(error, movedKeys);
+            }
+        });
+    }
+
+    private void showPendingBatchFailure(
+        Throwable error,
+        List<String> movedKeys
+    ) {
+        final List<String> completed = new ArrayList<>(movedKeys);
+        runOnUiThread(() -> {
+            if (!isPendingUiActive()) {
+                return;
+            }
+            selectedPendingMoveKeys.removeAll(completed);
+            setBusy(false);
+            Toast.makeText(
+                this,
+                getString(
+                    R.string.pending_process_batch_failed,
+                    completed.size(),
+                    safeMessage(error)
+                ),
+                Toast.LENGTH_LONG
+            ).show();
+            refreshPendingProcesses();
+        });
+    }
+
+    private void previewPendingMove(
+        String kind,
+        String canonicalId,
+        String reason
+    ) {
+        if (!isPendingUiActive() || busy || pendingClient == null) {
+            return;
+        }
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                JSONObject preview = pendingClient.previewPendingMove(
+                    kind,
+                    canonicalId
+                );
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()) {
+                        return;
+                    }
+                    setBusy(false);
+                    showPendingMoveConfirmation(
+                        kind,
+                        canonicalId,
+                        reason,
+                        preview
+                    );
+                });
+            } catch (Exception error) {
+                showPendingOperationFailure(error);
+            }
+        });
+    }
+
+    private void showPendingMoveConfirmation(
+        String kind,
+        String canonicalId,
+        String reason,
+        JSONObject preview
+    ) {
+        String impact = prettyJson(preview);
+        new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.pending_process_preview_title)
+            .setMessage(getString(
+                R.string.pending_process_preview_message,
+                kind,
+                canonicalId,
+                reason,
+                impact
+            ))
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.pending_process_move,
+                (dialog, which) -> movePending(kind, canonicalId, reason)
+            )
+            .show();
+    }
+
+    private void movePending(
+        String kind,
+        String canonicalId,
+        String reason
+    ) {
+        if (!isPendingUiActive() || busy || pendingClient == null) {
+            return;
+        }
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                pendingClient.movePendingProcess(kind, canonicalId, reason);
+                runOnUiThread(() -> {
+                    if (!isPendingUiActive()) {
+                        return;
+                    }
+                    setBusy(false);
+                    Toast.makeText(
+                        this,
+                        R.string.pending_process_moved,
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    refreshPendingProcesses();
+                });
+            } catch (Exception error) {
+                showPendingOperationFailure(error);
+            }
+        });
+    }
+
+    private void showPendingOperationFailure(Throwable error) {
+        runOnUiThread(() -> {
+            if (!isPendingUiActive()) {
+                return;
+            }
+            setBusy(false);
+            if (error instanceof
+                PendingProcessControlClient.ServiceNotReadyException) {
+                pendingLoading = false;
+                pendingReady = false;
+                pendingProcesses = new ArrayList<>();
+                renderPendingProcesses();
+            }
+            Toast.makeText(
+                this,
+                getString(
+                    R.string.pending_process_operation_failed,
+                    safeMessage(error)
+                ),
+                Toast.LENGTH_LONG
+            ).show();
+        });
+    }
+
+    private static String prettyJson(JSONObject value) {
+        String text;
+        try {
+            text = value == null ? "{}" : value.toString(2);
+        } catch (Exception error) {
+            text = value == null ? "{}" : value.toString();
+        }
+        final int maxLength = 32 * 1024;
+        return text.length() <= maxLength
+            ? text
+            : text.substring(0, maxLength)
+                + "\n…";
     }
 
     private boolean hasRerunCandidates() {
@@ -935,15 +1898,15 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             if (managementOnly) {
                 primary.setText(
                     sceneValidation
-                        ? R.string.translation_job_sync_scene
+                        ? R.string.translation_job_move_scene_pending
                         : R.string.translation_job_retry
                 );
-                primary.setEnabled(!sceneValidation && !busy);
+                primary.setEnabled(!busy);
                 primary.setOnClickListener(view -> {
                     if (!sceneValidation) {
                         rerunSingle(job);
                     } else {
-                        showFailureDetails(job);
+                        moveSceneValidationToPending(job);
                     }
                 });
                 card.setOnClickListener(view -> showFailureDetails(job));
@@ -1018,6 +1981,44 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
             .show();
+    }
+
+    /**
+     * SCENE_FILE_DAMAGED is a Scene-management action, not a damaged task
+     * record action.  Keep the Translation Job intact and route the exact
+     * Scene identity through the shared structured move controller.
+     */
+    private void moveSceneValidationToPending(
+        TranslationJobStore.TerminalJob job
+    ) {
+        if (!isPendingUiActive() || busy || pendingMoveController == null
+            || job == null) {
+            return;
+        }
+        String scene = job.getScene();
+        if (scene == null || scene.trim().isEmpty()) {
+            showPendingOperationFailure(new IllegalArgumentException(
+                "scene_validation job has no Scene identity"
+            ));
+            return;
+        }
+        setBusy(true);
+        String reason = job.getSceneValidationReason();
+        if (reason == null || reason.trim().isEmpty()) {
+            reason = "scene_invalid";
+        }
+        final String pendingReason = reason;
+        pendingMoveController.confirmMove(
+            "scene",
+            scene,
+            scene,
+            pendingReason,
+            () -> {
+                refreshJobs();
+                refreshPendingProcesses();
+            },
+            () -> setBusy(false)
+        );
     }
 
     private void toggleSelection(String requestId) {
@@ -1179,6 +2180,20 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         }
         for (int index = 0; index < userActionItemContainer.getChildCount(); index++) {
             userActionItemContainer.getChildAt(index).setEnabled(!value);
+        }
+        if (managementOnly && pendingSection != null) {
+            pendingRefreshButton.setEnabled(!value);
+            pendingMoveButton.setEnabled(
+                !value
+                    && pendingReady
+                    && pendingClient != null
+                    && pendingClient.isConnected()
+            );
+            for (int index = 0;
+                index < pendingItemContainer.getChildCount();
+                index++) {
+                pendingItemContainer.getChildAt(index).setEnabled(!value);
+            }
         }
     }
 

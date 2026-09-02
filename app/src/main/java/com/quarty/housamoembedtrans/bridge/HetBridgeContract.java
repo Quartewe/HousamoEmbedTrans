@@ -16,6 +16,8 @@ public final class HetBridgeContract {
     public static final int ENQUEUE_RESULT_DUPLICATE_REJECTED = -2;
     public static final int ENQUEUE_RESULT_EXECUTION_NOT_SETTLED = -3;
     public static final int ENQUEUE_RESULT_USER_ACTION_REQUIRED = -4;
+    /** Admission was rejected because the Scene/language is PendingProcess-held. */
+    public static final int ENQUEUE_RESULT_MANAGEMENT_PENDING = -5;
     public static final int CANCEL_RESULT_QUEUED_CANCELED = 1;
     /** Running state won the durable cancellation race; transport unwind is
      * asynchronous but no retry/repair/delivery is allowed. */

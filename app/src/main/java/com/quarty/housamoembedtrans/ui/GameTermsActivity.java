@@ -10,6 +10,7 @@ import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -25,6 +26,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -52,6 +54,8 @@ public final class GameTermsActivity extends AppCompatActivity {
     };
 
     private ConfigStore configStore;
+    private PendingProcessMoveController pendingProcessMoveController;
+    private ManagementBatchController managementBatchController;
     private JSONObject dictionary;
     private boolean dirty;
     private boolean userOverride;
@@ -61,10 +65,12 @@ public final class GameTermsActivity extends AppCompatActivity {
     private TextView statusView;
     private ListView termList;
     private Button saveButton;
+    private MenuItem managementBatchMenuItem;
 
     private final List<String> allTerms = new ArrayList<>();
     private final List<String> visibleTerms = new ArrayList<>();
     private GameTermAdapter adapter;
+    private boolean batchMode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,8 +82,17 @@ public final class GameTermsActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(
             view -> getOnBackPressedDispatcher().onBackPressed()
         );
+        toolbar.inflateMenu(R.menu.menu_management_batch);
+        managementBatchMenuItem = toolbar.getMenu().findItem(
+            R.id.action_management_batch
+        );
+        managementBatchMenuItem.setOnMenuItemClickListener(item -> {
+            toggleManagementBatch();
+            return true;
+        });
 
         configStore = new ConfigStore(this);
+        pendingProcessMoveController = new PendingProcessMoveController(this);
         searchInput = findViewById(R.id.et_gameterms_search);
         statusView = findViewById(R.id.tv_gameterms_status);
         termList = findViewById(R.id.list_game_terms);
@@ -87,7 +102,20 @@ public final class GameTermsActivity extends AppCompatActivity {
         termList.setAdapter(adapter);
         termList.setEmptyView(findViewById(R.id.tv_game_terms_empty));
         termList.setOnItemClickListener((parent, view, position, id) -> {
-            editTerm(visibleTerms.get(position));
+            String term = visibleTerms.get(position);
+            if (batchMode) {
+                String key = ManagementBatchController.KIND_TERM + ":" + term;
+                ManagementBatchSelection.set(
+                    key,
+                    !ManagementBatchSelection.contains(key)
+                );
+                adapter.notifyDataSetChanged();
+                if (managementBatchController != null) {
+                    managementBatchController.onHostRowsChanged();
+                }
+            } else {
+                editTerm(term);
+            }
         });
 
         searchInput.addTextChangedListener(new TextWatcher() {
@@ -118,6 +146,7 @@ public final class GameTermsActivity extends AppCompatActivity {
         findViewById(R.id.btn_add_game_term).setOnClickListener(
             view -> editTerm(null)
         );
+
         findViewById(R.id.btn_restore_gameterms).setOnClickListener(
             view -> confirmRestore()
         );
@@ -131,6 +160,47 @@ public final class GameTermsActivity extends AppCompatActivity {
         });
 
         loadDictionary();
+        managementBatchController = ManagementBatchController.attach(
+            this,
+            findViewById(R.id.root_game_terms),
+            new TermBatchDataSource(),
+            savedInstanceState
+        );
+    }
+
+    private void toggleManagementBatch() {
+        if (managementBatchController == null) {
+            return;
+        }
+        if (managementBatchController.isActive()) {
+            managementBatchController.exit();
+        } else {
+            managementBatchController.enter();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (managementBatchController != null) {
+            managementBatchController.onStart();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        if (managementBatchController != null) {
+            managementBatchController.onStop();
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (managementBatchController != null) {
+            managementBatchController.saveState(outState);
+        }
+        super.onSaveInstanceState(outState);
     }
 
     private void loadDictionary() {
@@ -181,6 +251,9 @@ public final class GameTermsActivity extends AppCompatActivity {
             }
         }
         adapter.notifyDataSetChanged();
+        if (batchMode && managementBatchController != null) {
+            managementBatchController.onHostRowsChanged();
+        }
     }
 
     private boolean recordMatches(String term, String needle) {
@@ -249,7 +322,7 @@ public final class GameTermsActivity extends AppCompatActivity {
             .setPositiveButton(R.string.save_game_term, null);
 
         if (existing) {
-            builder.setNeutralButton(R.string.delete_game_term, null);
+            builder.setNeutralButton(R.string.pending_process_move, null);
         }
 
         AlertDialog dialog = builder.create();
@@ -266,7 +339,7 @@ public final class GameTermsActivity extends AppCompatActivity {
 
             if (existing) {
                 dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(
-                    view -> confirmDelete(dialog, originalKey)
+                    view -> moveTermToPending(dialog, originalKey)
                 );
             }
         });
@@ -426,19 +499,47 @@ public final class GameTermsActivity extends AppCompatActivity {
         ).show();
     }
 
-    private void confirmDelete(AlertDialog editorDialog, String key) {
-        new MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.delete_game_term_title)
-            .setMessage(getString(R.string.delete_game_term_message, key))
-            .setNegativeButton(R.string.cancel_action, null)
-            .setPositiveButton(R.string.delete_game_term, (dialog, which) -> {
-                dictionary.remove(key);
-                dirty = true;
-                rebuildTerms();
-                updateStatus();
-                editorDialog.dismiss();
-            })
-            .show();
+    private void moveTermToPending(AlertDialog editorDialog, String key) {
+        if (dictionary == null || key == null) {
+            return;
+        }
+        pendingProcessMoveController.confirmMove(
+            "term",
+            key,
+            key,
+            () -> removeTermAfterPendingMove(editorDialog, key)
+        );
+    }
+
+    /** Removes only the local in-memory reference after the durable move succeeds. */
+    private void removeTermAfterPendingMove(
+        AlertDialog editorDialog,
+        String key
+    ) {
+        if (dictionary == null) {
+            return;
+        }
+        dictionary.remove(key);
+        userOverride = true;
+        invalidUserOverride = false;
+        rebuildTerms();
+        updateStatus();
+        if (editorDialog != null) {
+            editorDialog.dismiss();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (managementBatchController != null) {
+            managementBatchController.close();
+            managementBatchController = null;
+        }
+        if (pendingProcessMoveController != null) {
+            pendingProcessMoveController.close();
+            pendingProcessMoveController = null;
+        }
+        super.onDestroy();
     }
 
     private void saveDictionary() {
@@ -510,18 +611,32 @@ public final class GameTermsActivity extends AppCompatActivity {
             statusId = R.string.gameterms_source_default;
         }
         statusView.setText(getString(statusId, dictionary.length()));
-        saveButton.setEnabled(dirty || !userOverride);
+        saveButton.setEnabled(!batchMode && (dirty || !userOverride));
     }
 
     private void setEditorEnabled(boolean enabled) {
         searchInput.setEnabled(enabled);
         termList.setEnabled(enabled);
-        findViewById(R.id.btn_add_game_term).setEnabled(enabled);
-        findViewById(R.id.btn_restore_gameterms).setEnabled(enabled);
-        saveButton.setEnabled(enabled);
+        findViewById(R.id.btn_add_game_term).setEnabled(enabled && !batchMode);
+        findViewById(R.id.btn_restore_gameterms).setEnabled(enabled && !batchMode);
+        setManagementBatchActionEnabled(enabled && !batchMode);
+        saveButton.setEnabled(enabled && !batchMode);
+    }
+
+    private void setManagementBatchActionEnabled(boolean enabled) {
+        if (managementBatchMenuItem != null) {
+            managementBatchMenuItem.setEnabled(enabled);
+        }
     }
 
     private void handleBackPressed(OnBackPressedCallback callback) {
+        if (managementBatchController != null
+            && managementBatchController.isActive()) {
+            // Leaving batch mode must keep this Activity, its current filter,
+            // and the host ListView position intact.
+            managementBatchController.exit();
+            return;
+        }
         if (!dirty) {
             callback.setEnabled(false);
             getOnBackPressedDispatcher().onBackPressed();
@@ -584,6 +699,113 @@ public final class GameTermsActivity extends AppCompatActivity {
             : message;
     }
 
+    private final class TermBatchDataSource
+        implements ManagementBatchController.BatchDataSource {
+        @Override
+        public String initialKind() {
+            return ManagementBatchController.KIND_TERM;
+        }
+
+        @Override
+        public Set<String> ownedKinds() {
+            return Collections.singleton(ManagementBatchController.KIND_TERM);
+        }
+
+        @Override
+        public String currentFilter() {
+            return textOf(searchInput);
+        }
+
+        @Override
+        public List<ManagementBatchController.Item> snapshotItems()
+            throws Exception {
+            List<ManagementBatchController.Item> output = new ArrayList<>();
+            if (dictionary == null) {
+                return output;
+            }
+            for (String term : allTerms) {
+                JSONObject record = dictionary.optJSONObject(term);
+                if (record == null) {
+                    continue;
+                }
+                JSONObject payload = new JSONObject(record.toString());
+                payload.put("id", term);
+                payload.put("key", term);
+                output.add(new ManagementBatchController.Item(
+                    ManagementBatchController.KIND_TERM,
+                    term,
+                    getString(R.string.management_batch_term_label, term),
+                    payload
+                ));
+            }
+            return output;
+        }
+
+        @Override
+        public List<ManagementBatchController.Item> currentVisibleItems()
+            throws Exception {
+            List<ManagementBatchController.Item> all = snapshotItems();
+            Set<String> visible = new LinkedHashSet<>(visibleTerms);
+            all.removeIf(item -> !visible.contains(item.canonicalId));
+            return all;
+        }
+
+        @Override
+        public void onBatchModeChanged(boolean enabled) {
+            batchMode = enabled;
+            findViewById(R.id.btn_add_game_term).setEnabled(!enabled && dictionary != null);
+            findViewById(R.id.btn_restore_gameterms).setEnabled(!enabled && dictionary != null);
+            saveButton.setEnabled(!enabled && dictionary != null);
+            searchInput.setEnabled(dictionary != null);
+            termList.setEnabled(dictionary != null);
+            setManagementBatchActionEnabled(!enabled && dictionary != null);
+            if (adapter != null) {
+                adapter.notifyDataSetChanged();
+            }
+        }
+
+        @Override
+        public void onBatchSelectionChanged() {
+            if (adapter != null) {
+                adapter.notifyDataSetChanged();
+            }
+            if (managementBatchController != null) {
+                managementBatchController.onHostRowsChanged();
+            }
+        }
+
+        @Override
+        public void onBatchItemsMoved(List<String> succeededKeys) {
+            if (dictionary == null || succeededKeys == null) {
+                return;
+            }
+            boolean changed = false;
+            String prefix = ManagementBatchController.KIND_TERM + ":";
+            for (String key : succeededKeys) {
+                if (key == null || !key.startsWith(prefix)) {
+                    continue;
+                }
+                String term = key.substring(prefix.length());
+                if (term.isEmpty()) {
+                    continue;
+                }
+                if (dictionary.has(term)) {
+                    dictionary.remove(term);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                // The durable owner already removed the records. Keep the
+                // current editor snapshot in sync without reloading and
+                // discarding unrelated unsaved edits.
+                userOverride = true;
+                invalidUserOverride = false;
+                rebuildTerms();
+                updateStatus();
+            }
+        }
+    }
+
     private static final class TermFieldEditor {
         final String key;
         final Object originalValue;
@@ -610,6 +832,33 @@ public final class GameTermsActivity extends AppCompatActivity {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
+            if (batchMode) {
+                String term = getItem(position);
+                LinearLayout row = new LinearLayout(GameTermsActivity.this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                MaterialCheckBox check = new MaterialCheckBox(
+                    GameTermsActivity.this
+                );
+                check.setText(term);
+                check.setMinHeight(Math.round(
+                    56 * getResources().getDisplayMetrics().density
+                ));
+                check.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ));
+                String key = ManagementBatchController.KIND_TERM + ":" + term;
+                check.setChecked(ManagementBatchSelection.contains(key));
+                check.setOnCheckedChangeListener((button, checked) -> {
+                    ManagementBatchSelection.set(key, checked);
+                    if (managementBatchController != null) {
+                        managementBatchController.onHostRowsChanged();
+                    }
+                });
+                row.addView(check);
+                return row;
+            }
             View view = super.getView(position, convertView, parent);
             String term = getItem(position);
             TextView title = view.findViewById(android.R.id.text1);

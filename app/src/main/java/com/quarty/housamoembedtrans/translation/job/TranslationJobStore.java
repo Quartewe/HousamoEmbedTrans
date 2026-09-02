@@ -3,6 +3,8 @@ import com.quarty.housamoembedtrans.translation.delivery.TerminalOutcome;
 import com.quarty.housamoembedtrans.translation.request.TranslationResultValidator;
 
 import com.quarty.housamoembedtrans.context.model.HistoryMapping;
+import com.quarty.housamoembedtrans.context.model.GroupContextEntry;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
 import com.quarty.housamoembedtrans.storage.job.PersistentApiJobStore;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Owns the persistent translation-job state and its process-local dispatch
@@ -44,6 +47,36 @@ import java.util.Set;
  * linearization point.
  */
 public final class TranslationJobStore {
+
+    /** One terminal delivery attempt must settle before management mutates refs. */
+    @FunctionalInterface
+    public interface ManagementMutation<T> {
+        T run() throws Exception;
+    }
+
+    /**
+     * A PendingProcess mutation cannot overlap a native terminal delivery
+     * attempt.  Callers must surface this as a retryable busy/conflict result;
+     * waiting here would deadlock the callback that has to settle the lease.
+     */
+    public static final class ManagementMutationBusyException
+        extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        public ManagementMutationBusyException() {
+            super("terminal delivery is active; retry the management mutation");
+        }
+    }
+
+    private static final class TerminalLease {
+        private final String token;
+        private final long generation;
+
+        private TerminalLease(String token, long generation) {
+            this.token = token;
+            this.generation = generation;
+        }
+    }
 
     public static final String DIRECTORY_NAME = "translation_jobs";
     private static final String TAG = "TranslationJobStore";
@@ -202,6 +235,7 @@ public final class TranslationJobStore {
         private final long updatedAt;
         private final String errorType;
         private final String errorMessage;
+        private final String sceneValidationReason;
 
         TerminalJob(
             String requestId,
@@ -211,7 +245,8 @@ public final class TranslationJobStore {
             TerminalOutcome.DeliveryState deliveryState,
             long updatedAt,
             String errorType,
-            String errorMessage
+            String errorMessage,
+            String sceneValidationReason
         ) {
             this.requestId = requestId;
             this.scene = scene;
@@ -221,6 +256,9 @@ public final class TranslationJobStore {
             this.updatedAt = updatedAt;
             this.errorType = errorType;
             this.errorMessage = errorMessage;
+            this.sceneValidationReason = sceneValidationReason == null
+                ? ""
+                : sceneValidationReason;
         }
 
         public String getRequestId() { return requestId; }
@@ -233,6 +271,14 @@ public final class TranslationJobStore {
         public long getUpdatedAt() { return updatedAt; }
         public String getErrorType() { return errorType; }
         public String getErrorMessage() { return errorMessage; }
+
+        /** Stable reason for the damaged Scene management entry. */
+        public String getSceneValidationReason() {
+            if ("scene_missing".equals(sceneValidationReason)) {
+                return sceneValidationReason;
+            }
+            return isSceneValidationFailure() ? "scene_invalid" : "";
+        }
 
         public TerminalOutcome.Kind getKind() {
             return TerminalOutcome.Kind.fromWireValue(status);
@@ -449,6 +495,8 @@ public final class TranslationJobStore {
     private final File jobRoot;
     private final PersistentApiJobStore jobStore;
     private final SceneStore sceneStore;
+    private final SceneContextStore sceneContextStore;
+    private final PendingProcessStore pendingProcessStore;
     private final TranslationSchemaValidator resultSchemaValidator;
     private final Set<String> pendingRequestIds = new HashSet<>();
     private final Set<QueueListener> queueListeners = new HashSet<>();
@@ -478,6 +526,17 @@ public final class TranslationJobStore {
     private final Set<String> historyMembershipPendingIds = new HashSet<>();
     /** Durable Review admissions not publishable before the outer commit. */
     private final Set<String> reviewPublicationPendingIds = new HashSet<>();
+    /** Queued jobs excluded from the heap by the central pending reference table. */
+    private final Set<String> managementPendingBlockedIds = new HashSet<>();
+    /**
+     * Process-local lease barrier.  The durable lease token is the recovery
+     * boundary; this monitor closes the in-process move/restore/delete race
+     * between native apply and its ACK.
+     */
+    private final Object terminalDeliveryLock = new Object();
+    private final Map<String, TerminalLease> activeTerminalLeases =
+        new HashMap<>();
+    private boolean managementMutationActive;
     private final LinkedHashMap<String, SceneValidationWait>
         sceneValidationWaits = new LinkedHashMap<>();
     private final PriorityQueue<QueuedJobRef> pendingQueue =
@@ -527,6 +586,8 @@ public final class TranslationJobStore {
             MAX_STATE_BYTES
         );
         sceneStore = new SceneStore(safeContext);
+        sceneContextStore = new SceneContextStore(safeContext);
+        pendingProcessStore = new PendingProcessStore(safeContext);
         resultSchemaValidator = new TranslationSchemaValidator(safeContext);
     }
 
@@ -537,26 +598,175 @@ public final class TranslationJobStore {
      * the new startup submission prefix rather than inheriting the previous
      * committed queue state.
      */
-    public synchronized void beginServiceStart() {
-        preparedForServiceStart = false;
-        recoveryDecisionOpen = false;
-        startupRecoveryCommitted = false;
-        repairingStartupJobs = false;
-        initialAutoSyncFinished = false;
-        pendingQueue.clear();
-        pendingRequestIds.clear();
-        heldQueuedJobs.clear();
-        startupRepairCandidates.clear();
-        startupReadyJobs.clear();
-        sceneValidationWaits.clear();
-        historyMembershipPendingIds.clear();
-        reviewPublicationPendingIds.clear();
-        manualRerunCandidateIds.clear();
-        damagedRequestIds.clear();
-        startupManualCandidateIds.clear();
-        startupAdmissionOrder.clear();
-        startupAdmissionSequences.clear();
-        sceneValidationWaitRecheckInProgress = false;
+    public void beginServiceStart() {
+        synchronized (this) {
+            preparedForServiceStart = false;
+            recoveryDecisionOpen = false;
+            startupRecoveryCommitted = false;
+            repairingStartupJobs = false;
+            initialAutoSyncFinished = false;
+            pendingQueue.clear();
+            pendingRequestIds.clear();
+            heldQueuedJobs.clear();
+            startupRepairCandidates.clear();
+            startupReadyJobs.clear();
+            sceneValidationWaits.clear();
+            historyMembershipPendingIds.clear();
+            reviewPublicationPendingIds.clear();
+            managementPendingBlockedIds.clear();
+            manualRerunCandidateIds.clear();
+            damagedRequestIds.clear();
+            startupManualCandidateIds.clear();
+            startupAdmissionOrder.clear();
+            startupAdmissionSequences.clear();
+            sceneValidationWaitRecheckInProgress = false;
+        }
+        try {
+            recoverTerminalDeliveryLeases();
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                "Could not recover terminal delivery leases", e
+            );
+        }
+    }
+
+    /**
+     * Reclaims durable delivery attempts left by a crashed process.  The
+     * lease token is process/connection scoped, so an in-flight marker without
+     * a live owner must never make a terminal outcome disappear from replay.
+     */
+    public void recoverTerminalDeliveryLeases() throws Exception {
+        synchronized (terminalDeliveryLock) {
+            activeTerminalLeases.clear();
+            SceneContextStore.withRootAccess(() -> {
+                synchronized (TranslationJobStore.this) {
+                    for (File directory : jobStore.listValidJobDirectories()) {
+                        JSONObject state = readState(directory);
+                        if (state == null
+                            || !isTerminalStatus(
+                                state.optString("status", "")
+                            )) {
+                            continue;
+                        }
+                        TerminalOutcome.DeliveryState delivery =
+                            normalizeDeliveryStateLocked(directory, state);
+                        if (delivery
+                            != TerminalOutcome.DeliveryState.IN_FLIGHT) {
+                            continue;
+                        }
+                        state.put(
+                            "delivery_state",
+                            TerminalOutcome.DeliveryState.PENDING.wireValue()
+                        );
+                        state.remove("delivery_lease");
+                        state.remove("delivery_lease_generation");
+                        state.remove("delivery_ack_lease");
+                        state.remove("delivery_ack_generation");
+                        state.put("updated_at", System.currentTimeMillis());
+                        writeState(directory, state);
+                    }
+                }
+                return null;
+            });
+        }
+    }
+
+    /** Reclaims only leases belonging to one callback connection generation. */
+    public void revokeTerminalDeliveryGeneration(long connectionGeneration)
+        throws Exception {
+        if (connectionGeneration <= 0L) {
+            return;
+        }
+        synchronized (terminalDeliveryLock) {
+            List<String> revokedKeys = new ArrayList<>();
+            for (Map.Entry<String, TerminalLease> entry
+                : activeTerminalLeases.entrySet()) {
+                if (entry.getValue().generation == connectionGeneration) {
+                    revokedKeys.add(entry.getKey());
+                }
+            }
+            if (revokedKeys.isEmpty()) {
+                return;
+            }
+            SceneContextStore.withRootAccess(() -> {
+                synchronized (TranslationJobStore.this) {
+                    for (String leaseKey : revokedKeys) {
+                        TerminalLease lease = activeTerminalLeases.get(leaseKey);
+                        if (lease == null
+                            || lease.generation != connectionGeneration) {
+                            continue;
+                        }
+                        int separator = leaseKey.indexOf('\n');
+                        if (separator <= 0) {
+                            activeTerminalLeases.remove(leaseKey);
+                            continue;
+                        }
+                        String requestId = leaseKey.substring(0, separator);
+                        TerminalOutcome.Kind kind =
+                            TerminalOutcome.Kind.fromWireValue(
+                                leaseKey.substring(separator + 1)
+                            );
+                        if (kind == null) {
+                            activeTerminalLeases.remove(leaseKey);
+                            continue;
+                        }
+                        File directory;
+                        try {
+                            directory = requireJobDirectoryLocked(requestId);
+                        } catch (IOException missing) {
+                            activeTerminalLeases.remove(leaseKey);
+                            continue;
+                        }
+                        JSONObject state = readState(directory);
+                        if (state != null
+                            && kind.wireValue().equals(
+                                state.optString("status", "")
+                            )
+                            && TerminalOutcome.DeliveryState.IN_FLIGHT
+                                == normalizeDeliveryStateLocked(
+                                    directory,
+                                    state
+                                )
+                            && lease.token.equals(
+                                state.optString("delivery_lease", "")
+                            )
+                            && connectionGeneration == state.optLong(
+                                "delivery_lease_generation",
+                                0L
+                            )) {
+                            state.put(
+                                "delivery_state",
+                                TerminalOutcome.DeliveryState.PENDING.wireValue()
+                            );
+                            state.remove("delivery_lease");
+                            state.remove("delivery_lease_generation");
+                            state.put("updated_at", System.currentTimeMillis());
+                            writeState(directory, state);
+                        }
+                        activeTerminalLeases.remove(leaseKey);
+                    }
+                }
+                return null;
+            });
+            terminalDeliveryLock.notifyAll();
+        }
+    }
+
+    /** Returns whether one live callback generation currently owns a lease. */
+    public boolean hasActiveTerminalDeliveryGeneration(
+        long connectionGeneration
+    ) {
+        if (connectionGeneration <= 0L) {
+            return false;
+        }
+        synchronized (terminalDeliveryLock) {
+            for (TerminalLease lease : activeTerminalLeases.values()) {
+                if (lease.generation == connectionGeneration) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     /**
@@ -792,7 +1002,131 @@ public final class TranslationJobStore {
     }
 
     public synchronized Set<String> getDamagedRequestIds() {
-        return new LinkedHashSet<>(damagedRequestIds);
+        try {
+            PendingProcessStore.ReferenceSnapshot references =
+                pendingProcessStore.snapshotReferences();
+            Set<String> result = new LinkedHashSet<>();
+            for (String requestId : damagedRequestIds) {
+                if (!references.isPending(
+                    "damaged_translation_job",
+                    requestId
+                )) {
+                    result.add(requestId);
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                "could not inspect PendingProcess references",
+                e
+            );
+        }
+    }
+
+    /**
+     * Returns the best trustworthy metadata available for a damaged Job that
+     * may be published through the management PendingProcess index.  A Job
+     * whose state cannot be parsed is accepted only after startup repair has
+     * placed its UUID in the process-local damaged set; original bytes remain
+     * untouched.
+     */
+    public synchronized JSONObject describeDamagedJobForManagement(
+        String requestId
+    ) throws Exception {
+        validateRequestId(requestId);
+        File jobDirectory = jobStore.jobDirectory(requestId);
+        if (!jobDirectory.isDirectory()) {
+            throw new IllegalStateException(
+                "Damaged translation job does not exist requestId=" + requestId
+            );
+        }
+        boolean quarantined = damagedRequestIds.contains(requestId);
+        JSONObject state = null;
+        try {
+            state = readState(jobDirectory);
+        } catch (Exception unreadable) {
+            if (!quarantined) {
+                throw unreadable;
+            }
+        }
+        if (state != null
+            && !STATUS_DAMAGED.equals(state.optString("status", ""))) {
+            throw new IllegalStateException(
+                "Translation job is not damaged requestId=" + requestId
+            );
+        }
+        if (state == null && !quarantined) {
+            throw new IllegalStateException(
+                "Translation job has no durable damaged identity requestId="
+                    + requestId
+            );
+        }
+        JSONObject description = new JSONObject()
+            .put("request_id", requestId)
+            .put("status", STATUS_DAMAGED)
+            .put("identity_available", state != null);
+        if (state != null) {
+            Object scene = state.opt("scene");
+            Object targetLanguage = state.opt("target_lang");
+            Object reason = state.opt("damage_reason");
+            if (scene instanceof String) {
+                description.put("scene", scene);
+            }
+            if (targetLanguage instanceof String) {
+                description.put("target_lang", targetLanguage);
+            }
+            if (reason instanceof String) {
+                description.put("damage_reason", reason);
+            }
+        }
+        return description;
+    }
+
+    /**
+     * Idempotently removes one Job already authorized by a delete-only
+     * PendingProcess entry.  A surviving directory must still be quarantined
+     * or carry durable {@code status=damaged}; a missing directory means a
+     * prior replay completed deletion.
+     */
+    public synchronized void deleteDamagedJobForManagement(String requestId)
+        throws Exception {
+        validateRequestId(requestId);
+        File jobDirectory = jobStore.jobDirectory(requestId);
+        if (!jobDirectory.exists()) {
+            removeJobFromIndexesLocked(requestId);
+            damagedRequestIds.remove(requestId);
+            return;
+        }
+        boolean quarantined = damagedRequestIds.contains(requestId);
+        JSONObject state = null;
+        try {
+            state = readState(jobDirectory);
+        } catch (Exception unreadable) {
+            if (!quarantined) {
+                throw unreadable;
+            }
+        }
+        if (state != null
+            && !STATUS_DAMAGED.equals(state.optString("status", ""))) {
+            throw new IllegalStateException(
+                "Refused to delete non-damaged translation job requestId="
+                    + requestId
+            );
+        }
+        if (state == null && !quarantined) {
+            throw new IllegalStateException(
+                "Refused to delete unverified translation job requestId="
+                    + requestId
+            );
+        }
+        removeJobFromIndexesLocked(requestId);
+        try {
+            jobStore.deleteJobDirectory(jobDirectory);
+        } catch (IOException failure) {
+            damagedRequestIds.add(requestId);
+            throw failure;
+        }
+        damagedRequestIds.remove(requestId);
     }
 
     /** Whether the fixed startup snapshot still needs a manual decision. */
@@ -834,6 +1168,79 @@ public final class TranslationJobStore {
 
     public synchronized boolean hasPendingJobs() {
         return !pendingQueue.isEmpty();
+    }
+
+    /**
+     * Reconciles the dispatch heap against the durable PendingProcess index.
+     * No job file receives a hidden/blocked field: the reference table is the
+     * single source of truth, and queued jobs retain their original sequence.
+     */
+    public void refreshManagementPendingBlocks() throws Exception {
+        boolean changed = SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                PendingProcessStore.ReferenceSnapshot references =
+                    pendingProcessStore.snapshotReferences();
+                boolean localChanged = false;
+
+                Iterator<QueuedJobRef> queued = pendingQueue.iterator();
+                while (queued.hasNext()) {
+                    QueuedJobRef job = queued.next();
+                    File directory = jobStore.jobDirectory(job.requestId);
+                    JSONObject state = readState(directory);
+                    if (state == null
+                        || !STATUS_QUEUED.equals(
+                            state.optString("status", "")
+                        )) {
+                        queued.remove();
+                        pendingRequestIds.remove(job.requestId);
+                        localChanged = true;
+                        continue;
+                    }
+                    if (isBlockedByManagementPending(state, references)) {
+                        queued.remove();
+                        pendingRequestIds.remove(job.requestId);
+                        managementPendingBlockedIds.add(job.requestId);
+                        localChanged = true;
+                    }
+                }
+
+                for (String requestId : new ArrayList<>(
+                    managementPendingBlockedIds
+                )) {
+                    File directory = jobStore.jobDirectory(requestId);
+                    JSONObject state = readState(directory);
+                    if (state == null
+                        || !STATUS_QUEUED.equals(
+                            state.optString("status", "")
+                        )) {
+                        managementPendingBlockedIds.remove(requestId);
+                        localChanged = true;
+                        continue;
+                    }
+                    if (isBlockedByManagementPending(state, references)) {
+                        continue;
+                    }
+                    long queueSequence = state.optLong(
+                        "queue_sequence",
+                        0L
+                    );
+                    if (queueSequence <= 0L) {
+                        throw new IllegalStateException(
+                            "management-blocked queued job has no sequence "
+                                + "requestId="
+                                + requestId
+                        );
+                    }
+                    managementPendingBlockedIds.remove(requestId);
+                    addPendingJobLocked(requestId, queueSequence);
+                    localChanged = true;
+                }
+                return localChanged;
+            }
+        });
+        if (changed) {
+            notifyQueueListener();
+        }
     }
 
     /**
@@ -2020,6 +2427,46 @@ public final class TranslationJobStore {
         }
     }
 
+    /**
+     * Idempotently cancels every queued/running Translation Job owned by a
+     * Scene that is being permanently deleted from PendingProcess. Running
+     * transports unwind through the ordinary cancellation path, so legal late
+     * results still reach the rejected-result archive.
+     */
+    public int cancelUnfinishedJobsForSceneForManagement(String sceneName)
+        throws Exception {
+        final String targetScene = SceneStore.requireSceneName(sceneName);
+        List<String> requestIds = SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                List<String> matches = new ArrayList<>();
+                for (File directory : jobStore.listValidJobDirectories()) {
+                    JSONObject state = readState(directory);
+                    if (state == null
+                        || !targetScene.equals(
+                            state.optString("scene", "")
+                        )) {
+                        continue;
+                    }
+                    String status = state.optString("status", "");
+                    if (STATUS_QUEUED.equals(status)
+                        || STATUS_RUNNING.equals(status)) {
+                        matches.add(directory.getName());
+                    }
+                }
+                Collections.sort(matches);
+                return matches;
+            }
+        });
+        int canceled = 0;
+        for (String requestId : requestIds) {
+            CancellationResult result = requestCancellation(requestId);
+            if (result.isAccepted()) {
+                canceled++;
+            }
+        }
+        return canceled;
+    }
+
     /** Returns true when this request has lost execution eligibility. */
     public synchronized boolean isCancellationRequested(String requestId)
         throws Exception {
@@ -2335,6 +2782,9 @@ public final class TranslationJobStore {
         String errorMessage = nestedError == null
             ? error == null ? "" : error.optString("message", "")
             : nestedError.optString("message", "");
+        String sceneValidationReason = error == null
+            ? ""
+            : error.optString("reason", "");
         if (STATUS_FAILED.equals(status)) {
             if (isSceneValidationErrorLocked(jobDirectory)) {
                 manualRerunCandidateIds.remove(requestId);
@@ -2352,7 +2802,8 @@ public final class TranslationJobStore {
             delivery,
             state.optLong("updated_at", 0L),
             errorType,
-            errorMessage
+            errorMessage,
+            sceneValidationReason
         );
     }
 
@@ -2361,50 +2812,76 @@ public final class TranslationJobStore {
      * This is used by delivery retries after the initial generation scan;
      * startup-repair candidates remain hidden until the stable boundary.
      */
-    public synchronized TerminalJob readPendingTerminalJob(String requestId)
+    public TerminalJob readPendingTerminalJob(String requestId)
         throws Exception {
-        validateRequestId(requestId);
-        if (!isTerminalDeliveryStableLocked(requestId)) {
-            return null;
-        }
-        TerminalJob job = readTerminalJob(requestId);
-        return job != null && job.requiresDelivery() ? job : null;
+        return SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                validateRequestId(requestId);
+                if (!isTerminalDeliveryStableLocked(requestId)) {
+                    return null;
+                }
+                TerminalJob job = readTerminalJob(requestId);
+                if (job == null || !job.requiresDelivery()) {
+                    return null;
+                }
+                PendingProcessStore.ReferenceSnapshot references =
+                    pendingProcessStore.snapshotReferences();
+                JSONObject state = readState(
+                    requireJobDirectoryLocked(requestId)
+                );
+                return isBlockedByManagementPending(state, references)
+                    ? null
+                    : job;
+            }
+        });
     }
 
     /** Lists all durable terminal jobs requiring game acknowledgement. */
-    public synchronized List<TerminalJob> listPendingTerminalJobs()
+    public List<TerminalJob> listPendingTerminalJobs()
         throws Exception {
-        List<File> directories = jobStore.listValidJobDirectories();
-        List<TerminalJob> result = new ArrayList<>();
-        for (File directory : directories) {
-            // Service startup first performs a lightweight scan and then
-            // validates terminal payloads in the background.  Do not expose a
-            // terminal directory to callback replay until that candidate has
-            // left every startup-repair/Scene-Wait staging set.  This keeps a
-            // malformed error.json from being treated as a trusted failure
-            // merely because state.json still says failed + pending.
-            if (!isTerminalDeliveryStableLocked(directory.getName())) {
-                continue;
-            }
-            try {
-                TerminalJob job = readTerminalJob(directory.getName());
-                if (job != null && job.requiresDelivery()) {
-                    result.add(job);
+        return SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                List<File> directories = jobStore.listValidJobDirectories();
+                PendingProcessStore.ReferenceSnapshot references =
+                    pendingProcessStore.snapshotReferences();
+                List<TerminalJob> result = new ArrayList<>();
+                for (File directory : directories) {
+                    // Service startup first performs a lightweight scan and then
+                    // validates terminal payloads in the background.  Do not expose a
+                    // terminal directory to callback replay until that candidate has
+                    // left every startup-repair/Scene-Wait staging set.  This keeps a
+                    // malformed error.json from being treated as a trusted failure
+                    // merely because state.json still says failed + pending.
+                    if (!isTerminalDeliveryStableLocked(directory.getName())) {
+                        continue;
+                    }
+                    try {
+                        TerminalJob job = readTerminalJob(directory.getName());
+                        JSONObject state = readState(directory);
+                        if (job != null
+                            && job.requiresDelivery()
+                            && !isBlockedByManagementPending(
+                                state,
+                                references
+                            )) {
+                            result.add(job);
+                        }
+                    } catch (IllegalArgumentException ignored) {
+                        // Invalid directory names are not Translation Jobs.
+                    }
                 }
-            } catch (IllegalArgumentException ignored) {
-                // Invalid directory names are not Translation Jobs.
+                result.sort((left, right) -> {
+                    int updated = Long.compare(
+                        left.getUpdatedAt(),
+                        right.getUpdatedAt()
+                    );
+                    return updated != 0
+                        ? updated
+                        : left.getRequestId().compareTo(right.getRequestId());
+                });
+                return result;
             }
-        }
-        result.sort((left, right) -> {
-            int updated = Long.compare(
-                left.getUpdatedAt(),
-                right.getUpdatedAt()
-            );
-            return updated != 0
-                ? updated
-                : left.getRequestId().compareTo(right.getRequestId());
         });
-        return result;
     }
 
     /**
@@ -2418,11 +2895,18 @@ public final class TranslationJobStore {
     public synchronized List<TerminalJob> listRetainedFailedJobs()
         throws Exception {
         List<File> directories = jobStore.listValidJobDirectories();
+        PendingProcessStore.ReferenceSnapshot references =
+            pendingProcessStore.snapshotReferences();
         List<TerminalJob> result = new ArrayList<>();
         for (File directory : directories) {
             try {
                 TerminalJob job = readTerminalJob(directory.getName());
-                if (job != null && STATUS_FAILED.equals(job.getStatus())) {
+                if (job != null
+                    && STATUS_FAILED.equals(job.getStatus())
+                    && !isDamagedJobPending(
+                        job.getRequestId(),
+                        references
+                    )) {
                     result.add(job);
                 }
             } catch (IllegalArgumentException ignored) {
@@ -2543,63 +3027,393 @@ public final class TranslationJobStore {
         });
     }
 
-    /** Synchronous terminal preflight used immediately before native input. */
-    public synchronized boolean preflightTerminal(
+    /**
+     * Grants one terminal delivery attempt.  The returned opaque token is
+     * persisted before the callback body can be read, so a later Pending move
+     * cannot turn a native apply into an unacknowledged side effect.
+     */
+    public String acquireTerminalDelivery(
         String requestId,
-        TerminalOutcome.Kind kind
+        TerminalOutcome.Kind kind,
+        long connectionGeneration
     ) throws Exception {
-        if (kind == null) {
-            return false;
+        if (kind == null || connectionGeneration <= 0L) {
+            return null;
         }
-        validateRequestId(requestId);
-        File directory = requireJobDirectoryLocked(requestId);
-        JSONObject state = readState(directory);
-        if (state == null
-            || !kind.wireValue().equals(state.optString("status", ""))) {
-            return false;
+        synchronized (terminalDeliveryLock) {
+            // A management mutation owns the same monitor.  Do not wait for
+            // it here: the mutation may itself be waiting on no Binder work,
+            // and a wait would make the delivery callback deadlock.
+            if (managementMutationActive) {
+                return null;
+            }
+            return SceneContextStore.withRootAccess(() -> {
+                synchronized (TranslationJobStore.this) {
+                    validateRequestId(requestId);
+                    File directory = requireJobDirectoryLocked(requestId);
+                    JSONObject state = readState(directory);
+                    if (state == null
+                        || !kind.wireValue().equals(
+                            state.optString("status", "")
+                        )) {
+                        return null;
+                    }
+                    PendingProcessStore.ReferenceSnapshot references =
+                        pendingProcessStore.snapshotReferences();
+                    if (isBlockedByManagementPending(
+                        state,
+                        references
+                    )) {
+                        return null;
+                    }
+                    TerminalOutcome.DeliveryState delivery =
+                        normalizeDeliveryStateLocked(directory, state);
+                    String leaseKey = terminalLeaseKey(requestId, kind);
+                    if (activeTerminalLeases.containsKey(leaseKey)) {
+                        return null;
+                    }
+                    if (delivery == TerminalOutcome.DeliveryState.ACKNOWLEDGED
+                        || delivery
+                            == TerminalOutcome.DeliveryState.NOT_REQUIRED) {
+                        return null;
+                    }
+                    // A process death loses the in-memory lease map.  The
+                    // durable in-flight marker is therefore reclaimed by the
+                    // next connection before granting a fresh token.
+                    if (delivery
+                        == TerminalOutcome.DeliveryState.IN_FLIGHT) {
+                        state.put(
+                            "delivery_state",
+                            TerminalOutcome.DeliveryState.PENDING.wireValue()
+                        );
+                        state.remove("delivery_lease");
+                    }
+                    String leaseToken = UUID.randomUUID().toString();
+                    state.put(
+                        "delivery_state",
+                        TerminalOutcome.DeliveryState.IN_FLIGHT.wireValue()
+                    );
+                    state.put("delivery_lease", leaseToken);
+                    state.put(
+                        "delivery_lease_generation",
+                        connectionGeneration
+                    );
+                    state.put("updated_at", System.currentTimeMillis());
+                    writeState(directory, state);
+                    activeTerminalLeases.put(
+                        leaseKey,
+                        new TerminalLease(leaseToken, connectionGeneration)
+                    );
+                    return leaseToken;
+                }
+            });
         }
-        TerminalOutcome.DeliveryState delivery =
-            TerminalOutcome.DeliveryState.fromWireValue(
-                state.optString("delivery_state", "")
-            );
-        return delivery == TerminalOutcome.DeliveryState.PENDING;
     }
 
     /**
-     * Synchronous, idempotent acknowledgement.  A matching pending outcome
-     * is atomically marked acknowledged; an already acknowledged outcome is
-     * a successful duplicate ACK, while different kinds are rejected.
+     * Completes exactly the lease that admitted the native apply.  The
+     * token, not a second state preflight, is the linearization point.
      */
-    public synchronized boolean acknowledgeTerminal(
+    public boolean acknowledgeTerminal(
+        String requestId,
+        TerminalOutcome.Kind kind,
+        String leaseToken,
+        long connectionGeneration
+    ) throws Exception {
+        if (kind == null || leaseToken == null || leaseToken.trim().isEmpty()
+            || connectionGeneration <= 0L) {
+            return false;
+        }
+        synchronized (terminalDeliveryLock) {
+            return SceneContextStore.withRootAccess(() -> {
+                synchronized (TranslationJobStore.this) {
+                    validateRequestId(requestId);
+                    File directory = requireJobDirectoryLocked(requestId);
+                    JSONObject state = readState(directory);
+                    if (state == null || !kind.wireValue().equals(
+                        state.optString("status", "")
+                    )) {
+                        return false;
+                    }
+                    String leaseKey = terminalLeaseKey(requestId, kind);
+                    TerminalLease activeLease = activeTerminalLeases.get(leaseKey);
+                    String durableToken = state.optString(
+                        "delivery_lease",
+                        ""
+                    );
+                    long durableGeneration = state.optLong(
+                        "delivery_lease_generation",
+                        0L
+                    );
+                    TerminalOutcome.DeliveryState current =
+                        normalizeDeliveryStateLocked(directory, state);
+                    if (current
+                        == TerminalOutcome.DeliveryState.ACKNOWLEDGED) {
+                        return leaseToken.equals(
+                            state.optString("delivery_ack_lease", "")
+                        ) && connectionGeneration == state.optLong(
+                            "delivery_ack_generation",
+                            0L
+                        );
+                    }
+                    if (current
+                            != TerminalOutcome.DeliveryState.IN_FLIGHT
+                        || activeLease == null
+                        || !leaseToken.equals(activeLease.token)
+                        || activeLease.generation != connectionGeneration
+                        || !leaseToken.equals(durableToken)) {
+                        return false;
+                    }
+                    state.put(
+                        "delivery_state",
+                        TerminalOutcome.DeliveryState.ACKNOWLEDGED.wireValue()
+                    );
+                    state.put("delivery_ack_lease", leaseToken);
+                    state.put(
+                        "delivery_ack_generation",
+                        connectionGeneration
+                    );
+                    state.remove("delivery_lease");
+                    state.remove("delivery_lease_generation");
+                    state.put("updated_at", System.currentTimeMillis());
+                    writeState(directory, state);
+                    activeTerminalLeases.remove(leaseKey);
+                    terminalDeliveryLock.notifyAll();
+                    return true;
+                }
+            });
+        }
+    }
+
+    /** Releases an admitted lease after callback/native apply failure. */
+    public boolean releaseTerminalDelivery(
+        String requestId,
+        TerminalOutcome.Kind kind,
+        String leaseToken,
+        long connectionGeneration
+    ) throws Exception {
+        if (kind == null || leaseToken == null || leaseToken.trim().isEmpty()
+            || connectionGeneration <= 0L) {
+            return false;
+        }
+        synchronized (terminalDeliveryLock) {
+            return SceneContextStore.withRootAccess(() -> {
+                synchronized (TranslationJobStore.this) {
+                    validateRequestId(requestId);
+                    File directory = requireJobDirectoryLocked(requestId);
+                    JSONObject state = readState(directory);
+                    String leaseKey = terminalLeaseKey(requestId, kind);
+                    TerminalLease activeLease = activeTerminalLeases.get(leaseKey);
+                    if (state == null
+                        || !kind.wireValue().equals(
+                            state.optString("status", "")
+                        )
+                        || activeLease == null
+                        || !leaseToken.equals(activeLease.token)
+                        || activeLease.generation != connectionGeneration
+                        || !leaseToken.equals(
+                            state.optString("delivery_lease", "")
+                        )
+                        || connectionGeneration != state.optLong(
+                            "delivery_lease_generation",
+                            0L
+                        )) {
+                        return false;
+                    }
+                    state.put(
+                        "delivery_state",
+                        TerminalOutcome.DeliveryState.PENDING.wireValue()
+                    );
+                    state.remove("delivery_lease");
+                    state.remove("delivery_lease_generation");
+                    state.put("updated_at", System.currentTimeMillis());
+                    writeState(directory, state);
+                    activeTerminalLeases.remove(leaseKey);
+                    terminalDeliveryLock.notifyAll();
+                    return true;
+                }
+            });
+        }
+    }
+
+    /**
+     * Serializes one PendingProcess mutation with terminal delivery.  The
+     * caller holds this barrier for the complete owner/store lifecycle, so a
+     * lease cannot be granted after the mutation has started.
+     */
+    public <T> T withManagementMutation(ManagementMutation<T> mutation)
+        throws Exception {
+        if (mutation == null) {
+            throw new IllegalArgumentException("mutation is required");
+        }
+        synchronized (terminalDeliveryLock) {
+            if (managementMutationActive || !activeTerminalLeases.isEmpty()) {
+                throw new ManagementMutationBusyException();
+            }
+            managementMutationActive = true;
+            try {
+                return mutation.run();
+            } finally {
+                managementMutationActive = false;
+                terminalDeliveryLock.notifyAll();
+            }
+        }
+    }
+
+    private static String terminalLeaseKey(
         String requestId,
         TerminalOutcome.Kind kind
+    ) {
+        return requestId + "\n" + kind.wireValue();
+    }
+
+    /**
+     * Suppresses terminal outcomes that point at an owner which is about to
+     * be permanently removed.  This must run inside
+     * {@link #withManagementMutation(ManagementMutation)} before the Pending
+     * reference is removed; otherwise a terminal callback could become
+     * eligible again after the owner key disappears.
+     */
+    public int suppressTerminalDeliveriesForReferences(
+        Set<String> contextIds,
+        Set<String> groupIds
     ) throws Exception {
-        if (kind == null) {
-            return false;
+        Set<String> contexts = contextIds == null
+            ? Collections.emptySet()
+            : new HashSet<>(contextIds);
+        Set<String> groups = groupIds == null
+            ? Collections.emptySet()
+            : new HashSet<>(groupIds);
+        Map<String, Set<String>> references = new HashMap<>();
+        references.put("context", contexts);
+        references.put("group", groups);
+        return suppressTerminalDeliveriesForReferences(references);
+    }
+
+    /**
+     * Suppresses every unacknowledged terminal that names one of the supplied
+     * PendingProcess identities.  This is the common permanent-delete gate
+     * for Scene, language, Context, and Group owners; callers must invoke it
+     * while holding {@link #withManagementMutation(ManagementMutation)}.
+     */
+    public int suppressTerminalDeliveriesForReferences(
+        Map<String, Set<String>> references
+    ) throws Exception {
+        if (references == null || references.isEmpty()) {
+            return 0;
         }
-        validateRequestId(requestId);
-        File directory = requireJobDirectoryLocked(requestId);
-        JSONObject state = readState(directory);
-        if (state == null || !kind.wireValue().equals(
-            state.optString("status", "")
-        )) {
-            return false;
+        Map<String, Set<String>> copy = new HashMap<>();
+        for (Map.Entry<String, Set<String>> entry : references.entrySet()) {
+            if (entry.getKey() == null || entry.getKey().trim().isEmpty()) {
+                continue;
+            }
+            Set<String> ids = entry.getValue() == null
+                ? Collections.emptySet()
+                : new HashSet<>(entry.getValue());
+            if (!ids.isEmpty()) {
+                copy.put(entry.getKey(), ids);
+            }
         }
-        TerminalOutcome.DeliveryState current =
-            normalizeDeliveryStateLocked(directory, state);
-        if (current == TerminalOutcome.DeliveryState.ACKNOWLEDGED) {
+        if (copy.isEmpty()) {
+            return 0;
+        }
+        synchronized (terminalDeliveryLock) {
+            // If called from withManagementMutation this monitor is
+            // re-entrant for the mutation owner; managementMutationActive is
+            // therefore not itself a conflict.  A different thread cannot
+            // enter this synchronized section while that owner holds it.
+            if (!activeTerminalLeases.isEmpty()) {
+                throw new ManagementMutationBusyException();
+            }
+            return SceneContextStore.withRootAccess(() -> {
+                synchronized (TranslationJobStore.this) {
+                    int suppressed = 0;
+                    for (File directory : jobStore.listValidJobDirectories()) {
+                        JSONObject state = readState(directory);
+                        if (state == null
+                            || !isTerminalStatus(
+                                state.optString("status", "")
+                            )
+                            || !terminalReferencesAnyPendingOwner(
+                                state,
+                                copy
+                            )) {
+                            continue;
+                        }
+                        TerminalOutcome.DeliveryState delivery =
+                            normalizeDeliveryStateLocked(directory, state);
+                        if (delivery
+                                == TerminalOutcome.DeliveryState.ACKNOWLEDGED
+                            || delivery
+                                == TerminalOutcome.DeliveryState.NOT_REQUIRED) {
+                            continue;
+                        }
+                        state.put(
+                            "delivery_state",
+                            TerminalOutcome.DeliveryState.NOT_REQUIRED.wireValue()
+                        );
+                        state.put(
+                            "delivery_suppressed_reason",
+                            "management_owner_deleted"
+                        );
+                        state.remove("delivery_lease");
+                        state.remove("delivery_lease_generation");
+                        state.remove("delivery_ack_lease");
+                        state.remove("delivery_ack_generation");
+                        state.put("updated_at", System.currentTimeMillis());
+                        writeState(directory, state);
+                        suppressed++;
+                    }
+                    return suppressed;
+                }
+            });
+        }
+    }
+
+    private static boolean terminalReferencesAnyPendingOwner(
+        JSONObject state,
+        Map<String, Set<String>> references
+    ) throws Exception {
+        String scene = state.optString("scene", "");
+        Set<String> scenes = references.get("scene");
+        if (scenes != null && scenes.contains(scene)) {
             return true;
         }
-        if (current != TerminalOutcome.DeliveryState.PENDING) {
+        Set<String> languages = references.get("language");
+        if (languages != null && !languages.isEmpty()) {
+            String targetLanguage = state.optString("target_lang", "");
+            if (!scene.isEmpty() && !targetLanguage.isEmpty()
+                && languages.contains(
+                    SceneStore.languageCanonicalId(scene, targetLanguage)
+                )) {
+                return true;
+            }
+        }
+        Object value = state.opt(HistoryMapping.FIELD);
+        if (HistoryMapping.resolutionOfValue(value)
+            != HistoryMapping.Resolution.VALID) {
             return false;
         }
-        state.put(
-            "delivery_state",
-            TerminalOutcome.DeliveryState.ACKNOWLEDGED.wireValue()
+        JSONObject mapping = (JSONObject) value;
+        String contextId = mapping.optString(
+            HistoryMapping.CONTEXT_ID,
+            ""
         );
-        state.put("updated_at", System.currentTimeMillis());
-        writeState(directory, state);
-        return true;
+        Set<String> contexts = references.get("context");
+        if (!contextId.isEmpty() && contexts != null
+            && contexts.contains(contextId)) {
+            return true;
+        }
+        Set<String> groups = references.get("group");
+        if (!mapping.isNull(HistoryMapping.GROUP_ID)) {
+            String groupId = mapping.optString(
+                HistoryMapping.GROUP_ID,
+                ""
+            );
+            return !groupId.isEmpty() && groups != null
+                && groups.contains(groupId);
+        }
+        return false;
     }
 
     /**
@@ -2611,6 +3425,12 @@ public final class TranslationJobStore {
         try {
             synchronized (this) {
                 validateRequestId(requestId);
+                if (isDamagedJobPending(requestId)) {
+                    throw new AdmissionException(
+                        "management_pending",
+                        "Translation job is in PendingProcess: " + requestId
+                    );
+                }
                 if (!preparedForServiceStart) {
                     refreshQueueSequenceFromDiskLocked();
                 }
@@ -3573,6 +4393,16 @@ public final class TranslationJobStore {
             }
 
             if (createNewJob) {
+                // PendingProcess admission is the linearization point while
+                // this JobStore monitor and the shared root gate are held. A
+                // move published after this snapshot is ordered after this
+                // admission. In particular, do not create a per-request
+                // directory or allocate a queue_sequence while a
+                // Scene/language or actually referenced Context/Group is held.
+                requireManagementAdmissionAllowedLocked(
+                    requestInfo,
+                    historyMapping
+                );
                 if (!jobDirectory.mkdir()) {
                     throw new IllegalStateException(
                         "Failed to create job directory: "
@@ -3935,6 +4765,108 @@ public final class TranslationJobStore {
         });
     }
 
+    /**
+     * Clears queued Translation Job history references to a deleted Context.
+     * Only a queued state with a structurally valid mapping is eligible; the
+     * immutable request bytes and all non-queued states remain untouched.
+     */
+    public int clearQueuedHistoryMappingsForDeletedContext(
+        String contextId
+    ) throws Exception {
+        return clearQueuedHistoryMappingsForDeletedTarget(contextId, null);
+    }
+
+    /**
+     * Clears queued Translation Job history references to a deleted Group by
+     * retaining each job's Context and explicitly setting {@code group_id} to
+     * JSON null. The operation is idempotent and leaves request.json intact.
+     */
+    public int clearQueuedHistoryMappingsForDeletedGroup(
+        String groupId
+    ) throws Exception {
+        return clearQueuedHistoryMappingsForDeletedTarget(null, groupId);
+    }
+
+    private int clearQueuedHistoryMappingsForDeletedTarget(
+        String contextId,
+        String groupId
+    ) throws Exception {
+        boolean deletingContext = contextId != null;
+        if (deletingContext == (groupId != null)) {
+            throw new IllegalArgumentException(
+                "exactly one deleted Context or Group id is required"
+            );
+        }
+        String deletedId = deletingContext ? contextId : groupId;
+        if (deletedId == null || deletedId.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                "deleted Context or Group id is required"
+            );
+        }
+        return SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                int rewritten = 0;
+                for (File directory : jobStore.listValidJobDirectories()) {
+                    final JSONObject state;
+                    try {
+                        state = readState(directory);
+                    } catch (Exception unreadable) {
+                        // A malformed/unreadable state is not a valid queued
+                        // candidate and must remain byte-for-byte untouched.
+                        continue;
+                    }
+                    if (state == null
+                        || !STATUS_QUEUED.equals(
+                            state.optString("status", "")
+                        )) {
+                        continue;
+                    }
+                    Object persistedMapping = state.opt(HistoryMapping.FIELD);
+                    if (HistoryMapping.resolutionOfValue(persistedMapping)
+                        != HistoryMapping.Resolution.VALID) {
+                        continue;
+                    }
+                    JSONObject mapping = (JSONObject) persistedMapping;
+                    String persistedContextId = mapping.optString(
+                        HistoryMapping.CONTEXT_ID,
+                        ""
+                    );
+                    Object rewrittenMapping;
+                    if (deletingContext) {
+                        if (!contextId.equals(persistedContextId)) {
+                            continue;
+                        }
+                        rewrittenMapping = JSONObject.NULL;
+                    } else {
+                        if (mapping.isNull(HistoryMapping.GROUP_ID)
+                            || !groupId.equals(mapping.optString(
+                                HistoryMapping.GROUP_ID,
+                                ""
+                            ))) {
+                            continue;
+                        }
+                        rewrittenMapping = HistoryMapping.fromActivePointers(
+                            persistedContextId,
+                            null
+                        );
+                    }
+                    requireHistoryMappingRewriteAllowed(
+                        state,
+                        directory.getName()
+                    );
+                    TranslationJobHistoryMapping.rewrite(
+                        state,
+                        rewrittenMapping
+                    );
+                    state.put("updated_at", System.currentTimeMillis());
+                    writeState(directory, state);
+                    rewritten++;
+                }
+                return rewritten;
+            }
+        });
+    }
+
     private void rewriteHistoryMappingLocked(
         String requestId,
         Object historyMapping
@@ -3947,6 +4879,16 @@ public final class TranslationJobStore {
                 "translation state is missing requestId=" + requestId
             );
         }
+        requireHistoryMappingRewriteAllowed(state, requestId);
+        TranslationJobHistoryMapping.rewrite(state, historyMapping);
+        state.put("updated_at", System.currentTimeMillis());
+        writeState(jobDirectory, state);
+    }
+
+    private static void requireHistoryMappingRewriteAllowed(
+        JSONObject state,
+        String requestId
+    ) throws AdmissionException {
         if (state.optBoolean(HISTORY_MEMBERSHIP_PENDING_FIELD, false)) {
             throw new AdmissionException(
                 "history_membership_pending",
@@ -3955,9 +4897,14 @@ public final class TranslationJobStore {
                     + requestId
             );
         }
-        TranslationJobHistoryMapping.rewrite(state, historyMapping);
-        state.put("updated_at", System.currentTimeMillis());
-        writeState(jobDirectory, state);
+        if (state.optBoolean(REVIEW_PUBLICATION_PENDING_FIELD, false)) {
+            throw new AdmissionException(
+                "review_publication_pending",
+                "Translation mapping is frozen until Review publication "
+                    + "commits: "
+                    + requestId
+            );
+        }
     }
 
     private ProcessResult rebuildStateFromRequest(
@@ -4744,6 +5691,7 @@ public final class TranslationJobStore {
         manualRerunCandidateIds.remove(requestId);
         historyMembershipPendingIds.remove(requestId);
         reviewPublicationPendingIds.remove(requestId);
+        managementPendingBlockedIds.remove(requestId);
         startupManualCandidateIds.remove(requestId);
         startupAdmissionOrder.remove(requestId);
         startupRepairCandidates.removeIf(candidate ->
@@ -4793,6 +5741,17 @@ public final class TranslationJobStore {
                     state.optString("status", "")
                 )) {
                 removePendingJobLocked(job);
+                continue;
+            }
+
+            PendingProcessStore.ReferenceSnapshot pendingReferences =
+                pendingProcessStore.snapshotReferences();
+            if (isBlockedByManagementPending(
+                state,
+                pendingReferences
+            )) {
+                removePendingJobLocked(job);
+                managementPendingBlockedIds.add(job.requestId);
                 continue;
             }
 
@@ -4953,6 +5912,166 @@ public final class TranslationJobStore {
             }
             throw writeFailure;
         }
+    }
+
+    private boolean isBlockedByManagementPending(
+        JSONObject state,
+        PendingProcessStore.ReferenceSnapshot references
+    ) throws Exception {
+        if (state == null || references == null || references.isEmpty()) {
+            return false;
+        }
+        String scene = state.optString("scene", "");
+        String targetLanguage = state.optString("target_lang", "");
+        if (isSceneOrLanguagePending(
+            scene,
+            targetLanguage,
+            references
+        )) {
+            return true;
+        }
+        Object mapping = state.opt(HistoryMapping.FIELD);
+        if (HistoryMapping.resolutionOfValue(mapping)
+            != HistoryMapping.Resolution.VALID) {
+            return false;
+        }
+        JSONObject mappingObject = (JSONObject) mapping;
+        String contextId = mappingObject.optString(
+            HistoryMapping.CONTEXT_ID,
+            ""
+        );
+        if (!contextId.isEmpty()
+            && references.isPending("context", contextId)) {
+            return true;
+        }
+        String groupId = null;
+        if (!mappingObject.isNull(HistoryMapping.GROUP_ID)) {
+            groupId = mappingObject.optString(
+                HistoryMapping.GROUP_ID,
+                ""
+            );
+            if (!groupId.isEmpty()
+                && references.isPending("group", groupId)) {
+                return true;
+            }
+        }
+        Set<String> checkedContextIds = new HashSet<>();
+        if (!contextId.isEmpty()) {
+            checkedContextIds.add(contextId);
+            if (hasPendingHistoricalScene(
+                contextId,
+                targetLanguage,
+                references
+            )) {
+                return true;
+            }
+        }
+        if (groupId != null && !groupId.isEmpty()) {
+            JSONObject group = sceneContextStore.getGroup(groupId);
+            for (String liveContextId : GroupContextEntry.contextIds(
+                group.optJSONArray("contexts")
+            )) {
+                if (!checkedContextIds.add(liveContextId)) {
+                    continue;
+                }
+                if (hasPendingHistoricalScene(
+                    liveContextId,
+                    targetLanguage,
+                    references
+                )) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void requireManagementAdmissionAllowedLocked(
+        JobValidator.RequestInfo requestInfo,
+        Object historyMapping
+    ) throws Exception {
+        PendingProcessStore.ReferenceSnapshot references =
+            pendingProcessStore.snapshotReferences();
+        JSONObject state = new JSONObject()
+            .put("scene", requestInfo.getScene())
+            .put("target_lang", requestInfo.getTargetLanguage())
+            .put(HistoryMapping.FIELD, historyMapping);
+        if (isBlockedByManagementPending(state, references)) {
+            throw new AdmissionException(
+                "management_pending",
+                "Translation admission is held by PendingProcess: scene="
+                    + requestInfo.getScene()
+                    + " target_lang="
+                    + requestInfo.getTargetLanguage()
+            );
+        }
+    }
+
+    private static boolean isSceneOrLanguagePending(
+        String scene,
+        String targetLanguage,
+        PendingProcessStore.ReferenceSnapshot references
+    ) throws Exception {
+        if (scene.isEmpty()) {
+            return false;
+        }
+        if (references.isPending("scene", scene)) {
+            return true;
+        }
+        if (targetLanguage.isEmpty()) {
+            return false;
+        }
+        String languageId = SceneStore.languageCanonicalId(
+            scene,
+            targetLanguage
+        );
+        return references.isPending("language", languageId);
+    }
+
+    private boolean hasPendingHistoricalScene(
+        String contextId,
+        String targetLanguage,
+        PendingProcessStore.ReferenceSnapshot references
+    ) throws Exception {
+        JSONObject context = sceneContextStore.getContext(contextId);
+        JSONArray scenes = context.optJSONArray("scenes");
+        if (scenes == null) {
+            return false;
+        }
+        for (int index = 0; index < scenes.length(); index++) {
+            JSONObject sceneEntry = scenes.optJSONObject(index);
+            if (sceneEntry == null) {
+                throw new IllegalStateException(
+                    "Context scenes entry is invalid contextId="
+                        + contextId
+                        + " index="
+                        + index
+                );
+            }
+            if (isSceneOrLanguagePending(
+                sceneEntry.optString("scene", ""),
+                targetLanguage,
+                references
+            )) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isDamagedJobPending(String requestId) throws Exception {
+        return isDamagedJobPending(
+            requestId,
+            pendingProcessStore.snapshotReferences()
+        );
+    }
+
+    private static boolean isDamagedJobPending(
+        String requestId,
+        PendingProcessStore.ReferenceSnapshot references
+    ) {
+        return references != null
+            && references.isPending("damaged_translation_job", requestId);
     }
 
     private void addPendingJobLocked(

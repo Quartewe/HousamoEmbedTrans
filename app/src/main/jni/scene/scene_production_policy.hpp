@@ -96,7 +96,7 @@ public:
     /** Replaces the complete blocked set and clears sync_worker_hold. */
     bool ReplaceBlockedScenes(const std::vector<std::string>& scene_names);
 
-    /** Fail-open reset used by Binder death and policy update failures. */
+    /** Explicit fail-open reset used when the controlling connection dies. */
     void FailOpen();
 
     /** Two-check production admission and active-count scope creation. */

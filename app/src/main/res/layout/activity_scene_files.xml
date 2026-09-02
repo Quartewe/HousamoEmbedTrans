@@ -117,6 +117,14 @@
             android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
             android:textStyle="bold" />
 
+        <LinearLayout
+            android:id="@+id/container_scene_batch_rows"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
         <TextView
             style="@style/Widget.HET.FieldLabel"
             android:text="@string/scene_file_label" />
@@ -139,13 +147,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="@string/delete_scene_language" />
+            android:text="@string/pending_process_move" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="@string/delete_scene_language_hint"
+            android:text="@string/pending_process_scene_language_hint"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
             android:textColor="?android:attr/textColorSecondary" />
 
@@ -155,15 +163,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="@string/delete_scene_file"
-            android:textColor="?attr/colorError"
-            app:strokeColor="?attr/colorError" />
+            android:text="@string/pending_process_move" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="@string/delete_scene_file_hint"
+            android:text="@string/pending_process_scene_hint"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
             android:textColor="?android:attr/textColorSecondary" />
 

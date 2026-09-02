@@ -32,15 +32,23 @@ bool SceneProductionPolicyStore::ReplaceBlockedScenes(
     const std::vector<std::string>& scene_names
 ) {
     std::lock_guard<std::mutex> lock(writer_mutex_);
-    if (scene_names.size() > 65536U) {
-        // A malformed update must not leave a previous hold/list active.
-        auto fail_open = std::make_shared<const SceneProductionPolicy>();
+    auto fail_open = [this]() {
+        // A failed complete replacement is a control-plane failure, not a
+        // valid policy.  Scene Sync deliberately fails open: retaining the
+        // previous list (or the temporary hold) could strand every future
+        // Scene production behind one failed one-shot Binder request.
+        auto next = std::make_shared<const SceneProductionPolicy>();
         std::atomic_store_explicit(
             &policy_,
-            std::move(fail_open),
+            std::move(next),
             std::memory_order_release
         );
         return false;
+    };
+    if (scene_names.size() > 65536U) {
+        // A malformed update must clear the complete policy and leave
+        // production fail-open; callers may retry with a valid replacement.
+        return fail_open();
     }
 
     auto next = std::make_shared<SceneProductionPolicy>();
@@ -48,15 +56,10 @@ bool SceneProductionPolicyStore::ReplaceBlockedScenes(
     for (const std::string& scene_name : scene_names) {
         if (!translation::scene_identity::IsValid(scene_name)
             || !next->blocked_scenes.insert(scene_name).second) {
-            // Treat any invalid/duplicate replacement as a failed control
-            // plane update and fail open rather than retaining stale blocks.
-            auto fail_open = std::make_shared<const SceneProductionPolicy>();
-            std::atomic_store_explicit(
-                &policy_,
-                std::move(fail_open),
-                std::memory_order_release
-            );
-            return false;
+            // Invalid or duplicate input is a failed control-plane update.
+            // Clear the complete policy and leave production fail-open;
+            // callers may retry with a valid complete replacement.
+            return fail_open();
         }
     }
     std::atomic_store_explicit(

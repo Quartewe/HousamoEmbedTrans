@@ -626,7 +626,7 @@ public final class ContextReviewCoordinator {
         deletedGroupIds.removeAll(finalGroupIds);
         Set<String> deletedContextIds = new HashSet<>(previousContextIds);
         deletedContextIds.removeAll(finalContextIds);
-        summaryJobStore.removeJobsForOwners(
+        summaryJobStore.invalidateJobsForOwners(
             deletedContextIds,
             deletedGroupIds
         );

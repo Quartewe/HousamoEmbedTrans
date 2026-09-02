@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.scene.sync;
 
 import com.quarty.housamoembedtrans.bridge.SceneSyncWireCodec;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessManager;
 import com.quarty.housamoembedtrans.scene.store.ConflictStore;
 import com.quarty.housamoembedtrans.scene.store.PendingSceneApplyStore;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
@@ -10,6 +11,7 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -252,31 +254,94 @@ public final class SceneManualConflictController {
         SceneApplyCoordinator applyCoordinator,
         ManualConflictAction action
     ) throws Exception {
-        ScenePolicyPublisher.Target target = policyPublisher.capture(
-            port,
-            snapshot.binder,
-            snapshot.generation
-        );
-        if (target == null) {
-            throw new IOException("manual policy target is stale");
-        }
-        final ScenePolicyPublisher.PublishResult[] result = {null};
-        action.commitIfActive(() -> result[0] =
-            policyPublisher.removeAndPublish(
-                target,
-                sceneName,
-                encodedCommand ->
-                    applyCoordinator.replaceBlockedScenesBlocking(
-                        snapshot.generation,
-                        port,
-                        encodedCommand
-                    )
-            )
-        );
-        if (result[0] == null || !result[0].isPublished()) {
-            throw new IOException(
-                "manual blocked-list publication did not succeed"
+        AtomicBoolean policyTransportAttempted = new AtomicBoolean();
+        try {
+            synchronized (PendingProcessManager.POLICY_PUBLICATION_LOCK) {
+            // Capture the complete management overlay while holding the same
+            // lock as PendingProcessManager mutations.  The initial action
+            // check is only an early rejection; this snapshot closes the
+            // publication race and is passed through to the publisher.
+            Set<String> freshManagement =
+                sceneStore.snapshotManagementPendingSceneNames();
+            if (freshManagement.contains(sceneName)) {
+                throw new IOException(
+                    "manual conflict publication rejected: management pending "
+                        + sceneName
+                );
+            }
+            ScenePolicyPublisher.Target target = policyPublisher.capture(
+                port,
+                snapshot.binder,
+                snapshot.generation
             );
+            if (target == null) {
+                throw new IOException("manual policy target is stale");
+            }
+            final ScenePolicyPublisher.PublishResult[] result = {null};
+            action.commitIfActive(() -> result[0] =
+                policyPublisher.removeAndPublish(
+                    target,
+                    sceneName,
+                    freshManagement,
+                    encodedCommand ->
+                        {
+                            // A preflight rejection (stale target, management
+                            // overlay race, or cancellation before the
+                            // publisher enters its transport callback) must
+                            // not reset a full-sync hold that this action did
+                            // not acquire or exercise.
+                            policyTransportAttempted.set(true);
+                            return applyCoordinator.replaceBlockedScenesBlocking(
+                                snapshot.generation,
+                                port,
+                                encodedCommand
+                            );
+                        }
+                )
+            );
+            if (result[0] != null && result[0].isPublished()) {
+                // APPLY_RESULT delivery is not the HET acknowledgement.  Keep
+                // the game-side generation marker until this explicit callback
+                // confirms that the publisher's PUBLISHED result was observed.
+                try {
+                    port.completeSceneProductionPolicy(snapshot.generation);
+                } catch (android.os.RemoteException | RuntimeException ackFailure) {
+                    // Native policy publication already succeeded; a failed
+                    // bookkeeping callback must not reset a newer/valid policy.
+                    Log.w(
+                        TAG,
+                        "Could not acknowledge manual Scene policy generation="
+                            + snapshot.generation,
+                        ackFailure
+                    );
+                }
+                return;
+            }
+            if (result[0] == null || !result[0].isPublished()) {
+                throw new IOException(
+                    "manual blocked-list publication did not succeed"
+                );
+            }
+            }
+        } catch (Exception failure) {
+            // Every path that did not obtain a PUBLISHED result (including
+            // cancellation, stale targets, transport errors, and exceptions)
+            // must fail open only this generation.  The port performs the
+            // generation check, so a late cleanup cannot clear a newer hold.
+            if (policyTransportAttempted.get()) {
+                try {
+                    port.resetSceneProductionPolicy(snapshot.generation);
+                } catch (android.os.RemoteException | RuntimeException resetFailure) {
+                    failure.addSuppressed(resetFailure);
+                    Log.w(
+                        TAG,
+                        "Could not fail-open manual Scene policy generation="
+                            + snapshot.generation,
+                        failure
+                    );
+                }
+            }
+            throw failure;
         }
     }
 
@@ -383,6 +448,13 @@ public final class SceneManualConflictController {
             Outcome outcome;
             try {
                 ensureActive();
+                if (sceneStore.snapshotManagementPendingSceneNames()
+                    .contains(sceneName)) {
+                    throw new IOException(
+                        "manual conflict action rejected: management pending "
+                            + sceneName
+                    );
+                }
                 applyCoordinator = applyCoordinatorFactory.create();
                 if (applyCoordinator == null) {
                     throw new IOException(

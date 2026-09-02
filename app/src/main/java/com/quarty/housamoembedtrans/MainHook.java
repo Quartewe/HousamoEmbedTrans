@@ -92,30 +92,38 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 }
 
                 @Override
-                public void onSceneCompleted(
+                public boolean onSceneCompleted(
                     String requestId,
                     String scene,
                     String targetLanguage,
-                    byte[] resultJson
+                    byte[] resultJson,
+                    String leaseToken,
+                    long connectionGeneration
                 ) {
-                    handleSceneResult(
+                    return handleSceneResult(
                         requestId,
                         scene,
                         targetLanguage,
-                        resultJson
+                        resultJson,
+                        leaseToken,
+                        connectionGeneration
                     );
                 }
 
                 @Override
-                public void onTranslationFailed(
+                public boolean onTranslationFailed(
                     String requestId,
                     String errorType,
-                    String message
+                    String message,
+                    String leaseToken,
+                    long connectionGeneration
                 ) {
-                    handleTranslationFailure(
+                    return handleTranslationFailure(
                         requestId,
                         errorType,
-                        message
+                        message,
+                        leaseToken,
+                        connectionGeneration
                     );
                 }
             };
@@ -141,6 +149,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         private long pendingExportGeneration;
         /** Generation that most recently acquired the native sync hold. */
         private long activeHoldGeneration;
+        /**
+         * Activity that acquired the currently tracked hold, or {@code null}
+         * for the generation/full-sync lease established before an apply
+         * activity exists.  A one-shot failure may reset only its own marker.
+         */
+        private ApplyActivity activeHoldOwner;
         /** Generation owning the currently published export session. */
         private long activeExportGeneration;
         private final int sceneWorkerCount;
@@ -170,7 +184,18 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
                     @Override
                     public void waitForActiveZero() {
-                        nativeWaitForSceneProductionIdle();
+                        try {
+                            nativeWaitForSceneProductionIdle();
+                        } catch (UnsatisfiedLinkError e) {
+                            // Surface linkage failure as an ordinary export
+                            // error so SceneMirrorExportCoordinator runs its
+                            // abort/finally path and the HET-side lease can
+                            // fail open instead of leaving inFlight stuck.
+                            throw new IllegalStateException(
+                                "Native Scene production wait is unavailable",
+                                e
+                            );
+                        }
                     }
                 },
                 new GameSceneMirrorSource(store)
@@ -193,19 +218,28 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 if (generation == activeSceneSyncGeneration) {
                     return false;
                 }
-                if (activeSceneSyncGeneration != 0L) {
-                    // Replacing a live registration must clear the complete
-                    // native control-plane policy, even when the previous
-                    // cycle already consumed its export hold.
-                    resetNativeScenePolicyUnconditionally(
-                        "generation activation"
+                boolean held;
+                try {
+                    // A newly activated port must never expose the native
+                    // fail-open default before its first complete policy
+                    // replacement. Preserve any previous blocked set and add
+                    // a global hold; the first valid replacement atomically
+                    // publishes the new generation's complete set.
+                    held = nativeBeginSceneSyncHold();
+                } catch (UnsatisfiedLinkError e) {
+                    XposedBridge.log(
+                        "[HousamoTrans] Scene policy native hold "
+                            + "is unavailable during generation activation"
                     );
+                    return false;
+                }
+                if (!held) {
+                    return false;
                 }
                 activeSceneSyncGeneration = generation;
                 pendingExportGeneration = 0L;
-                if (activeHoldGeneration != 0L) {
-                    activeHoldGeneration = 0L;
-                }
+                activeHoldGeneration = generation;
+                activeHoldOwner = null;
                 if (activeExportGeneration != 0L
                     && activeExportGeneration != generation) {
                     exportToAbort = currentExport.getAndSet(null);
@@ -240,6 +274,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 activeSceneSyncGeneration = 0L;
                 pendingExportGeneration = 0L;
                 activeHoldGeneration = 0L;
+                activeHoldOwner = null;
                 // Deactivation is also the fail-open boundary for a cycle
                 // whose hold was already consumed.  Reset the complete native
                 // policy while the generation token is still exclusively
@@ -275,7 +310,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             synchronized (policyHoldLock) {
                 if (generation <= 0L
                     || activeSceneSyncGeneration != generation
-                    || pendingExportGeneration != 0L) {
+                    || pendingExportGeneration != 0L
+                    || activeHoldOwner != null) {
+                    // A flushed one-shot REPLACE result remains owned by its
+                    // activity until the HET caller sends the generation-aware
+                    // complete ACK.  Do not let a same-generation export
+                    // acquire a second owner before that ACK arrives.
                     return false;
                 }
                 if (!currentActivity.compareAndSet(null, activity)) {
@@ -316,6 +356,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     // can therefore never miss the hold while acceptExport
                     // is still wiring the session.
                     activeHoldGeneration = pendingExportGeneration;
+                    activeHoldOwner = null;
                 }
                 return held;
             }
@@ -330,6 +371,39 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     return;
                 }
                 activeHoldGeneration = 0L;
+                activeHoldOwner = null;
+                resetNativeScenePolicyUnconditionally(reason);
+            }
+        }
+
+        /**
+         * Fails open only the hold owned by one one-shot apply activity.
+         *
+         * <p>A one-shot policy command is admitted when no full export
+         * activity is active, but its Binder task can still race generation
+         * deactivation or a newer registration.  Both the activity identity
+         * and generation therefore have to match before Java bookkeeping or
+         * the native policy is reset.  This keeps a late failure from
+         * clearing a full-sync/new-generation hold.  A task that was rejected
+         * by Native clears its owner marker before reporting the failure, so
+         * the guard also prevents a later cancellation from resetting an
+         * unrelated generation hold.</p>
+         */
+        private void resetOneShotHoldForActivity(
+            ApplyActivity activity,
+            String reason
+        ) {
+            if (activity == null || activity.fullSync) {
+                return;
+            }
+            synchronized (policyHoldLock) {
+                if (activeSceneSyncGeneration != activity.generation
+                    || (currentActivity.get() != activity
+                        && activeHoldOwner != activity)) {
+                    return;
+                }
+                activeHoldGeneration = 0L;
+                activeHoldOwner = null;
                 resetNativeScenePolicyUnconditionally(reason);
             }
         }
@@ -348,6 +422,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 activeSceneSyncGeneration = 0L;
                 pendingExportGeneration = 0L;
                 activeHoldGeneration = 0L;
+                activeHoldOwner = null;
                 activeExportGeneration = 0L;
                 export = currentExport.getAndSet(null);
                 activity = currentActivity.getAndSet(null);
@@ -390,6 +465,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 pipe = ParcelFileDescriptor.createPipe();
             } catch (IOException e) {
                 clearPendingExportGeneration(generation);
+                resetActiveHoldForGeneration(
+                    generation,
+                    "Scene export pipe creation failed"
+                );
                 currentActivity.compareAndSet(activity, null);
                 activity.finish();
                 XposedBridge.log(
@@ -484,6 +563,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 }
                 if (generationStillCurrent) {
                     activeHoldGeneration = generation;
+                    activeHoldOwner = activity;
                     activeExportGeneration = generation;
                     currentExport.set(acceptedSession);
                     acceptedSession.setCompletionListener(
@@ -504,6 +584,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     // in that window, clear exactly its hold while retaining
                     // any pending reservation belonging to a newer token.
                     activeHoldGeneration = 0L;
+                    activeHoldOwner = null;
                     resetNativeScenePolicyUnconditionally(
                         "stale Scene export generation"
                     );
@@ -527,10 +608,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
 
         /**
-         * Releases only the native hold acquired by this service generation.
-         * The operation owns this token and may call the method repeatedly;
-         * clearing the token before the JNI call makes the operation idempotent
-         * even when Binder cancellation and lifecycle cleanup race.
+         * Fails open the native policy for this service generation.  The
+         * generation and active-hold markers together identify the live
+         * export/policy lease.  A consumed or explicitly fail-opened hold is
+         * intentionally ignored, so a late same-generation cleanup cannot
+         * clear a newer successful replacement.  Clearing the marker before
+         * JNI keeps repeated cleanup idempotent.
          */
         @Override
         public void resetSceneProductionPolicy(long generation) {
@@ -543,6 +626,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     return;
                 }
                 activeHoldGeneration = 0L;
+                activeHoldOwner = null;
                 try {
                     nativeResetSceneProductionPolicy();
                 } catch (UnsatisfiedLinkError e) {
@@ -563,6 +647,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 if (activeSceneSyncGeneration == generation
                     && activeHoldGeneration == generation) {
                     activeHoldGeneration = 0L;
+                    activeHoldOwner = null;
                 }
             }
         }
@@ -633,6 +718,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     // its result/abort path finishes.  Do not admit a second
                     // request only to have the first terminal task cancel it
                     // underneath.
+                    admitted = false;
+                }
+                if (admitted && activity == null && activeHoldOwner != null) {
+                    // A successful one-shot REPLACE has already flushed its
+                    // result and finished its Activity, but its native policy
+                    // lease is still waiting for HET's generation-aware ACK.
+                    // Reject a new one-shot in that window so its completion
+                    // cannot consume the new owner's marker.
                     admitted = false;
                 }
                 if (admitted && activity == null) {
@@ -778,6 +871,26 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             private final AtomicReference<SceneStore.RawSceneWriteSession>
                 stagedWrite = new AtomicReference<>();
             private final AtomicBoolean cancelled = new AtomicBoolean();
+            /**
+             * Only REPLACE_BLOCKED_SCENES owns the process-wide native policy
+             * hold.  WRITE_SCENE also uses a one-shot ApplyActivity for
+             * admission/cleanup, but it must never be allowed to reset the
+             * policy belonging to another Scene or sync generation.
+             */
+            private final AtomicBoolean ownsPolicyHold =
+                new AtomicBoolean();
+            /**
+             * Set once this REPLACE task may have established a native hold,
+             * and cleared only after Native rejected the replacement or an
+             * explicit generation-aware reset.  A successfully flushed result
+             * remains held until the HET caller acknowledges it through
+             * completeSceneProductionPolicy(generation).
+             */
+            private final AtomicBoolean policyHoldNeedsReset =
+                new AtomicBoolean();
+            /** A flushed successful policy result is waiting for HET ACK. */
+            private final AtomicBoolean policyResultDelivered =
+                new AtomicBoolean();
 
             private ApplyTask(
                 ApplyActivity activity,
@@ -803,6 +916,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 boolean success = false;
                 boolean terminalCommand = false;
                 boolean deleteCommand = false;
+                boolean resultWriteSucceeded = false;
                 int resultCode = SceneSyncWireCodec.APPLY_INTERNAL_FAILURE;
                 try (
                     InputStream input =
@@ -841,6 +955,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                         terminalCommand =
                             request.command.type
                                 == SceneSyncWireCodec.RecordType.REPLACE_BLOCKED_SCENES;
+                        ownsPolicyHold.set(terminalCommand);
+                        policyHoldNeedsReset.set(terminalCommand);
                         deleteCommand =
                             request.command.type
                                 == SceneSyncWireCodec.RecordType.DELETE_SCENE;
@@ -895,15 +1011,51 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                                 }
                                 boolean policyUpdated;
                                 synchronized (policyHoldLock) {
-                                    if (activeSceneSyncGeneration
-                                        != activity.generation
-                                        || activity.finished.get()
-                                        || cancelled.get()
-                                        || currentActivity.get() != activity) {
+                                    ensureCommitAllowedLocked();
+                                    // Every replacement attempt is owned by
+                                    // this activity.  Mark the cleanup need
+                                    // before entering Native so a rejected or
+                                    // interrupted call can fail open even when
+                                    // the generation hold was established
+                                    // before this one-shot activity existed.
+                                    activeHoldGeneration =
+                                        activity.generation;
+                                    activeHoldOwner = activity;
+                                    policyHoldNeedsReset.set(true);
+                                    try {
+                                        if (!nativeBeginSceneSyncHold()) {
+                                            throw new IOException(
+                                                "Native Scene policy hold "
+                                                    + "was not acquired"
+                                            );
+                                        }
+                                    } catch (UnsatisfiedLinkError e) {
                                         throw new IOException(
-                                            "Scene policy generation is no "
-                                                + "longer current or was "
-                                                + "aborted"
+                                            "Native Scene policy hold is "
+                                                + "unavailable",
+                                            e
+                                        );
+                                    }
+                                }
+                                try {
+                                    nativeWaitForSceneProductionIdle();
+                                } catch (UnsatisfiedLinkError e) {
+                                    // Keep the native hold for the enclosing
+                                    // failure cleanup path; a one-shot reset
+                                    // is still restricted to this identity.
+                                    throw new IOException(
+                                        "Native Scene policy wait is "
+                                            + "unavailable",
+                                        e
+                                    );
+                                }
+                                synchronized (policyHoldLock) {
+                                    ensureCommitAllowedLocked();
+                                    if (activeHoldGeneration
+                                        != activity.generation
+                                        || activeHoldOwner != activity) {
+                                        throw new IOException(
+                                            "Scene policy hold was lost"
                                         );
                                     }
                                     try {
@@ -919,6 +1071,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                                                 + "Scene policy update is "
                                                 + "unavailable"
                                         );
+                                    }
+                                    // Native explicitly fail-opens on a
+                                    // rejected complete replacement.  Clear
+                                    // only this attempt's Java marker; a true
+                                    // replacement keeps the marker until the
+                                    // result bytes are durably flushed below.
+                                    if (!policyUpdated) {
+                                        activeHoldGeneration = 0L;
+                                        activeHoldOwner = null;
+                                        policyHoldNeedsReset.set(false);
                                     }
                                 }
                                 if (!policyUpdated) {
@@ -973,7 +1135,17 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                             success,
                             resultCode
                         );
-                        output.flush();
+                        synchronized (policyHoldLock) {
+                            output.flush();
+                            resultWriteSucceeded = true;
+                            if (success && ownsPolicyHold.get()) {
+                                policyResultDelivered.set(true);
+                            }
+                        }
+                        // A flushed APPLY_RESULT only acknowledges delivery to
+                        // the HET caller. Keep the generation/owner marker until
+                        // that caller explicitly confirms the policy with
+                        // completeSceneProductionPolicy(generation).
                     } catch (IOException e) {
                         XposedBridge.log(
                             "[HousamoTrans] Could not return Scene apply result: "
@@ -991,6 +1163,20 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     }
                 } finally {
                     closeEndpoints();
+                    if (ownsPolicyHold.get()
+                        && policyHoldNeedsReset.get()
+                        && (!success || !resultWriteSucceeded)) {
+                        // REPLACE_BLOCKED_SCENES is the only one-shot command
+                        // that owns the global native policy.  Every wait,
+                        // decode/apply, native-link, and result-stream failure
+                        // must release that exact activity's hold; never use a
+                        // generation-only reset that could clear a newer
+                        // full-sync activity.
+                        resetOneShotHoldForActivity(
+                            activity,
+                            "one-shot Scene policy apply failed"
+                        );
+                    }
                     finishActivityIfTerminal(terminalCommand);
                 }
             }
@@ -1029,6 +1215,22 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 SceneStore.RawSceneWriteSession staged = stagedWrite.get();
                 if (staged != null) {
                     staged.abort();
+                }
+                // Cancellation can happen before the request command is
+                // decoded.  In that case it is a WRITE_SCENE (or no command
+                // at all) until proven otherwise, so do not clear the global
+                // blocked-set policy.  A decoded REPLACE_BLOCKED_SCENES task
+                // records ownership before acquiring its native hold and is
+                // still cleaned by the guarded reset below.
+                synchronized (policyHoldLock) {
+                    if (ownsPolicyHold.get()
+                        && policyHoldNeedsReset.get()
+                        && !policyResultDelivered.get()) {
+                        resetOneShotHoldForActivity(
+                            activity,
+                            "one-shot Scene policy apply cancelled"
+                        );
+                    }
                 }
             }
 
@@ -1816,21 +2018,29 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         );
     }
 
-    private static void handleSceneResult(
+    private static boolean handleSceneResult(
         String requestId,
         String scene,
         String targetLanguage,
-        byte[] resultJson
+        byte[] resultJson,
+        String leaseToken,
+        long connectionGeneration
     ) {
+        TranslationServiceClient client = sTranslationClient;
         try {
-            TranslationServiceClient client = sTranslationClient;
-            if (client == null
-                || !client.preflightTerminal(requestId, "completed")) {
+            if (leaseToken == null || leaseToken.isEmpty()) {
                 XposedBridge.log(
-                    "[HousamoTrans] Ignoring completion without matching "
-                        + "pending terminal requestId=" + requestId
+                    "[HousamoTrans] Ignoring completion without delivery lease "
+                        + "requestId=" + requestId
                 );
-                return;
+                return false;
+            }
+            if (client == null) {
+                XposedBridge.log(
+                    "[HousamoTrans] Completion client disappeared after "
+                        + "delivery lease requestId=" + requestId
+                );
+                return false;
             }
             // Keep the persisted Scene identity outside the result body.  The
             // native bridge validates both values before it can apply a
@@ -1846,14 +2056,31 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     "[HousamoTrans] Native rejected completion requestId="
                         + requestId
                 );
-                return;
+                return releaseTerminalLease(
+                    client,
+                    requestId,
+                    "completed",
+                    leaseToken,
+                    connectionGeneration
+                );
             }
-            if (!client.acknowledgeTerminal(requestId, "completed")) {
+            if (!client.acknowledgeTerminal(
+                requestId,
+                "completed",
+                leaseToken,
+                connectionGeneration
+            )) {
                 XposedBridge.log(
                     "[HousamoTrans] Completion ACK was not persisted "
                         + "requestId=" + requestId
                 );
-                return;
+                return releaseTerminalLease(
+                    client,
+                    requestId,
+                    "completed",
+                    leaseToken,
+                    connectionGeneration
+                );
             }
             nativeAcknowledgeTranslationTerminal(requestId, "completed");
             XposedBridge.log(
@@ -1864,6 +2091,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + " targetLang="
                     + targetLanguage
             );
+            return true;
         } catch (UnsatisfiedLinkError e) {
             if (!sMissingSceneResultNativeLogged) {
                 sMissingSceneResultNativeLogged = true;
@@ -1873,10 +2101,24 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                         + "the terminal remains pending for retry"
                 );
             }
+            return releaseTerminalLease(
+                client,
+                requestId,
+                "completed",
+                leaseToken,
+                connectionGeneration
+            );
         } catch (RemoteException e) {
             XposedBridge.log(
-                "[HousamoTrans] Completion preflight/ACK Binder call failed "
+                "[HousamoTrans] Completion delivery Binder call failed "
                     + "requestId=" + requestId + ": " + safeMessage(e)
+            );
+            return releaseTerminalLease(
+                client,
+                requestId,
+                "completed",
+                leaseToken,
+                connectionGeneration
             );
         } catch (RuntimeException e) {
             XposedBridge.log(
@@ -1885,36 +2127,73 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + ": "
                     + safeMessage(e)
             );
+            return releaseTerminalLease(
+                client,
+                requestId,
+                "completed",
+                leaseToken,
+                connectionGeneration
+            );
         }
     }
 
-    private static void handleTranslationFailure(
+    private static boolean handleTranslationFailure(
         String requestId,
         String errorType,
-        String message
+        String message,
+        String leaseToken,
+        long connectionGeneration
     ) {
+        TranslationServiceClient client = sTranslationClient;
         try {
-            TranslationServiceClient client = sTranslationClient;
-            if (client == null
-                || !client.preflightTerminal(requestId, "failed")) {
+            if (leaseToken == null || leaseToken.isEmpty()) {
                 XposedBridge.log(
-                    "[HousamoTrans] Ignoring failure without matching "
-                        + "pending terminal requestId=" + requestId
+                    "[HousamoTrans] Ignoring failure without delivery lease "
+                        + "requestId=" + requestId
                 );
-                return;
+                return false;
+            }
+            if (client == null) {
+                XposedBridge.log(
+                    "[HousamoTrans] Failure client disappeared after delivery "
+                        + "lease requestId=" + requestId
+                );
+                return false;
             }
             boolean accepted = nativeOnTranslationFailed(
                 requestId,
                 errorType,
                 message
             );
-            if (accepted && client.acknowledgeTerminal(requestId, "failed")) {
-                nativeAcknowledgeTranslationTerminal(requestId, "failed");
-                XposedBridge.log(
-                    "[HousamoTrans] Failure ACK persisted requestId="
-                        + requestId
+            if (!accepted) {
+                return releaseTerminalLease(
+                    client,
+                    requestId,
+                    "failed",
+                    leaseToken,
+                    connectionGeneration
                 );
             }
+            if (!client.acknowledgeTerminal(
+                requestId,
+                "failed",
+                leaseToken,
+                connectionGeneration
+            )) {
+                return releaseTerminalLease(
+                    client,
+                    requestId,
+                    "failed",
+                    leaseToken,
+                    connectionGeneration
+                );
+            }
+            nativeAcknowledgeTranslationTerminal(requestId, "failed");
+            XposedBridge.log(
+                "[HousamoTrans] Failure ACK persisted requestId="
+                    + requestId
+            );
+            return true;
         } catch (UnsatisfiedLinkError e) {
             if (!sMissingFailureNativeLogged) {
                 sMissingFailureNativeLogged = true;
@@ -1924,10 +2203,24 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                         + "the terminal remains pending for retry"
                 );
             }
+            return releaseTerminalLease(
+                client,
+                requestId,
+                "failed",
+                leaseToken,
+                connectionGeneration
+            );
         } catch (RemoteException e) {
             XposedBridge.log(
-                "[HousamoTrans] Failure preflight/ACK Binder call failed "
+                "[HousamoTrans] Failure delivery Binder call failed "
                     + "requestId=" + requestId + ": " + safeMessage(e)
+            );
+            return releaseTerminalLease(
+                client,
+                requestId,
+                "failed",
+                leaseToken,
+                connectionGeneration
             );
         } catch (RuntimeException e) {
             XposedBridge.log(
@@ -1936,6 +2229,13 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + ": "
                     + safeMessage(e)
             );
+            return releaseTerminalLease(
+                client,
+                requestId,
+                "failed",
+                leaseToken,
+                connectionGeneration
+            );
         } finally {
             XposedBridge.log(
                 "[HousamoTrans] Translation failed requestId="
@@ -1943,8 +2243,43 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + " type="
                     + errorType
                     + " message="
-                    + message
+                + message
             );
+        }
+    }
+
+    private static boolean releaseTerminalLease(
+        TranslationServiceClient client,
+        String requestId,
+        String terminalKind,
+        String leaseToken,
+        long connectionGeneration
+    ) {
+        if (leaseToken == null || leaseToken.isEmpty()) {
+            // No lease was acquired, so there is nothing for this fallback
+            // path to release.
+            return true;
+        }
+        if (client == null) {
+            // Keep the lease token visible to TranslationServiceClient's
+            // local finally block, which still owns the cached Binder.
+            return false;
+        }
+        try {
+            return client.releaseTerminalDelivery(
+                requestId,
+                terminalKind,
+                leaseToken,
+                connectionGeneration
+            );
+        } catch (RemoteException | RuntimeException e) {
+            XposedBridge.log(
+                "[HousamoTrans] Could not release terminal lease requestId="
+                    + requestId
+                    + ": "
+                    + safeMessage(e)
+            );
+            return false;
         }
     }
 
