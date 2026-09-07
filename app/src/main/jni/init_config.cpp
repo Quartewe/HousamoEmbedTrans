@@ -43,6 +43,7 @@ bool valid_rva_config(const RvaConfig& config) {
         {"page_text_change", config.page_text_change},
         {"add_selection", config.add_selection},
         {"show_selection", config.show_selection},
+        {"remake_text", config.remake_text},
     };
     for (const RvaField& field : fields) {
         if (!valid_rva(field.value)) {

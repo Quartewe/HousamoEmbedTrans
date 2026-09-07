@@ -86,6 +86,7 @@ static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
     out.page_text_change = get_uintptr_field(env, rvaConfigObj, "pageTextChange");
     out.add_selection = get_uintptr_field(env, rvaConfigObj, "addSelection");
     out.show_selection = get_uintptr_field(env, rvaConfigObj, "showSelection");
+    out.remake_text = get_uintptr_field(env, rvaConfigObj, "remakeText");
     return out;
 }
 
@@ -472,10 +473,12 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
 
     LOGI("Received RVA config from Java: FindScenarioData=0x%" PRIxPTR
          ", InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR
+         ", RemakeText=0x%" PRIxPTR
          ", SceneWorkerCount=%d, PageRecDebug=%d, ParseOnlyDebug=%d, OverwriteExistingJson=%d",
          config.rva.find_scenario_data,
          config.rva.init_base,
          config.rva.init_text,
+         config.rva.remake_text,
          config.scene_worker_count,
          config.enable_page_rec_debug ? 1 : 0,
          config.parse_only_debug ? 1 : 0,

@@ -1258,6 +1258,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         long pageTextChange = 0;
         long addSelection = 0;
         long showSelection = 0;
+        long remakeText = 0;
     }
 
     private static final class Layout {
@@ -1505,6 +1506,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         rva.pageTextChange = parseRVA(rva_config.getString("RVA_PageTextChange"));
         rva.addSelection = parseRVA(rva_config.getString("RVA_AddSelection"));
         rva.showSelection = parseRVA(rva_config.getString("RVA_ShowSelection"));
+        rva.remakeText = parseRVA(rva_config.getString("RVA_RemakeText"));
         return rva;
     }
 

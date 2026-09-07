@@ -168,6 +168,7 @@ struct RvaConfig {
     uintptr_t page_text_change = 0;
     uintptr_t add_selection = 0;
     uintptr_t show_selection = 0;
+    uintptr_t remake_text = 0;
 };
 
 struct LayoutConfig {
