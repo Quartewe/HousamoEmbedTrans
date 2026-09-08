@@ -1265,6 +1265,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Il2CppStringLayout il2CppString = new Il2CppStringLayout();
         Il2CppArrayLayout il2CppArray = new Il2CppArrayLayout();
         Il2CppListLayout il2CppList = new Il2CppListLayout();
+        AdvPageLayout advPage = new AdvPageLayout();
         AdvScenarioPageDataLayout advScenarioPageData = new AdvScenarioPageDataLayout();
         ScenarioLabelDataLayout scenarioLabelData = new ScenarioLabelDataLayout();
         AdvScenarioDataLayout advScenarioData = new AdvScenarioDataLayout();
@@ -1291,6 +1292,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         private static final class Il2CppListLayout {
             long items = 0;
             long size = 0;
+        }
+
+        private static final class AdvPageLayout {
+            long currentData = 0;
         }
 
         private static final class AdvScenarioPageDataLayout {
@@ -1526,6 +1531,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         JSONObject il2CppList = layoutConfig.getJSONObject("Il2CppList");
         layout.il2CppList.items = getConfigLong(il2CppList, "Items");
         layout.il2CppList.size = getConfigLong(il2CppList, "Size");
+
+        JSONObject advPage = layoutConfig.getJSONObject("AdvPage");
+        layout.advPage.currentData = getConfigLong(advPage, "CurrentData");
 
         JSONObject pageData = layoutConfig.getJSONObject("AdvScenarioPageData");
         layout.advScenarioPageData.commandList = getConfigLong(pageData, "CommandList");

@@ -94,6 +94,10 @@ struct Il2CppListLayoutConfig {
     size_t size = 0;
 };
 
+struct AdvPageLayoutConfig {
+    size_t current_data = 0;
+};
+
 struct AdvScenarioPageDataLayoutConfig {
     size_t command_list = 0;
     size_t text_data_list = 0;
@@ -175,6 +179,7 @@ struct LayoutConfig {
     Il2CppStringLayoutConfig il2cpp_string;
     Il2CppArrayLayoutConfig il2cpp_array;
     Il2CppListLayoutConfig il2cpp_list;
+    AdvPageLayoutConfig adv_page;
     AdvScenarioPageDataLayoutConfig adv_scenario_page_data;
     ScenarioLabelDataLayoutConfig scenario_label_data;
     AdvScenarioDataLayoutConfig adv_scenario_data;

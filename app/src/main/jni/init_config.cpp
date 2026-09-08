@@ -65,6 +65,7 @@ bool valid_layout_config(const LayoutConfig& config) {
         {"il2cpp_array.first_element", config.il2cpp_array.first_element},
         {"il2cpp_list.items", config.il2cpp_list.items},
         {"il2cpp_list.size", config.il2cpp_list.size},
+        {"adv_page.current_data", config.adv_page.current_data},
         {"adv_scenario_page_data.command_list", config.adv_scenario_page_data.command_list},
         {"adv_scenario_page_data.text_data_list", config.adv_scenario_page_data.text_data_list},
         {"adv_scenario_page_data.scenario_label_data", config.adv_scenario_page_data.scenario_label_data},

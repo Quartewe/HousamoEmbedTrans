@@ -108,6 +108,7 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
     static constexpr const char* kIl2CppStringSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppStringLayout;";
     static constexpr const char* kIl2CppArraySig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppArrayLayout;";
     static constexpr const char* kIl2CppListSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppListLayout;";
+    static constexpr const char* kAdvPageSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvPageLayout;";
     static constexpr const char* kPageDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvScenarioPageDataLayout;";
     static constexpr const char* kScenarioLabelDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$ScenarioLabelDataLayout;";
     static constexpr const char* kScenarioDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvScenarioDataLayout;";
@@ -137,6 +138,10 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
     out.il2cpp_list.items = get_size_field(env, il2cpp_list, "items");
     out.il2cpp_list.size = get_size_field(env, il2cpp_list, "size");
     if (il2cpp_list != nullptr) env->DeleteLocalRef(il2cpp_list);
+
+    jobject adv_page = get_object_field(env, layoutObj, "advPage", kAdvPageSig);
+    out.adv_page.current_data = get_size_field(env, adv_page, "currentData");
+    if (adv_page != nullptr) env->DeleteLocalRef(adv_page);
 
     jobject page_data = get_object_field(env, layoutObj, "advScenarioPageData", kPageDataSig);
     out.adv_scenario_page_data.command_list = get_size_field(env, page_data, "commandList");
