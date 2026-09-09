@@ -1259,6 +1259,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         long addSelection = 0;
         long showSelection = 0;
         long remakeText = 0;
+        long uguiSelectionInit = 0;
+        long uguiSelectionClearAll = 0;
+        long uiTextSetText = 0;
     }
 
     private static final class Layout {
@@ -1266,6 +1269,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Il2CppArrayLayout il2CppArray = new Il2CppArrayLayout();
         Il2CppListLayout il2CppList = new Il2CppListLayout();
         AdvPageLayout advPage = new AdvPageLayout();
+        AdvEngineLayout advEngine = new AdvEngineLayout();
+        AdvSelectionManagerLayout advSelectionManager =
+            new AdvSelectionManagerLayout();
+        AdvSelectionLayout advSelection = new AdvSelectionLayout();
+        AdvUguiSelectionLayout advUguiSelection =
+            new AdvUguiSelectionLayout();
         AdvScenarioPageDataLayout advScenarioPageData = new AdvScenarioPageDataLayout();
         ScenarioLabelDataLayout scenarioLabelData = new ScenarioLabelDataLayout();
         AdvScenarioDataLayout advScenarioData = new AdvScenarioDataLayout();
@@ -1296,6 +1305,26 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         private static final class AdvPageLayout {
             long currentData = 0;
+            long engine = 0;
+        }
+
+        private static final class AdvEngineLayout {
+            long selectionManager = 0;
+        }
+
+        private static final class AdvSelectionManagerLayout {
+            long selections = 0;
+            long isShowing = 0;
+        }
+
+        private static final class AdvSelectionLayout {
+            long text = 0;
+            long rowData = 0;
+        }
+
+        private static final class AdvUguiSelectionLayout {
+            long text = 0;
+            long data = 0;
         }
 
         private static final class AdvScenarioPageDataLayout {
@@ -1512,6 +1541,15 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         rva.addSelection = parseRVA(rva_config.getString("RVA_AddSelection"));
         rva.showSelection = parseRVA(rva_config.getString("RVA_ShowSelection"));
         rva.remakeText = parseRVA(rva_config.getString("RVA_RemakeText"));
+        rva.uguiSelectionInit = parseRVA(
+            rva_config.getString("RVA_UguiSelectionInit")
+        );
+        rva.uguiSelectionClearAll = parseRVA(
+            rva_config.getString("RVA_UguiSelectionClearAll")
+        );
+        rva.uiTextSetText = parseRVA(
+            rva_config.getString("RVA_UiTextSetText")
+        );
         return rva;
     }
 
@@ -1534,6 +1572,41 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         JSONObject advPage = layoutConfig.getJSONObject("AdvPage");
         layout.advPage.currentData = getConfigLong(advPage, "CurrentData");
+        layout.advPage.engine = getConfigLong(advPage, "Engine");
+
+        JSONObject advEngine = layoutConfig.getJSONObject("AdvEngine");
+        layout.advEngine.selectionManager = getConfigLong(
+            advEngine,
+            "SelectionManager"
+        );
+
+        JSONObject advSelectionManager = layoutConfig.getJSONObject(
+            "AdvSelectionManager"
+        );
+        layout.advSelectionManager.selections = getConfigLong(
+            advSelectionManager,
+            "Selections"
+        );
+        layout.advSelectionManager.isShowing = getConfigLong(
+            advSelectionManager,
+            "IsShowing"
+        );
+
+        JSONObject advSelection = layoutConfig.getJSONObject("AdvSelection");
+        layout.advSelection.text = getConfigLong(advSelection, "Text");
+        layout.advSelection.rowData = getConfigLong(advSelection, "RowData");
+
+        JSONObject advUguiSelection = layoutConfig.getJSONObject(
+            "AdvUguiSelection"
+        );
+        layout.advUguiSelection.text = getConfigLong(
+            advUguiSelection,
+            "Text"
+        );
+        layout.advUguiSelection.data = getConfigLong(
+            advUguiSelection,
+            "Data"
+        );
 
         JSONObject pageData = layoutConfig.getJSONObject("AdvScenarioPageData");
         layout.advScenarioPageData.commandList = getConfigLong(pageData, "CommandList");

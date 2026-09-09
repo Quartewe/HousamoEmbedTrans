@@ -8,7 +8,10 @@
             "RVA_PageTextChange": "0x21CB71C",
             "RVA_AddSelection": "0x21CE054",
             "RVA_ShowSelection": "0x21CE47C",
-            "RVA_RemakeText": "0x21C85A4"
+            "RVA_RemakeText": "0x21C85A4",
+            "RVA_UguiSelectionInit": "0x21E703C",
+            "RVA_UguiSelectionClearAll": "0x21E7484",
+            "RVA_UiTextSetText": "0x47D1B60"
         },
         "Layout": {
             "Il2CppString": {
@@ -25,7 +28,23 @@
                 "Size": "0x18"
             },
             "AdvPage": {
-                "CurrentData": "0x88"
+                "CurrentData": "0x88",
+                "Engine": "0xD0"
+            },
+            "AdvEngine": {
+                "SelectionManager": "0x48"
+            },
+            "AdvSelectionManager": {
+                "Selections": "0x28",
+                "IsShowing": "0x38"
+            },
+            "AdvSelection": {
+                "Text": "0x18",
+                "RowData": "0x58"
+            },
+            "AdvUguiSelection": {
+                "Text": "0x20",
+                "Data": "0x28"
             },
             "AdvScenarioPageData": {
                 "CommandList": "0x10",

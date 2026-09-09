@@ -87,6 +87,21 @@ static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
     out.add_selection = get_uintptr_field(env, rvaConfigObj, "addSelection");
     out.show_selection = get_uintptr_field(env, rvaConfigObj, "showSelection");
     out.remake_text = get_uintptr_field(env, rvaConfigObj, "remakeText");
+    out.ugui_selection_init = get_uintptr_field(
+        env,
+        rvaConfigObj,
+        "uguiSelectionInit"
+    );
+    out.ugui_selection_clear_all = get_uintptr_field(
+        env,
+        rvaConfigObj,
+        "uguiSelectionClearAll"
+    );
+    out.ui_text_set_text = get_uintptr_field(
+        env,
+        rvaConfigObj,
+        "uiTextSetText"
+    );
     return out;
 }
 
@@ -109,6 +124,10 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
     static constexpr const char* kIl2CppArraySig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppArrayLayout;";
     static constexpr const char* kIl2CppListSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$Il2CppListLayout;";
     static constexpr const char* kAdvPageSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvPageLayout;";
+    static constexpr const char* kAdvEngineSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvEngineLayout;";
+    static constexpr const char* kAdvSelectionManagerSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvSelectionManagerLayout;";
+    static constexpr const char* kAdvSelectionSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvSelectionLayout;";
+    static constexpr const char* kAdvUguiSelectionSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvUguiSelectionLayout;";
     static constexpr const char* kPageDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvScenarioPageDataLayout;";
     static constexpr const char* kScenarioLabelDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$ScenarioLabelDataLayout;";
     static constexpr const char* kScenarioDataSig = "Lcom/quarty/housamoembedtrans/MainHook$Layout$AdvScenarioDataLayout;";
@@ -141,7 +160,66 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
 
     jobject adv_page = get_object_field(env, layoutObj, "advPage", kAdvPageSig);
     out.adv_page.current_data = get_size_field(env, adv_page, "currentData");
+    out.adv_page.engine = get_size_field(env, adv_page, "engine");
     if (adv_page != nullptr) env->DeleteLocalRef(adv_page);
+
+    jobject adv_engine = get_object_field(env, layoutObj, "advEngine", kAdvEngineSig);
+    out.adv_engine.selection_manager = get_size_field(
+        env,
+        adv_engine,
+        "selectionManager"
+    );
+    if (adv_engine != nullptr) env->DeleteLocalRef(adv_engine);
+
+    jobject adv_selection_manager = get_object_field(
+        env,
+        layoutObj,
+        "advSelectionManager",
+        kAdvSelectionManagerSig
+    );
+    out.adv_selection_manager.selections = get_size_field(
+        env,
+        adv_selection_manager,
+        "selections"
+    );
+    out.adv_selection_manager.is_showing = get_size_field(
+        env,
+        adv_selection_manager,
+        "isShowing"
+    );
+    if (adv_selection_manager != nullptr) {
+        env->DeleteLocalRef(adv_selection_manager);
+    }
+
+    jobject adv_selection = get_object_field(
+        env,
+        layoutObj,
+        "advSelection",
+        kAdvSelectionSig
+    );
+    out.adv_selection.text = get_size_field(env, adv_selection, "text");
+    out.adv_selection.row_data = get_size_field(env, adv_selection, "rowData");
+    if (adv_selection != nullptr) env->DeleteLocalRef(adv_selection);
+
+    jobject adv_ugui_selection = get_object_field(
+        env,
+        layoutObj,
+        "advUguiSelection",
+        kAdvUguiSelectionSig
+    );
+    out.adv_ugui_selection.text = get_size_field(
+        env,
+        adv_ugui_selection,
+        "text"
+    );
+    out.adv_ugui_selection.data = get_size_field(
+        env,
+        adv_ugui_selection,
+        "data"
+    );
+    if (adv_ugui_selection != nullptr) {
+        env->DeleteLocalRef(adv_ugui_selection);
+    }
 
     jobject page_data = get_object_field(env, layoutObj, "advScenarioPageData", kPageDataSig);
     out.adv_scenario_page_data.command_list = get_size_field(env, page_data, "commandList");

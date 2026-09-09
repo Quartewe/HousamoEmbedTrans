@@ -96,6 +96,26 @@ struct Il2CppListLayoutConfig {
 
 struct AdvPageLayoutConfig {
     size_t current_data = 0;
+    size_t engine = 0;
+};
+
+struct AdvEngineLayoutConfig {
+    size_t selection_manager = 0;
+};
+
+struct AdvSelectionManagerLayoutConfig {
+    size_t selections = 0;
+    size_t is_showing = 0;
+};
+
+struct AdvSelectionLayoutConfig {
+    size_t text = 0;
+    size_t row_data = 0;
+};
+
+struct AdvUguiSelectionLayoutConfig {
+    size_t text = 0;
+    size_t data = 0;
 };
 
 struct AdvScenarioPageDataLayoutConfig {
@@ -173,6 +193,9 @@ struct RvaConfig {
     uintptr_t add_selection = 0;
     uintptr_t show_selection = 0;
     uintptr_t remake_text = 0;
+    uintptr_t ugui_selection_init = 0;
+    uintptr_t ugui_selection_clear_all = 0;
+    uintptr_t ui_text_set_text = 0;
 };
 
 struct LayoutConfig {
@@ -180,6 +203,10 @@ struct LayoutConfig {
     Il2CppArrayLayoutConfig il2cpp_array;
     Il2CppListLayoutConfig il2cpp_list;
     AdvPageLayoutConfig adv_page;
+    AdvEngineLayoutConfig adv_engine;
+    AdvSelectionManagerLayoutConfig adv_selection_manager;
+    AdvSelectionLayoutConfig adv_selection;
+    AdvUguiSelectionLayoutConfig adv_ugui_selection;
     AdvScenarioPageDataLayoutConfig adv_scenario_page_data;
     ScenarioLabelDataLayoutConfig scenario_label_data;
     AdvScenarioDataLayoutConfig adv_scenario_data;

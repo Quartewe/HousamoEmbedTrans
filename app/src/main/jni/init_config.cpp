@@ -44,6 +44,9 @@ bool valid_rva_config(const RvaConfig& config) {
         {"add_selection", config.add_selection},
         {"show_selection", config.show_selection},
         {"remake_text", config.remake_text},
+        {"ugui_selection_init", config.ugui_selection_init},
+        {"ugui_selection_clear_all", config.ugui_selection_clear_all},
+        {"ui_text_set_text", config.ui_text_set_text},
     };
     for (const RvaField& field : fields) {
         if (!valid_rva(field.value)) {
@@ -66,6 +69,14 @@ bool valid_layout_config(const LayoutConfig& config) {
         {"il2cpp_list.items", config.il2cpp_list.items},
         {"il2cpp_list.size", config.il2cpp_list.size},
         {"adv_page.current_data", config.adv_page.current_data},
+        {"adv_page.engine", config.adv_page.engine},
+        {"adv_engine.selection_manager", config.adv_engine.selection_manager},
+        {"adv_selection_manager.selections", config.adv_selection_manager.selections},
+        {"adv_selection_manager.is_showing", config.adv_selection_manager.is_showing},
+        {"adv_selection.text", config.adv_selection.text},
+        {"adv_selection.row_data", config.adv_selection.row_data},
+        {"adv_ugui_selection.text", config.adv_ugui_selection.text},
+        {"adv_ugui_selection.data", config.adv_ugui_selection.data},
         {"adv_scenario_page_data.command_list", config.adv_scenario_page_data.command_list},
         {"adv_scenario_page_data.text_data_list", config.adv_scenario_page_data.text_data_list},
         {"adv_scenario_page_data.scenario_label_data", config.adv_scenario_page_data.scenario_label_data},
