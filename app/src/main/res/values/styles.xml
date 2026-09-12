@@ -3,12 +3,37 @@
 
     <style name="Widget.HET" parent="" />
 
+    <!-- Shared card roles. Ordinary rows use TonalCard; information that
+         needs a visible boundary uses OutlinedCard. -->
+    <style name="Widget.HET.TonalCard" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/het_surface_container</item>
+        <item name="cardCornerRadius">14dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+
+    <style name="Widget.HET.OutlinedCard" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/het_surface_container</item>
+        <item name="cardCornerRadius">14dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.DetailCard" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/het_surface_container</item>
+        <item name="cardCornerRadius">18dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
     <style name="Widget.HET.SectionCard" parent="Widget.MaterialComponents.CardView">
         <item name="android:layout_marginBottom">12dp</item>
-        <item name="cardBackgroundColor">?attr/colorSurface</item>
-        <item name="cardCornerRadius">8dp</item>
+        <item name="cardBackgroundColor">@color/het_surface_container</item>
+        <item name="cardCornerRadius">14dp</item>
         <item name="cardElevation">0dp</item>
-        <item name="strokeColor">?android:attr/colorControlNormal</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
         <item name="strokeWidth">1dp</item>
     </style>
 
@@ -30,7 +55,7 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_weight">1</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
     </style>
 
     <style name="Widget.HET.SectionArrow" parent="TextAppearance.MaterialComponents.Subtitle1">
@@ -69,6 +94,13 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">8dp</item>
+        <item name="boxBackgroundColor">@color/het_surface_container</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">2dp</item>
+        <item name="boxCornerRadiusTopStart">10dp</item>
+        <item name="boxCornerRadiusTopEnd">10dp</item>
+        <item name="boxCornerRadiusBottomStart">10dp</item>
+        <item name="boxCornerRadiusBottomEnd">10dp</item>
     </style>
 
     <style name="Widget.HET.HelperText" parent="TextAppearance.MaterialComponents.Caption">
@@ -81,7 +113,76 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginBottom">4dp</item>
-        <item name="android:textColor">@color/config_warning</item>
+        <item name="android:textColor">@color/het_warning</item>
+    </style>
+
+    <!-- Material Components button roles; labels remain sentence case and
+         keep the prototype's compact 40dp action height. -->
+    <style name="Widget.HET.Button" parent="Widget.MaterialComponents.Button">
+        <item name="android:minHeight">40dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">20dp</item>
+    </style>
+
+    <style name="Widget.HET.Button.Primary" parent="Widget.HET.Button">
+        <item name="backgroundTint">@color/het_primary_container</item>
+        <item name="android:textColor">@color/het_on_primary_container</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+
+    <style name="Widget.HET.Button.Secondary" parent="Widget.HET.Button">
+        <item name="backgroundTint">@color/het_button_secondary_background</item>
+        <item name="android:textColor">@color/het_button_secondary_text</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.Button.Tonal" parent="Widget.HET.Button">
+        <item name="backgroundTint">@color/het_primary_container</item>
+        <item name="android:textColor">@color/het_on_primary_container</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.Button.Danger" parent="Widget.HET.Button">
+        <item name="backgroundTint">@color/het_error</item>
+        <item name="android:textColor">@color/het_on_error</item>
+        <item name="strokeColor">@color/het_error</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.Button.Good" parent="Widget.HET.Button">
+        <item name="backgroundTint">@color/het_good_container</item>
+        <item name="android:textColor">@color/het_good</item>
+        <item name="strokeColor">@color/het_good</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.Button.Text" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:minHeight">40dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/het_primary</item>
+        <item name="cornerRadius">20dp</item>
+    </style>
+
+    <!-- Relation/array/file empty states stay compact and do not reserve a
+         large card-sized block. -->
+    <style name="Widget.HET.CompactEmptyState" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
 
     <style name="Widget.HET.DecimalInput">

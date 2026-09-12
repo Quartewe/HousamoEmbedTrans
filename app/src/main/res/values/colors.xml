@@ -7,9 +7,28 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="het_primary">#FF455A64</color>
-    <color name="het_primary_dark">#FF263238</color>
-    <color name="het_secondary">#FF607D8B</color>
-    <color name="config_status_background">#FFE8EEF1</color>
-    <color name="config_warning">#FF8A4B08</color>
+    <!-- Shared palette mapped from the confirmed navigation prototype. The
+         application still uses Material Components (Material 2) roles. -->
+    <color name="het_primary">#FF4D5FB3</color>
+    <color name="het_primary_dark">#FF34458F</color>
+    <color name="het_secondary">#FF4D5FB3</color>
+    <color name="het_primary_container">#FFDFE5FF</color>
+    <color name="het_on_primary_container">#FF0E1B4F</color>
+    <color name="het_surface">#FFF9F9FF</color>
+    <color name="het_surface_container">#FFEEEFF7</color>
+    <color name="het_surface_container_high">#FFE5E7F0</color>
+    <color name="het_on_surface">#FF191B23</color>
+    <color name="het_on_surface_muted">#FF5F616C</color>
+    <color name="het_outline">#FF777985</color>
+    <color name="het_outline_soft">#FFD0D2DC</color>
+    <color name="het_good">#FF0D715A</color>
+    <color name="het_good_container">#FFC2F2DF</color>
+    <color name="het_warning">#FF805000</color>
+    <color name="het_warning_container">#FFFFF0C7</color>
+    <color name="het_error">#FFA72B3C</color>
+    <color name="het_error_container">#FFFFD9DC</color>
+    <color name="het_on_error">#FFFFFFFF</color>
+    <!-- Existing drawable owner retained for older status blocks. -->
+    <color name="config_status_background">@color/het_surface_container_high</color>
+    <color name="config_warning">@color/het_warning</color>
 </resources>

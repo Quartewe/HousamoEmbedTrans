@@ -1,13 +1,25 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Material Components (Material 2) theme roles shared by all pages. -->
     <style name="Theme.HousamoEmbedTrans" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/het_primary</item>
         <item name="colorPrimaryVariant">@color/het_primary_dark</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorSecondary">@color/het_secondary</item>
-        <item name="colorSecondaryVariant">@color/het_primary</item>
+        <item name="colorSecondaryVariant">@color/het_primary_dark</item>
         <item name="colorOnSecondary">@color/white</item>
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <item name="android:navigationBarColor">?android:attr/colorBackground</item>
+        <item name="colorError">@color/het_error</item>
+        <item name="colorOnError">@color/het_on_error</item>
+        <item name="colorSurface">@color/het_surface</item>
+        <item name="colorOnSurface">@color/het_on_surface</item>
+        <item name="materialButtonStyle">@style/Widget.HET.Button</item>
+        <item name="materialCardViewStyle">@style/Widget.HET.TonalCard</item>
+        <item name="textInputStyle">@style/Widget.HET.TextInputLayout</item>
+        <item name="android:colorBackground">@color/het_surface</item>
+        <item name="android:textColorPrimary">@color/het_on_surface</item>
+        <item name="android:textColorSecondary">@color/het_on_surface_muted</item>
+        <item name="android:statusBarColor">@color/het_surface</item>
+        <item name="android:navigationBarColor">@color/het_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

@@ -1,8 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="het_primary">#FF78909C</color>
-    <color name="het_primary_dark">#FF263238</color>
-    <color name="het_secondary">#FF90A4AE</color>
-    <color name="config_status_background">#FF263238</color>
-    <color name="config_warning">#FFFFB86C</color>
+    <color name="het_primary">#FFB9C4FF</color>
+    <color name="het_primary_dark">#FF39456F</color>
+    <color name="het_secondary">#FFB9C4FF</color>
+    <color name="het_primary_container">#FF39456F</color>
+    <color name="het_on_primary_container">#FFE3E6FF</color>
+    <color name="het_surface">#FF111318</color>
+    <color name="het_surface_container">#FF1C1F27</color>
+    <color name="het_surface_container_high">#FF272B35</color>
+    <color name="het_on_surface">#FFE7E7EE</color>
+    <color name="het_on_surface_muted">#FFB7B8C3</color>
+    <color name="het_outline">#FF9295A4</color>
+    <color name="het_outline_soft">#FF444854</color>
+    <color name="het_good">#FF6CDBB7</color>
+    <color name="het_good_container">#FF153D36</color>
+    <color name="het_warning">#FFFFD486</color>
+    <color name="het_warning_container">#FF5A421C</color>
+    <color name="het_error">#FFFFB4BC</color>
+    <color name="het_error_container">#FF5A1D2A</color>
+    <color name="het_on_error">#FF2D0E15</color>
+    <color name="config_status_background">@color/het_surface_container_high</color>
+    <color name="config_warning">@color/het_warning</color>
 </resources>
