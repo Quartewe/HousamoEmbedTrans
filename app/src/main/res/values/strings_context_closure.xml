@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_context_manual_closure_section">Manual closure</string>
+    <string name="scene_context_manual_closure_loading">Reading closure state…</string>
+    <string name="scene_context_manual_closure_ready">This Context can start a manual closure.</string>
+    <string name="scene_context_manual_closure_requires_active">The first closure must start on the active Context.</string>
+    <string name="scene_context_manual_closure_open">Open manual closure</string>
+    <string name="scene_context_manual_closure_open_status">Closure is open; automatic final summary generation is paused.</string>
+    <string name="scene_context_manual_closure_end">End and generate summary</string>
+    <string name="scene_context_manual_closure_end_title">End manual closure?</string>
+    <string name="scene_context_manual_closure_end_message">The saved Context facts will be used to end this round and create a final summary job. Unsaved editor changes are excluded from this round; later fact changes require an explicit retry.</string>
+    <string name="scene_context_manual_closure_reopen">Reopen manual closure</string>
+    <string name="scene_context_manual_closure_reopen_title">Reopen manual closure?</string>
+    <string name="scene_context_manual_closure_reopen_message">Reopening starts a new closure epoch without waiting for or canceling an old summary job and without changing the active Context.</string>
+    <string name="scene_context_manual_closure_retry">Retry and generate summary</string>
+    <string name="scene_context_manual_closure_retry_title">Retry this round\'s summary?</string>
+    <string name="scene_context_manual_closure_retry_message">Rebuild this round\'s summary using the saved Context facts; unsaved editor changes are excluded from this round. If saved facts have changed, this confirmation will bind to the latest saved facts.</string>
+    <string name="scene_context_manual_closure_opened">Manual closure opened.</string>
+    <string name="scene_context_manual_closure_reopened">A new manual closure epoch was opened.</string>
+    <string name="scene_context_manual_closure_queued">The closure was saved and its final summary job was queued.</string>
+    <string name="scene_context_manual_closure_completed">This closure summary is complete.</string>
+    <string name="scene_context_manual_closure_job_active">The summary job is queued or running.</string>
+    <string name="scene_context_manual_closure_failed_status">The summary failed; you can retry it.</string>
+    <string name="scene_context_manual_closure_retry_status">The closure intent is not queued yet; retry explicitly.</string>
+    <string name="scene_context_manual_closure_no_facts">This Context has no saved facts to include in the final summary.</string>
+    <string name="scene_context_manual_closure_blocked_title">Summary jobs are still active</string>
+    <string name="scene_context_manual_closure_blocked">There are %1$d active summary job(s) for this Context. Finish or handle them before ending the closure.</string>
+    <string name="scene_context_manual_closure_open_tasks">Open tasks</string>
+    <string name="scene_context_manual_closure_failed">Closure operation failed: %1$s</string>
+</resources>

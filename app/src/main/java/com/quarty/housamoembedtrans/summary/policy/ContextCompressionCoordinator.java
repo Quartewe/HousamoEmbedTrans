@@ -7,7 +7,9 @@ import com.quarty.housamoembedtrans.summary.job.SummaryJobStore;
 
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -20,6 +22,14 @@ import java.util.Set;
  * summary records are never touched by this coordinator.</p>
  */
 public final class ContextCompressionCoordinator {
+
+    private static final String CONTEXT_OWNER_TYPE =
+        SceneContextStore.MANUAL_CLOSURE_CONTEXT_OWNER;
+    private static final String FINAL_CUTOFF = "final";
+    private static final String STATUS_QUEUED = "queued";
+    private static final String STATUS_RUNNING = "running";
+    private static final String STATUS_AWAITING_USER = "awaiting_user";
+    private static final String STATUS_FAILED = "failed";
 
     /** Immutable automatic-compression policy for one reconciliation. */
     public static final class Options {
@@ -39,6 +49,26 @@ public final class ContextCompressionCoordinator {
         public String requestId;
         /** True when the Context has no Scene facts from which to summarize. */
         public boolean noFacts;
+        /** True when automatic Final Summary work is held by an open round. */
+        public boolean suppressedByClosure;
+
+        /** Manual Context closure state/result fields. */
+        public boolean closureOpened;
+        public boolean closureReopened;
+        public boolean closureClosed;
+        public boolean closureQueued;
+        public boolean closureActive;
+        public boolean closureCompleted;
+        public boolean closureRetryable;
+        public boolean closeBlockedByActiveJobs;
+        public boolean closeIntentSaved;
+        public boolean admissionFailed;
+        public boolean requiresLatestFactsConfirmation;
+        public long closureEpoch;
+        public String closureSourceHash = "";
+        public String closureFailure = "";
+        public final List<String> activeSummaryRequestIds =
+            new ArrayList<>();
     }
 
     private final SceneContextStore sceneContextStore;
@@ -63,6 +93,411 @@ public final class ContextCompressionCoordinator {
 
     public SummaryJobStore getSummaryJobStore() {
         return summaryJobStore;
+    }
+
+    /** Returns the durable Context closure round used by the management UI. */
+    public SceneContextStore.ManualClosureState getManualClosureState(
+        String contextId
+    ) throws Exception {
+        requireText(contextId, "context_id");
+        return SceneContextStore.withRootAccess(() ->
+            sceneContextStore.getManualClosureState(
+                CONTEXT_OWNER_TYPE,
+                contextId
+            )
+        );
+    }
+
+    /** True while automatic Final Summary reconciliation is held. */
+    public boolean isManualClosureOpen(String contextId) throws Exception {
+        return getManualClosureState(contextId).isOpen();
+    }
+
+    /**
+     * Starts a Context closure. The first round is restricted to the active
+     * Context; a closed Context is reopened without changing either pointer.
+     */
+    public Result openManualClosure(String contextId) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            openManualClosureLocked(contextId)
+        );
+    }
+
+    private Result openManualClosureLocked(String contextId) throws Exception {
+        requireText(contextId, "context_id");
+        SceneContextStore.ManualClosureState current =
+            sceneContextStore.getManualClosureState(
+                CONTEXT_OWNER_TYPE,
+                contextId
+            );
+        if (current.isNone()
+            && !contextId.equals(sceneContextStore.getActiveContextId())) {
+            throw new SceneContextStore.StorageException(
+                SceneContextStore.FailureKind.CONFLICT,
+                "the first Context closure must start on the active Context"
+            );
+        }
+        SceneContextStore.ManualClosureState next =
+            sceneContextStore.beginManualClosure(
+                CONTEXT_OWNER_TYPE,
+                contextId
+            );
+        Result result = new Result();
+        result.closureEpoch = next.epoch;
+        result.closureOpened = true;
+        result.closureReopened = current.isClosed();
+        return result;
+    }
+
+    /** Reopens a closed Context round without waiting for old Summary Jobs. */
+    public Result reopenManualClosure(String contextId) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            reopenManualClosureLocked(contextId)
+        );
+    }
+
+    private Result reopenManualClosureLocked(String contextId) throws Exception {
+        requireText(contextId, "context_id");
+        SceneContextStore.ManualClosureState current =
+            sceneContextStore.getManualClosureState(
+                CONTEXT_OWNER_TYPE,
+                contextId
+            );
+        if (!current.isClosed()) {
+            throw new SceneContextStore.StorageException(
+                SceneContextStore.FailureKind.INVALID_STATE,
+                "Context closure is not closed"
+            );
+        }
+        SceneContextStore.ManualClosureState next =
+            sceneContextStore.reopenManualClosure(
+                CONTEXT_OWNER_TYPE,
+                contextId
+            );
+        Result result = new Result();
+        result.closureEpoch = next.epoch;
+        result.closureOpened = true;
+        result.closureReopened = true;
+        return result;
+    }
+
+    /**
+     * Ends the current open round after the caller's confirmation. The closed
+     * intent is durable even when Summary admission fails, so the UI can offer
+     * an explicit retry without claiming that a request was queued.
+     */
+    public Result endManualClosure(
+        String contextId,
+        String targetLang
+    ) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            endManualClosureLocked(contextId, targetLang)
+        );
+    }
+
+    private Result endManualClosureLocked(
+        String contextId,
+        String targetLang
+    ) throws Exception {
+        requireText(contextId, "context_id");
+        requireText(targetLang, "target_lang");
+        SceneContextStore.ManualClosureState current =
+            sceneContextStore.getManualClosureState(
+                CONTEXT_OWNER_TYPE,
+                contextId
+            );
+        if (!current.isOpen()) {
+            throw new SceneContextStore.StorageException(
+                SceneContextStore.FailureKind.INVALID_STATE,
+                "Context closure is not open"
+            );
+        }
+        Result result = new Result();
+        result.closureEpoch = current.epoch;
+        if (summaryJobStore.hasActiveJobsForOwner(
+            CONTEXT_OWNER_TYPE,
+            contextId
+        )) {
+            result.closeBlockedByActiveJobs = true;
+            result.closureActive = true;
+            result.activeSummaryRequestIds.addAll(
+                activeSummaryRequestIdsLocked(contextId)
+            );
+            return result;
+        }
+
+        JSONObject context = sceneContextStore.getContext(contextId);
+        org.json.JSONArray scenes = context.optJSONArray("scenes");
+        if (scenes == null || scenes.length() == 0) {
+            result.noFacts = true;
+            return result;
+        }
+        String storageName = requireStorageName(contextId);
+        String sourceHash = sceneContextStore.getContextStore()
+            .computeContextSourceHash(storageName, targetLang);
+        SceneContextStore.ManualClosureState closed =
+            sceneContextStore.closeManualClosure(
+                CONTEXT_OWNER_TYPE,
+                contextId,
+                targetLang,
+                FINAL_CUTOFF,
+                sourceHash
+            );
+        result.closureClosed = true;
+        result.closeIntentSaved = true;
+        result.closureEpoch = closed.epoch;
+        result.closureSourceHash = sourceHash;
+        admitClosureRequestLocked(
+            contextId,
+            targetLang,
+            closed.epoch,
+            sourceHash,
+            result
+        );
+        return result;
+    }
+
+    /**
+     * Retries a closed round. A caller should pass {@code true} only after the
+     * user confirmed rebuilding when current Context facts changed.
+     */
+    public Result retryManualClosure(
+        String contextId,
+        String targetLang,
+        boolean acceptCurrentFacts
+    ) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            retryManualClosureLocked(contextId, targetLang, acceptCurrentFacts)
+        );
+    }
+
+    public Result retryManualClosure(
+        String contextId,
+        String targetLang
+    ) throws Exception {
+        return retryManualClosure(contextId, targetLang, false);
+    }
+
+    private Result retryManualClosureLocked(
+        String contextId,
+        String targetLang,
+        boolean acceptCurrentFacts
+    ) throws Exception {
+        requireText(contextId, "context_id");
+        SceneContextStore.ManualClosureState current =
+            sceneContextStore.getManualClosureState(
+                CONTEXT_OWNER_TYPE,
+                contextId
+            );
+        if (!current.isClosed()) {
+            throw new SceneContextStore.StorageException(
+                SceneContextStore.FailureKind.INVALID_STATE,
+                "Context closure is not closed"
+            );
+        }
+        Result result = new Result();
+        result.closureEpoch = current.epoch;
+        if (current.targetLang != null && !current.targetLang.trim().isEmpty()) {
+            targetLang = current.targetLang;
+        }
+        requireText(targetLang, "target_lang");
+        if (sceneContextStore.isManualClosureWritebackComplete(
+            CONTEXT_OWNER_TYPE,
+            contextId,
+            current.epoch,
+            current.requestId
+        )) {
+            result.closureCompleted = true;
+            return result;
+        }
+        if (summaryJobStore.hasActiveJobsForOwner(
+            CONTEXT_OWNER_TYPE,
+            contextId
+        )) {
+            result.closureActive = true;
+            result.closeBlockedByActiveJobs = true;
+            result.activeSummaryRequestIds.addAll(
+                activeSummaryRequestIdsLocked(contextId)
+            );
+            return result;
+        }
+
+        JSONObject context = sceneContextStore.getContext(contextId);
+        org.json.JSONArray scenes = context.optJSONArray("scenes");
+        if (scenes == null || scenes.length() == 0) {
+            result.noFacts = true;
+            return result;
+        }
+        String storageName = requireStorageName(contextId);
+        String sourceHash = sceneContextStore.getContextStore()
+            .computeContextSourceHash(storageName, targetLang);
+        boolean factsChanged = !sourceHash.equals(current.sourceHash);
+        if (factsChanged && !acceptCurrentFacts) {
+            result.requiresLatestFactsConfirmation = true;
+            result.closureSourceHash = sourceHash;
+            return result;
+        }
+
+        String oldRequestId = current.requestId;
+        if (!oldRequestId.isEmpty() && summaryJobStore.hasJob(oldRequestId)) {
+            JSONObject state = summaryJobStore.readState(oldRequestId);
+            String status = state.optString("status", "");
+            if (STATUS_FAILED.equals(status) && !factsChanged) {
+                summaryJobStore.retryFailedJob(oldRequestId);
+                result.requestId = oldRequestId;
+                result.closureQueued = true;
+                result.closureActive = true;
+                return result;
+            }
+            if (isActiveSummaryStatus(status)) {
+                result.requestId = oldRequestId;
+                result.closureActive = true;
+                return result;
+            }
+        }
+
+        if (factsChanged || !oldRequestId.isEmpty()) {
+            current = sceneContextStore.updateManualClosureIntent(
+                CONTEXT_OWNER_TYPE,
+                contextId,
+                current.epoch,
+                targetLang,
+                FINAL_CUTOFF,
+                sourceHash
+            );
+        }
+        result.closureSourceHash = sourceHash;
+        admitClosureRequestLocked(
+            contextId,
+            targetLang,
+            current.epoch,
+            sourceHash,
+            result
+        );
+        return result;
+    }
+
+    private void admitClosureRequestLocked(
+        String contextId,
+        String targetLang,
+        long epoch,
+        String sourceHash,
+        Result result
+    ) throws Exception {
+        JSONObject request = new JSONObject()
+            .put("request_kind", "context_final")
+            .put("owner_type", CONTEXT_OWNER_TYPE)
+            .put("owner_id", contextId)
+            .put("target_lang", targetLang)
+            .put("cutoff", FINAL_CUTOFF)
+            .put("source_hash", sourceHash)
+            .put("manual_closure", true)
+            .put("closure_epoch", epoch);
+        SummaryJobStore.AdmissionResult admission;
+        try {
+            admission = summaryJobStore.admitUserRequested(request);
+        } catch (Exception failure) {
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = safeMessage(failure);
+            return;
+        }
+        result.requestId = admission.requestId;
+        if (SummaryJobStore.DISPOSITION_ACTIVE_TARGET_REJECTED.equals(
+            admission.disposition
+        )) {
+            result.closeBlockedByActiveJobs = true;
+            result.closureActive = true;
+            result.activeSummaryRequestIds.addAll(
+                activeSummaryRequestIdsLocked(contextId)
+            );
+            return;
+        }
+        if (!admission.created
+            && !SummaryJobStore.DISPOSITION_DUPLICATE_REJECTED.equals(
+                admission.disposition
+            )) {
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = admission.disposition;
+            return;
+        }
+
+        try {
+            sceneContextStore.recordManualClosureRequest(
+                CONTEXT_OWNER_TYPE,
+                contextId,
+                epoch,
+                admission.requestId
+            );
+        } catch (Exception bindingFailure) {
+            // Keep the durable closed intent. A later explicit retry can
+            // rediscover the request directory and bind the same epoch.
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = safeMessage(bindingFailure);
+            return;
+        }
+
+        String status = "";
+        try {
+            status = summaryJobStore.readState(admission.requestId)
+                .optString("status", "");
+        } catch (Exception stateFailure) {
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = safeMessage(stateFailure);
+            return;
+        }
+        if (isActiveSummaryStatus(status)) {
+            result.closureQueued = true;
+            result.closureActive = true;
+        } else if (STATUS_FAILED.equals(status)) {
+            result.closureRetryable = true;
+        } else {
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = "summary job is not active: " + status;
+        }
+    }
+
+    private List<String> activeSummaryRequestIdsLocked(String contextId)
+        throws Exception {
+        List<String> ids = new ArrayList<>();
+        for (String requestId : summaryJobStore.listRequestIds()) {
+            try {
+                JSONObject request = summaryJobStore.readRequest(requestId);
+                if (!CONTEXT_OWNER_TYPE.equals(
+                    request.optString("owner_type", "")
+                ) || !contextId.equals(request.optString("owner_id", ""))) {
+                    continue;
+                }
+                if (isActiveSummaryStatus(
+                    summaryJobStore.readState(requestId)
+                        .optString("status", "")
+                )) {
+                    ids.add(requestId);
+                }
+            } catch (Exception ignored) {
+                // hasActiveJobsForOwner is the authoritative blocking check;
+                // a damaged row should not make the closure appear clear.
+            }
+        }
+        return ids;
+    }
+
+    private static boolean isActiveSummaryStatus(String status) {
+        return STATUS_QUEUED.equals(status)
+            || STATUS_RUNNING.equals(status)
+            || STATUS_AWAITING_USER.equals(status);
+    }
+
+    private static String safeMessage(Throwable error) {
+        if (error == null || error.getMessage() == null
+            || error.getMessage().trim().isEmpty()) {
+            return error == null ? "unknown failure" : error.getClass().getSimpleName();
+        }
+        return error.getMessage();
     }
 
     /**
@@ -289,6 +724,19 @@ public final class ContextCompressionCoordinator {
 
         ContextStore store = sceneContextStore.getContextStore();
         String storageName = requireStorageName(contextId);
+        SceneContextStore.ManualClosureState closure =
+            sceneContextStore.getManualClosureState(
+                CONTEXT_OWNER_TYPE,
+                contextId
+            );
+        if (closure.isOpen()
+            || (closure.isClosed()
+                && closure.epoch > 0L
+                && (closure.requestId.isEmpty()
+                    || closure.completedRequestId.isEmpty()))) {
+            result.suppressedByClosure = true;
+            return result;
+        }
         JSONObject context = sceneContextStore.getContext(contextId);
         org.json.JSONArray scenes = context.optJSONArray("scenes");
         if (scenes == null || scenes.length() == 0) {
@@ -391,6 +839,7 @@ public final class ContextCompressionCoordinator {
         target.finalJobActive = source.finalJobActive;
         target.requestId = source.requestId;
         target.noFacts = source.noFacts;
+        target.suppressedByClosure = source.suppressedByClosure;
     }
 
     private static void requireText(String value, String label) {
