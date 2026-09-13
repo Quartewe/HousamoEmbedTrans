@@ -1,818 +1,157 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root_settings"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:attr/colorBackground"
-    android:clipToPadding="false"
-    android:fillViewport="true">
+    android:orientation="vertical">
 
-    <LinearLayout
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar_settings"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingTop="20dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="28dp">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_title"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/settings_subtitle"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="?android:attr/textColorSecondary" />
-
-        <TextView
-            android:id="@+id/tv_config_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="12dp"
-            android:background="@drawable/bg_config_status"
-            android:padding="10dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_api"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/collapse_api_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/api_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_api"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_expanded" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_api"
-                    style="@style/Widget.HET.SectionBody">
-
-                    <TextView
-                        style="@style/Widget.HET.FieldLabel"
-                        android:text="@string/api_protocol" />
-
-                    <Spinner
-                        android:id="@+id/spinner_api_protocol"
-                        style="@style/Widget.HET.Spinner"
-                        android:entries="@array/api_protocol_labels" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/base_url"
-                        app:helperText="@string/base_url_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_api_url"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="textUri"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/api_key"
-                        app:endIconMode="password_toggle"
-                        app:helperText="@string/api_key_storage_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_api_key"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="textPassword"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/model"
-                        app:helperText="@string/model_input_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_model"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="text"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <TextView
-                        style="@style/Widget.HET.FieldLabel"
-                        android:text="@string/thinking_strength" />
-
-                    <Spinner
-                        android:id="@+id/spinner_thinking_strength"
-                        style="@style/Widget.HET.Spinner"
-                        android:entries="@array/thinking_strength_labels" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/thinking_strength_hint" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/context_length"
-                        app:helperText="@string/context_length_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_context_length"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:maxLength="7"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/api_concurrency"
-                        app:helperText="@string/api_concurrency_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_api_concurrency"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:maxLength="2"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/network_retry_count"
-                        app:helperText="@string/network_retry_count_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_network_retry_count"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:maxLength="1"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/result_repair_count"
-                        app:helperText="@string/result_repair_count_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_result_repair_count"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:maxLength="1"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_enable_streaming_repair"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/enable_streaming_repair" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/enable_streaming_repair_hint" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/til_repair_gradient_count"
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/repair_gradient_count"
-                        app:helperText="@string/repair_gradient_count_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_repair_gradient_count"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:maxLength="1"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_use_full_scene_for_repair"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/use_full_scene_for_repair" />
-
-                    <TextView
-                        android:id="@+id/tv_use_full_scene_for_repair_hint"
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/use_full_scene_for_repair_hint" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_query_models"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/query_models" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_scene_sync"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/expand_scene_sync_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/scene_sync_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_scene_sync"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_collapsed" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_scene_sync"
-                    style="@style/Widget.HET.SectionBody"
-                    android:visibility="gone">
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/scene_worker_count"
-                        app:helperText="@string/scene_worker_count_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_scene_worker_count"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="number"
-                            android:maxLength="1"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <TextView
-                        style="@style/Widget.HET.FieldLabel"
-                        android:text="@string/scene_conflict_resolution_mode" />
-
-                    <Spinner
-                        android:id="@+id/spinner_scene_conflict_resolution_mode"
-                        style="@style/Widget.HET.Spinner"
-                        android:entries="@array/scene_conflict_resolution_labels" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/scene_conflict_resolution_mode_hint" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_scene_context"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/expand_scene_context_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/scene_context_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_scene_context"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_collapsed" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_scene_context"
-                    style="@style/Widget.HET.SectionBody"
-                    android:visibility="gone">
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_enable_startup_review"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:text="@string/enable_startup_review" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/enable_startup_review_hint" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_manage_scene_contexts"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/manage_scene_contexts" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_queue"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/expand_queue_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/queue_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_queue"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_collapsed" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_queue"
-                    style="@style/Widget.HET.SectionBody"
-                    android:visibility="gone">
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_auto_recover_previous_jobs"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:text="@string/auto_recover_previous_jobs" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/auto_recover_previous_jobs_hint" />
-
-                    <TextView
-                        style="@style/Widget.HET.FieldLabel"
-                        android:text="@string/recovery_sort_order" />
-
-                    <Spinner
-                        android:id="@+id/spinner_recovery_sort_order"
-                        style="@style/Widget.HET.Spinner"
-                        android:entries="@array/recovery_sort_order_labels" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/recovery_sort_order_hint" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_manage_translation_jobs"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/open_translation_job_management" />
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_summary_auto_recover_previous_jobs"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:minHeight="48dp"
-                        android:text="@string/summary_auto_recover_previous_jobs" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/summary_auto_recover_previous_jobs_hint" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_manage_rejected_api_results"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/manage_rejected_api_results" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_gameterms"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/expand_gameterms_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/gameterms_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_gameterms"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_collapsed" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_gameterms"
-                    style="@style/Widget.HET.SectionBody"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:id="@+id/tv_gameterms_summary"
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/gameterms_summary_loading" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_edit_gameterms"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/open_gameterms_editor" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_chardict"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/expand_chardict_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/chardict_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_chardict"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_collapsed" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_chardict"
-                    style="@style/Widget.HET.SectionBody"
-                    android:visibility="gone">
-
-                    <TextView
-                        android:id="@+id/tv_chardict_summary"
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/chardict_summary_loading" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_edit_chardict"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/open_chardict_editor" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_translation"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/collapse_translation_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/translation_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_translation"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_expanded" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_translation"
-                    style="@style/Widget.HET.SectionBody">
-
-                    <TextView
-                        style="@style/Widget.HET.FieldLabel"
-                        android:text="@string/target_language" />
-
-                    <Spinner
-                        android:id="@+id/spinner_target_language"
-                        style="@style/Widget.HET.Spinner"
-                        android:entries="@array/target_language_labels" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/til_custom_target_language"
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/custom_target_language"
-                        android:visibility="gone"
-                        app:helperText="@string/custom_target_language_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_custom_target_language"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="text"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_capture"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/collapse_capture_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/capture_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_capture"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_expanded" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_capture"
-                    style="@style/Widget.HET.SectionBody">
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_overwrite_json"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="48dp"
-                        android:text="@string/overwrite_existing_json" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/overwrite_existing_json_hint" />
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_parse_only_debug"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:minHeight="48dp"
-                        android:text="@string/enable_parse_only_debug" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/enable_parse_only_debug_hint" />
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_failed_api_response_dump"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:minHeight="48dp"
-                        android:text="@string/enable_failed_api_response_dump" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/enable_failed_api_response_dump_hint" />
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switch_page_rec_debug"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:minHeight="48dp"
-                        android:text="@string/enable_page_rec_debug" />
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:text="@string/enable_page_rec_debug_hint" />
-
-                    <TextView
-                        android:id="@+id/tv_scene_files_summary"
-                        style="@style/Widget.HET.HelperText"
-                        android:layout_marginTop="18dp"
-                        android:text="@string/scene_files_loading" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_manage_scene_files"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="@string/manage_scene_files" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.HET.SectionCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/header_character_weight"
-                    style="@style/Widget.HET.SectionHeader"
-                    android:contentDescription="@string/expand_character_weight_section">
-
-                    <TextView
-                        style="@style/Widget.HET.SectionTitle"
-                        android:text="@string/character_weight_settings" />
-
-                    <TextView
-                        android:id="@+id/arrow_character_weight"
-                        style="@style/Widget.HET.SectionArrow"
-                        android:text="@string/indicator_collapsed" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/body_character_weight"
-                    style="@style/Widget.HET.SectionBody"
-                    android:visibility="gone">
-
-                    <TextView
-                        style="@style/Widget.HET.HelperText"
-                        android:layout_marginBottom="4dp"
-                        android:text="@string/character_weight_intro" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/high_relevance"
-                        app:helperText="@string/high_relevance_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_high_relevance"
-                            style="@style/Widget.HET.DecimalInput" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/mid_relevance"
-                        app:helperText="@string/mid_relevance_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_mid_relevance"
-                            style="@style/Widget.HET.DecimalInput" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/density_high"
-                        app:helperText="@string/density_high_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_density_high"
-                            style="@style/Widget.HET.DecimalInput" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/text_low_score"
-                        app:helperText="@string/text_low_score_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_text_low_score"
-                            style="@style/Widget.HET.DecimalInput" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/text_mentioned_score"
-                        app:helperText="@string/text_mentioned_score_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_text_mentioned_score"
-                            style="@style/Widget.HET.DecimalInput" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/related_num"
-                        app:helperText="@string/related_num_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_related_num"
-                            style="@style/Widget.HET.IntegerInput" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.HET.TextInputLayout"
-                        android:hint="@string/low_term_score"
-                        app:helperText="@string/low_term_score_hint">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_low_term_score"
-                            style="@style/Widget.HET.IntegerInput" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        android:minHeight="56dp"
+        android:title="@string/settings_title" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
 
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="28dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/settings_home_intro_title"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/settings_home_intro_message"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                android:textColor="?android:attr/textColorSecondary" />
+
+            <TextView
+                android:id="@+id/tv_config_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_config_status"
+                android:padding="10dp"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
+
+            <LinearLayout
+                android:id="@+id/settings_category_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_prompt_editor"
+                style="@style/Widget.HET.TonalCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:minHeight="88dp"
+                android:foreground="?attr/selectableItemBackground">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_home_prompt_title"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/settings_home_prompt_description"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                        android:textColor="?android:attr/textColorSecondary" />
+
+                    <TextView
+                        android:id="@+id/tv_prompt_summary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/settings_home_prompt_summary"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:id="@+id/settings_category_list_after_prompt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_settings_effect"
+                style="@style/Widget.HET.TonalCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_home_effect_title"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/settings_home_effect_message"
+                        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                        android:textColor="?android:attr/textColorSecondary" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_reset"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
+                android:id="@+id/btn_reset_defaults"
+                style="@style/Widget.HET.Button.Danger"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:text="@string/reset_defaults" />
+                android:layout_gravity="end"
+                android:layout_marginTop="8dp"
+                android:text="@string/settings_home_reset_defaults" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_save"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:text="@string/save_settings" />
         </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:gravity="center"
-            android:text="@string/restart_game_hint"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-            android:textColor="?android:attr/textColorSecondary" />
-    </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+    <include layout="@layout/view_primary_navigation" />
+</LinearLayout>

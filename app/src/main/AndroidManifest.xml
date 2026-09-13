@@ -99,6 +99,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.SettingsCategoryActivity"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.SceneManagementDetailActivity"
             android:exported="false"
             android:label="@string/scene_files_title"
