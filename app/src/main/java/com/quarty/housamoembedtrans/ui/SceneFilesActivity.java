@@ -916,11 +916,20 @@ public final class SceneFilesActivity extends AppCompatActivity {
                 if (language == null || language.trim().isEmpty()) {
                     continue;
                 }
-                String languageKey = ManagementBatchController.KIND_LANGUAGE
-                    + ":" + SceneStore.languageCanonicalId(
+                final String languageKey;
+                try {
+                    languageKey = ManagementBatchController.KIND_LANGUAGE
+                        + ":" + SceneStore.languageCanonicalId(
                         scene.sceneName,
                         language
                     );
+                } catch (SceneStore.PendingException invalidIdentity) {
+                    showResult(
+                        getString(R.string.scene_operation_failed, invalidIdentity.getMessage()),
+                        scene.sceneName + " / " + language
+                    );
+                    continue;
+                }
                 MaterialCheckBox languageCheck = new MaterialCheckBox(this);
                 languageCheck.setText(getString(
                     R.string.management_batch_language_label,
