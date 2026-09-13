@@ -84,6 +84,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
     private MaterialButton deleteFileButton;
     private MaterialButton refreshButton;
     private MaterialButton conflictsButton;
+    private MaterialButton detailButton;
     private MenuItem managementBatchMenuItem;
     private LinearLayout batchRows;
     private Typeface conflictsButtonTypeface;
@@ -131,6 +132,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         deleteFileButton = findViewById(R.id.btn_delete_scene_file);
         refreshButton = findViewById(R.id.btn_refresh_scene_sync);
         conflictsButton = findViewById(R.id.btn_scene_conflicts);
+        detailButton = findViewById(R.id.btn_view_scene_detail);
         batchRows = findViewById(R.id.container_scene_batch_rows);
         batchRows.setVisibility(View.GONE);
         conflictsButtonTypeface = conflictsButton.getTypeface();
@@ -183,6 +185,19 @@ public final class SceneFilesActivity extends AppCompatActivity {
         conflictsButton.setOnClickListener(view -> startActivity(
             new Intent(this, SceneConflictsActivity.class)
         ));
+        detailButton.setOnClickListener(view -> {
+            SceneStore.SceneInfo scene = selectedScene();
+            if (scene == null) {
+                return;
+            }
+            startActivity(new Intent(
+                this,
+                SceneManagementDetailActivity.class
+            ).putExtra(
+                SceneManagementDetailActivity.EXTRA_SCENE_NAME,
+                scene.sceneName
+            ));
+        });
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -859,6 +874,9 @@ public final class SceneFilesActivity extends AppCompatActivity {
         deleteFileButton.setEnabled(!localUiBusy && hasScene && !batchMode);
         refreshButton.setEnabled(!batchMode && canRequestSceneRefresh());
         conflictsButton.setEnabled(!batchMode);
+        detailButton.setEnabled(
+            !localUiBusy && hasScene && !batchMode
+        );
         managementBatchMenuItem.setEnabled(!localUiBusy && !batchMode);
     }
 
@@ -972,8 +990,6 @@ public final class SceneFilesActivity extends AppCompatActivity {
                     scene.bytes,
                     java.nio.charset.StandardCharsets.UTF_8
                 ));
-                payload.put("id", scene.sceneName);
-                payload.put("key", scene.sceneName);
                 output.add(new ManagementBatchController.Item(
                     ManagementBatchController.KIND_SCENE,
                     scene.sceneName,
