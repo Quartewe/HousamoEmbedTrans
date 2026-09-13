@@ -511,6 +511,54 @@ public final class ContextReviewCoordinator {
         EditRisk acceptedRisk,
         boolean discardUserRequestedUnsent
     ) throws Exception {
+        return save(contextDrafts, groupDrafts, activeContextId, activeGroupId,
+            options, acceptedRisk, discardUserRequestedUnsent, null, null, null);
+    }
+
+    public SaveResult save(
+        List<JSONObject> contextDrafts, List<JSONObject> groupDrafts,
+        String activeContextId, String activeGroupId, Options options,
+        EditRisk acceptedRisk, boolean discardUserRequestedUnsent,
+        String annotationScene, String expectedAnnotation, JSONObject annotation
+    ) throws Exception {
+        return save(
+            contextDrafts,
+            groupDrafts,
+            activeContextId,
+            activeGroupId,
+            options,
+            acceptedRisk,
+            discardUserRequestedUnsent,
+            annotationScene,
+            expectedAnnotation,
+            annotation,
+            null
+        );
+    }
+
+    /** Saves a Scene annotation only with the already-loaded formal Scene gate. */
+    public SaveResult save(
+        List<JSONObject> contextDrafts, List<JSONObject> groupDrafts,
+        String activeContextId, String activeGroupId, Options options,
+        EditRisk acceptedRisk, boolean discardUserRequestedUnsent,
+        String annotationScene, String expectedAnnotation, JSONObject annotation,
+        SceneStore sceneStore
+    ) throws Exception {
+        boolean hasAnnotationTarget = annotationScene != null;
+        if (hasAnnotationTarget
+            && (sceneStore == null || expectedAnnotation == null
+                || annotation == null)) {
+            throw new IllegalArgumentException(
+                "Scene annotation target, expected document, document, and Scene store are required"
+            );
+        }
+        if (!hasAnnotationTarget
+            && (expectedAnnotation != null || annotation != null
+                || sceneStore != null)) {
+            throw new IllegalArgumentException(
+                "Scene annotation arguments must be supplied together"
+            );
+        }
         if (acceptedRisk == null) {
             throw new IllegalArgumentException(
                 "accepted Review risk snapshot is required"
@@ -521,9 +569,20 @@ public final class ContextReviewCoordinator {
                 ReviewTransactionJournal.begin(
                     sceneContextStore,
                     translationJobStore,
-                    summaryJobStore
+                    summaryJobStore,
+                    annotationScene
                 );
             try {
+                if (annotationScene != null) {
+                    new com.quarty.housamoembedtrans.scene.store.SceneAnnotationStore(
+                        sceneContextStore.getDirectory().getParentFile())
+                        .saveInReview(
+                            sceneStore,
+                            annotationScene,
+                            expectedAnnotation,
+                            annotation
+                        );
+                }
                 EditRisk currentRisk = assessReviewLocked(
                     contextDrafts,
                     groupDrafts

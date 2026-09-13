@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_annotation_edit">Edit scene</string>
+    <string name="scene_annotation_contexts">Contexts</string>
+    <string name="scene_annotation_summaries">Manual summaries</string>
+    <string name="scene_annotation_add_language">Add summary language</string>
+    <string name="scene_annotation_invalid_language">Enter a language that has not been added.</string>
+</resources>

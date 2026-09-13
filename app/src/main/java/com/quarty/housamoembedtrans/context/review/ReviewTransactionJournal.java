@@ -1,4 +1,6 @@
 package com.quarty.housamoembedtrans.context.review;
+import android.util.AtomicFile;
+
 import com.quarty.housamoembedtrans.context.store.ContextStore;
 import com.quarty.housamoembedtrans.context.store.GroupStore;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
@@ -13,6 +15,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -63,6 +66,13 @@ public final class ReviewTransactionJournal implements AutoCloseable {
         TranslationJobStore translationStore,
         SummaryJobStore summaryStore
     ) throws Exception {
+        return begin(sceneStore, translationStore, summaryStore, null);
+    }
+
+    public static ReviewTransactionJournal begin(
+        SceneContextStore sceneStore, TranslationJobStore translationStore,
+        SummaryJobStore summaryStore, String annotationScene
+    ) throws Exception {
         if (sceneStore == null
             || translationStore == null
             || summaryStore == null) {
@@ -74,6 +84,10 @@ public final class ReviewTransactionJournal implements AutoCloseable {
         }
         recover(filesRoot);
         List<String> paths = listAllowedPaths(filesRoot);
+        // Explicitly snapshot just this sidecar, including its absent state.
+        // Do not enumerate all annotations: old journals must not delete them.
+        if (annotationScene != null) paths.add(
+            com.quarty.housamoembedtrans.scene.store.SceneAnnotationStore.relativePath(annotationScene));
         JSONArray initialFiles = new JSONArray();
         for (String path : paths) {
             initialFiles.put(path);
@@ -89,9 +103,16 @@ public final class ReviewTransactionJournal implements AutoCloseable {
         JSONArray entries = new JSONArray();
         for (String path : paths) {
             File file = resolveAllowedPath(filesRoot, path);
-            byte[] before = file.isFile()
-                ? readBytes(file, MAX_SNAPSHOT_ENTRY_BYTES)
-                : null;
+            byte[] before;
+            if (isAnnotationPath(path)) {
+                before = IoUtils.atomicFileExists(file)
+                    ? readAtomicBytes(file, MAX_SNAPSHOT_ENTRY_BYTES)
+                    : null;
+            } else {
+                before = file.isFile()
+                    ? readBytes(file, MAX_SNAPSHOT_ENTRY_BYTES)
+                    : null;
+            }
             entries.put(new JSONObject()
                 .put("path", path)
                 .put(
@@ -247,7 +268,12 @@ public final class ReviewTransactionJournal implements AutoCloseable {
             File file = resolveAllowedPath(filesRoot, path);
             Object before = entry.opt("before");
             if (before == null || before == JSONObject.NULL) {
-                if (file.isFile() && !file.delete()) {
+                if (isAnnotationPath(path)) {
+                    new AtomicFile(file).delete();
+                    if (IoUtils.atomicFileExists(file)) {
+                        throw new IOException("could not remove " + path);
+                    }
+                } else if (file.isFile() && !file.delete()) {
                     throw new IOException("could not remove " + path);
                 }
             } else {
@@ -468,6 +494,7 @@ public final class ReviewTransactionJournal implements AutoCloseable {
         boolean allowed = path.equals(
                 SceneContextStore.DIRECTORY_NAME + "/index.json"
             )
+            || path.matches("scenes/\\.annotations/[A-Za-z0-9_-]+\\.json")
             || path.matches(
                 SceneContextStore.DIRECTORY_NAME
                     + "/(contexts|groups)/[A-Za-z0-9._-]+\\.json"
@@ -505,6 +532,10 @@ public final class ReviewTransactionJournal implements AutoCloseable {
             );
         }
         return candidate;
+    }
+
+    private static boolean isAnnotationPath(String path) {
+        return path != null && path.startsWith("scenes/.annotations/");
     }
 
     private static File resolveAllowedDirectory(File filesRoot, String path) {
@@ -560,6 +591,13 @@ public final class ReviewTransactionJournal implements AutoCloseable {
 
     private static byte[] readBytes(File file, int maxBytes) throws IOException {
         try (FileInputStream input = new FileInputStream(file)) {
+            return IoUtils.readAllBytesLimited(input, maxBytes);
+        }
+    }
+
+    private static byte[] readAtomicBytes(File file, int maxBytes)
+        throws IOException {
+        try (InputStream input = new AtomicFile(file).openRead()) {
             return IoUtils.readAllBytesLimited(input, maxBytes);
         }
     }

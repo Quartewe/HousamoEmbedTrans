@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_annotation_edit">编辑剧情</string>
+    <string name="scene_annotation_contexts">所属上下文</string>
+    <string name="scene_annotation_summaries">手动摘要</string>
+    <string name="scene_annotation_add_language">添加摘要语言</string>
+    <string name="scene_annotation_invalid_language">请输入尚未添加的语言。</string>
+</resources>
