@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="translation_stop_section_title">Translating now</string>
+    <string name="translation_stop_count">%1$d translation task(s) are running</string>
+    <string name="translation_stop_status_running">running</string>
+    <string name="translation_stop_details">Details</string>
+    <string name="translation_stop_details_message">Status: %1$s</string>
+    <string name="translation_stop_action">Stop translation</string>
+    <string name="translation_stop_confirm_title">Stop this translation?</string>
+    <string name="translation_stop_confirm_message">The provider request will be canceled. Complete late results are retained for PendingProcess, incomplete results are discarded, and the task will not retry automatically. Usage already incurred may still be billed.</string>
+    <string name="translation_stop_result_running">The running translation was stopped; its attempt is winding down.</string>
+    <string name="translation_stop_result_queued">The translation was already queued and has been canceled.</string>
+    <string name="translation_stop_result_already_canceled">This translation was already canceled.</string>
+    <string name="translation_stop_result_not_found">The translation task no longer exists.</string>
+    <string name="translation_stop_result_not_cancelable">The translation has already finished and cannot be stopped.</string>
+    <string name="translation_stop_result_retryable">The cancellation could not be saved. Try again when the service is available.</string>
+    <string name="translation_stop_service_unavailable">The translation service is not connected. Try again when it is available.</string>
+    <string name="translation_stop_operation_failed">Could not stop the translation: %1$s</string>
+</resources>

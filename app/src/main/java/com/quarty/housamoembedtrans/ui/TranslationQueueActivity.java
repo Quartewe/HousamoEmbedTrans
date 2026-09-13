@@ -2,7 +2,10 @@ package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
+import com.quarty.housamoembedtrans.bridge.TranslationJobControlClient;
 import com.quarty.housamoembedtrans.management.pending.PendingProcessControlClient;
+import com.quarty.housamoembedtrans.runtime.RuntimeControlStore;
+import com.quarty.housamoembedtrans.runtime.TranslationControlReceiver;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
@@ -12,11 +15,13 @@ import com.quarty.housamoembedtrans.translation.delivery.TerminalOutcome;
 import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 import com.quarty.housamoembedtrans.translation.TranslationService;
 import com.quarty.housamoembedtrans.translation.job.TranslationTaskExecutor;
+import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.content.Intent;
+import android.content.DialogInterface;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -24,6 +29,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AlertDialog;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
@@ -62,6 +68,12 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     /** Opens the same page in persistent failed-job management mode. */
     public static final String EXTRA_MANAGEMENT_ONLY =
         "com.quarty.housamoembedtrans.extra.MANAGEMENT_ONLY";
+    /** Opens this page from the status notification's capture action. */
+    public static final String EXTRA_NOTIFICATION_CAPTURE_CONTROL =
+        "com.quarty.housamoembedtrans.extra.NOTIFICATION_CAPTURE_CONTROL";
+    /** Explicit state requested by a notification action; never a toggle. */
+    public static final String EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED =
+        "com.quarty.housamoembedtrans.extra.NOTIFICATION_CAPTURE_DESIRED_PAUSED";
 
     /** Exact owner identity captured from a live management store. */
     private static final class PendingMoveTarget {
@@ -106,9 +118,12 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private TranslationJobStore jobStore;
     private SummaryJobStore summaryJobStore;
     private SceneContextStore sceneContextStore;
+    private TranslationJobControlClient translationJobClient;
     private PendingProcessControlClient pendingClient;
     private PendingProcessMoveController pendingMoveController;
     private List<TranslationJobStore.HeldQueuedJob> jobs =
+        new ArrayList<>();
+    private List<TranslationJobStore.ReviewJob> activeJobs =
         new ArrayList<>();
     private List<TranslationJobStore.TerminalJob> failedJobs =
         new ArrayList<>();
@@ -124,11 +139,14 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private boolean managementOnly;
     private int refreshGeneration;
     private LinearLayout itemContainer;
+    private LinearLayout activeItemContainer;
+    private LinearLayout activeSection;
     private LinearLayout failedItemContainer;
     private LinearLayout summaryItemContainer;
     private LinearLayout failedSummaryItemContainer;
     private LinearLayout userActionItemContainer;
     private TextView summary;
+    private TextView activeSummary;
     private TextView emptyMessage;
     private TextView failedSummary;
     private TextView failedEmptyMessage;
@@ -140,6 +158,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private TextView failedSummaryEmptyMessage;
     private MaterialButton submitButton;
     private MaterialButton summarySubmitButton;
+    private MaterialButton captureControlButton;
+    private MaterialButton openPendingManagementButton;
     private boolean repairingStartupJobs;
     private boolean summaryRecoveryReady;
     private boolean summaryRecoveryUnavailable;
@@ -152,6 +172,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private TextView pendingEmptyMessage;
     private MaterialButton pendingRefreshButton;
     private MaterialButton pendingMoveButton;
+    private LinearLayout rejectedSection;
+    private RejectedApiResultsController rejectedController;
     private List<JSONObject> pendingProcesses = new ArrayList<>();
     private List<String> damagedPendingCandidates = new ArrayList<>();
     private final Set<String> selectedPendingMoveKeys = new HashSet<>();
@@ -159,6 +181,20 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private boolean pendingLoading;
     private boolean pendingActive;
     private int pendingRefreshGeneration;
+    /** Invalidates cancellation callbacks after the Activity leaves the UI. */
+    private int activeUiGeneration;
+    /** Tracks only the stop operation so lifecycle cleanup cannot clear other work. */
+    private boolean stopInFlight;
+    /** Captures the control intent shown by the task page. */
+    private boolean capturePaused;
+    /** Keeps capture persistence independent from Translation Job operations. */
+    private boolean captureControlBusy;
+    /** Invalidates capture-control callbacks after the Activity leaves the UI. */
+    private int captureControlGeneration;
+    /** One confirmation slot shared by capture, stop, and pending-delete actions. */
+    private AlertDialog controlDialog;
+    private boolean notificationCaptureControlPending;
+    private boolean notificationCaptureDesiredPaused;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -169,11 +205,15 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         jobStore = TranslationJobStore.getInstance(this);
         summaryJobStore = SummaryJobStore.createForAndroid(this);
         sceneContextStore = new SceneContextStore(this);
+        translationJobClient = new TranslationJobControlClient(this);
         managementOnly = getIntent().getBooleanExtra(
             EXTRA_MANAGEMENT_ONLY,
             false
         );
         itemContainer = findViewById(R.id.translation_queue_items);
+        activeSection = findViewById(R.id.translation_active_section);
+        activeItemContainer = findViewById(R.id.translation_active_items);
+        activeSummary = findViewById(R.id.tv_translation_active_summary);
         failedItemContainer = findViewById(R.id.translation_failed_items);
         summaryItemContainer = findViewById(R.id.summary_recovery_items);
         summary = findViewById(R.id.tv_translation_queue_summary);
@@ -192,17 +232,36 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         failedSummaryItemContainer = findViewById(R.id.summary_failed_items);
         submitButton = findViewById(R.id.btn_submit_translation_queue);
         summarySubmitButton = findViewById(R.id.btn_submit_summary_recovery);
+        captureControlButton = findViewById(R.id.btn_capture_control);
+        openPendingManagementButton = findViewById(
+            R.id.btn_open_pending_management
+        );
         pendingSection = findViewById(R.id.pending_process_section);
         pendingItemContainer = findViewById(R.id.pending_process_items);
         pendingSummary = findViewById(R.id.tv_pending_process_summary);
         pendingEmptyMessage = findViewById(R.id.tv_pending_process_empty);
         pendingRefreshButton = findViewById(R.id.btn_refresh_pending_processes);
         pendingMoveButton = findViewById(R.id.btn_move_pending_process);
+        rejectedSection = findViewById(R.id.rejected_api_results_section);
+        PrimaryNavigation.attach(
+            this,
+            findViewById(R.id.primary_navigation),
+            PrimaryNavigation.Destination.TASKS
+        );
+        if (managementOnly) {
+            findViewById(R.id.primary_navigation).setVisibility(View.GONE);
+        }
 
         if (managementOnly) {
             pendingClient = new PendingProcessControlClient(this);
             pendingMoveController = new PendingProcessMoveController(this);
+            rejectedController = new RejectedApiResultsController(
+                this,
+                findViewById(R.id.root_translation_queue),
+                ioExecutor
+            );
             pendingSection.setVisibility(View.VISIBLE);
+            rejectedSection.setVisibility(View.VISIBLE);
             findViewById(R.id.tv_translation_queue_intro).setVisibility(
                 View.GONE
             );
@@ -215,11 +274,14 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             findViewById(R.id.translation_queue_items).setVisibility(
                 View.GONE
             );
+            activeSection.setVisibility(View.GONE);
             submitButton.setVisibility(View.GONE);
             findViewById(R.id.summary_recovery_section).setVisibility(
                 View.GONE
             );
             summarySubmitButton.setVisibility(View.GONE);
+            captureControlButton.setVisibility(View.GONE);
+            openPendingManagementButton.setVisibility(View.GONE);
         }
 
         if (savedInstanceState != null) {
@@ -254,8 +316,17 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(view ->
             confirmCancelAndFinish()
         );
+        captureControlButton.setOnClickListener(view ->
+            onCaptureControlClicked()
+        );
         submitButton.setOnClickListener(view -> submitOrder());
         summarySubmitButton.setOnClickListener(view -> submitSummaryRecovery());
+        openPendingManagementButton.setOnClickListener(view ->
+            startActivity(
+                new Intent(this, TranslationQueueActivity.class)
+                    .putExtra(EXTRA_MANAGEMENT_ONLY, true)
+            )
+        );
         pendingRefreshButton.setOnClickListener(view -> {
             if (!busy && pendingClient != null) {
                 if (!pendingClient.isConnected()) {
@@ -283,6 +354,10 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        captureNotificationIntent(getIntent());
+        if (!managementOnly) {
+            refreshCaptureControl();
+        }
         summaryRecoveryWaitAttempts = 0;
         summaryRecoveryUnavailable = false;
         if (!busy && !submitted) {
@@ -297,15 +372,47 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 // Binder is still completing the asynchronous bind.
                 renderPendingProcesses();
             }
+            if (rejectedController != null) {
+                rejectedController.setActive(true);
+                rejectedController.refresh();
+            }
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        boolean nextManagementOnly = intent.getBooleanExtra(
+            EXTRA_MANAGEMENT_ONLY,
+            false
+        );
+        if (nextManagementOnly != managementOnly) {
+            setIntent(intent);
+            recreate();
+            return;
+        }
+        setIntent(intent);
+        captureNotificationIntent(intent);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         jobStore.setQueueListener(queueListener);
+        if (!managementOnly && translationJobClient != null) {
+            activeUiGeneration++;
+            if (stopInFlight) {
+                stopInFlight = false;
+                if (busy) {
+                    setBusy(false);
+                }
+            }
+        }
         if (managementOnly && pendingClient != null) {
             pendingActive = true;
+            if (rejectedController != null) {
+                rejectedController.setActive(true);
+            }
             pendingClient.setConnectionListener(connected -> {
                 if (!connected) {
                     return;
@@ -330,8 +437,18 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         jobStore.clearQueueListener(queueListener);
+        captureControlGeneration++;
+        captureControlBusy = false;
+        dismissControlDialog();
+        if (!managementOnly && translationJobClient != null) {
+            activeUiGeneration++;
+            translationJobClient.unbind();
+        }
         if (managementOnly && pendingClient != null) {
             pendingActive = false;
+            if (rejectedController != null) {
+                rejectedController.setActive(false);
+            }
             pendingRefreshGeneration++;
             pendingClient.setConnectionListener(null);
             pendingClient.unbind();
@@ -364,16 +481,259 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         summaryRecoveryHandler.removeCallbacks(summaryRecoveryRefresh);
+        if (rejectedController != null) {
+            rejectedController.close();
+        }
         ioExecutor.shutdownNow();
+        activeUiGeneration++;
+        captureControlGeneration++;
+        captureControlBusy = false;
+        dismissControlDialog();
         pendingActive = false;
         pendingRefreshGeneration++;
         if (pendingClient != null) {
             pendingClient.close();
         }
+        if (translationJobClient != null) {
+            translationJobClient.close();
+        }
         if (pendingMoveController != null) {
             pendingMoveController.close();
         }
         super.onDestroy();
+    }
+
+    private void refreshCaptureControl() {
+        if (managementOnly || captureControlButton == null) {
+            return;
+        }
+        capturePaused = RuntimeControlStore.isCapturePaused(this);
+        captureControlButton.setText(
+            capturePaused
+                ? R.string.capture_control_resume
+                : R.string.capture_control_pause
+        );
+        captureControlButton.setEnabled(
+            !busy && !captureControlBusy && !isFinishing()
+        );
+        handleNotificationCaptureControl();
+    }
+
+    private void captureNotificationIntent(Intent intent) {
+        if (intent == null
+            || !intent.getBooleanExtra(
+                EXTRA_NOTIFICATION_CAPTURE_CONTROL,
+                false
+            )) {
+            return;
+        }
+        notificationCaptureControlPending = true;
+        notificationCaptureDesiredPaused = intent.getBooleanExtra(
+            EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED,
+            false
+        );
+        // Do not replay the same notification action on a later resume.
+        intent.removeExtra(EXTRA_NOTIFICATION_CAPTURE_CONTROL);
+        intent.removeExtra(EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED);
+        handleNotificationCaptureControl();
+    }
+
+    private void handleNotificationCaptureControl() {
+        if (!notificationCaptureControlPending
+            || managementOnly
+            || busy
+            || captureControlBusy
+            || !isCaptureUiActive()) {
+            return;
+        }
+        boolean currentPaused = RuntimeControlStore.isCapturePaused(this);
+        boolean desiredPaused = notificationCaptureDesiredPaused;
+        if (currentPaused == desiredPaused) {
+            notificationCaptureControlPending = false;
+            refreshCaptureControl();
+            return;
+        }
+        if (desiredPaused) {
+            // Pause is deliberately confirmed. Keep a pending action if
+            // another control dialog is currently visible.
+            if (!canShowControlDialog()) {
+                return;
+            }
+            notificationCaptureControlPending = false;
+            showCapturePauseDialog();
+            return;
+        }
+        notificationCaptureControlPending = false;
+        applyCapturePaused(false);
+    }
+
+    private void onCaptureControlClicked() {
+        if (managementOnly || busy || captureControlBusy
+            || captureControlButton == null || !isCaptureUiActive()) {
+            return;
+        }
+        // The notification action may have changed the durable intent while
+        // this Activity was visible.  Read it again at the decision point.
+        capturePaused = RuntimeControlStore.isCapturePaused(this);
+        refreshCaptureControl();
+        if (capturePaused) {
+            applyCapturePaused(false);
+        } else {
+            showCapturePauseDialog();
+        }
+    }
+
+    private void showCapturePauseDialog() {
+        if (!canShowControlDialog()) {
+            return;
+        }
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.capture_control_pause_title)
+            .setMessage(R.string.capture_control_pause_message)
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.capture_control_pause_action,
+                (shown, which) -> {
+                    releaseControlDialog(shown);
+                    applyCapturePaused(true);
+                }
+            )
+            .create();
+        showControlDialog(dialog);
+    }
+
+    private void applyCapturePaused(boolean paused) {
+        if (managementOnly || busy || captureControlBusy
+            || !isCaptureUiActive()) {
+            return;
+        }
+        final int generation = captureControlGeneration;
+        final android.content.Context appContext = getApplicationContext();
+        captureControlBusy = true;
+        refreshCaptureControl();
+        try {
+            ioExecutor.execute(() -> {
+                boolean saved = false;
+                boolean serviceStarted = false;
+                boolean operationFailed = false;
+                boolean synchronizationFailed = false;
+                try {
+                    saved = RuntimeControlStore.trySetCapturePaused(
+                        appContext,
+                        paused
+                    );
+                } catch (RuntimeException error) {
+                    operationFailed = true;
+                }
+                if (saved) {
+                    try {
+                        TranslationControlReceiver.CaptureControlWakeResult
+                            wakeResult = TranslationControlReceiver
+                                .wakeTranslationServiceAndRefresh(appContext);
+                        serviceStarted = wakeResult.isServiceStarted();
+                        synchronizationFailed =
+                            !wakeResult.isNotificationRefreshed();
+                    } catch (RuntimeException error) {
+                        synchronizationFailed = true;
+                    }
+                } else if (!operationFailed) {
+                    try {
+                        // Refresh from the current preference view even when
+                        // SharedPreferences reports a failed commit.
+                        TranslationStatusNotification.refresh(appContext);
+                    } catch (RuntimeException error) {
+                        synchronizationFailed = true;
+                    }
+                }
+                final boolean savedResult = saved;
+                final boolean serviceStartedResult = serviceStarted;
+                final boolean operationFailedResult = operationFailed;
+                final boolean synchronizationFailedResult = synchronizationFailed;
+                runOnUiThread(() -> {
+                    if (!isCaptureUiActive(generation)) {
+                        return;
+                    }
+                    captureControlBusy = false;
+                    refreshCaptureControl();
+                    if (operationFailedResult || !savedResult) {
+                        Toast.makeText(
+                            this,
+                            R.string.capture_control_save_failed,
+                            Toast.LENGTH_LONG
+                        ).show();
+                        return;
+                    }
+                    if (synchronizationFailedResult && serviceStartedResult) {
+                        Toast.makeText(
+                            this,
+                            R.string.capture_control_saved_sync_failed,
+                            Toast.LENGTH_LONG
+                        ).show();
+                        return;
+                    }
+                    Toast.makeText(
+                        this,
+                        serviceStartedResult
+                            ? paused
+                                ? R.string.capture_control_pause_saved
+                                : R.string.capture_control_resume_saved
+                            : R.string.capture_control_saved_waiting_service,
+                        Toast.LENGTH_LONG
+                    ).show();
+                });
+            });
+        } catch (RuntimeException error) {
+            captureControlBusy = false;
+            refreshCaptureControl();
+            Toast.makeText(
+                this,
+                R.string.capture_control_save_failed,
+                Toast.LENGTH_LONG
+            ).show();
+        }
+    }
+
+    private boolean isCaptureUiActive() {
+        return !isDestroyed()
+            && !isFinishing()
+            && !managementOnly;
+    }
+
+    private boolean isCaptureUiActive(int generation) {
+        return isCaptureUiActive()
+            && generation == captureControlGeneration;
+    }
+
+    private boolean canShowControlDialog() {
+        return !isDestroyed()
+            && !isFinishing()
+            && (controlDialog == null || !controlDialog.isShowing());
+    }
+
+    private void showControlDialog(AlertDialog dialog) {
+        if (!canShowControlDialog()) {
+            return;
+        }
+        controlDialog = dialog;
+        controlDialog.setOnDismissListener(dismissed -> {
+            if (controlDialog == dismissed) {
+                controlDialog = null;
+            }
+        });
+        controlDialog.show();
+    }
+
+    private void releaseControlDialog(DialogInterface dialog) {
+        if (controlDialog == dialog) {
+            controlDialog = null;
+        }
+    }
+
+    private void dismissControlDialog() {
+        if (controlDialog != null) {
+            controlDialog.dismiss();
+            controlDialog = null;
+        }
     }
 
     private void refreshJobs() {
@@ -391,6 +751,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 managementOnly
                     ? new ArrayList<>()
                     : jobStore.getHeldQueuedJobs();
+            final List<TranslationJobStore.ReviewJob> loadedActiveJobs =
+                new ArrayList<>();
             final List<TranslationJobStore.TerminalJob> loadedFailed;
             final List<SummaryJobStore.RecoveryJob> loadedSummary;
             final List<SummaryJobStore.FailedJob> loadedFailedSummary;
@@ -399,6 +761,16 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             final boolean loadedRecoveryReady;
             final Map<String, String> loadedSummaryNames = new HashMap<>();
             try {
+                if (!managementOnly) {
+                    for (TranslationJobStore.ReviewJob job :
+                        jobStore.listReviewJobs()) {
+                        if (TranslationJobStatus.RUNNING.wireValue().equals(
+                            job.getStatus()
+                        )) {
+                            loadedActiveJobs.add(job);
+                        }
+                    }
+                }
                 loadedFailed = jobStore.listRetainedFailedJobs();
                 TranslationTaskExecutor activeExecutor =
                     TranslationService.getActiveTaskExecutor();
@@ -452,6 +824,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 }
                 repairingStartupJobs = repairing;
                 jobs = loadedJobs;
+                activeJobs = loadedActiveJobs;
                 failedJobs = loadedFailed;
                 failedSummaryJobs = loadedFailedSummary;
                 userActionJobs = loadedUserAction;
@@ -523,6 +896,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     }
 
     private void renderJobs() {
+        renderActiveJobs();
         itemContainer.removeAllViews();
         failedItemContainer.removeAllViews();
         summaryItemContainer.removeAllViews();
@@ -623,6 +997,52 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         renderSummaryRecovery();
         renderFailedSummaryJobs();
         renderUserActionJobs();
+    }
+
+    /** Renders only ordinary Translation Jobs that are durably running. */
+    private void renderActiveJobs() {
+        if (managementOnly || activeSection == null) {
+            return;
+        }
+        activeItemContainer.removeAllViews();
+        boolean empty = activeJobs.isEmpty();
+        activeSection.setVisibility(empty ? View.GONE : View.VISIBLE);
+        if (empty) {
+            return;
+        }
+        activeSummary.setText(getString(
+            R.string.translation_stop_count,
+            activeJobs.size()
+        ));
+        LayoutInflater inflater = LayoutInflater.from(this);
+        for (TranslationJobStore.ReviewJob job : activeJobs) {
+            View item = inflater.inflate(
+                R.layout.item_translation_active,
+                activeItemContainer,
+                false
+            );
+            MaterialCardView card = item.findViewById(
+                R.id.card_translation_active_item
+            );
+            TextView scene = item.findViewById(
+                R.id.tv_translation_active_scene
+            );
+            TextView status = item.findViewById(
+                R.id.tv_translation_active_status
+            );
+            MaterialButton details = item.findViewById(
+                R.id.btn_translation_active_details
+            );
+            scene.setText(job.getScene());
+            status.setText(getString(
+                R.string.translation_stop_status_running
+            ));
+            card.setOnClickListener(view -> showActiveJobDetails(job));
+            details.setOnClickListener(view -> showActiveJobDetails(job));
+            card.setEnabled(!busy);
+            details.setEnabled(!busy);
+            activeItemContainer.addView(item);
+        }
     }
 
     private boolean isPendingUiActive() {
@@ -924,18 +1344,24 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     }
 
     private void confirmPermanentDeletePending(String pendingKey) {
-        if (!isPendingUiActive() || busy || pendingKey == null) {
+        if (!isPendingUiActive() || busy || captureControlBusy
+            || pendingKey == null
+            || !canShowControlDialog()) {
             return;
         }
-        new MaterialAlertDialogBuilder(this)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
             .setTitle(R.string.pending_process_delete_title)
             .setMessage(R.string.pending_process_delete_message)
             .setNegativeButton(R.string.cancel_action, null)
             .setPositiveButton(
                 R.string.pending_process_delete,
-                (dialog, which) -> permanentlyDeletePending(pendingKey)
+                (shown, which) -> {
+                    releaseControlDialog(shown);
+                    permanentlyDeletePending(pendingKey);
+                }
             )
-            .show();
+            .create();
+        showControlDialog(dialog);
     }
 
     private void permanentlyDeletePending(String pendingKey) {
@@ -1983,6 +2409,155 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             .show();
     }
 
+    private void showActiveJobDetails(
+        TranslationJobStore.ReviewJob job
+    ) {
+        if (managementOnly || busy || captureControlBusy || job == null
+            || isFinishing()
+            || !canShowControlDialog()) {
+            return;
+        }
+        String status = getString(R.string.translation_stop_status_running);
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+            .setTitle(job.getScene())
+            .setMessage(getString(
+                R.string.translation_stop_details_message,
+                status
+            ))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(
+                R.string.translation_stop_action,
+                (shown, which) -> {
+                    releaseControlDialog(shown);
+                    confirmStopActiveJob(job);
+                }
+            )
+            .create();
+        showControlDialog(dialog);
+    }
+
+    private void confirmStopActiveJob(TranslationJobStore.ReviewJob job) {
+        if (managementOnly || busy || captureControlBusy || job == null
+            || isFinishing()
+            || !canShowControlDialog()) {
+            return;
+        }
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.translation_stop_confirm_title)
+            .setMessage(R.string.translation_stop_confirm_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(
+                R.string.translation_stop_action,
+                (shown, which) -> {
+                    releaseControlDialog(shown);
+                    stopActiveJob(job.getRequestId());
+                }
+            )
+            .create();
+        showControlDialog(dialog);
+    }
+
+    private void stopActiveJob(String requestId) {
+        if (managementOnly || busy || requestId == null
+            || requestId.trim().isEmpty() || translationJobClient == null) {
+            return;
+        }
+        final int generation = activeUiGeneration;
+        ensureTranslationService();
+        try {
+            translationJobClient.bind();
+        } catch (RuntimeException error) {
+            showStopOperationFailure(error, generation);
+            return;
+        }
+        stopInFlight = true;
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            final int result;
+            try {
+                if (!translationJobClient.awaitConnected(3_000L)) {
+                    translationJobClient.requireConnected();
+                }
+                result = translationJobClient.cancelTranslation(requestId);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                showStopOperationFailure(error, generation);
+                return;
+            } catch (Exception error) {
+                showStopOperationFailure(error, generation);
+                return;
+            }
+            runOnUiThread(() -> {
+                if (!isActiveUi(generation)) {
+                    return;
+                }
+                stopInFlight = false;
+                setBusy(false);
+                TranslationStatusNotification.refresh(this);
+                Toast.makeText(
+                    this,
+                    stopResultMessage(result),
+                    Toast.LENGTH_LONG
+                ).show();
+                refreshJobs();
+            });
+        });
+    }
+
+    private String stopResultMessage(int result) {
+        switch (result) {
+            case HetBridgeContract.CANCEL_RESULT_RUNNING_CANCELED:
+                return getString(R.string.translation_stop_result_running);
+            case HetBridgeContract.CANCEL_RESULT_QUEUED_CANCELED:
+                return getString(R.string.translation_stop_result_queued);
+            case HetBridgeContract.CANCEL_RESULT_ALREADY_CANCELED:
+                return getString(
+                    R.string.translation_stop_result_already_canceled
+                );
+            case HetBridgeContract.CANCEL_RESULT_NOT_FOUND:
+                return getString(R.string.translation_stop_result_not_found);
+            case HetBridgeContract.CANCEL_RESULT_NOT_CANCELABLE:
+                return getString(
+                    R.string.translation_stop_result_not_cancelable
+                );
+            case HetBridgeContract.CANCEL_RESULT_RETRYABLE_PERSISTENCE:
+                return getString(R.string.translation_stop_result_retryable);
+            default:
+                return getString(
+                    R.string.translation_stop_operation_failed,
+                    "unknown cancellation result " + result
+                );
+        }
+    }
+
+    private boolean isActiveUi(int generation) {
+        return !isDestroyed()
+            && !isFinishing()
+            && !managementOnly
+            && generation == activeUiGeneration;
+    }
+
+    private void showStopOperationFailure(
+        Throwable error,
+        int generation
+    ) {
+        runOnUiThread(() -> {
+            if (!isActiveUi(generation)) {
+                return;
+            }
+            stopInFlight = false;
+            setBusy(false);
+            String message = error instanceof
+                TranslationJobControlClient.ServiceUnavailableException
+                ? getString(R.string.translation_stop_service_unavailable)
+                : getString(
+                    R.string.translation_stop_operation_failed,
+                    safeMessage(error)
+                );
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        });
+    }
+
     /**
      * SCENE_FILE_DAMAGED is a Scene-management action, not a damaged task
      * record action.  Keep the Translation Job intact and route the exact
@@ -2093,7 +2668,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     }
 
     private void confirmCancelAndFinish() {
-        if (busy) {
+        if (busy || captureControlBusy) {
             return;
         }
         if (managementOnly) {
@@ -2154,6 +2729,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     private void setBusy(boolean value) {
         busy = value;
+        refreshCaptureControl();
         submitButton.setEnabled(
             !value
                 && !managementOnly
@@ -2168,6 +2744,16 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         );
         for (int index = 0; index < itemContainer.getChildCount(); index++) {
             itemContainer.getChildAt(index).setEnabled(!value);
+        }
+        for (int index = 0; index < activeItemContainer.getChildCount(); index++) {
+            View activeItem = activeItemContainer.getChildAt(index);
+            activeItem.setEnabled(!value);
+            MaterialButton activeDetails = activeItem.findViewById(
+                R.id.btn_translation_active_details
+            );
+            if (activeDetails != null) {
+                activeDetails.setEnabled(!value);
+            }
         }
         for (int index = 0; index < failedItemContainer.getChildCount(); index++) {
             failedItemContainer.getChildAt(index).setEnabled(!value);
@@ -2227,7 +2813,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         });
     }
 
-    /** Starts the foreground owner when a local rerun is admitted. */
+    /** Wakes the foreground owner after a durable queue or control change. */
     private boolean ensureTranslationService() {
         Intent intent = new Intent(this, TranslationService.class)
             .setPackage(getPackageName())
@@ -2241,7 +2827,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             // back the admitted local rerun.
             android.util.Log.w(
                 "HET.TranslationQueue",
-                "Could not start TranslationService after durable admission",
+                "Could not start TranslationService after local admission",
                 error
             );
             return false;

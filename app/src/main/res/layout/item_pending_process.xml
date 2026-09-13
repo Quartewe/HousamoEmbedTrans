@@ -3,10 +3,10 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/card_pending_process"
+    style="@style/Widget.HET.TonalCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
-    app:cardCornerRadius="12dp"
     app:strokeColor="?attr/colorPrimary"
     app:strokeWidth="1dp">
 
@@ -76,21 +76,21 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pending_process_details"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.HET.Button.Text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/pending_process_details" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pending_process_restore"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.HET.Button.Secondary"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/pending_process_restore" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pending_process_delete"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.HET.Button.Danger"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/pending_process_delete" />

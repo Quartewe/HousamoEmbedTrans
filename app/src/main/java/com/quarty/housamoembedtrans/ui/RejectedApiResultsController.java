@@ -3,7 +3,6 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.provider.RejectedApiResultStore;
 
-import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -12,7 +11,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -24,62 +22,54 @@ import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
 
-/** Lists archived API results that lost write-back eligibility. Manual delete only. */
-public final class RejectedApiResultsActivity extends AppCompatActivity {
+/** Renders archived API results in either task-management surface. */
+final class RejectedApiResultsController implements AutoCloseable {
 
-    private final ExecutorService ioExecutor =
-        Executors.newSingleThreadExecutor();
-    private RejectedApiResultStore store;
-    private LinearLayout itemContainer;
-    private TextView summary;
-    private TextView emptyMessage;
+    private final AppCompatActivity activity;
+    private final Executor ioExecutor;
+    private final RejectedApiResultStore store;
+    private final LinearLayout itemContainer;
+    private final TextView summary;
+    private final TextView emptyMessage;
+    private boolean active = true;
     private boolean busy;
     private int refreshGeneration;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_rejected_api_results);
-        SystemBarInsets.apply(findViewById(R.id.root_rejected_api_results));
-
+    RejectedApiResultsController(
+        AppCompatActivity activity,
+        View root,
+        Executor ioExecutor
+    ) {
+        this.activity = activity;
+        this.ioExecutor = ioExecutor;
         store = RejectedApiResultStore.createForAndroid(
-            new File(getFilesDir(), RejectedApiResultStore.DIRECTORY_NAME)
+            new File(activity.getFilesDir(), RejectedApiResultStore.DIRECTORY_NAME)
         );
-        itemContainer = findViewById(R.id.rejected_api_results_items);
-        summary = findViewById(R.id.tv_rejected_api_results_summary);
-        emptyMessage = findViewById(R.id.tv_rejected_api_results_empty);
-
-        MaterialToolbar toolbar = findViewById(
-            R.id.toolbar_rejected_api_results
-        );
-        toolbar.setNavigationOnClickListener(view -> finish());
-
-        refreshRecords();
+        itemContainer = root.findViewById(R.id.rejected_api_results_items);
+        summary = root.findViewById(R.id.tv_rejected_api_results_summary);
+        emptyMessage = root.findViewById(R.id.tv_rejected_api_results_empty);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        refreshRecords();
+    void setActive(boolean active) {
+        this.active = active;
+        if (!active) {
+            refreshGeneration++;
+        }
     }
 
-    @Override
-    protected void onDestroy() {
-        ioExecutor.shutdownNow();
-        super.onDestroy();
-    }
-
-    private void refreshRecords() {
+    void refresh() {
+        if (!isActive()) {
+            return;
+        }
         final int generation = ++refreshGeneration;
         ioExecutor.execute(() -> {
             List<String> recordIds;
             try {
                 recordIds = new ArrayList<>(store.listRecordIds());
             } catch (RuntimeException error) {
-                runOnUiThread(() -> showFailure(error));
+                activity.runOnUiThread(() -> showFailure(error));
                 return;
             }
             final List<JSONObject> records = new ArrayList<>();
@@ -87,13 +77,12 @@ public final class RejectedApiResultsActivity extends AppCompatActivity {
                 try {
                     records.add(store.read(recordId));
                 } catch (Exception ignored) {
-                    // Skip unreadable records; deletion is manual and the
-                    // store is intentionally not auto-pruned.
+                    // Keep the archive manual-only; unreadable records are not
+                    // silently deleted.
                 }
             }
-            runOnUiThread(() -> {
-                if (isDestroyed() || isFinishing()
-                    || generation != refreshGeneration) {
+            activity.runOnUiThread(() -> {
+                if (!isActive() || generation != refreshGeneration) {
                     return;
                 }
                 render(records);
@@ -101,16 +90,25 @@ public final class RejectedApiResultsActivity extends AppCompatActivity {
         });
     }
 
+    @Override
+    public void close() {
+        setActive(false);
+    }
+
+    private boolean isActive() {
+        return active && !activity.isDestroyed() && !activity.isFinishing();
+    }
+
     private void render(List<JSONObject> records) {
         itemContainer.removeAllViews();
-        summary.setText(getString(
+        summary.setText(activity.getString(
             R.string.rejected_api_results_count,
             records.size()
         ));
         summary.setVisibility(records.isEmpty() ? View.GONE : View.VISIBLE);
         emptyMessage.setVisibility(records.isEmpty() ? View.VISIBLE : View.GONE);
 
-        LayoutInflater inflater = LayoutInflater.from(this);
+        LayoutInflater inflater = LayoutInflater.from(activity);
         DateFormat dateFormat = DateFormat.getDateTimeInstance(
             DateFormat.MEDIUM,
             DateFormat.SHORT
@@ -143,28 +141,24 @@ public final class RejectedApiResultsActivity extends AppCompatActivity {
                 R.id.btn_delete_rejected_api_result
             );
 
-            kind.setText(getString(
+            kind.setText(activity.getString(
                 R.string.rejected_api_result_kind_line,
                 record.optString("job_kind", ""),
                 record.optString("kind", "")
             ));
-            request.setText(getString(
+            request.setText(activity.getString(
                 R.string.rejected_api_result_request_line,
                 record.optString("request_id", "")
             ));
-            reason.setText(getString(
+            reason.setText(activity.getString(
                 R.string.rejected_api_result_reason_line,
                 record.optString("reason", "")
             ));
             created.setText(dateFormat.format(new Date(
                 record.optLong("created_at", 0L)
             )));
-            viewButton.setOnClickListener(view ->
-                showPayload(record)
-            );
-            deleteButton.setOnClickListener(view ->
-                confirmDelete(record)
-            );
+            viewButton.setOnClickListener(view -> showPayload(record));
+            deleteButton.setOnClickListener(view -> confirmDelete(record));
             card.setEnabled(!busy);
             viewButton.setEnabled(!busy);
             deleteButton.setEnabled(!busy);
@@ -175,14 +169,14 @@ public final class RejectedApiResultsActivity extends AppCompatActivity {
     private void showPayload(JSONObject record) {
         Object payload = record.opt("payload");
         String text = payload == null
-            ? getString(R.string.rejected_api_result_empty_payload)
+            ? activity.getString(R.string.rejected_api_result_empty_payload)
             : payload.toString();
         if (text.length() > 256 * 1024) {
             text = text.substring(0, 256 * 1024)
                 + "\n…\n"
-                + getString(R.string.rejected_api_result_truncated);
+                + activity.getString(R.string.rejected_api_result_truncated);
         }
-        new MaterialAlertDialogBuilder(this)
+        new MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.rejected_api_result_view_payload)
             .setMessage(text)
             .setPositiveButton(android.R.string.ok, null)
@@ -191,7 +185,7 @@ public final class RejectedApiResultsActivity extends AppCompatActivity {
 
     private void confirmDelete(JSONObject record) {
         final String recordId = record.optString("record_id", "");
-        new MaterialAlertDialogBuilder(this)
+        new MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.rejected_api_result_delete_title)
             .setMessage(R.string.rejected_api_result_delete_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -203,31 +197,31 @@ public final class RejectedApiResultsActivity extends AppCompatActivity {
     }
 
     private void deleteRecord(String recordId) {
-        if (busy) {
+        if (!isActive() || busy) {
             return;
         }
         busy = true;
         ioExecutor.execute(() -> {
             try {
                 store.delete(recordId);
-                runOnUiThread(() -> {
-                    if (isDestroyed()) {
+                activity.runOnUiThread(() -> {
+                    busy = false;
+                    if (!isActive()) {
                         return;
                     }
-                    busy = false;
                     Toast.makeText(
-                        this,
+                        activity,
                         R.string.rejected_api_result_deleted,
                         Toast.LENGTH_SHORT
                     ).show();
-                    refreshRecords();
+                    refresh();
                 });
             } catch (Exception error) {
-                runOnUiThread(() -> {
-                    if (isDestroyed()) {
+                activity.runOnUiThread(() -> {
+                    busy = false;
+                    if (!isActive()) {
                         return;
                     }
-                    busy = false;
                     showFailure(error);
                 });
             }
@@ -235,12 +229,12 @@ public final class RejectedApiResultsActivity extends AppCompatActivity {
     }
 
     private void showFailure(Throwable error) {
-        if (isDestroyed() || isFinishing()) {
+        if (!isActive()) {
             return;
         }
         Toast.makeText(
-            this,
-            getString(
+            activity,
+            activity.getString(
                 R.string.rejected_api_results_load_failed,
                 safeMessage(error)
             ),
