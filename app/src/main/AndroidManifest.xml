@@ -104,6 +104,12 @@
             android:label="@string/scene_files_title"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".ui.ManagementImportActivity"
+            android:exported="false"
+            android:label="@string/management_import_title"
+            android:windowSoftInputMode="adjustResize" />
+
         <provider
             android:name=".bridge.UserConfigProvider"
             android:authorities="com.quarty.housamoembedtrans.userfiles"
