@@ -69,7 +69,7 @@ public final class ManagementImportRecoveryGate {
 
     /** Returns whether the current thread owns the recovery permit. */
     public static boolean isRecoveryOwnerForFilesRoot(File filesRoot) {
-        return forFilesRoot(filesRoot).isOwner();
+        return forFilesRoot(filesRoot).rootGate.isOwner();
     }
 
     /** Short operation run under the gate's target admission lock. */
