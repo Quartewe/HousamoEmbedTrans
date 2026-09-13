@@ -6,6 +6,7 @@ import com.quarty.housamoembedtrans.management.transfer.ManagementImportCoordina
 import com.quarty.housamoembedtrans.provider.ApiConcurrencyGate;
 import com.quarty.housamoembedtrans.runtime.StartupCoordinator;
 import com.quarty.housamoembedtrans.scene.sync.SceneConflictResolver;
+import com.quarty.housamoembedtrans.scene.sync.SceneApplyCoordinator;
 import com.quarty.housamoembedtrans.scene.sync.SceneManualConflictController;
 import com.quarty.housamoembedtrans.scene.sync.ScenePolicyPublisher;
 import com.quarty.housamoembedtrans.scene.sync.SceneSyncCoordinator;
@@ -2604,7 +2605,6 @@ public final class TranslationService extends Service {
                 cycleSnapshot,
                 scenePolicyPublisher,
                 policyTarget,
-                () -> {},
                 fullSyncLease,
                 pendingRecovery
             );

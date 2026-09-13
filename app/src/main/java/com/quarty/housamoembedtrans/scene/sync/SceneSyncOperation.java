@@ -492,6 +492,26 @@ public final class SceneSyncOperation implements AutoCloseable {
         );
     }
 
+    /** Starts a service-owned cycle with its existing lease and recovery result. */
+    public SceneSyncOperation(
+        SceneStore sceneStore,
+        IGameScenePort gamePort,
+        int workerCount,
+        SceneConflictResolver conflictResolver,
+        PendingSceneApplyStore pendingApplyStore,
+        SceneSyncCycleSnapshot cycleSnapshot,
+        ScenePolicyPublisher policyPublisher,
+        ScenePolicyPublisher.Target policyTarget,
+        SceneStore.MutationAdmission.FullSyncLease syncWriteLease,
+        PendingSceneApplyStore.RecoveryReport initialPendingRecovery
+    ) {
+        this(
+            sceneStore, gamePort, workerCount, conflictResolver,
+            pendingApplyStore, cycleSnapshot, policyPublisher, policyTarget,
+            () -> {}, syncWriteLease, initialPendingRecovery
+        );
+    }
+
     SceneSyncOperation(
         SceneStore sceneStore,
         IGameScenePort gamePort,
