@@ -3,6 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/card_translation_failed_item"
+    style="@style/Widget.HET.TonalCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
@@ -10,7 +11,6 @@
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground"
     android:checkable="true"
-    app:cardCornerRadius="12dp"
     app:checkedIcon="@null"
     app:strokeColor="?attr/colorPrimary"
     app:strokeWidth="1dp">
@@ -95,7 +95,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_translation_failed_primary"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.HET.Button.Secondary"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/translation_job_details" />

@@ -2,11 +2,14 @@
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/card_user_action_item"
+    android:id="@+id/card_translation_active_item"
     style="@style/Widget.HET.TonalCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
     app:strokeColor="?attr/colorPrimary"
     app:strokeWidth="1dp">
 
@@ -17,26 +20,26 @@
         android:padding="14dp">
 
         <TextView
-            android:id="@+id/tv_user_action_scene"
+            android:id="@+id/tv_translation_active_scene"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tv_user_action_reason"
+            android:id="@+id/tv_translation_active_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="?android:attr/textColorSecondary" />
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_retry_user_action"
-            style="@style/Widget.HET.Button.Secondary"
-            android:layout_width="match_parent"
+            android:id="@+id/btn_translation_active_details"
+            style="@style/Widget.HET.Button.Text"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="@string/user_action_required_retry" />
+            android:layout_gravity="end"
+            android:layout_marginTop="6dp"
+            android:text="@string/translation_stop_details" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
