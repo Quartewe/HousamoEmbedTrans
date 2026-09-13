@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/primary_navigation"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/colorSurface"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:paddingStart="4dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="8dp">
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/nav_tasks"
+        style="@style/Widget.HET.Button.Text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:minHeight="48dp"
+        android:textColor="@color/het_nav_item_text"
+        app:backgroundTint="@color/het_nav_item_background"
+        android:text="@string/primary_nav_tasks" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/nav_management"
+        style="@style/Widget.HET.Button.Text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:minHeight="48dp"
+        android:textColor="@color/het_nav_item_text"
+        app:backgroundTint="@color/het_nav_item_background"
+        android:text="@string/primary_nav_management" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/nav_settings"
+        style="@style/Widget.HET.Button.Text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:minHeight="48dp"
+        android:textColor="@color/het_nav_item_text"
+        app:backgroundTint="@color/het_nav_item_background"
+        android:text="@string/primary_nav_settings" />
+</LinearLayout>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="management_link_load_failed">无法读取管理对象，稍后可重试。</string>
+    <string name="management_link_target_missing">该管理对象已不存在，请返回刷新列表。</string>
+</resources>
