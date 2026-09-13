@@ -96,6 +96,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         Executors.newSingleThreadExecutor();
     private final Handler summaryRecoveryHandler =
         new Handler(Looper.getMainLooper());
+    private boolean busy;
+    private boolean submitted;
     private final Runnable summaryRecoveryRefresh =
         () -> {
             if (!isDestroyed() && !isFinishing() && !busy && !submitted) {
@@ -104,8 +106,6 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         };
     private final ArrayList<String> selectedRequestIds =
         new ArrayList<>();
-    private boolean busy;
-    private boolean submitted;
     private final TranslationJobStore.QueueListener queueListener =
         (hasPendingJobs, heldQueuedJobCount, repairingStartupJobs) ->
             runOnUiThread(() -> {
@@ -1234,7 +1234,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             TextView heading = new TextView(this);
             heading.setText(R.string.pending_process_damaged_candidates_title);
             heading.setTextAppearance(
-                R.style.TextAppearance_MaterialComponents_Subtitle2
+                com.google.android.material.R.style.TextAppearance_MaterialComponents_Subtitle2
             );
             int topPadding = Math.round(
                 12 * getResources().getDisplayMetrics().density
