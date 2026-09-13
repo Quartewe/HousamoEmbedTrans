@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -713,7 +714,7 @@ public final class TranslationJobStore {
                         File directory;
                         try {
                             directory = requireJobDirectoryLocked(requestId);
-                        } catch (IOException missing) {
+                        } catch (IllegalStateException missing) {
                             activeTerminalLeases.remove(leaseKey);
                             continue;
                         }
