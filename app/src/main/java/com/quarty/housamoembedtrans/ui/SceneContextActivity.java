@@ -3915,15 +3915,16 @@ public final class SceneContextActivity extends AppCompatActivity {
             return;
         }
         for (int index = 0; index < contexts.length(); index++) {
-            final String contextId;
+            String resolvedContextId;
             try {
-                contextId = GroupContextEntry.contextIdAt(
+                resolvedContextId = GroupContextEntry.contextIdAt(
                     contexts,
                     index
                 );
             } catch (RuntimeException invalidEntry) {
-                contextId = "";
+                resolvedContextId = "";
             }
+            final String contextId = resolvedContextId;
             final int position = index;
             String label = contextId == null || contextId.trim().isEmpty()
                 ? "?"
