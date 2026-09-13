@@ -128,6 +128,43 @@ public final class SummaryTaskExecutor {
             String text,
             String sourceHash
         ) throws Exception;
+
+        /** Optional durable manual-closure state boundary. */
+        default SceneContextStore.ManualClosureState getManualClosureState(
+            String ownerType,
+            String ownerId
+        ) throws Exception {
+            return null;
+        }
+
+        /** Epoch checks are disabled for legacy epoch-zero host gateways. */
+        default boolean isManualClosureEpochCurrent(
+            String ownerType,
+            String ownerId,
+            long epoch,
+            boolean requireClosed
+        ) throws Exception {
+            return epoch == 0L;
+        }
+
+        /** Returns whether this exact request completed the current round. */
+        default boolean isManualClosureWritebackComplete(
+            String ownerType,
+            String ownerId,
+            long epoch,
+            String requestId
+        ) throws Exception {
+            return false;
+        }
+
+        /** Records the exact request after its durable summary write. */
+        default void markManualClosureWriteback(
+            String ownerType,
+            String ownerId,
+            long epoch,
+            String requestId
+        ) throws Exception {
+        }
     }
 
     /** Optional downstream notification after a Context Final Summary write. */
@@ -311,7 +348,12 @@ public final class SummaryTaskExecutor {
         Context context,
         SummaryJobStore summaryJobStore
     ) {
-        SceneContextStore sceneContextStore = new SceneContextStore(context);
+        SceneContextStore configuredSceneContextStore =
+            summaryJobStore.getSceneContextStore();
+        final SceneContextStore sceneContextStore =
+            configuredSceneContextStore == null
+                ? new SceneContextStore(context)
+                : configuredSceneContextStore;
         ContextGateway gateway = new ContextGateway() {
             @Override
             public JSONObject getContext(String contextId) throws Exception {
@@ -325,6 +367,71 @@ public final class SummaryTaskExecutor {
                 return SceneContextStore.withRootAccess(
                     () -> sceneContextStore.getGroup(groupId)
                 );
+            }
+
+            @Override
+            public SceneContextStore.ManualClosureState getManualClosureState(
+                String ownerType,
+                String ownerId
+            ) throws Exception {
+                return SceneContextStore.withRootAccess(
+                    () -> sceneContextStore.getManualClosureState(
+                        ownerType,
+                        ownerId
+                    )
+                );
+            }
+
+            @Override
+            public boolean isManualClosureEpochCurrent(
+                String ownerType,
+                String ownerId,
+                long epoch,
+                boolean requireClosed
+            ) throws Exception {
+                return SceneContextStore.withRootAccess(
+                    () -> sceneContextStore.isManualClosureEpochCurrent(
+                        ownerType,
+                        ownerId,
+                        epoch,
+                        requireClosed
+                    )
+                );
+            }
+
+            @Override
+            public boolean isManualClosureWritebackComplete(
+                String ownerType,
+                String ownerId,
+                long epoch,
+                String requestId
+            ) throws Exception {
+                return SceneContextStore.withRootAccess(
+                    () -> sceneContextStore.isManualClosureWritebackComplete(
+                        ownerType,
+                        ownerId,
+                        epoch,
+                        requestId
+                    )
+                );
+            }
+
+            @Override
+            public void markManualClosureWriteback(
+                String ownerType,
+                String ownerId,
+                long epoch,
+                String requestId
+            ) throws Exception {
+                SceneContextStore.withRootAccess(() -> {
+                    sceneContextStore.markManualClosureWriteback(
+                        ownerType,
+                        ownerId,
+                        epoch,
+                        requestId
+                    );
+                    return null;
+                });
             }
 
             @Override
@@ -729,6 +836,11 @@ public final class SummaryTaskExecutor {
                             "summary target owner was permanently deleted"
                         );
                     }
+                    final JSONObject requestForAttempt = request;
+                    SceneContextStore.withRootAccess(() -> {
+                        validateClosureBeforeSend(requestForAttempt);
+                        return null;
+                    });
                     JSONObject providerResponse = transport.send(
                         snapshot.config,
                         frozenBody
@@ -893,6 +1005,7 @@ public final class SummaryTaskExecutor {
         throws Exception {
         return SceneContextStore.withRootAccess(() -> {
             validateTargetBeforeSend(request);
+            validateClosureBeforeSend(request);
             String currentSourceHash = recomputeSourceHash(request);
             if (!currentSourceHash.equals(
                 request.optString("source_hash", "")
@@ -912,6 +1025,54 @@ public final class SummaryTaskExecutor {
                 buildInput(request)
             );
         });
+    }
+
+    /** Validates the durable closure generation at a root-gated boundary. */
+    private void validateClosureBeforeSend(JSONObject request) throws Exception {
+        long epoch = SummaryJobStore.requestEpoch(request);
+        String ownerType = request.optString("owner_type", "");
+        String ownerId = request.optString("owner_id", "");
+        boolean manualClosure = request.optBoolean("manual_closure", false);
+        if (!gateway.isManualClosureEpochCurrent(
+            ownerType,
+            ownerId,
+            epoch,
+            manualClosure
+        )) {
+            throw new TargetInvalidatedException(
+                "summary closure epoch is stale request owner=" + ownerId
+            );
+        }
+        if (epoch == 0L) {
+            if (manualClosure) {
+                throw new TargetInvalidatedException(
+                    "manual closure request has no closure epoch owner="
+                        + ownerId
+                );
+            }
+            return;
+        }
+        if (!manualClosure) {
+            return;
+        }
+        SceneContextStore.ManualClosureState state =
+            gateway.getManualClosureState(ownerType, ownerId);
+        if (state == null
+            || !state.isClosed()
+            || state.epoch != epoch
+            || !state.targetLang.equals(request.optString("target_lang", ""))
+            || !state.cutoff.equals(request.optString("cutoff", ""))
+            || !state.sourceHash.equals(request.optString("source_hash", ""))) {
+            throw new TargetInvalidatedException(
+                "summary manual closure binding is stale owner=" + ownerId
+            );
+        }
+        String requestId = SummaryJobStore.computeRequestId(request);
+        if (state.requestId.isEmpty() || !state.requestId.equals(requestId)) {
+            throw new TargetInvalidatedException(
+                "summary manual closure request is not bound owner=" + ownerId
+            );
+        }
     }
 
     private void validateTargetBeforeSend(JSONObject request)
@@ -1322,6 +1483,7 @@ public final class SummaryTaskExecutor {
                     "summary target owner was permanently deleted"
                 );
             }
+            validateClosureBeforeSend(request);
             String currentSourceHash = recomputeSourceHash(request);
             if (!request.optString("source_hash", "").equals(
                 currentSourceHash
@@ -1337,6 +1499,15 @@ public final class SummaryTaskExecutor {
                 return WritebackDecision.manual();
             }
             writeBack(request, summaryText);
+            if (SummaryJobStore.requestEpoch(request) > 0L
+                && request.optBoolean("manual_closure", false)) {
+                gateway.markManualClosureWriteback(
+                    request.optString("owner_type", ""),
+                    request.optString("owner_id", ""),
+                    SummaryJobStore.requestEpoch(request),
+                    requestId
+                );
+            }
             return WritebackDecision.written(currentSourceHash);
         });
     }
@@ -1382,36 +1553,50 @@ public final class SummaryTaskExecutor {
         String currentSourceHash,
         boolean userRequested
     ) throws Exception {
-        JSONObject successor = new JSONObject(request.toString());
-        successor.put("source_hash", currentSourceHash);
-        SummaryJobStore.AdmissionResult admission = userRequested
-            ? store.admitUserRequested(successor)
-            : store.admit(successor);
-        if (admission.created) {
+        return SceneContextStore.withRootAccess(() -> {
+            try {
+                validateClosureBeforeSend(request);
+            } catch (TargetInvalidatedException stale) {
+                return null;
+            }
+            if (request.optBoolean("manual_closure", false)
+                && !currentSourceHash.equals(
+                    request.optString("source_hash", "")
+                )) {
+                return null;
+            }
+            JSONObject successor = new JSONObject(request.toString());
+            successor.put("closure_epoch", SummaryJobStore.requestEpoch(request));
+            successor.put("source_hash", currentSourceHash);
+            SummaryJobStore.AdmissionResult admission = userRequested
+                ? store.admitUserRequested(successor)
+                : store.admit(successor);
+            if (admission.created) {
+                logWarn(
+                    "Created Summary successor requestId="
+                        + admission.requestId
+                        + " source_hash="
+                        + currentSourceHash
+                );
+                return admission.requestId;
+            }
+            if (SummaryJobStore.DISPOSITION_DUPLICATE_REJECTED.equals(
+                admission.disposition
+            )) {
+                logWarn(
+                    "Summary successor already exists requestId="
+                        + admission.requestId
+                );
+                return admission.requestId;
+            }
             logWarn(
-                "Created Summary successor requestId="
-                    + admission.requestId
-                    + " source_hash="
-                    + currentSourceHash
-            );
-            return admission.requestId;
-        }
-        if (SummaryJobStore.DISPOSITION_DUPLICATE_REJECTED.equals(
-            admission.disposition
-        )) {
-            logWarn(
-                "Summary successor already exists requestId="
+                "Could not create Summary successor disposition="
+                    + admission.disposition
+                    + " requestId="
                     + admission.requestId
             );
-            return admission.requestId;
-        }
-        logWarn(
-            "Could not create Summary successor disposition="
-                + admission.disposition
-                + " requestId="
-                + admission.requestId
-        );
-        return null;
+            return null;
+        });
     }
 
     private void handleRerunAfterTermination(
@@ -1470,6 +1655,15 @@ public final class SummaryTaskExecutor {
         String ownerId = request.optString("owner_id", "");
         String targetLang = request.optString("target_lang", "");
         String requestKind = request.optString("request_kind", "");
+        long closureEpoch = SummaryJobStore.requestEpoch(request);
+        if (closureEpoch > 0L && request.optBoolean("manual_closure", false)) {
+            return gateway.isManualClosureWritebackComplete(
+                ownerType,
+                ownerId,
+                closureEpoch,
+                SummaryJobStore.computeRequestId(request)
+            );
+        }
         if ("context".equals(ownerType)) {
             JSONObject context = gateway.getContext(ownerId);
             JSONObject language = languageObject(context, targetLang);

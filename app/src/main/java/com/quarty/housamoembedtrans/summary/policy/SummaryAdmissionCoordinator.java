@@ -40,9 +40,10 @@ final class SummaryAdmissionCoordinator {
         JSONObject request,
         boolean userRequested
     ) throws Exception {
+        JSONObject preparedRequest = store.prepareRequestForAdmission(request);
         SummaryJobStore.SummaryTargetKey target =
-            SummaryJobStore.SummaryTargetKey.fromRequest(request);
-        String desiredId = SummaryJobStore.computeRequestId(request);
+            SummaryJobStore.SummaryTargetKey.fromRequest(preparedRequest);
+        String desiredId = SummaryJobStore.computeRequestId(preparedRequest);
         for (int attempt = 0; attempt < 2; attempt++) {
             String activeRequestId = store.findActiveRequestId(target);
             if (activeRequestId != null) {
@@ -79,8 +80,8 @@ final class SummaryAdmissionCoordinator {
                 return new Decision(Outcome.REUSED_DUPLICATE, desiredId);
             }
             SummaryJobStore.AdmissionResult admission = userRequested
-                ? store.admitUserRequested(request)
-                : store.admit(request);
+                ? store.admitUserRequested(preparedRequest)
+                : store.admit(preparedRequest);
             if (admission.created) {
                 return new Decision(Outcome.CREATED, admission.requestId);
             }

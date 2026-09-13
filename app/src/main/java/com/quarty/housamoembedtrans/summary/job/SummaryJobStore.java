@@ -29,7 +29,8 @@ import java.util.Set;
  * {@code files/summary_jobs/<request_id>/}.
  *
  * <p>Summary jobs use {@code request.json} for the immutable semantic input
- * ({@code request_kind/owner_type/owner_id/target_lang/cutoff/source_hash}) and
+ * ({@code request_kind/owner_type/owner_id/target_lang/cutoff/source_hash}
+ * plus optional {@code closure_epoch/manual_closure}) and
  * {@code state.json} only for mutable scheduling state
  * ({@code status/created_at/updated_at/rerun_required/notified/user_requested}
  * plus terminal diagnostic fields). The store does not own HTTP/assembly/
@@ -81,7 +82,9 @@ public final class SummaryJobStore {
             "owner_id",
             "target_lang",
             "cutoff",
-            "source_hash"
+            "source_hash",
+            "closure_epoch",
+            "manual_closure"
         )));
 
     private static final Set<String> ACTIVE_STATUSES =
@@ -467,6 +470,36 @@ public final class SummaryJobStore {
         return store.getRoot();
     }
 
+    /** Returns the Context/Group facade used by the Android-backed store. */
+    public SceneContextStore getSceneContextStore() {
+        return sceneContextStore;
+    }
+
+    /**
+     * Normalizes a newly produced request against the current owner epoch.
+     * Explicit epochs are retained so an old successor cannot be promoted into
+     * a reopened round.  The optional manual marker is normalized here as well,
+     * giving all production admission paths one request contract.
+     */
+    public JSONObject prepareRequestForAdmission(JSONObject request)
+        throws Exception {
+        return SceneContextStore.withRootAccess(() -> {
+            validateRequest(request);
+            if (!request.has("manual_closure")) {
+                request.put("manual_closure", false);
+            }
+            if (!request.has("closure_epoch") && sceneContextStore != null) {
+                String ownerType = request.optString("owner_type", "");
+                String ownerId = request.optString("owner_id", "");
+                SceneContextStore.ManualClosureState state =
+                    sceneContextStore.getManualClosureState(ownerType, ownerId);
+                request.put("closure_epoch", state.epoch);
+            }
+            validateRequest(request);
+            return request;
+        });
+    }
+
     public void setRecoveryDecisionListener(
         RecoveryDecisionListener listener
     ) {
@@ -485,7 +518,7 @@ public final class SummaryJobStore {
 
     /**
      * Calculates the concrete Summary Request ID:
-     * {@code sha256(SummaryTargetKey + source_hash)}.
+     * {@code sha256(SummaryTargetKey + source_hash + closure_epoch)}.
      */
     public static String computeRequestId(JSONObject request) {
         validateRequest(request);
@@ -498,6 +531,11 @@ public final class SummaryJobStore {
         identity.append("target_lang=").append(target.targetLang).append('\n');
         identity.append("cutoff=").append(target.cutoff).append('\n');
         identity.append("source_hash=").append(sourceHash);
+        long closureEpoch = requestEpoch(request);
+        if (closureEpoch > 0L) {
+            identity.append('\n').append("closure_epoch=")
+                .append(closureEpoch);
+        }
         return PersistentApiJobStore.sha256Hex(
             identity.toString().getBytes(StandardCharsets.UTF_8)
         );
@@ -523,7 +561,10 @@ public final class SummaryJobStore {
         throws Exception {
         synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
             synchronized (this) {
-                return admitLocked(request, userRequested);
+                return admitLocked(
+                    prepareRequestForAdmission(request),
+                    userRequested
+                );
             }
         }
     }
@@ -1148,6 +1189,39 @@ public final class SummaryJobStore {
     public synchronized String findActiveRequestId(SummaryTargetKey target)
         throws Exception {
         return findActiveTargetLocked(target);
+    }
+
+    /** Returns whether queued/running/awaiting work exists for one owner. */
+    public boolean hasActiveJobsForOwner(String ownerType, String ownerId)
+        throws Exception {
+        if (ownerType == null || ownerType.trim().isEmpty()
+            || ownerId == null || ownerId.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                "ownerType and ownerId are required"
+            );
+        }
+        return queryUnderRoot(() -> {
+            synchronized (TARGET_ADMISSION_LOCK) {
+                for (File directory : store.listValidJobDirectories()) {
+                    JSONObject state = store.readState(directory);
+                    if (state == null || !ACTIVE_STATUSES.contains(
+                        state.optString("status", "")
+                    )) {
+                        continue;
+                    }
+                    JSONObject request = JobValidator.parseJsonObject(
+                        store.readRequest(directory),
+                        MAX_REQUEST_BYTES,
+                        "summary request"
+                    );
+                    if (ownerType.equals(request.optString("owner_type", ""))
+                        && ownerId.equals(request.optString("owner_id", ""))) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
     }
 
     public synchronized SummaryTargetKey targetOf(String requestId)
@@ -1906,6 +1980,35 @@ public final class SummaryJobStore {
         requireField(request, "target_lang");
         requireField(request, "cutoff");
         requireField(request, "source_hash");
+        if (request.has("closure_epoch")) {
+            if (request.isNull("closure_epoch")
+                || !(request.opt("closure_epoch") instanceof Number)) {
+                throw new IllegalArgumentException(
+                    "summary request closure_epoch must be a non-negative number"
+                );
+            }
+            if (request.optLong("closure_epoch", -1L) < 0L) {
+                throw new IllegalArgumentException(
+                    "summary request closure_epoch must be non-negative"
+                );
+            }
+        }
+        if (request.has("manual_closure")
+            && (request.isNull("manual_closure")
+                || !(request.opt("manual_closure") instanceof Boolean))) {
+            throw new IllegalArgumentException(
+                "summary request manual_closure must be a boolean"
+            );
+        }
+    }
+
+    /** Missing epoch is the legacy pre-closure round. */
+    public static long requestEpoch(JSONObject request) {
+        if (request == null || !request.has("closure_epoch")
+            || request.isNull("closure_epoch")) {
+            return 0L;
+        }
+        return request.optLong("closure_epoch", 0L);
     }
 
     private static String requireField(JSONObject request, String field) {

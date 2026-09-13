@@ -38,6 +38,11 @@ public final class SceneContextStore {
 
     public static final String DIRECTORY_NAME = "scene_contexts";
     public static final String TXN_DIRECTORY_NAME = ".txn";
+    public static final String MANUAL_CLOSURE_CONTEXT_OWNER = "context";
+    public static final String MANUAL_CLOSURE_GROUP_OWNER = "group";
+    public static final String MANUAL_CLOSURE_STATUS_NONE = "none";
+    public static final String MANUAL_CLOSURE_STATUS_OPEN = "open";
+    public static final String MANUAL_CLOSURE_STATUS_CLOSED = "closed";
     public static final int FORMAT_VERSION = 1;
     public static final int DEFAULT_RECENT_PERCENT = 30;
     public static final int DEFAULT_RECENT_LIMIT = 10;
@@ -105,6 +110,7 @@ public final class SceneContextStore {
     private final GroupStore groupStore;
     private final SceneContextIndexStore indexStore;
     private final PendingProcessStore pendingProcessStore;
+    private final ManualClosureStateStore manualClosureStateStore;
     private volatile ActiveContextChangeListener activeContextChangeListener =
         (previous, current) -> { };
 
@@ -159,6 +165,10 @@ public final class SceneContextStore {
             validator,
             io
         );
+        manualClosureStateStore = new ManualClosureStateStore(
+            new File(rootDirectory, "manual_closure"),
+            io
+        );
         try {
             synchronized (ROOT_ACCESS_LOCK) {
                 ReviewTransactionJournal.recover(
@@ -176,6 +186,423 @@ public final class SceneContextStore {
 
     public File getDirectory() {
         return rootDirectory;
+    }
+
+    /** Immutable durable state for one user-controlled summary round. */
+    public static final class ManualClosureState {
+        public final String ownerType;
+        public final String ownerId;
+        public final String status;
+        public final long epoch;
+        public final String targetLang;
+        public final String cutoff;
+        public final String sourceHash;
+        public final String requestId;
+        public final String completedRequestId;
+        public final long openedAt;
+        public final long closedAt;
+        public final long updatedAt;
+
+        private ManualClosureState(ManualClosureStateStore.State state) {
+            ownerType = state.ownerType;
+            ownerId = state.ownerId;
+            status = state.status;
+            epoch = state.epoch;
+            targetLang = state.targetLang;
+            cutoff = state.cutoff;
+            sourceHash = state.sourceHash;
+            requestId = state.requestId;
+            completedRequestId = state.completedRequestId;
+            openedAt = state.openedAt;
+            closedAt = state.closedAt;
+            updatedAt = state.updatedAt;
+        }
+
+        public boolean isOpen() {
+            return MANUAL_CLOSURE_STATUS_OPEN.equals(status);
+        }
+
+        public boolean isClosed() {
+            return MANUAL_CLOSURE_STATUS_CLOSED.equals(status);
+        }
+
+        public boolean isNone() {
+            return MANUAL_CLOSURE_STATUS_NONE.equals(status);
+        }
+    }
+
+    /** Returns the persisted state; a missing sidecar is the legacy epoch 0. */
+    public ManualClosureState getManualClosureState(
+        String ownerType,
+        String ownerId
+    ) throws StorageException {
+        synchronized (ROOT_ACCESS_LOCK) {
+            requireManualClosureOwner(ownerType, ownerId);
+            try {
+                return new ManualClosureState(
+                    manualClosureStateStore.read(ownerType, ownerId)
+                );
+            } catch (IOException | org.json.JSONException e) {
+                throw new StorageException(
+                    FailureKind.IO,
+                    "could not read manual closure state for " + ownerId,
+                    e
+                );
+            }
+        }
+    }
+
+    /**
+     * Opens a new round, or returns the current round when it is already open.
+     * Reopening a closed round always advances the durable epoch.
+     */
+    public ManualClosureState beginManualClosure(
+        String ownerType,
+        String ownerId
+    ) throws StorageException {
+        synchronized (ROOT_ACCESS_LOCK) {
+            requireManualClosureOwner(ownerType, ownerId);
+            ManualClosureState current = getManualClosureState(
+                ownerType,
+                ownerId
+            );
+            if (current.isOpen()) {
+                return current;
+            }
+            long now = System.currentTimeMillis();
+            ManualClosureStateStore.State next =
+                new ManualClosureStateStore.State(
+                    ownerType,
+                    ownerId,
+                    MANUAL_CLOSURE_STATUS_OPEN,
+                    current.epoch + 1L,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    now,
+                    0L,
+                    now
+                );
+            writeManualClosureState(next);
+            return new ManualClosureState(next);
+        }
+    }
+
+    /** Alias used by UI and service code when the owner is already closed. */
+    public ManualClosureState reopenManualClosure(
+        String ownerType,
+        String ownerId
+    ) throws StorageException {
+        return beginManualClosure(ownerType, ownerId);
+    }
+
+    /** Closes the current round with the exact facts that will be queued. */
+    public ManualClosureState closeManualClosure(
+        String ownerType,
+        String ownerId,
+        String targetLang,
+        String cutoff,
+        String sourceHash
+    ) throws StorageException {
+        return closeManualClosure(
+            ownerType,
+            ownerId,
+            targetLang,
+            cutoff,
+            sourceHash,
+            ""
+        );
+    }
+
+    /** Closes a round and optionally binds its already-admitted request id. */
+    public ManualClosureState closeManualClosure(
+        String ownerType,
+        String ownerId,
+        String targetLang,
+        String cutoff,
+        String sourceHash,
+        String requestId
+    ) throws StorageException {
+        synchronized (ROOT_ACCESS_LOCK) {
+            requireManualClosureOwner(ownerType, ownerId);
+            ManualClosureState current = getManualClosureState(
+                ownerType,
+                ownerId
+            );
+            if (!current.isOpen()) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "manual closure is not open for " + ownerId
+                );
+            }
+            if (targetLang == null || targetLang.trim().isEmpty()) {
+                throw new StorageException(
+                    FailureKind.INVALID_ARGUMENT,
+                    "manual closure target language is required"
+                );
+            }
+            if (cutoff == null || cutoff.trim().isEmpty()) {
+                throw new StorageException(
+                    FailureKind.INVALID_ARGUMENT,
+                    "manual closure cutoff is required"
+                );
+            }
+            if (sourceHash == null || sourceHash.trim().isEmpty()) {
+                throw new StorageException(
+                    FailureKind.INVALID_ARGUMENT,
+                    "manual closure source hash is required"
+                );
+            }
+            long now = System.currentTimeMillis();
+            ManualClosureStateStore.State next =
+                new ManualClosureStateStore.State(
+                    ownerType,
+                    ownerId,
+                    MANUAL_CLOSURE_STATUS_CLOSED,
+                    current.epoch,
+                    targetLang,
+                    cutoff,
+                    sourceHash,
+                    requestId == null ? "" : requestId,
+                    "",
+                    current.openedAt,
+                    now,
+                    now
+                );
+            writeManualClosureState(next);
+            return new ManualClosureState(next);
+        }
+    }
+
+    /** Binds a durable request identity after successful admission. */
+    public ManualClosureState recordManualClosureRequest(
+        String ownerType,
+        String ownerId,
+        long epoch,
+        String requestId
+    ) throws StorageException {
+        if (requestId == null || requestId.trim().isEmpty()) {
+            throw new StorageException(
+                FailureKind.INVALID_ARGUMENT,
+                "manual closure request id is required"
+            );
+        }
+        synchronized (ROOT_ACCESS_LOCK) {
+            requireManualClosureOwner(ownerType, ownerId);
+            ManualClosureState current = getManualClosureState(
+                ownerType,
+                ownerId
+            );
+            if (!current.isClosed() || current.epoch != epoch) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "manual closure epoch is no longer closed"
+                );
+            }
+            if (!current.requestId.isEmpty()
+                && !current.requestId.equals(requestId)) {
+                throw new StorageException(
+                    FailureKind.CONFLICT,
+                    "manual closure is already bound to another request"
+                );
+            }
+            ManualClosureStateStore.State next =
+                new ManualClosureStateStore.State(
+                    current.ownerType,
+                    current.ownerId,
+                    current.status,
+                    current.epoch,
+                    current.targetLang,
+                    current.cutoff,
+                    current.sourceHash,
+                    requestId,
+                    current.completedRequestId,
+                    current.openedAt,
+                    current.closedAt,
+                    System.currentTimeMillis()
+                );
+            writeManualClosureState(next);
+            return new ManualClosureState(next);
+        }
+    }
+
+    /**
+     * Replaces a closed round's content intent while keeping its epoch. The
+     * caller must hold ROOT_ACCESS_LOCK and must have established that no
+     * active Summary Job can still claim the old request.
+     */
+    public ManualClosureState updateManualClosureIntent(
+        String ownerType,
+        String ownerId,
+        long epoch,
+        String targetLang,
+        String cutoff,
+        String sourceHash
+    ) throws StorageException {
+        synchronized (ROOT_ACCESS_LOCK) {
+            requireManualClosureOwner(ownerType, ownerId);
+            ManualClosureState current = getManualClosureState(
+                ownerType,
+                ownerId
+            );
+            if (!current.isClosed() || current.epoch != epoch) {
+                throw new StorageException(
+                    FailureKind.INVALID_STATE,
+                    "manual closure intent is no longer current"
+                );
+            }
+            if (targetLang == null || targetLang.trim().isEmpty()
+                || cutoff == null || cutoff.trim().isEmpty()
+                || sourceHash == null || sourceHash.trim().isEmpty()) {
+                throw new StorageException(
+                    FailureKind.INVALID_ARGUMENT,
+                    "manual closure intent fields are required"
+                );
+            }
+            long now = System.currentTimeMillis();
+            ManualClosureStateStore.State next =
+                new ManualClosureStateStore.State(
+                    current.ownerType,
+                    current.ownerId,
+                    current.status,
+                    current.epoch,
+                    targetLang,
+                    cutoff,
+                    sourceHash,
+                    "",
+                    "",
+                    current.openedAt,
+                    current.closedAt,
+                    now
+                );
+            writeManualClosureState(next);
+            return new ManualClosureState(next);
+        }
+    }
+
+    /** Marks the request whose result was durably written for this round. */
+    public void markManualClosureWriteback(
+        String ownerType,
+        String ownerId,
+        long epoch,
+        String requestId
+    ) throws StorageException {
+        synchronized (ROOT_ACCESS_LOCK) {
+            requireManualClosureOwner(ownerType, ownerId);
+            ManualClosureState current = getManualClosureState(
+                ownerType,
+                ownerId
+            );
+            if (!current.isClosed() || current.epoch != epoch
+                || requestId == null
+                || !requestId.equals(current.requestId)) {
+                throw new StorageException(
+                    FailureKind.CONFLICT,
+                    "manual closure writeback request is stale"
+                );
+            }
+            if (requestId.equals(current.completedRequestId)) {
+                return;
+            }
+            ManualClosureStateStore.State next =
+                new ManualClosureStateStore.State(
+                    current.ownerType,
+                    current.ownerId,
+                    current.status,
+                    current.epoch,
+                    current.targetLang,
+                    current.cutoff,
+                    current.sourceHash,
+                    current.requestId,
+                    requestId,
+                    current.openedAt,
+                    current.closedAt,
+                    System.currentTimeMillis()
+                );
+            writeManualClosureState(next);
+        }
+    }
+
+    public boolean isManualClosureWritebackComplete(
+        String ownerType,
+        String ownerId,
+        long epoch,
+        String requestId
+    ) throws StorageException {
+        synchronized (ROOT_ACCESS_LOCK) {
+            requireManualClosureOwner(ownerType, ownerId);
+            ManualClosureState current = getManualClosureState(
+                ownerType,
+                ownerId
+            );
+            return current.isClosed()
+                && current.epoch == epoch
+                && requestId != null
+                && requestId.equals(current.completedRequestId);
+        }
+    }
+
+    /**
+     * Returns whether a request belongs to the current owner round. Legacy
+     * requests without a sidecar remain valid only at epoch 0.
+     */
+    public boolean isManualClosureEpochCurrent(
+        String ownerType,
+        String ownerId,
+        long epoch,
+        boolean requireClosed
+    ) throws StorageException {
+        synchronized (ROOT_ACCESS_LOCK) {
+            requireManualClosureOwner(ownerType, ownerId);
+            ManualClosureState state = getManualClosureState(ownerType, ownerId);
+            return state.epoch == epoch
+                && (!requireClosed || state.isClosed());
+        }
+    }
+
+    /**
+     * Invalidates closure state when an imported owner replaces an old
+     * identity, retaining a tombstone epoch so old requests cannot revive.
+     */
+    public void clearManualClosureState(
+        String ownerType,
+        String ownerId
+    ) throws StorageException {
+        synchronized (ROOT_ACCESS_LOCK) {
+            validateManualClosureOwner(ownerType, ownerId);
+            try {
+                ManualClosureStateStore.State previous =
+                    manualClosureStateStore.read(ownerType, ownerId);
+                long nextEpoch = previous.epoch;
+                if (previous.epoch >= 0L) {
+                    nextEpoch++;
+                }
+                ManualClosureStateStore.State tombstone =
+                    new ManualClosureStateStore.State(
+                        ownerType,
+                        ownerId,
+                        MANUAL_CLOSURE_STATUS_NONE,
+                        nextEpoch,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        previous.openedAt,
+                        previous.closedAt,
+                        System.currentTimeMillis()
+                    );
+                writeManualClosureState(tombstone);
+            } catch (IOException | org.json.JSONException e) {
+                throw new StorageException(
+                    FailureKind.IO,
+                    "could not clear manual closure state for " + ownerId,
+                    e
+                );
+            }
+        }
     }
 
     public ContextStore getContextStore() {
@@ -661,6 +1088,7 @@ public final class SceneContextStore {
         ImportResult result = new ImportResult();
         List<Mutation> mutations = new ArrayList<>();
         Set<String> plannedContextIds = new HashSet<>();
+        Set<String> resetContextClosureIds = new HashSet<>();
 
         for (JSONObject source : importedContexts) {
             String sourceId = source.optString("id", "");
@@ -713,6 +1141,7 @@ public final class SceneContextStore {
             validateContextDocument(target);
             result.contextIdMap.put(sourceId, targetId);
             plannedContextIds.add(targetId);
+            resetContextClosureIds.add(targetId);
             put(contextIndex, targetId, targetStorage + ".json");
             mutations.add(mutation(
                 ContextStore.DIRECTORY_NAME + "/" + targetStorage + ".json",
@@ -724,6 +1153,7 @@ public final class SceneContextStore {
         Set<String> availableContextIds = new HashSet<>(existingContexts.keySet());
         availableContextIds.addAll(plannedContextIds);
         Set<String> plannedGroupIds = new HashSet<>();
+        Set<String> resetGroupClosureIds = new HashSet<>();
         Map<String, JSONObject> finalGroups = new LinkedHashMap<>(
             existingGroups
         );
@@ -811,6 +1241,7 @@ public final class SceneContextStore {
             validateGroupDocument(target);
             result.groupIdMap.put(sourceId, targetId);
             plannedGroupIds.add(targetId);
+            resetGroupClosureIds.add(targetId);
             finalGroups.put(targetId, target);
             put(groupIndex, targetId, targetStorage + ".json");
             mutations.add(mutation(
@@ -837,6 +1268,21 @@ public final class SceneContextStore {
         // The imported bundle never carries active_context_id/active_group_id.
         mutations.add(mutationIndex(index));
         commitMutations(mutations);
+        // Imported replacements start a fresh closure identity. The sidecar
+        // is intentionally excluded from the bundle and must not retain a
+        // round belonging to the previous document at the same id.
+        for (String contextId : resetContextClosureIds) {
+            clearManualClosureState(
+                MANUAL_CLOSURE_CONTEXT_OWNER,
+                contextId
+            );
+        }
+        for (String groupId : resetGroupClosureIds) {
+            clearManualClosureState(
+                MANUAL_CLOSURE_GROUP_OWNER,
+                groupId
+            );
+        }
         return result;
     }
 
@@ -1228,25 +1674,27 @@ public final class SceneContextStore {
         throws StorageException {
         String previousContextId;
         ActiveContextChangeListener listener;
-        synchronized (this) {
-            JSONObject index = readIndex();
-            previousContextId = nullableString(index, "active_context_id");
-            validateIdOrNull(contextId, "active context id");
-            if (contextId != null) {
-                requireIndexEntry(index, "contexts", contextId, "context");
-                String activeGroup = nullableString(index, "active_group_id");
-                if (activeGroup != null
-                    && !groupContains(activeGroup, contextId)) {
-                    throw new StorageException(
-                        FailureKind.INVALID_ACTIVE_GROUP,
-                        "active group " + activeGroup
-                            + " does not contain active context " + contextId
-                    );
+        synchronized (ROOT_ACCESS_LOCK) {
+            synchronized (this) {
+                JSONObject index = readIndex();
+                previousContextId = nullableString(index, "active_context_id");
+                validateIdOrNull(contextId, "active context id");
+                if (contextId != null) {
+                    requireIndexEntry(index, "contexts", contextId, "context");
+                    String activeGroup = nullableString(index, "active_group_id");
+                    if (activeGroup != null
+                        && !groupContains(activeGroup, contextId)) {
+                        throw new StorageException(
+                            FailureKind.INVALID_ACTIVE_GROUP,
+                            "active group " + activeGroup
+                                + " does not contain active context " + contextId
+                        );
+                    }
                 }
+                putNullableString(index, "active_context_id", contextId);
+                commitSingleIndex(index);
+                listener = activeContextChangeListener;
             }
-            putNullableString(index, "active_context_id", contextId);
-            commitSingleIndex(index);
-            listener = activeContextChangeListener;
         }
         if (!sameNullable(previousContextId, contextId)) {
             listener.onActiveContextChanged(previousContextId, contextId);
@@ -1279,29 +1727,31 @@ public final class SceneContextStore {
     ) throws StorageException {
         String previousContextId;
         ActiveContextChangeListener listener;
-        synchronized (this) {
-            JSONObject index = readIndex();
-            previousContextId = nullableString(index, "active_context_id");
-            validateIdOrNull(contextId, "active context id");
-            validateIdOrNull(groupId, "active group id");
-            if (contextId != null) {
-                requireIndexEntry(index, "contexts", contextId, "context");
+        synchronized (ROOT_ACCESS_LOCK) {
+            synchronized (this) {
+                JSONObject index = readIndex();
+                previousContextId = nullableString(index, "active_context_id");
+                validateIdOrNull(contextId, "active context id");
+                validateIdOrNull(groupId, "active group id");
+                if (contextId != null) {
+                    requireIndexEntry(index, "contexts", contextId, "context");
+                }
+                if (groupId != null) {
+                    requireIndexEntry(index, "groups", groupId, "group");
+                }
+                if (contextId != null && groupId != null
+                    && !groupContains(groupId, contextId)) {
+                    throw new StorageException(
+                        FailureKind.INVALID_ACTIVE_GROUP,
+                        "active group " + groupId
+                            + " does not contain active context " + contextId
+                    );
+                }
+                putNullableString(index, "active_context_id", contextId);
+                putNullableString(index, "active_group_id", groupId);
+                commitSingleIndex(index);
+                listener = activeContextChangeListener;
             }
-            if (groupId != null) {
-                requireIndexEntry(index, "groups", groupId, "group");
-            }
-            if (contextId != null && groupId != null
-                && !groupContains(groupId, contextId)) {
-                throw new StorageException(
-                    FailureKind.INVALID_ACTIVE_GROUP,
-                    "active group " + groupId
-                        + " does not contain active context " + contextId
-                );
-            }
-            putNullableString(index, "active_context_id", contextId);
-            putNullableString(index, "active_group_id", groupId);
-            commitSingleIndex(index);
-            listener = activeContextChangeListener;
         }
         if (!sameNullable(previousContextId, contextId)) {
             listener.onActiveContextChanged(previousContextId, contextId);
@@ -4921,6 +5371,53 @@ public final class SceneContextStore {
         }
     }
 
+    private void writeManualClosureState(
+        ManualClosureStateStore.State state
+    ) throws StorageException {
+        try {
+            manualClosureStateStore.write(state);
+        } catch (IOException | org.json.JSONException e) {
+            throw new StorageException(
+                FailureKind.IO,
+                "could not write manual closure state for " + state.ownerId,
+                e
+            );
+        }
+    }
+
+    private void requireManualClosureOwner(
+        String ownerType,
+        String ownerId
+    ) throws StorageException {
+        validateManualClosureOwner(ownerType, ownerId);
+        if (MANUAL_CLOSURE_CONTEXT_OWNER.equals(ownerType)) {
+            getContext(ownerId);
+        } else if (MANUAL_CLOSURE_GROUP_OWNER.equals(ownerType)) {
+            getGroup(ownerId);
+        }
+    }
+
+    private static void validateManualClosureOwner(
+        String ownerType,
+        String ownerId
+    ) throws StorageException {
+        if (!MANUAL_CLOSURE_CONTEXT_OWNER.equals(ownerType)
+            && !MANUAL_CLOSURE_GROUP_OWNER.equals(ownerType)) {
+            throw new StorageException(
+                FailureKind.INVALID_ARGUMENT,
+                "unsupported manual closure owner type: " + ownerType
+            );
+        }
+        if (ownerId == null
+            || !ownerId.matches(ID_PATTERN)
+            || ownerId.length() > ID_MAX_LENGTH) {
+            throw new StorageException(
+                FailureKind.INVALID_ARGUMENT,
+                "invalid manual closure owner id: " + ownerId
+            );
+        }
+    }
+
     private void ensureDirectories() throws StorageException {
         if (!rootDirectory.isDirectory()
             && !rootDirectory.mkdirs()
@@ -4932,6 +5429,7 @@ public final class SceneContextStore {
         }
         File contexts = contextStore.getDirectory();
         File groups = groupStore.getDirectory();
+        File manualClosure = new File(rootDirectory, "manual_closure");
         File txn = new File(rootDirectory, TXN_DIRECTORY_NAME);
         if (!contexts.isDirectory()
             && !contexts.mkdirs()
@@ -4947,6 +5445,14 @@ public final class SceneContextStore {
             throw new StorageException(
                 FailureKind.IO,
                 "could not create groups directory"
+            );
+        }
+        if (!manualClosure.isDirectory()
+            && !manualClosure.mkdirs()
+            && !manualClosure.isDirectory()) {
+            throw new StorageException(
+                FailureKind.IO,
+                "could not create manual closure directory"
             );
         }
         if (!txn.isDirectory()
