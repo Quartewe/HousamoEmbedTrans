@@ -4,13 +4,17 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +27,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -44,9 +50,21 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** Searchable editor for the user-owned files/chardict.json override. */
 public final class CharacterDictionaryActivity extends AppCompatActivity {
+
+    public static final String EXTRA_CHARACTER_NAME =
+        "character_name";
+    /** Opens the existing dictionary page with the new-character draft shown. */
+    public static final String EXTRA_CREATE_CHARACTER =
+        "create_character";
+    private static final String STATE_MANAGEMENT_LINK_CONSUMED =
+        "management_link_consumed";
+    private static final String STATE_MANAGEMENT_LINK_FAILURE_NOTIFIED =
+        "management_link_failure_notified";
 
     private static final String[] CHARACTER_FIELD_ORDER = {
         "alias",
@@ -82,11 +100,17 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     private boolean dirty;
     private boolean userOverride;
     private boolean invalidUserOverride;
+    private boolean importBusy;
+    private boolean managementLinkConsumed;
+    private boolean managementLinkFailureNotified;
+    private ActivityResultLauncher<String[]> importLauncher;
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
     private EditText searchInput;
     private TextView statusView;
     private ListView characterList;
     private Button saveButton;
+    private Button importButton;
     private MenuItem managementBatchMenuItem;
 
     private final List<String> allNames = new ArrayList<>();
@@ -97,6 +121,16 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        managementLinkConsumed = savedInstanceState != null
+            && savedInstanceState.getBoolean(
+                STATE_MANAGEMENT_LINK_CONSUMED,
+                false
+            );
+        managementLinkFailureNotified = savedInstanceState != null
+            && savedInstanceState.getBoolean(
+                STATE_MANAGEMENT_LINK_FAILURE_NOTIFIED,
+                false
+            );
         setContentView(R.layout.activity_character_dictionary);
         SystemBarInsets.apply(findViewById(R.id.root_character_dictionary));
         MaterialToolbar toolbar = findViewById(R.id.toolbar_character_dictionary);
@@ -118,6 +152,11 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         statusView = findViewById(R.id.tv_chardict_status);
         characterList = findViewById(R.id.list_characters);
         saveButton = findViewById(R.id.btn_save_chardict);
+        importButton = findViewById(R.id.btn_import_chardict);
+        importLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenMultipleDocuments(),
+            this::importCharacterDocuments
+        );
 
         adapter = new CharacterAdapter(this, visibleNames);
         characterList.setAdapter(adapter);
@@ -158,6 +197,28 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         findViewById(R.id.btn_add_character).setOnClickListener(view -> editCharacter(null));
         findViewById(R.id.btn_edit_mc).setOnClickListener(view -> editCharacter("mc"));
         findViewById(R.id.btn_restore_chardict).setOnClickListener(view -> confirmRestore());
+        importButton.setOnClickListener(view -> {
+            if (dirty || importBusy) {
+                Toast.makeText(
+                    this,
+                    R.string.management_transfer_import_save_first,
+                    Toast.LENGTH_LONG
+                ).show();
+                return;
+            }
+            setImportBusy(true);
+            try {
+                importLauncher.launch(new String[] {
+                    "application/json",
+                    "text/json",
+                    "text/plain",
+                    "application/octet-stream"
+                });
+            } catch (RuntimeException error) {
+                setImportBusy(false);
+                showImportFailure(error);
+            }
+        });
 
         saveButton.setOnClickListener(view -> saveDictionary());
 
@@ -209,6 +270,14 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         if (managementBatchController != null) {
             managementBatchController.saveState(outState);
         }
+        outState.putBoolean(
+            STATE_MANAGEMENT_LINK_CONSUMED,
+            managementLinkConsumed
+        );
+        outState.putBoolean(
+            STATE_MANAGEMENT_LINK_FAILURE_NOTIFIED,
+            managementLinkFailureNotified
+        );
         super.onSaveInstanceState(outState);
     }
 
@@ -225,6 +294,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             rebuildNames();
             updateStatus();
             setEditorEnabled(true);
+            consumeManagementLinkAfterLoad();
         } catch (Exception e) {
             dictionary = null;
             statusView.setText(getString(
@@ -232,7 +302,63 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                 safeMessage(e)
             ));
             setEditorEnabled(false);
+            notifyManagementLinkLoadFailure();
         }
+    }
+
+    private void consumeManagementLinkAfterLoad() {
+        if (managementLinkConsumed) {
+            return;
+        }
+
+        Intent intent = getIntent();
+        if (intent == null) {
+            return;
+        }
+
+        if (intent.getBooleanExtra(EXTRA_CREATE_CHARACTER, false)) {
+            managementLinkConsumed = true;
+            editCharacter(null);
+            return;
+        }
+        if (!intent.hasExtra(EXTRA_CHARACTER_NAME)) {
+            return;
+        }
+
+        String name = intent.getStringExtra(EXTRA_CHARACTER_NAME);
+        managementLinkConsumed = true;
+        if (name == null || name.isEmpty() || !dictionary.has(name)) {
+            notifyManagementLinkTargetMissing();
+            return;
+        }
+        editCharacter(name);
+    }
+
+    private boolean hasManagementLink() {
+        Intent intent = getIntent();
+        return intent != null
+            && (intent.hasExtra(EXTRA_CHARACTER_NAME)
+                || intent.getBooleanExtra(EXTRA_CREATE_CHARACTER, false));
+    }
+
+    private void notifyManagementLinkLoadFailure() {
+        if (!hasManagementLink() || managementLinkFailureNotified) {
+            return;
+        }
+        managementLinkFailureNotified = true;
+        Toast.makeText(
+            this,
+            R.string.management_link_load_failed,
+            Toast.LENGTH_LONG
+        ).show();
+    }
+
+    private void notifyManagementLinkTargetMissing() {
+        Toast.makeText(
+            this,
+            R.string.management_link_target_missing,
+            Toast.LENGTH_LONG
+        ).show();
     }
 
     private void rebuildNames() {
@@ -348,6 +474,9 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             return;
         }
 
+        final boolean[] draftDirty = {false};
+        attachDraftChangeWatchers(fieldEditors, () -> draftDirty[0] = true);
+
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
             .setTitle(
                 editingMc
@@ -363,7 +492,20 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         }
 
         AlertDialog dialog = builder.create();
+        dialog.setCanceledOnTouchOutside(false);
+        dialog.setOnKeyListener((ignored, keyCode, event) -> {
+            if (keyCode != KeyEvent.KEYCODE_BACK) {
+                return false;
+            }
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                handleCharacterDraftBack(dialog, draftDirty[0]);
+            }
+            return true;
+        });
         dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(
+                view -> handleCharacterDraftBack(dialog, draftDirty[0])
+            );
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
                 saveCharacterFromDialog(
                     dialog,
@@ -783,6 +925,280 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         }
     }
 
+    private void importCharacterDocuments(List<Uri> uris) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        if (dirty) {
+            setImportBusy(false);
+            showImportFailure(new IllegalStateException(
+                getString(R.string.management_transfer_import_save_first)
+            ));
+            return;
+        }
+        if (uris == null || uris.isEmpty()) {
+            setImportBusy(false);
+            return;
+        }
+        setImportBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                ManagementDictionaryTransfer.Batch batch =
+                    ManagementDictionaryTransfer.readAndValidate(
+                        this,
+                        uris,
+                        ConfigStore.CHARDICT_FILE_NAME
+                    );
+                ConfigStore.JsonLoadResult current = configStore.loadJson(
+                    ConfigStore.CHARDICT_FILE_NAME
+                );
+                Set<String> conflicts = dictionaryConflicts(
+                    current.json,
+                    batch
+                );
+                runOnUiThread(() -> showCharacterImportReview(
+                    batch,
+                    conflicts
+                ));
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    setImportBusy(false);
+                    showImportFailure(error);
+                });
+            }
+        });
+    }
+
+    private Set<String> dictionaryConflicts(
+        JSONObject current,
+        ManagementDictionaryTransfer.Batch batch
+    ) {
+        Set<String> conflicts = new LinkedHashSet<>();
+        if (current == null || batch == null) {
+            return conflicts;
+        }
+        for (String key : batch.keys) {
+            if (current.has(key)) {
+                conflicts.add(key);
+            }
+        }
+        return conflicts;
+    }
+
+    private void showCharacterImportReview(
+        ManagementDictionaryTransfer.Batch batch,
+        Set<String> conflicts
+    ) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        StringBuilder conflictText = new StringBuilder();
+        if (conflicts != null) {
+            int shown = 0;
+            for (String key : conflicts) {
+                if (shown++ >= 20) {
+                    conflictText.append("\n…");
+                    break;
+                }
+                if (conflictText.length() > 0) {
+                    conflictText.append('\n');
+                }
+                conflictText.append(key);
+            }
+        }
+        Set<String> expected = conflicts == null
+            ? Collections.emptySet()
+            : new LinkedHashSet<>(conflicts);
+        MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.management_transfer_import_title)
+            .setMessage(getString(
+                conflicts == null || conflicts.isEmpty()
+                    ? R.string.management_transfer_import_message
+                    : R.string.management_transfer_import_conflict_message,
+                batch.keys.size(),
+                conflictText.toString()
+            ))
+            .setNegativeButton(
+                R.string.management_transfer_import_cancel,
+                (d, which) -> setImportBusy(false)
+            );
+        if (conflicts == null || conflicts.isEmpty()) {
+            dialog.setPositiveButton(
+                R.string.management_transfer_import_confirm,
+                (d, which) -> commitCharacterImport(
+                    batch,
+                    Collections.emptySet(),
+                    expected
+                )
+            );
+        } else {
+            dialog.setNeutralButton(
+                R.string.management_transfer_import_keep,
+                (d, which) -> commitCharacterImport(
+                    batch,
+                    Collections.emptySet(),
+                    expected
+                )
+            );
+            dialog.setPositiveButton(
+                R.string.management_transfer_import_overwrite,
+                (d, which) -> commitCharacterImport(
+                    batch,
+                    expected,
+                    expected
+                )
+            );
+        }
+        dialog.setOnCancelListener(d -> setImportBusy(false));
+        dialog.show();
+    }
+
+    private void attachDraftChangeWatchers(
+        List<CharacterFieldEditor> fieldEditors,
+        Runnable onChanged
+    ) {
+        if (fieldEditors == null || onChanged == null) {
+            return;
+        }
+        for (CharacterFieldEditor fieldEditor : fieldEditors) {
+            if (fieldEditor.arrayEditor != null) {
+                fieldEditor.arrayEditor.setDraftChangeListener(onChanged);
+                continue;
+            }
+            if (fieldEditor.input != null && !fieldEditor.readOnly) {
+                fieldEditor.input.addTextChangedListener(new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(
+                        CharSequence value,
+                        int start,
+                        int count,
+                        int after
+                    ) {
+                    }
+
+                    @Override
+                    public void onTextChanged(
+                        CharSequence value,
+                        int start,
+                        int before,
+                        int count
+                    ) {
+                    }
+
+                    @Override
+                    public void afterTextChanged(Editable value) {
+                        onChanged.run();
+                    }
+                });
+            }
+        }
+    }
+
+    private void handleCharacterDraftBack(
+        AlertDialog dialog,
+        boolean draftDirty
+    ) {
+        if (!draftDirty) {
+            dialog.dismiss();
+            return;
+        }
+        new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.unsaved_character_draft_title)
+            .setMessage(R.string.unsaved_character_draft_message)
+            .setNegativeButton(R.string.keep_editing, null)
+            .setPositiveButton(
+                R.string.discard_changes,
+                (ignored, which) -> dialog.dismiss()
+            )
+            .show();
+    }
+
+    private void commitCharacterImport(
+        ManagementDictionaryTransfer.Batch batch,
+        Set<String> approved,
+        Set<String> expected
+    ) {
+        if (dirty) {
+            setImportBusy(false);
+            showImportFailure(new IllegalStateException(
+                getString(R.string.management_transfer_import_save_first)
+            ));
+            return;
+        }
+        setImportBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                ConfigStore.DictionaryMergeResult result =
+                    configStore.mergeImportedDictionary(
+                        ConfigStore.CHARDICT_FILE_NAME,
+                        batch.records,
+                        approved,
+                        expected
+                    );
+                ConfigStore.JsonLoadResult loaded = configStore.loadJson(
+                    ConfigStore.CHARDICT_FILE_NAME
+                );
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    dictionary = loaded.json;
+                    userOverride = loaded.userOverride;
+                    invalidUserOverride = loaded.invalidUserOverride;
+                    dirty = false;
+                    rebuildNames();
+                    updateStatus();
+                    setImportBusy(false);
+                    Toast.makeText(
+                        this,
+                        getString(
+                            R.string.management_transfer_import_result,
+                            result.imported,
+                            result.overwritten,
+                            result.skipped
+                        ),
+                        Toast.LENGTH_LONG
+                    ).show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    setImportBusy(false);
+                    showImportFailure(error);
+                });
+            }
+        });
+    }
+
+    private void setImportBusy(boolean busy) {
+        importBusy = busy;
+        boolean editable = !busy && !batchMode && dictionary != null;
+        searchInput.setEnabled(!busy && dictionary != null);
+        characterList.setEnabled(!busy && dictionary != null);
+        findViewById(R.id.btn_edit_mc).setEnabled(editable);
+        findViewById(R.id.btn_add_character).setEnabled(editable);
+        findViewById(R.id.btn_restore_chardict).setEnabled(editable);
+        importButton.setEnabled(editable && !dirty);
+        saveButton.setEnabled(editable && (dirty || !userOverride));
+        setManagementBatchActionEnabled(editable);
+    }
+
+    private void showImportFailure(Throwable error) {
+        Toast.makeText(
+            this,
+            getString(
+                R.string.management_transfer_import_failed,
+                safeMessage(error)
+            ),
+            Toast.LENGTH_LONG
+        ).show();
+    }
+
     @Override
     protected void onDestroy() {
         if (managementBatchController != null) {
@@ -793,6 +1209,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             pendingProcessMoveController.close();
             pendingProcessMoveController = null;
         }
+        ioExecutor.shutdownNow();
         super.onDestroy();
     }
 
@@ -862,16 +1279,21 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
 
         statusView.setText(getString(statusId, characterCount()));
         saveButton.setEnabled(!batchMode && (dirty || !userOverride));
+        importButton.setEnabled(
+            !batchMode && !importBusy && !dirty
+        );
     }
 
     private void setEditorEnabled(boolean enabled) {
-        searchInput.setEnabled(enabled);
-        characterList.setEnabled(enabled);
-        findViewById(R.id.btn_edit_mc).setEnabled(enabled && !batchMode);
-        findViewById(R.id.btn_add_character).setEnabled(enabled && !batchMode);
-        findViewById(R.id.btn_restore_chardict).setEnabled(enabled && !batchMode);
-        setManagementBatchActionEnabled(enabled && !batchMode);
-        saveButton.setEnabled(enabled && !batchMode);
+        boolean editable = enabled && !batchMode && !importBusy;
+        searchInput.setEnabled(enabled && !importBusy);
+        characterList.setEnabled(enabled && !importBusy);
+        findViewById(R.id.btn_edit_mc).setEnabled(editable);
+        findViewById(R.id.btn_add_character).setEnabled(editable);
+        findViewById(R.id.btn_restore_chardict).setEnabled(editable);
+        setManagementBatchActionEnabled(editable);
+        importButton.setEnabled(editable && !dirty);
+        saveButton.setEnabled(editable && (dirty || !userOverride));
     }
 
     private void setManagementBatchActionEnabled(boolean enabled) {
@@ -988,8 +1410,6 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                     continue;
                 }
                 JSONObject payload = new JSONObject(record.toString());
-                payload.put("id", name);
-                payload.put("key", name);
                 String label = "mc".equals(name)
                     ? getString(R.string.management_batch_main_character_label)
                     : getString(
@@ -1022,7 +1442,13 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             findViewById(R.id.btn_edit_mc).setEnabled(!enabled && dictionary != null);
             findViewById(R.id.btn_add_character).setEnabled(!enabled && dictionary != null);
             findViewById(R.id.btn_restore_chardict).setEnabled(!enabled && dictionary != null);
-            saveButton.setEnabled(!enabled && dictionary != null);
+            saveButton.setEnabled(
+                !enabled && !importBusy && dictionary != null
+                    && (dirty || !userOverride)
+            );
+            importButton.setEnabled(
+                !enabled && !importBusy && dictionary != null && !dirty
+            );
             setManagementBatchActionEnabled(!enabled && dictionary != null);
         }
 
@@ -1079,6 +1505,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         final TextView emptyView;
         final LinearLayout itemsContainer;
         final List<ArrayElementEditor> elements = new ArrayList<>();
+        Runnable draftChangeListener;
         boolean expanded;
 
         ArrayFieldEditor(String key, View root) {
@@ -1155,6 +1582,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             itemsContainer.addView(elementView);
             element.deleteButton.setOnClickListener(view -> removeElement(element));
             updateSummary();
+            markDraftChanged();
 
             if (focus) {
                 setExpanded(true);
@@ -1166,6 +1594,17 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             elements.remove(element);
             itemsContainer.removeView(element.root);
             updateSummary();
+            markDraftChanged();
+        }
+
+        void setDraftChangeListener(Runnable listener) {
+            draftChangeListener = listener;
+        }
+
+        void markDraftChanged() {
+            if (draftChangeListener != null) {
+                draftChangeListener.run();
+            }
         }
 
         void updateSummary() {
@@ -1173,6 +1612,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             emptyView.setVisibility(elements.isEmpty() ? View.VISIBLE : View.GONE);
             for (int index = 0; index < elements.size(); index++) {
                 elements.get(index).setPosition(index + 1);
+                elements.get(index).updateSummary();
             }
         }
 
@@ -1255,20 +1695,33 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     private final class ArrayElementEditor {
         final ArrayFieldEditor owner;
         final View root;
+        final View header;
+        final View body;
         final TextView titleView;
+        final TextView summaryView;
+        final TextView indicatorView;
         final MaterialButton deleteButton;
         final List<ElementValueEditor> valueEditors = new ArrayList<>();
         final boolean objectElement;
+        boolean expanded;
 
         ArrayElementEditor(ArrayFieldEditor owner, Object value, View root)
             throws Exception {
             this.owner = owner;
             this.root = root;
+            header = root.findViewById(R.id.header_character_array_item);
+            body = root.findViewById(R.id.body_character_array_item);
             titleView = root.findViewById(R.id.tv_character_array_item_title);
+            summaryView = root.findViewById(R.id.tv_character_array_item_summary);
+            indicatorView = root.findViewById(
+                R.id.tv_character_array_item_indicator
+            );
             deleteButton = root.findViewById(R.id.btn_delete_character_array_item);
             LinearLayout fieldsContainer = root.findViewById(
                 R.id.container_character_array_item_fields
             );
+
+            header.setOnClickListener(view -> setExpanded(!expanded));
 
             if (value instanceof JSONArray) {
                 throw new IllegalArgumentException(
@@ -1281,13 +1734,21 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                 JSONObject object = (JSONObject) value;
                 for (String key : orderedArrayObjectKeys(owner.key, object)) {
                     Object fieldValue = object.has(key) ? object.get(key) : "";
-                    valueEditors.add(createElementValueEditor(
+                    ElementValueEditor editor = createElementValueEditor(
                         key,
                         fieldValue,
                         displayFieldName(key),
                         fieldsContainer,
                         "called".equals(key) && !object.has(key)
-                    ));
+                    );
+                    if ("relationships".equals(owner.key)
+                        && "target".equals(key)
+                        && fieldValue instanceof String) {
+                        editor.input.setText(displayRelationshipTarget(
+                            (String) fieldValue
+                        ));
+                    }
+                    valueEditors.add(editor);
                 }
             } else {
                 valueEditors.add(createElementValueEditor(
@@ -1298,6 +1759,36 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                     false
                 ));
             }
+
+            for (ElementValueEditor editor : valueEditors) {
+                editor.input.addTextChangedListener(new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(
+                        CharSequence value,
+                        int start,
+                        int count,
+                        int after
+                    ) {
+                    }
+
+                    @Override
+                    public void onTextChanged(
+                        CharSequence value,
+                        int start,
+                        int before,
+                        int count
+                    ) {
+                    }
+
+                    @Override
+                    public void afterTextChanged(Editable value) {
+                        owner.markDraftChanged();
+                        updateSummary();
+                    }
+                });
+            }
+            setExpanded(false);
+            updateSummary();
         }
 
         Object toJsonValue() throws Exception {
@@ -1319,7 +1810,14 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
 
         private Object readValue(ElementValueEditor editor) throws Exception {
             try {
-                return parseTypedValue(editor.originalValue, editor.input);
+                Object parsed = parseTypedValue(editor.originalValue, editor.input);
+                if (objectElement
+                    && "relationships".equals(owner.key)
+                    && "target".equals(editor.key)
+                    && parsed instanceof String) {
+                    return storageRelationshipTarget((String) parsed);
+                }
+                return parsed;
             } catch (Exception e) {
                 String label = objectElement
                     ? displayFieldName(editor.key)
@@ -1330,6 +1828,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                     safeMessage(e)
                 ));
                 owner.setExpanded(true);
+                setExpanded(true);
                 editor.input.requestFocus();
                 throw e;
             }
@@ -1351,12 +1850,95 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
 
         void setPosition(int position) {
             titleView.setText(getString(R.string.array_item_title, position));
+            updateHeaderContentDescription();
+        }
+
+        private String displayRelationshipTarget(String value) {
+            String target = value == null ? "" : value.trim();
+            if (target.isEmpty()) {
+                return "";
+            }
+            if ("mc".equals(target)) {
+                return getString(R.string.management_batch_main_character_label);
+            }
+            if (dictionary.has(target)) {
+                return target;
+            }
+            for (String key : dictionary.keySet()) {
+                JSONObject record = dictionary.optJSONObject(key);
+                if (record != null && target.equals(record.optString("key", ""))) {
+                    return key;
+                }
+            }
+            return target;
+        }
+
+        private String storageRelationshipTarget(String value) {
+            String target = value == null ? "" : value.trim();
+            if (target.equals(getString(R.string.management_batch_main_character_label))) {
+                return "mc";
+            }
+            return value == null ? "" : value;
         }
 
         void focus() {
             if (!valueEditors.isEmpty()) {
+                setExpanded(true);
                 valueEditors.get(0).input.requestFocus();
             }
+        }
+
+        void updateSummary() {
+            List<String> parts = new ArrayList<>();
+            for (ElementValueEditor editor : valueEditors) {
+                String value = rawTextOf(editor.input)
+                    .trim()
+                    .replace('\r', ' ')
+                    .replace('\n', ' ');
+                if (value.isEmpty()) {
+                    continue;
+                }
+                parts.add(value);
+                if (parts.size() == 2) {
+                    break;
+                }
+            }
+            if (parts.isEmpty()) {
+                summaryView.setText(
+                    getString(R.string.character_array_item_summary_empty)
+                );
+            } else {
+                summaryView.setText(TextUtils.join(" · ", parts));
+            }
+            updateHeaderContentDescription();
+        }
+
+        void setExpanded(boolean expanded) {
+            this.expanded = expanded;
+            body.setVisibility(expanded ? View.VISIBLE : View.GONE);
+            indicatorView.setText(
+                expanded
+                    ? R.string.array_indicator_expanded
+                    : R.string.array_indicator_collapsed
+            );
+            updateHeaderContentDescription();
+            header.setSelected(expanded);
+        }
+
+        private void updateHeaderContentDescription() {
+            String title = titleView.getText() == null
+                ? ""
+                : titleView.getText().toString();
+            String summary = summaryView.getText() == null
+                ? ""
+                : summaryView.getText().toString();
+            header.setContentDescription(getString(
+                expanded
+                    ? R.string.collapse_character_array_item
+                    : R.string.expand_character_array_item,
+                title,
+                summary
+            ));
         }
 
         void clearErrors() {
@@ -1366,6 +1948,8 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         }
 
         void showPropertyError(String property, String message) {
+            owner.setExpanded(true);
+            setExpanded(true);
             if (property != null) {
                 for (ElementValueEditor editor : valueEditors) {
                     if (property.equals(editor.key)) {
@@ -1440,61 +2024,65 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
 
     private final class CharacterAdapter extends ArrayAdapter<String> {
         CharacterAdapter(Context context, List<String> names) {
-            super(context, android.R.layout.simple_list_item_2, android.R.id.text1, names);
+            super(context, R.layout.item_dictionary_entry,
+                R.id.tv_dictionary_entry_title, names);
         }
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            if (batchMode) {
-                String name = getItem(position);
-                LinearLayout row = new LinearLayout(
-                    CharacterDictionaryActivity.this
+            View view = convertView;
+            if (view == null || view.getId() != R.id.row_dictionary_entry) {
+                view = LayoutInflater.from(getContext()).inflate(
+                    R.layout.item_dictionary_entry,
+                    parent,
+                    false
                 );
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                row.setGravity(Gravity.CENTER_VERTICAL);
-                MaterialCheckBox check = new MaterialCheckBox(
-                    CharacterDictionaryActivity.this
-                );
-                check.setText(name);
-                check.setMinHeight(Math.round(
-                    56 * getResources().getDisplayMetrics().density
-                ));
-                check.setLayoutParams(new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
-                String key = ManagementBatchController.KIND_CHARACTER
-                    + ":" + name;
-                check.setChecked(ManagementBatchSelection.contains(key));
-                check.setOnCheckedChangeListener((button, checked) -> {
-                    ManagementBatchSelection.set(key, checked);
-                    if (managementBatchController != null) {
-                        managementBatchController.onHostRowsChanged();
-                    }
-                });
-                row.addView(check);
-                return row;
             }
-            View view = super.getView(position, convertView, parent);
             String name = getItem(position);
-            TextView title = view.findViewById(android.R.id.text1);
-            TextView subtitle = view.findViewById(android.R.id.text2);
-            title.setText(name);
+            if (name == null) {
+                name = "";
+            }
+            TextView title = view.findViewById(R.id.tv_dictionary_entry_title);
+            TextView subtitle = view.findViewById(R.id.tv_dictionary_entry_subtitle);
+            MaterialCheckBox check = view.findViewById(R.id.check_dictionary_entry);
+            title.setText(characterTitle(name));
             subtitle.setText(characterSubtitle(name));
+            check.setVisibility(batchMode ? View.VISIBLE : View.GONE);
+            check.setChecked(batchMode && ManagementBatchSelection.contains(
+                ManagementBatchController.KIND_CHARACTER + ":" + name
+            ));
+            check.setContentDescription(getString(
+                R.string.management_home_batch_select,
+                characterTitle(name)
+            ));
             return view;
         }
 
+        private String characterTitle(String name) {
+            if ("mc".equals(name)) {
+                return getString(R.string.management_batch_main_character_label);
+            }
+            JSONObject record = dictionary == null
+                ? null
+                : dictionary.optJSONObject(name);
+            String localized = localizedValue(record);
+            return localized.isEmpty() ? name : localized;
+        }
+
         private String characterSubtitle(String name) {
-            JSONObject record = dictionary.optJSONObject(name);
+            JSONObject record = dictionary == null
+                ? null
+                : dictionary.optJSONObject(name);
             if (record == null) {
                 return getString(R.string.invalid_character_record);
             }
 
             List<String> parts = new ArrayList<>();
-            String zhCn = record.optString("zh-cn", "");
-            String en = record.optString("en", "");
-            if (!zhCn.isEmpty()) parts.add(zhCn);
-            if (!en.isEmpty()) parts.add(en);
+            if ("mc".equals(name)) {
+                parts.add(getString(R.string.mc_settings));
+            } else if (!name.isEmpty()) {
+                parts.add(name);
+            }
 
             JSONArray aliases = record.optJSONArray("alias");
             if (aliases != null && aliases.length() > 0) {
@@ -1504,6 +2092,35 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             return parts.isEmpty()
                 ? getString(R.string.no_localized_name)
                 : TextUtils.join(" · ", parts);
+        }
+
+        private String localizedValue(JSONObject record) {
+            if (record == null) {
+                return "";
+            }
+            Locale locale = getResources().getConfiguration().locale;
+            boolean traditionalChinese = "zh".equals(locale.getLanguage())
+                && ("TW".equalsIgnoreCase(locale.getCountry())
+                    || "HK".equalsIgnoreCase(locale.getCountry())
+                    || "MO".equalsIgnoreCase(locale.getCountry()));
+            String preferred = traditionalChinese
+                ? record.optString("zh-tw", "")
+                : "zh".equals(locale.getLanguage())
+                    ? record.optString("zh-cn", "")
+                    : "en".equals(locale.getLanguage())
+                        ? record.optString("en", "")
+                        : "";
+            if (!preferred.isEmpty()) {
+                return preferred;
+            }
+            String fallback = record.optString("zh-cn", "");
+            if (!fallback.isEmpty()) {
+                return fallback;
+            }
+            fallback = record.optString("en", "");
+            return fallback.isEmpty()
+                ? record.optString("zh-tw", "")
+                : fallback;
         }
     }
 }

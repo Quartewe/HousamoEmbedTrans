@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="character_array_item_summary_empty">Not filled</string>
+    <string name="expand_character_array_item">Expand %1$s: %2$s</string>
+    <string name="collapse_character_array_item">Collapse %1$s: %2$s</string>
+</resources>

@@ -30,6 +30,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+                android:textColor="@color/het_on_surface"
                 android:textStyle="bold" />
 
             <TextView
@@ -38,11 +39,11 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-                android:textColor="?android:attr/textColorSecondary" />
+                android:textColor="@color/het_on_surface_muted" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_character_array_item"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
+                style="@style/Widget.HET.Button.Text"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:insetTop="0dp"
@@ -69,7 +70,7 @@
             android:paddingEnd="16dp"
             android:paddingBottom="8dp"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-            android:textColor="?attr/colorError"
+            android:textColor="@color/het_error"
             android:visibility="gone" />
 
         <LinearLayout
@@ -87,10 +88,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:padding="12dp"
+                android:paddingStart="8dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="6dp"
                 android:text="@string/array_empty"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                android:textColor="?android:attr/textColorSecondary" />
+                android:textColor="@color/het_on_surface_muted" />
 
             <LinearLayout
                 android:id="@+id/container_character_array_items"
