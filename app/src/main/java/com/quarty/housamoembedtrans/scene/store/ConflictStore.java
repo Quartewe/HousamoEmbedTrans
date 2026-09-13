@@ -670,11 +670,17 @@ public final class ConflictStore {
 
     private static void cleanupOrThrow(File file, String message)
         throws ConflictFailure {
-        TransactionalSceneSlots.cleanupOrThrow(
-            file,
-            message,
-            ConflictStore::slotIoFailure
-        );
+        try {
+            TransactionalSceneSlots.cleanupOrThrow(
+                file,
+                message,
+                ConflictStore::slotIoFailure
+            );
+        } catch (ConflictFailure failure) {
+            throw failure;
+        } catch (IOException failure) {
+            throw new ConflictFailure(FailureKind.IO, message, failure);
+        }
     }
 
     private File formalDirectory(String sceneName) {

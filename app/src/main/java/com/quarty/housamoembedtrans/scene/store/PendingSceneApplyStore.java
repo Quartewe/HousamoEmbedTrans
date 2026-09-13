@@ -182,6 +182,8 @@ public final class PendingSceneApplyStore {
         normalizeScene(sceneName);
 
         long createdAt = System.currentTimeMillis();
+        final String normalizedSceneName = sceneName;
+        final String normalizedExpectedGameSha256 = expectedGameSha256;
         TransactionalSceneSlots.publishReplacement(
             rootDirectory,
             sceneName,
@@ -195,9 +197,9 @@ public final class PendingSceneApplyStore {
                 );
                 writeState(
                     incoming,
-                    sceneName,
+                    normalizedSceneName,
                     createdAt,
-                    expectedGameSha256,
+                    normalizedExpectedGameSha256,
                     candidateHash,
                     overwriteIfGameChanged
                 );
@@ -410,11 +412,17 @@ public final class PendingSceneApplyStore {
 
     private static void cleanupOrThrow(File file, String message)
         throws PendingFailure {
-        TransactionalSceneSlots.cleanupOrThrow(
-            file,
-            message,
-            PendingSceneApplyStore::slotIoFailure
-        );
+        try {
+            TransactionalSceneSlots.cleanupOrThrow(
+                file,
+                message,
+                PendingSceneApplyStore::slotIoFailure
+            );
+        } catch (PendingFailure failure) {
+            throw failure;
+        } catch (IOException failure) {
+            throw new PendingFailure(FailureKind.IO, message, failure);
+        }
     }
 
     private PendingRecord readDirectory(File directory, String expectedName)

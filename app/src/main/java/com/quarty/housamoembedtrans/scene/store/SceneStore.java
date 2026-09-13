@@ -11,6 +11,7 @@ import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONException;
 
 import java.io.File;
 import java.io.ByteArrayOutputStream;
@@ -1926,6 +1927,8 @@ public final class SceneStore {
                 published = true;
                 refreshMutationPoolSnapshotLocked();
                 return sequence;
+            } catch (JSONException invalidState) {
+                throw new IOException("could not encode deferred mutation state", invalidState);
             } finally {
                 if (!published && temporary.exists()) {
                     deleteRecursively(temporary);
@@ -1960,14 +1963,18 @@ public final class SceneStore {
         if (nextSequence <= 0L) {
             throw new IOException("invalid deferred mutation sequence");
         }
-        IoUtils.writeAtomically(
-            new File(mutationPoolRoot, MUTATION_POOL_META_NAME),
-            new JSONObject()
-                .put("version", 1)
-                .put("next_sequence", nextSequence)
-                .toString()
-                .getBytes(StandardCharsets.UTF_8)
-        );
+        try {
+            IoUtils.writeAtomically(
+                new File(mutationPoolRoot, MUTATION_POOL_META_NAME),
+                new JSONObject()
+                    .put("version", 1)
+                    .put("next_sequence", nextSequence)
+                    .toString()
+                    .getBytes(StandardCharsets.UTF_8)
+            );
+        } catch (JSONException invalidState) {
+            throw new IOException("could not encode deferred mutation sequence", invalidState);
+        }
     }
 
     private void persistMutationPoolDiagnostic(Exception failure) {
