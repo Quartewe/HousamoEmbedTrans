@@ -938,12 +938,13 @@ public final class ManagementImportActivity extends AppCompatActivity {
             R.style.Widget_HET_Button_Secondary
         );
         updateTaskButton(taskButton, taskCount);
+        final int displayedTaskCount = taskCount;
         taskButton.setOnClickListener(view -> {
             if (busy) return;
             taskAction = taskAction == ManagementImportModel.TaskAction.KEEP
                 ? ManagementImportModel.TaskAction.CANCEL
                 : ManagementImportModel.TaskAction.KEEP;
-            updateTaskButton(taskButton, taskCount);
+            updateTaskButton(taskButton, displayedTaskCount);
             ++sessionGeneration;
             prepared = null;
             phase = Phase.PREFLIGHT;
