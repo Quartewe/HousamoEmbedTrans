@@ -80,6 +80,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.ManagementHomeActivity"
+            android:exported="false"
+            android:label="@string/management_home_title"
+            android:windowSoftInputMode="adjustResize" />
+
         <provider
             android:name=".bridge.UserConfigProvider"
             android:authorities="com.quarty.housamoembedtrans.userfiles"
