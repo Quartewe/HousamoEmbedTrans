@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="management_transfer_export_result">Exported %1$d file(s); %2$d failed. Each file was written independently.</string>
+    <string name="management_transfer_export_preview_title">Export preview</string>
+    <string name="management_transfer_export_preview_continue">Choose destination</string>
+    <string name="management_transfer_export_preview_cancel">Cancel export</string>
+    <string name="management_transfer_import_characters">Import characters</string>
+    <string name="management_transfer_import_terms">Import terms</string>
+    <string name="management_transfer_import_save_first">Save the current edits before importing.</string>
+    <string name="management_transfer_import_title">Import dictionary records</string>
+    <string name="management_transfer_import_message">Import %1$d record(s) now?</string>
+    <string name="management_transfer_import_conflict_message">%1$d record(s) selected. Existing keys will be replaced only after confirmation:
+
+%2$s</string>
+    <string name="management_transfer_import_keep">Keep same names and import others</string>
+    <string name="management_transfer_import_cancel">Cancel</string>
+    <string name="management_transfer_import_confirm">Import</string>
+    <string name="management_transfer_import_overwrite">Replace existing</string>
+    <string name="management_transfer_import_result">Imported %1$d new record(s), replaced %2$d, kept %3$d.</string>
+    <string name="management_transfer_import_failed">Dictionary import failed: %1$s</string>
+</resources>

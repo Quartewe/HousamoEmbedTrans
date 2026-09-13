@@ -2,11 +2,14 @@ package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
+import com.quarty.housamoembedtrans.management.pending.PendingProcessManager;
 import com.quarty.housamoembedtrans.management.pending.PendingProcessControlClient;
 import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.translation.TranslationService;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -14,6 +17,7 @@ import android.util.AtomicFile;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -32,12 +36,13 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -63,9 +68,12 @@ public final class ManagementBatchController implements AutoCloseable {
     private static final String STATE_SELECTED = "management_batch.selected";
     private static final String STATE_EXPORT_TOKEN =
         "management_batch.export_token";
+    private static final String STATE_EXPORT_PICKER_STARTED =
+        "management_batch.export_picker_started";
     private static final String EXPORT_DIRECTORY =
         "management_batch_exports";
-    private static final int MAX_EXPORT_BYTES = 64 * 1024 * 1024;
+    private static final int MAX_EXPORT_BYTES =
+        ManagementTransfer.MAX_DOCUMENT_BYTES;
 
     private final AppCompatActivity activity;
     private final ViewGroup content;
@@ -89,6 +97,7 @@ public final class ManagementBatchController implements AutoCloseable {
     private volatile boolean lifecycleStarted;
     private boolean busy;
     private String pendingExportToken;
+    private boolean exportPickerStarted;
 
     /** Immutable adapter row consumed by the shared batch surface. */
     public static final class Item {
@@ -313,7 +322,17 @@ public final class ManagementBatchController implements AutoCloseable {
             STATE_SELECTED,
             new ArrayList<>(ManagementBatchSelection.snapshot())
         );
-        outState.putString(STATE_EXPORT_TOKEN, pendingExportToken);
+        // A token prepared before the picker is launched cannot receive a
+        // result after recreation.  Only the picker-owned phase is restored;
+        // preparation is safely retried by the user on the new Activity.
+        outState.putString(
+            STATE_EXPORT_TOKEN,
+            exportPickerStarted ? pendingExportToken : null
+        );
+        outState.putBoolean(
+            STATE_EXPORT_PICKER_STARTED,
+            exportPickerStarted
+        );
     }
 
     public void enter() {
@@ -804,7 +823,8 @@ public final class ManagementBatchController implements AutoCloseable {
         if (busy || pendingExportToken != null) {
             return;
         }
-        List<Item> selected = selectedItems();
+        List<ManagementBatchSelection.Entry> selected =
+            ManagementBatchSelection.selectedEntries();
         if (selected.isEmpty()) {
             showFailure(selectedKeyCount() == 0
                 ? "cannot export an empty selection snapshot"
@@ -815,37 +835,109 @@ public final class ManagementBatchController implements AutoCloseable {
             showFailure("selection payload is unavailable; refresh the host list");
             return;
         }
-        for (Item item : selected) {
+        for (ManagementBatchSelection.Entry item : selected) {
             if (!isExportable(item.kind)) {
                 showFailure("selection contains a non-exportable item");
                 return;
             }
         }
         final String token = UUID.randomUUID().toString();
-        final JSONObject frozen;
-        try {
-            // Freeze the exact export input before ACTION_CREATE_DOCUMENT.
-            // The transaction lives in app-private storage so Activity
-            // recreation cannot replace it with an empty selection or exceed
-            // the saved-state Binder budget.
-            frozen = buildExportDocument(copyItems(selected));
-            writeExportTransaction(token, frozen);
-        } catch (Exception error) {
-            showFailure(safeMessage(error));
+        pendingExportToken = token;
+        exportPickerStarted = false;
+        setBusy(true);
+        // JSON serialization and app-private persistence happen on the
+        // worker.  The exact selected Entry objects are immutable snapshots;
+        // Activity recreation cannot replace them while the picker is open.
+        executor.execute(() -> {
+            try {
+                JSONObject frozen = buildExportManifest(selected);
+                writeExportTransaction(token, frozen);
+                List<ManagementTransfer.FileSpec> files =
+                    buildExportFiles(frozen);
+                activity.runOnUiThread(() ->
+                    showExportPreview(token, files)
+                );
+            } catch (Exception error) {
+                deleteExportTransaction(token);
+                activity.runOnUiThread(() -> {
+                    if (!isUiActive()) {
+                        return;
+                    }
+                    pendingExportToken = null;
+                    setBusy(false);
+                    showFailure(safeMessage(error));
+                });
+            }
+        });
+    }
+
+    /** Shows every independent JSON file before the user chooses a SAF tree. */
+    private void showExportPreview(
+        String token,
+        List<ManagementTransfer.FileSpec> files
+    ) {
+        if (!active || !isUiActive() || !token.equals(pendingExportToken)) {
+            deleteExportTransaction(token);
             return;
         }
-        pendingExportToken = token;
-        setBusy(true);
-        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
-            .addCategory(Intent.CATEGORY_OPENABLE)
-            .setType("application/json")
-            .putExtra(
-                Intent.EXTRA_TITLE,
-                "het-management-" + System.currentTimeMillis() + ".json"
+        StringBuilder preview = new StringBuilder();
+        for (ManagementTransfer.FileSpec file : files) {
+            if (preview.length() > 0) {
+                preview.append("\n\n");
+            }
+            preview.append("===== ")
+                .append(exportDisplayPath(file))
+                .append(" =====\n")
+                .append(file.label)
+                .append('\n')
+                .append(new String(file.bytes, StandardCharsets.UTF_8));
+        }
+        TextView body = new TextView(activity);
+        body.setText(preview.toString());
+        body.setTextIsSelectable(true);
+        int padding = (int) (activity.getResources().getDisplayMetrics().density * 16);
+        body.setPadding(padding, padding, padding, padding);
+        ScrollView scroll = new ScrollView(activity);
+        scroll.addView(body);
+        new MaterialAlertDialogBuilder(activity)
+            .setTitle(R.string.management_transfer_export_preview_title)
+            .setView(scroll)
+            .setNegativeButton(
+                R.string.management_transfer_export_preview_cancel,
+                (dialog, which) -> {
+                    deleteExportTransaction(token);
+                    pendingExportToken = null;
+                    setBusy(false);
+                }
+            )
+            .setPositiveButton(
+                R.string.management_transfer_export_preview_continue,
+                (dialog, which) -> launchExportPicker(token)
+            )
+            .setOnCancelListener(dialog -> {
+                deleteExportTransaction(token);
+                pendingExportToken = null;
+                setBusy(false);
+            })
+            .show();
+    }
+
+    private void launchExportPicker(String token) {
+        if (!active || !isUiActive() || !token.equals(pendingExportToken)) {
+            deleteExportTransaction(token);
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+            .addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
             );
         try {
+            exportPickerStarted = true;
             exportLauncher.launch(intent);
         } catch (RuntimeException error) {
+            exportPickerStarted = false;
             deleteExportTransaction(token);
             pendingExportToken = null;
             setBusy(false);
@@ -858,11 +950,13 @@ public final class ManagementBatchController implements AutoCloseable {
             || data.getData() == null) {
             deleteExportTransaction(pendingExportToken);
             pendingExportToken = null;
+            exportPickerStarted = false;
             setBusy(false);
             return;
         }
         final String token = pendingExportToken;
         pendingExportToken = null;
+        exportPickerStarted = false;
         if (token == null || token.trim().isEmpty()) {
             deleteExportTransaction(token);
             setBusy(false);
@@ -870,25 +964,32 @@ public final class ManagementBatchController implements AutoCloseable {
             return;
         }
         Uri destination = data.getData();
+        try {
+            activity.getContentResolver().takePersistableUriPermission(
+                destination,
+                data.getFlags()
+                    & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        | Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            );
+        } catch (SecurityException ignored) {
+            // A provider may grant only a transient permission for this write.
+        }
         setBusy(true);
         executor.execute(() -> {
             try {
                 JSONObject frozen = readExportTransaction(token);
-                byte[] bytes = frozen.toString(2)
-                    .getBytes(StandardCharsets.UTF_8);
-                try (OutputStream output = activity.getContentResolver()
-                    .openOutputStream(destination, "wt")) {
-                    if (output == null) {
-                        throw new IOException("document provider refused output");
-                    }
-                    output.write(bytes);
-                    output.flush();
-                }
+                ManagementTransfer.WriteResult result =
+                    ManagementTransfer.writeFiles(
+                        activity.getContentResolver(),
+                        destination,
+                        buildExportFiles(frozen)
+                    );
                 activity.runOnUiThread(() -> {
                     if (!active || !isUiActive()) {
                         return;
                     }
                     setBusy(false);
+                    showExportResult(result);
                 });
             } catch (Exception error) {
                 activity.runOnUiThread(() -> {
@@ -904,48 +1005,305 @@ public final class ManagementBatchController implements AutoCloseable {
         });
     }
 
-    private JSONObject buildExportDocument(List<Item> selected)
-        throws Exception {
+    private void showExportResult(ManagementTransfer.WriteResult result) {
+        if (result == null) {
+            showFailure("export result is unavailable");
+            return;
+        }
+        StringBuilder message = new StringBuilder(activity.getString(
+            R.string.management_transfer_export_result,
+            result.succeeded,
+            result.failures.size()
+        ));
+        for (String failure : result.failures) {
+            message.append('\n').append("• ").append(failure);
+        }
+        android.widget.Toast.makeText(
+            activity,
+            message.toString(),
+            android.widget.Toast.LENGTH_LONG
+        ).show();
+    }
+
+    private JSONObject buildExportManifest(
+        List<ManagementBatchSelection.Entry> selected
+    ) throws Exception {
         if (selected == null || selected.isEmpty()) {
             throw new IllegalArgumentException(
                 "cannot export an empty selection snapshot"
             );
         }
-        LinkedHashSet<String> types = new LinkedHashSet<>();
-        JSONArray items = new JSONArray();
-        for (Item item : selected) {
-            if (item == null || !isExportable(item.kind)) {
-                throw new IllegalArgumentException(
-                    "selection contains a non-exportable item"
-                );
+        Context snapshotContext = activity.getApplicationContext() != null
+            ? activity.getApplicationContext()
+            : activity;
+        JSONArray items;
+        synchronized (PendingProcessManager.POLICY_PUBLICATION_LOCK) {
+            PendingProcessStore.ReferenceSnapshot pending =
+                new PendingProcessStore(snapshotContext).snapshotReferences();
+            List<Item> current = ManagementHomeBatchDataSource.snapshotItems(
+                snapshotContext,
+                pending
+            );
+            Map<String, Item> currentByKey = new LinkedHashMap<>();
+            for (Item item : current) {
+                if (item != null) {
+                    currentByKey.put(item.key(), item);
+                }
             }
-            types.add(item.kind);
-            JSONObject copy = new JSONObject(item.payload.toString());
-            copy.put("type", item.kind);
-            copy.put("id", item.canonicalId);
-            copy.put("key", item.canonicalId);
-            items.put(copy);
+            items = new JSONArray();
+            for (ManagementBatchSelection.Entry selectedItem : selected) {
+                if (selectedItem == null
+                    || !isExportable(selectedItem.kind)) {
+                    throw new IllegalArgumentException(
+                        "selection contains a non-exportable item"
+                    );
+                }
+                String key = selectedItem.key();
+                if (pending.isPending(
+                    selectedItem.kind,
+                    selectedItem.canonicalId
+                )) {
+                    throw new IOException(
+                        "selected export item is pending: " + key
+                    );
+                }
+                Item currentItem = currentByKey.get(key);
+                if (currentItem == null) {
+                    throw new IOException(
+                        "selected export item is no longer available: " + key
+                    );
+                }
+                JSONObject payload = exportPayload(
+                    currentItem,
+                    currentByKey,
+                    pending
+                );
+                items.put(new JSONObject()
+                    .put("kind", currentItem.kind)
+                    .put("canonicalId", currentItem.canonicalId)
+                    .put("label", currentItem.label)
+                    .put("payload", payload));
+            }
         }
-        if (items.length() == 0 || types.isEmpty()) {
+        if (items.length() == 0) {
             throw new IllegalArgumentException(
                 "cannot export an empty selection snapshot"
             );
         }
         JSONObject output = new JSONObject()
-            .put("format", "het-management")
-            .put("version", 1)
+            .put("format", "het-management-transfer")
+            .put("version", 2)
             .put("items", items);
-        if (types.size() == 1) {
-            output.put("type", types.iterator().next());
-        } else {
-            output.put("type", "bundle");
-            JSONArray declared = new JSONArray();
-            for (String type : types) {
-                declared.put(type);
-            }
-            output.put("types", declared);
-        }
         return output;
+    }
+
+    /**
+     * Projects current store payloads into the consumer files without
+     * mutating the source records.  The live catalog contains every kind, so
+     * this also refreshes selections made on another management host.
+     */
+    private JSONObject exportPayload(
+        Item current,
+        Map<String, Item> currentByKey,
+        PendingProcessStore.ReferenceSnapshot pending
+    ) throws Exception {
+        JSONObject payload = new JSONObject(current.payload.toString());
+        if (KIND_SCENE.equals(current.kind)) {
+            return SceneStore.filterPendingLanguagesForManagementExport(
+                current.canonicalId,
+                payload,
+                pending
+            );
+        }
+        if (KIND_CONTEXT.equals(current.kind)) {
+            return filterContextExportRelations(payload, currentByKey);
+        }
+        if (KIND_GROUP.equals(current.kind)) {
+            return filterGroupExportRelations(payload, currentByKey);
+        }
+        return payload;
+    }
+
+    private JSONObject filterContextExportRelations(
+        JSONObject context,
+        Map<String, Item> currentByKey
+    ) throws Exception {
+        JSONArray source = context.optJSONArray("scenes");
+        if (source == null) {
+            return context;
+        }
+        JSONArray filtered = new JSONArray();
+        for (int index = 0; index < source.length(); index++) {
+            JSONObject entry = source.optJSONObject(index);
+            if (entry == null) {
+                continue;
+            }
+            String sceneName = entry.optString("scene", "").trim();
+            if (sceneName.isEmpty()
+                || !currentByKey.containsKey(KIND_SCENE + ":" + sceneName)) {
+                continue;
+            }
+            filtered.put(new JSONObject(entry.toString()));
+        }
+        context.put("scenes", filtered);
+        return context;
+    }
+
+    private JSONObject filterGroupExportRelations(
+        JSONObject group,
+        Map<String, Item> currentByKey
+    ) throws Exception {
+        JSONArray source = group.optJSONArray("contexts");
+        if (source == null) {
+            return group;
+        }
+        JSONArray filtered = new JSONArray();
+        for (int index = 0; index < source.length(); index++) {
+            JSONObject entry = source.optJSONObject(index);
+            if (entry == null) {
+                continue;
+            }
+            String contextId = entry.optString("context_id", "").trim();
+            if (contextId.isEmpty()
+                || !currentByKey.containsKey(KIND_CONTEXT + ":" + contextId)) {
+                continue;
+            }
+            filtered.put(new JSONObject(entry.toString()));
+        }
+        group.put("contexts", filtered);
+        return group;
+    }
+
+    private List<ManagementTransfer.FileSpec> buildExportFiles(
+        JSONObject frozen
+    ) throws Exception {
+        JSONArray items = frozen == null
+            ? null
+            : frozen.optJSONArray("items");
+        if (items == null || items.length() == 0
+            || !"het-management-transfer".equals(
+                frozen.optString("format", "")
+            )
+            || frozen.optInt("version", -1) != 2) {
+            throw new IOException("export transaction snapshot is invalid");
+        }
+        List<ManagementTransfer.FileSpec> files = new ArrayList<>();
+        LinkedHashMap<String, JSONObject> characters = new LinkedHashMap<>();
+        LinkedHashMap<String, JSONObject> terms = new LinkedHashMap<>();
+        for (int index = 0; index < items.length(); index++) {
+            JSONObject item = items.optJSONObject(index);
+            if (item == null) {
+                throw new IOException("export transaction item is invalid");
+            }
+            String kind = item.optString("kind", "");
+            String id = item.optString("canonicalId", "").trim();
+            JSONObject payload = item.optJSONObject("payload");
+            String label = item.optString("label", id);
+            if (!isExportable(kind) || id.isEmpty() || payload == null) {
+                throw new IOException("export transaction item is invalid");
+            }
+            JSONObject rawPayload = new JSONObject(payload.toString());
+            if (KIND_SCENE.equals(kind)) {
+                files.add(new ManagementTransfer.FileSpec(
+                    "",
+                    ManagementTransfer.jsonFileName(id),
+                    jsonBytes(rawPayload),
+                    label
+                ));
+            } else if (KIND_CONTEXT.equals(kind)) {
+                String displayName = rawPayload.optString(
+                    "display_name",
+                    ""
+                ).trim();
+                if (displayName.isEmpty()) {
+                    throw new IOException("context display_name is empty");
+                }
+                files.add(new ManagementTransfer.FileSpec(
+                    "contexts",
+                    ManagementTransfer.jsonFileName(displayName),
+                    jsonBytes(rawPayload),
+                    label
+                ));
+            } else if (KIND_GROUP.equals(kind)) {
+                String displayName = rawPayload.optString(
+                    "display_name",
+                    ""
+                ).trim();
+                if (displayName.isEmpty()) {
+                    throw new IOException("group display_name is empty");
+                }
+                files.add(new ManagementTransfer.FileSpec(
+                    "groups",
+                    ManagementTransfer.jsonFileName(displayName),
+                    jsonBytes(rawPayload),
+                    label
+                ));
+            } else if (KIND_CHARACTER.equals(kind)) {
+                characters.put(id, rawPayload);
+            } else if (KIND_TERM.equals(kind)) {
+                terms.put(id, rawPayload);
+            } else {
+                throw new IOException("unsupported export kind: " + kind);
+            }
+        }
+        if (!characters.isEmpty()) {
+            JSONObject dictionary = new JSONObject();
+            for (Map.Entry<String, JSONObject> entry : characters.entrySet()) {
+                dictionary.put(
+                    entry.getKey(),
+                    new JSONObject(entry.getValue().toString())
+                );
+            }
+            files.add(new ManagementTransfer.FileSpec(
+                "",
+                "chardict.json",
+                jsonBytes(dictionary),
+                "chardict.json"
+            ));
+        }
+        if (!terms.isEmpty()) {
+            JSONObject dictionary = new JSONObject();
+            for (Map.Entry<String, JSONObject> entry : terms.entrySet()) {
+                dictionary.put(
+                    entry.getKey(),
+                    new JSONObject(entry.getValue().toString())
+                );
+            }
+            files.add(new ManagementTransfer.FileSpec(
+                "",
+                "gameterms.json",
+                jsonBytes(dictionary),
+                "gameterms.json"
+            ));
+        }
+        if (files.isEmpty()) {
+            throw new IOException("export file plan is empty");
+        }
+        return files;
+    }
+
+    private static String exportDisplayPath(ManagementTransfer.FileSpec file) {
+        if (file == null) {
+            return "document.json";
+        }
+        String directory = file.directory == null
+            ? ""
+            : file.directory.trim();
+        String requestedName = file.requestedName == null
+            ? "document.json"
+            : file.requestedName.trim();
+        return directory.isEmpty()
+            ? requestedName
+            : directory + "/" + requestedName;
+    }
+
+    private static byte[] jsonBytes(JSONObject value) throws Exception {
+        byte[] bytes = (value.toString(2) + "\n")
+            .getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_EXPORT_BYTES) {
+            throw new IOException("export document exceeds size limit");
+        }
+        return bytes;
     }
 
     private void setBusy(boolean value) {
@@ -972,7 +1330,15 @@ public final class ManagementBatchController implements AutoCloseable {
         if (selected != null) {
             ManagementBatchSelection.selectAll(selected);
         }
+        exportPickerStarted = state.getBoolean(
+            STATE_EXPORT_PICKER_STARTED,
+            false
+        );
         pendingExportToken = state.getString(STATE_EXPORT_TOKEN);
+        if (!exportPickerStarted) {
+            deleteExportTransaction(pendingExportToken);
+            pendingExportToken = null;
+        }
     }
 
     private File exportTransactionDirectory() {
@@ -1040,25 +1406,24 @@ public final class ManagementBatchController implements AutoCloseable {
         );
         JSONArray items = frozen.optJSONArray("items");
         if (items == null || items.length() == 0
-            || !"het-management".equals(frozen.optString("format", ""))) {
+            || !"het-management-transfer".equals(
+                frozen.optString("format", "")
+            )
+            || frozen.optInt("version", -1) != 2) {
             throw new IOException("export transaction snapshot is invalid");
         }
         // Re-run the export contract before touching the user-selected URI.
-        List<Item> parsed = new ArrayList<>();
         for (int index = 0; index < items.length(); index++) {
             JSONObject item = items.optJSONObject(index);
             if (item == null) {
                 throw new IOException("export transaction item is invalid");
             }
-            String kind = item.optString("type", "");
-            String id = item.optString("id", "");
-            if (!isExportable(kind) || id.trim().isEmpty()) {
+            String kind = item.optString("kind", "");
+            String id = item.optString("canonicalId", "");
+            if (!isExportable(kind) || id.trim().isEmpty()
+                || item.optJSONObject("payload") == null) {
                 throw new IOException("export transaction item is invalid");
             }
-            parsed.add(new Item(kind, id, id, item));
-        }
-        if (parsed.isEmpty()) {
-            throw new IOException("export transaction snapshot is empty");
         }
         return frozen;
     }
@@ -1073,28 +1438,6 @@ public final class ManagementBatchController implements AutoCloseable {
         } catch (IOException ignored) {
             // An invalid/missing token is already an unavailable transaction.
         }
-    }
-
-    private static List<Item> copyItems(List<Item> source) {
-        if (source == null || source.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Item> output = new ArrayList<>(source.size());
-        for (Item item : source) {
-            if (item == null || item.kind.isEmpty()
-                || item.canonicalId.isEmpty()) {
-                continue;
-            }
-            output.add(new Item(
-                item.kind,
-                item.canonicalId,
-                item.label,
-                item.payload
-            ));
-        }
-        return output.isEmpty()
-            ? Collections.emptyList()
-            : Collections.unmodifiableList(output);
     }
 
     private void showFailureLines(List<String> failures, int succeeded) {

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="management_transfer_export_result">已导出 %1$d 个文件，失败 %2$d 个。各文件已独立写入。</string>
+    <string name="management_transfer_export_preview_title">导出预览</string>
+    <string name="management_transfer_export_preview_continue">选择目标目录</string>
+    <string name="management_transfer_export_preview_cancel">取消导出</string>
+    <string name="management_transfer_import_characters">导入角色</string>
+    <string name="management_transfer_import_terms">导入术语</string>
+    <string name="management_transfer_import_save_first">请先保存当前编辑，再导入。</string>
+    <string name="management_transfer_import_title">导入词典条目</string>
+    <string name="management_transfer_import_message">现在导入 %1$d 个条目？</string>
+    <string name="management_transfer_import_conflict_message">已选择 %1$d 个条目。现有键只有在确认后才会替换：
+
+%2$s</string>
+    <string name="management_transfer_import_keep">保留同名并导入其他</string>
+    <string name="management_transfer_import_cancel">取消</string>
+    <string name="management_transfer_import_confirm">导入</string>
+    <string name="management_transfer_import_overwrite">替换现有</string>
+    <string name="management_transfer_import_result">新增 %1$d 个条目，替换 %2$d 个，保留 %3$d 个。</string>
+    <string name="management_transfer_import_failed">词典导入失败：%1$s</string>
+</resources>
