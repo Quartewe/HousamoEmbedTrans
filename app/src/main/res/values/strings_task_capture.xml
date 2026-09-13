@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capture_control_pause">Pause story capture</string>
+    <string name="capture_control_resume">Enable story capture</string>
+    <string name="capture_control_pause_title">Pause story capture?</string>
+    <string name="capture_control_pause_message">After pausing, the current app will stop capturing newly entered story content; already captured stories, created tasks, and requests in progress will not stop. You can enable capture again at any time.</string>
+    <string name="capture_control_pause_action">Pause capture</string>
+    <string name="capture_control_pause_saved">Saved: pause story capture.</string>
+    <string name="capture_control_resume_saved">Saved: enable story capture.</string>
+    <string name="capture_control_saved_waiting_service">Setting saved; it will apply when the translation service starts.</string>
+    <string name="capture_control_saved_sync_failed">Setting saved, but the service wake or notification update did not finish.</string>
+    <string name="capture_control_save_failed">Could not save the story capture setting. Try again.</string>
+</resources>

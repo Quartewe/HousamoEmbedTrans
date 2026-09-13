@@ -19,19 +19,31 @@ public final class RuntimeControlStore {
     public static boolean toggleCapturePaused(Context context) {
         boolean wasPaused = isCapturePaused(context);
         boolean paused = !wasPaused;
-        boolean saved = preferences(context)
-            .edit()
-            .putBoolean(KEY_CAPTURE_PAUSED, paused)
-            .commit();
+        boolean saved = trySetCapturePaused(context, paused);
         return saved ? paused : wasPaused;
     }
 
     public static boolean setCapturePaused(Context context, boolean paused) {
-        boolean saved = preferences(context)
+        boolean saved = trySetCapturePaused(context, paused);
+        return saved ? paused : isCapturePaused(context);
+    }
+
+    /**
+     * Persists the requested capture state and reports the commit result.
+     *
+     * <p>The boolean-returning setters preserve the effective-state API used
+     * by the runtime.  UI controls that need to distinguish a failed commit
+     * must use this method because SharedPreferences may update its in-memory
+     * view even when {@code commit()} reports failure.</p>
+     */
+    public static boolean trySetCapturePaused(
+        Context context,
+        boolean paused
+    ) {
+        return preferences(context)
             .edit()
             .putBoolean(KEY_CAPTURE_PAUSED, paused)
             .commit();
-        return saved ? paused : isCapturePaused(context);
     }
 
     private static SharedPreferences preferences(Context context) {

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capture_control_pause">暂停剧情捕获</string>
+    <string name="capture_control_resume">开启剧情捕获</string>
+    <string name="capture_control_pause_title">确认暂停剧情捕获</string>
+    <string name="capture_control_pause_message">暂停后，当前应用将不再捕获新进入的剧情；已经捕获的剧情、已创建的任务和正在进行的请求不会停止。之后可随时重新开启。</string>
+    <string name="capture_control_pause_action">暂停捕获</string>
+    <string name="capture_control_pause_saved">已保存暂停剧情捕获设置</string>
+    <string name="capture_control_resume_saved">已保存开启剧情捕获设置</string>
+    <string name="capture_control_saved_waiting_service">设置已保存，等待翻译服务启动后应用</string>
+    <string name="capture_control_saved_sync_failed">设置已保存，但翻译服务唤醒或通知更新未完成</string>
+    <string name="capture_control_save_failed">无法保存剧情捕获设置，请稍后重试</string>
+</resources>

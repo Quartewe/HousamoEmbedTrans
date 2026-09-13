@@ -7,8 +7,6 @@ import com.quarty.housamoembedtrans.ui.SceneContextActivity;
 import com.quarty.housamoembedtrans.ui.SceneFilesActivity;
 import com.quarty.housamoembedtrans.ui.SettingsActivity;
 import com.quarty.housamoembedtrans.ui.TranslationQueueActivity;
-import com.quarty.housamoembedtrans.ui.RejectedApiResultsActivity;
-import com.quarty.housamoembedtrans.context.review.ContextReviewGate;
 import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 
@@ -577,28 +575,14 @@ public final class TranslationStatusNotification {
                 capturePendingIntent(context)
             );
 
-        if (ContextReviewGate.get().isPending()) {
-            builder.addAction(
-                R.drawable.ic_notification,
-                context.getString(
-                    R.string.notification_action_review_contexts
-                ),
-                sceneContextReviewPendingIntent(context)
-            );
-        }
-
+        String actionableTaskTitle;
         if (manualStartupRepair) {
-            builder.addAction(
-                R.drawable.ic_notification,
-                context.getString(
+            actionableTaskTitle = context.getString(
                     R.string.notification_action_view_queue_repair
-                ),
-                queuePendingIntent(context)
             );
         } else if (heldQueuedJobCount > 0 || manualRerunCandidateCount > 0) {
-            builder.addAction(
-                R.drawable.ic_notification,
-                heldQueuedJobCount > 0 && manualRerunCandidateCount > 0
+            actionableTaskTitle = heldQueuedJobCount > 0
+                    && manualRerunCandidateCount > 0
                     ? context.getString(
                         R.string.notification_action_manage_queue_with_failures,
                         heldQueuedJobCount,
@@ -612,35 +596,30 @@ public final class TranslationStatusNotification {
                         : context.getString(
                             R.string.notification_action_manage_failed_jobs,
                             manualRerunCandidateCount
-                        ),
-                queuePendingIntent(context)
-            );
-        }
-        if (STATE_STARTUP_FAILED.equals(status)) {
-            builder.addAction(
-                R.drawable.ic_notification,
-                context.getString(
+                        );
+        } else if (STATE_STARTUP_FAILED.equals(status)) {
+            actionableTaskTitle = context.getString(
                     R.string.notification_action_view_startup_failure
-                ),
-                queuePendingIntent(context)
             );
-        }
-        if (STATE_BLOCKED.equals(status)) {
-            builder.addAction(
-                R.drawable.ic_notification,
-                context.getString(
+        } else if (STATE_BLOCKED.equals(status)) {
+            actionableTaskTitle = context.getString(
                     R.string.notification_action_view_queue_repair
-                ),
-                queuePendingIntent(context)
+            );
+        } else {
+            actionableTaskTitle = context.getString(
+                R.string.notification_action_view_tasks
             );
         }
-        if (scenePageIntent != null) {
-            builder.addAction(
-                R.drawable.ic_notification,
-                sceneActionTitle,
-                scenePageIntent
-            );
-        }
+        builder.addAction(
+            R.drawable.ic_notification,
+            actionableTaskTitle,
+            queuePendingIntent(context)
+        );
+        builder.addAction(
+            R.drawable.ic_notification,
+            context.getString(R.string.notification_action_view_waiting_results),
+            rejectedApiResultsPendingIntent(context)
+        );
 
         if (STATE_ACTIVE.equals(status) && startedAt > 0L) {
             builder
@@ -930,9 +909,13 @@ public final class TranslationStatusNotification {
     }
 
     private static PendingIntent rejectedApiResultsPendingIntent(Context context) {
-        Intent intent = new Intent(context, RejectedApiResultsActivity.class)
+        Intent intent = new Intent(context, TranslationQueueActivity.class)
+            .putExtra(
+                TranslationQueueActivity.EXTRA_MANAGEMENT_ONLY,
+                true
+            )
             .addFlags(
-                Intent.FLAG_ACTIVITY_CLEAR_TOP
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP
             );
         return PendingIntent.getActivity(
@@ -945,9 +928,21 @@ public final class TranslationStatusNotification {
     }
 
     private static PendingIntent capturePendingIntent(Context context) {
-        Intent intent = new Intent(context, TranslationControlReceiver.class)
-            .setAction(ACTION_TOGGLE_CAPTURE);
-        return PendingIntent.getBroadcast(
+        boolean desiredPaused = !RuntimeControlStore.isCapturePaused(context);
+        Intent intent = new Intent(context, TranslationQueueActivity.class)
+            .putExtra(
+                TranslationQueueActivity.EXTRA_NOTIFICATION_CAPTURE_CONTROL,
+                true
+            )
+            .putExtra(
+                TranslationQueueActivity.EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED,
+                desiredPaused
+            )
+            .addFlags(
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
+            );
+        return PendingIntent.getActivity(
             context,
             CAPTURE_REQUEST_CODE,
             intent,
@@ -958,7 +953,7 @@ public final class TranslationStatusNotification {
     private static PendingIntent queuePendingIntent(Context context) {
         Intent intent = new Intent(context, TranslationQueueActivity.class)
             .addFlags(
-                Intent.FLAG_ACTIVITY_CLEAR_TOP
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP
             );
         return PendingIntent.getActivity(

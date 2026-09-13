@@ -1384,9 +1384,10 @@ public final class TranslationService extends Service {
             return START_NOT_STICKY;
         }
 
-        // START is deliberately only a replay/wake action.  The receiver is
-        // the sole mutation owner; re-read the durable preference on every
-        // START so a running Service observes a just-toggled value.
+        // START is deliberately only a replay/wake action.  The durable
+        // preference may be changed by an in-app control or the notification
+        // receiver; re-read it on every START so a running Service observes
+        // the latest requested value.
         capturePausedRequest = RuntimeControlStore.isCapturePaused(this);
 
         runOnStartCommandSequence(
