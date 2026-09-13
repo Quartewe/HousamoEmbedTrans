@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="context_editor_discard_title">放弃当前草稿？</string>
+    <string name="context_editor_discard_message">尚未保存的修改将会丢失。</string>
+</resources>

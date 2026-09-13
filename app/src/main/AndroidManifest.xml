@@ -55,6 +55,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.ContextManagementDetailActivity"
+            android:exported="false"
+            android:label="@string/context_detail_context_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.SceneBatchEditActivity"
             android:exported="false"
             android:label="@string/scene_batch_edit_title"

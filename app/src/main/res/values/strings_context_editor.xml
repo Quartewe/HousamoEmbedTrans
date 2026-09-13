@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="context_editor_discard_title">Discard this draft?</string>
+    <string name="context_editor_discard_message">Unsaved changes will be lost.</string>
+</resources>
