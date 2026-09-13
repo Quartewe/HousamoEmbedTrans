@@ -663,6 +663,8 @@ public final class PendingProcessStore {
                 writeTransaction(transaction);
             }
             return replayOwner(owner, null);
+        } catch (JSONException invalidEntry) {
+            throw new IOException("could not read pending entry identity", invalidEntry);
         } finally {
             endOwnerOperation();
         }
@@ -928,9 +930,9 @@ public final class PendingProcessStore {
 
     private JSONObject requestJson(MovePayload payload)
         throws PendingProcessException {
-        JSONObject request = object();
         String reason = defaultReason(payload);
         try {
+            JSONObject request = object();
             request.put("mode", payload.isSnapshot() ? "snapshot" : "external_reference");
             request.put("reason", reason);
             request.put(
