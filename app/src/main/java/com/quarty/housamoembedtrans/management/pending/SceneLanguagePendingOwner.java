@@ -241,6 +241,9 @@ public final class SceneLanguagePendingOwner implements PendingProcessOwner {
                 jobStore.cancelUnfinishedJobsForSceneForManagement(
                     canonicalId
                 );
+                // Retained while pending; restoration uses the same local file.
+                new com.quarty.housamoembedtrans.scene.store.SceneAnnotationStore(
+                    contextStore.getDirectory().getParentFile()).delete(canonicalId);
             } else {
                 LanguageIdentity identity = parseLanguageIdentity(canonicalId);
                 store.permanentlyDeleteLanguageFromPending(

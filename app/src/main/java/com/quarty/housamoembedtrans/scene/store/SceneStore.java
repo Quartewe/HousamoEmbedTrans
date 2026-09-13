@@ -1,4 +1,5 @@
 package com.quarty.housamoembedtrans.scene.store;
+import com.quarty.housamoembedtrans.management.transfer.ManagementImportRecoveryGate;
 import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
 import com.quarty.housamoembedtrans.storage.json.JsonSchemaValidator;
 
@@ -129,6 +130,46 @@ public final class SceneStore {
                     && left.mutationPoolSnapshotKey.equals(
                         right.mutationPoolSnapshotKey
                     ));
+        }
+
+        private static File filesRoot(SceneStore store) {
+            return store == null || store.sceneDirectory == null
+                ? null
+                : store.sceneDirectory.getParentFile();
+        }
+
+        private static boolean recoveryBlocked(SceneStore store) {
+            File root = filesRoot(store);
+            return root != null
+                && ManagementImportRecoveryGate.isBlockedForFilesRoot(root);
+        }
+
+        private static boolean recoveryOwner(SceneStore store) {
+            File root = filesRoot(store);
+            return root != null
+                && ManagementImportRecoveryGate
+                    .isRecoveryOwnerForFilesRoot(root);
+        }
+
+        private static boolean sameFilesRoot(
+            SceneStore store,
+            File filesRoot
+        ) {
+            if (store == null || filesRoot == null) {
+                return false;
+            }
+            File storeRoot = filesRoot(store);
+            try {
+                return storeRoot != null
+                    && storeRoot.getCanonicalFile().equals(
+                        filesRoot.getCanonicalFile()
+                    );
+            } catch (IOException e) {
+                return storeRoot != null
+                    && storeRoot.getAbsoluteFile().equals(
+                        filesRoot.getAbsoluteFile()
+                    );
+            }
         }
 
         private long beginDrainingLocked(SceneStore store) {
@@ -305,6 +346,17 @@ public final class SceneStore {
                     }
                     fullSyncActive = false;
                     storeToDrain = drainingStore;
+                    if (recoveryBlocked(storeToDrain)) {
+                        // The durable management recovery marker still owns
+                        // the write boundary. Keep the pool owner for the
+                        // post-clear wakeup, but do not create DRAINING or
+                        // wait for a drain that is forbidden by the gate.
+                        draining = false;
+                        drainerActive = false;
+                        lock.notifyAll();
+                        if (interrupted) Thread.currentThread().interrupt();
+                        return;
+                    }
                     generation = beginDrainingLocked(storeToDrain);
                     lock.notifyAll();
                 }
@@ -343,7 +395,7 @@ public final class SceneStore {
             DeferredMutation mutation
         ) throws IOException {
             synchronized (lock) {
-                if (fullSyncActive || draining) {
+                if (fullSyncActive || draining || recoveryBlocked(store)) {
                     if (store == null) {
                         throw new IllegalArgumentException("SceneStore is null");
                     }
@@ -381,6 +433,12 @@ public final class SceneStore {
                         && drainerActive) {
                         return false;
                     }
+                    if (recoveryBlocked(store)) {
+                        if (drainingStore == null) {
+                            drainingStore = store;
+                        }
+                        return false;
+                    }
                     beginDrainingLocked(store);
                     return claimDrainerLocked(store);
                 }
@@ -391,7 +449,8 @@ public final class SceneStore {
         private boolean claimDrainerLocked(SceneStore store) {
             if (!sameMutationPool(drainingStore, store)
                 || !draining
-                || drainerActive) {
+                || drainerActive
+                || recoveryBlocked(store)) {
                 return false;
             }
             drainerActive = true;
@@ -406,6 +465,7 @@ public final class SceneStore {
                     && sameMutationPool(drainingStore, store)
                     && pendingDeferredAdmissions == 0
                     && activeExternalMutations == 0
+                    && !recoveryBlocked(store)
                     && claimDrainerLocked(store);
             }
             if (start) {
@@ -428,7 +488,9 @@ public final class SceneStore {
 
         private boolean requestDrain(SceneStore store) {
             synchronized (lock) {
-                if (store == null || fullSyncActive) return false;
+                if (store == null || fullSyncActive || recoveryBlocked(store)) {
+                    return false;
+                }
                 if (drainingStore != null
                     && !sameMutationPool(drainingStore, store)
                     && drainerActive) {
@@ -552,6 +614,12 @@ public final class SceneStore {
             boolean interrupted = false;
             long interruptedDrainGeneration = -1L;
             synchronized (lock) {
+                if (recoveryBlocked(ownerStore)
+                    && !recoveryOwner(ownerStore)) {
+                    throw new IOException(
+                        "management import recovery is active"
+                    );
+                }
                 if (fullSyncActive) {
                     throw new IOException("another full sync is already active");
                 }
@@ -566,10 +634,20 @@ public final class SceneStore {
                     } catch (InterruptedException e) {
                         fullSyncActive = false;
                         interrupted = true;
-                        storeToDrain = ownerStore;
-                        interruptedDrainGeneration = beginDrainingLocked(
-                            storeToDrain
-                        );
+                        if (recoveryBlocked(ownerStore)) {
+                            // The recovery gate still owns the boundary. Keep
+                            // drainingStore for the post-clear wakeup, but do
+                            // not create a drain generation that cannot run.
+                            draining = false;
+                            drainerActive = false;
+                            storeToDrain = null;
+                            interruptedDrainGeneration = -1L;
+                        } else {
+                            storeToDrain = ownerStore;
+                            interruptedDrainGeneration = beginDrainingLocked(
+                                storeToDrain
+                            );
+                        }
                         lock.notifyAll();
                         interruptedFailure = new IOException(e);
                         break;
@@ -608,6 +686,27 @@ public final class SceneStore {
         } catch (RuntimeException e) {
             lease.close();
             throw e;
+        }
+    }
+
+    /**
+     * Resumes a deferred Scene mutation pool after management recovery clears
+     * its durable write gate.  The callback only records the root match and
+     * starts the existing drain outside the admission lock.
+     */
+    public static void resumeDeferredMutationDrain(File filesRoot) {
+        if (filesRoot == null) {
+            return;
+        }
+        SceneStore store;
+        synchronized (MUTATION_ADMISSION.lock) {
+            store = MUTATION_ADMISSION.drainingStore;
+            if (!MutationAdmission.sameFilesRoot(store, filesRoot)) {
+                return;
+            }
+        }
+        if (store != null && MUTATION_ADMISSION.requestDrain(store)) {
+            store.drainDeferredMutations();
         }
     }
 
@@ -1183,6 +1282,26 @@ public final class SceneStore {
                 "Scene mutation rejected: management pending Scene family "
                     + sceneName
             );
+        }
+    }
+
+    /**
+     * Checks the same formal Scene and management-Pending boundary used by
+     * Scene mutations before a HET-only Scene edit is committed.
+     */
+    public synchronized void requireSceneAvailableForManagement(
+        String sceneName
+    ) throws IOException {
+        sceneName = requireSceneName(sceneName);
+        requireSceneFamilyNotManagementPending(sceneName);
+        try {
+            if (readValidSceneByName(sceneName) == null) {
+                throw new IOException("Scene is no longer available");
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("Scene is no longer available", e);
         }
     }
 
@@ -3503,6 +3622,41 @@ public final class SceneStore {
             return null;
         }
         return scene;
+    }
+
+    /**
+     * Copies one current Scene for management export and removes only
+     * languages whose PendingProcess identity is present in the supplied
+     * snapshot.  The stored Scene is never modified by this projection.
+     */
+    public static JSONObject filterPendingLanguagesForManagementExport(
+        String sceneName,
+        JSONObject source,
+        PendingProcessStore.ReferenceSnapshot pending
+    ) throws Exception {
+        sceneName = requireSceneName(sceneName);
+        if (source == null) {
+            throw new IllegalArgumentException("Scene export payload is null");
+        }
+        JSONObject output = new JSONObject(source.toString());
+        if (pending == null || pending.isEmpty()) {
+            return output;
+        }
+        for (String language : collectLanguages(output)) {
+            String canonicalId = languageCanonicalId(sceneName, language);
+            if (!pending.isPending("language", canonicalId)) {
+                continue;
+            }
+            removeObjectKey(output.optJSONObject("translated"), language);
+            removeObjectKey(output.optJSONObject("provider"), language);
+            removeObjectKey(output.optJSONObject("model"), language);
+            removeObjectKey(output.optJSONObject("summary"), language);
+            removeTranslationLanguage(
+                output.optJSONArray("scene_items"),
+                language
+            );
+        }
+        return output;
     }
 
     public File getValidSceneFileByName(String sceneName) {

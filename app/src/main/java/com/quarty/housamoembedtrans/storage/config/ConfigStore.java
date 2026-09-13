@@ -2,6 +2,7 @@ package com.quarty.housamoembedtrans.storage.config;
 import com.quarty.housamoembedtrans.provider.ApiConcurrencySettings;
 import com.quarty.housamoembedtrans.provider.ThinkingStrength;
 import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
+import com.quarty.housamoembedtrans.management.transfer.ManagementImportRecoveryGate;
 import com.quarty.housamoembedtrans.scene.sync.SceneSyncSettings;
 
 import com.quarty.housamoembedtrans.util.IoUtils;
@@ -136,11 +137,15 @@ public final class ConfigStore {
 
     private final Context context;
     private final PendingProcessStore pendingProcessStore;
+    private final ManagementImportRecoveryGate recoveryGate;
 
     public ConfigStore(Context context) {
         Context appContext = context.getApplicationContext();
         this.context = appContext != null ? appContext : context;
         this.pendingProcessStore = new PendingProcessStore(this.context);
+        this.recoveryGate = ManagementImportRecoveryGate.forFilesRoot(
+            this.context.getFilesDir()
+        );
     }
 
     public LoadResult load() throws Exception {
@@ -249,6 +254,101 @@ public final class ConfigStore {
             File userFile = getUserFile(name);
             rejectPendingDictionaryKeys(name, json);
             writeJsonUnrestricted(userFile, name, json);
+        }
+    }
+
+    /** Result of merging one prevalidated batch into the current dictionary. */
+    public static final class DictionaryMergeResult {
+        public final int imported;
+        public final int overwritten;
+        public final int skipped;
+
+        private DictionaryMergeResult(
+            int imported,
+            int overwritten,
+            int skipped
+        ) {
+            this.imported = imported;
+            this.overwritten = overwritten;
+            this.skipped = skipped;
+        }
+    }
+
+    /**
+     * Re-reads the current dictionary while holding the same gate used by
+     * saveJson.  Imported records are merged into that fresh copy so an
+     * Activity never writes back the stale dictionary snapshot it displayed
+     * before the conflict dialog.  Keys that appeared after preflight abort
+     * unless the caller had already shown them to the user.
+     */
+    public DictionaryMergeResult mergeImportedDictionary(
+        String name,
+        JSONObject imported,
+        Set<String> approvedOverwriteKeys,
+        Set<String> expectedConflictKeys
+    ) throws Exception {
+        if (!CHARDICT_FILE_NAME.equals(name)
+            && !GAMETERMS_FILE_NAME.equals(name)) {
+            throw new IllegalArgumentException("unsupported dictionary: " + name);
+        }
+        if (imported == null) {
+            throw new IllegalArgumentException("imported dictionary is required");
+        }
+        synchronized (CONFIG_ACCESS_LOCK) {
+            validateResource(name, imported);
+            JsonLoadResult loaded = loadJson(name);
+            if (loaded.invalidUserOverride) {
+                throw new IOException(
+                    "cannot merge while " + name
+                        + " has an invalid user override"
+                );
+            }
+            JSONObject current = copyJsonObject(loaded.json);
+            Set<String> approved = approvedOverwriteKeys == null
+                ? java.util.Collections.emptySet()
+                : approvedOverwriteKeys;
+            Set<String> expected = expectedConflictKeys == null
+                ? java.util.Collections.emptySet()
+                : expectedConflictKeys;
+
+            java.util.Iterator<String> importedKeys = imported.keys();
+            while (importedKeys.hasNext()) {
+                String key = importedKeys.next();
+                if (current.has(key) && !expected.contains(key)) {
+                    throw new IOException(
+                        "dictionary changed after import confirmation: " + key
+                    );
+                }
+            }
+
+            int importedCount = 0;
+            int overwrittenCount = 0;
+            int skippedCount = 0;
+            importedKeys = imported.keys();
+            while (importedKeys.hasNext()) {
+                String key = importedKeys.next();
+                JSONObject record = imported.getJSONObject(key);
+                if (current.has(key)) {
+                    if (approved.contains(key)) {
+                        current.put(key, copyJsonObject(record));
+                        overwrittenCount++;
+                    } else {
+                        skippedCount++;
+                    }
+                } else {
+                    current.put(key, copyJsonObject(record));
+                    importedCount++;
+                }
+            }
+            validateResource(name, current);
+            // Reuse the existing save entry so PendingProcess dictionary
+            // rejection and atomic user-file replacement remain in force.
+            saveJson(name, current);
+            return new DictionaryMergeResult(
+                importedCount,
+                overwrittenCount,
+                skippedCount
+            );
         }
     }
 
@@ -554,16 +654,29 @@ public final class ConfigStore {
         return null;
     }
 
-    private static void writeJsonUnrestricted(
+    private void writeJsonUnrestricted(
         File userFile,
         String name,
         JSONObject json
     ) throws IOException {
+        final byte[] bytes;
         try {
-            IoUtils.writeAtomically(
+            bytes = (json.toString(2) + "\n")
+                .getBytes(StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new IOException("could not serialize " + name, e);
+        }
+        try {
+            recoveryGate.withDictionaryWrite(
+                name,
                 userFile,
-                (json.toString(2) + "\n").getBytes(StandardCharsets.UTF_8)
+                () -> {
+                    IoUtils.writeAtomically(userFile, bytes);
+                    return null;
+                }
             );
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
             throw new IOException("could not serialize " + name, e);
         }
@@ -573,7 +686,14 @@ public final class ConfigStore {
         synchronized (CONFIG_ACCESS_LOCK) {
             File userFile = getUserFile(name);
             rejectPendingDictionaryDeletion(name);
-            new AtomicFile(userFile).delete();
+            recoveryGate.withDictionaryWrite(
+                name,
+                userFile,
+                () -> {
+                    new AtomicFile(userFile).delete();
+                    return null;
+                }
+            );
         }
     }
 

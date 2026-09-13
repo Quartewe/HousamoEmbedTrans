@@ -1,5 +1,6 @@
 package com.quarty.housamoembedtrans.storage.json;
 
+import com.quarty.housamoembedtrans.management.transfer.ManagementImportRecoveryGate;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
 import android.util.AtomicFile;
@@ -27,11 +28,50 @@ final class AndroidAtomicJsonFileIo implements AtomicJsonFileIo {
 
     @Override
     public void write(File file, byte[] bytes) throws IOException {
-        IoUtils.writeAtomically(file, bytes);
+        File filesRoot = filesRootForContextTarget(file);
+        if (filesRoot == null) {
+            IoUtils.writeAtomically(file, bytes);
+            return;
+        }
+        ManagementImportRecoveryGate.forFilesRoot(filesRoot)
+            .withContextWrite(
+                file,
+                () -> {
+                    IoUtils.writeAtomically(file, bytes);
+                    return null;
+                }
+            );
     }
 
     @Override
     public void delete(File file) throws IOException {
-        new AtomicFile(file).delete();
+        File filesRoot = filesRootForContextTarget(file);
+        if (filesRoot == null) {
+            new AtomicFile(file).delete();
+            return;
+        }
+        ManagementImportRecoveryGate.forFilesRoot(filesRoot)
+            .withContextWrite(
+                file,
+                () -> {
+                    new AtomicFile(file).delete();
+                    return null;
+                }
+            );
+    }
+
+    /** Returns the app files root when a target is under files/scene_contexts. */
+    private static File filesRootForContextTarget(File target) {
+        if (target == null) {
+            return null;
+        }
+        File current = target;
+        while (current != null) {
+            if ("scene_contexts".equals(current.getName())) {
+                return current.getParentFile();
+            }
+            current = current.getParentFile();
+        }
+        return null;
     }
 }
