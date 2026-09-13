@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dictionary_detail_character_title">角色详情</string>
+    <string name="dictionary_detail_term_title">游戏术语详情</string>
+    <string name="dictionary_detail_loading">正在读取词典记录…</string>
+    <string name="dictionary_detail_unavailable">无法打开这条词典记录。</string>
+    <string name="dictionary_detail_missing">词典记录已不可用。</string>
+    <string name="dictionary_detail_load_failed">读取词典记录失败：%1$s</string>
+    <string name="dictionary_detail_array_count">%1$d 项</string>
+    <string name="dictionary_detail_array_empty">暂无条目。</string>
+    <string name="dictionary_detail_empty_value">（空）</string>
+    <string name="dictionary_detail_expand_array">展开%1$s</string>
+    <string name="dictionary_detail_collapse_array">收起%1$s</string>
+</resources>
