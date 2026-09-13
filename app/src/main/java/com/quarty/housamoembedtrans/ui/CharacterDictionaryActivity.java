@@ -1864,7 +1864,9 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             if (dictionary.has(target)) {
                 return target;
             }
-            for (String key : dictionary.keySet()) {
+            java.util.Iterator<String> keys = dictionary.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
                 JSONObject record = dictionary.optJSONObject(key);
                 if (record != null && target.equals(record.optString("key", ""))) {
                     return key;

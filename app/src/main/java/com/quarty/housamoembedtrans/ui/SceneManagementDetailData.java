@@ -479,7 +479,9 @@ public final class SceneManagementDetailData {
         if (direct != null) {
             return direct;
         }
-        for (String key : dictionary.keySet()) {
+        java.util.Iterator<String> keys = dictionary.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
             if (exact.equals(key)) {
                 return dictionary.optJSONObject(key);
             }
@@ -802,7 +804,9 @@ public final class SceneManagementDetailData {
                 return selected;
             }
         }
-        for (String key : translations.keySet()) {
+        java.util.Iterator<String> keys = translations.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
             String value = translations.optString(key, "");
             if (!value.isEmpty()) {
                 return value;
@@ -880,7 +884,9 @@ public final class SceneManagementDetailData {
             }
         } else if (value instanceof JSONObject) {
             JSONObject object = (JSONObject) value;
-            for (String key : object.keySet()) {
+            java.util.Iterator<String> keys = object.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
                 Object order = object.opt(key);
                 int sequence;
                 try {
