@@ -72,4 +72,13 @@ interface ITranslationService {
 
     /** Permanently deletes one pending owner and returns its result envelope through a pipe. */
     ParcelFileDescriptor permanentlyDeletePendingProcess(String pendingKey);
+
+    /** Returns the Service-owned management snapshot through a bounded pipe. */
+    ParcelFileDescriptor readManagementImportSnapshot();
+
+    /** Applies a prepared management import session after fingerprint recheck. */
+    ParcelFileDescriptor applyManagementImport(
+        String sessionToken,
+        String expectedSnapshotFingerprint
+    );
 }

@@ -2,6 +2,7 @@ package com.quarty.housamoembedtrans.translation;
 import com.quarty.housamoembedtrans.context.review.ContextReviewGate;
 import com.quarty.housamoembedtrans.management.pending.PendingProcessManager;
 import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
+import com.quarty.housamoembedtrans.management.transfer.ManagementImportCoordinator;
 import com.quarty.housamoembedtrans.provider.ApiConcurrencyGate;
 import com.quarty.housamoembedtrans.runtime.StartupCoordinator;
 import com.quarty.housamoembedtrans.scene.sync.SceneConflictResolver;
@@ -298,6 +299,12 @@ public final class TranslationService extends Service {
         Object run(PendingProcessManager manager) throws Exception;
     }
 
+    @FunctionalInterface
+    private interface ManagementImportControlOperation {
+        JSONObject run(ManagementImportCoordinator coordinator)
+            throws Exception;
+    }
+
     private final Object callbackLock = new Object();
     private final Object contextStoreLock = new Object();
     private CallbackRecord currentCallback;
@@ -344,6 +351,8 @@ public final class TranslationService extends Service {
     private volatile ContextCompressionCoordinator contextCompressionCoordinator;
     private volatile GroupCompressionCoordinator groupCompressionCoordinator;
     private volatile SceneContextStore sceneContextStore;
+    /** Service-owned cross-store management import coordinator. */
+    private volatile ManagementImportCoordinator managementImportCoordinator;
     private volatile TerminalDeliveryCoordinator terminalDelivery;
     private volatile TranslationTaskExecutor taskExecutor;
     private volatile SceneSyncCoordinator sceneSyncCoordinator;
@@ -1138,6 +1147,28 @@ public final class TranslationService extends Service {
                     manager.permanentlyDelete(pendingKey)
                 );
             }
+
+            @Override
+            public ParcelFileDescriptor readManagementImportSnapshot() {
+                enforceSelfUidCaller();
+                return managementImportControlResult(coordinator ->
+                    coordinator.snapshot()
+                );
+            }
+
+            @Override
+            public ParcelFileDescriptor applyManagementImport(
+                String sessionToken,
+                String expectedSnapshotFingerprint
+            ) {
+                enforceSelfUidCaller();
+                return managementImportControlResult(coordinator ->
+                    coordinator.applySession(
+                        sessionToken,
+                        expectedSnapshotFingerprint
+                    )
+                );
+            }
         };
 
     @Override
@@ -1420,6 +1451,7 @@ public final class TranslationService extends Service {
         foregroundStarted = false;
         apiWorkOpen = false;
         pendingProcessManager = null;
+        managementImportCoordinator = null;
         clearActiveSummaryRecoveryStore(summaryJobStore);
         SummaryJobWakeup.clearServiceWakeCallback(summaryWakeCallback);
         clearScenePort();
@@ -2177,6 +2209,55 @@ public final class TranslationService extends Service {
         return openPendingControlPipe(envelope);
     }
 
+    /**
+     * Executes one Service-owned management import operation and returns its
+     * JSON envelope through the same asynchronous pipe used by PendingProcess
+     * controls.  The coordinator is unavailable until startup recovery has
+     * completed; callers receive an explicit retryable state.
+     */
+    private ParcelFileDescriptor managementImportControlResult(
+        ManagementImportControlOperation operation
+    ) {
+        JSONObject envelope = new JSONObject();
+        ManagementImportCoordinator coordinator =
+            managementImportCoordinator;
+        try {
+            if (coordinator == null || !startupPreparationComplete) {
+                envelope.put("ok", false);
+                envelope.put("error", "manager_not_ready");
+                envelope.put(
+                    "message",
+                    "Management import recovery is not ready"
+                );
+            } else {
+                JSONObject result = operation.run(coordinator);
+                envelope.put("ok", true);
+                envelope.put(
+                    "result",
+                    result == null ? JSONObject.NULL : result
+                );
+            }
+        } catch (Exception failure) {
+            try {
+                envelope.put("ok", false);
+                envelope.put("error", "operation_failed");
+                envelope.put("message", truncate(
+                    failure.getMessage(),
+                    4096
+                ));
+            } catch (Exception envelopeFailure) {
+                Log.e(
+                    TAG,
+                    "Could not create management import envelope",
+                    envelopeFailure
+                );
+                return null;
+            }
+            Log.w(TAG, "Management import operation failed", failure);
+        }
+        return openPendingControlPipe(envelope);
+    }
+
     /** Writes a JSON envelope asynchronously so Binder callers never block on pipe capacity. */
     private ParcelFileDescriptor openPendingControlPipe(JSONObject envelope) {
         final byte[] payload;
@@ -2824,6 +2905,27 @@ public final class TranslationService extends Service {
             sceneStore
         );
 
+        // Context recovery and the management import journal must finish
+        // before SceneSync opens its first read/write runtime.  The
+        // coordinator receives already-created stores; it never constructs a
+        // sibling store recursively during recovery.
+        SceneContextStore preparedContextStore =
+            ensureSceneContextStoreForAdmission();
+        if (preparedContextStore == null) {
+            throw new IOException(
+                "SceneContextStore is unavailable for management recovery"
+            );
+        }
+        ManagementImportCoordinator preparedManagementCoordinator =
+            new ManagementImportCoordinator(
+                this,
+                sceneStore,
+                preparedContextStore,
+                jobStore
+            );
+        preparedManagementCoordinator.recover();
+        managementImportCoordinator = preparedManagementCoordinator;
+
         SceneSyncCoordinator preparedSceneSyncCoordinator;
         long sceneRuntimeGeneration;
         synchronized (sceneOperationLifecycleLock) {
@@ -2866,7 +2968,6 @@ public final class TranslationService extends Service {
             scenePolicyPublisher
         );
 
-        ensureSceneContextStoreForAdmission();
         backfillPendingHistoryAdmissions();
 
         SummaryJobStore preparedSummaryStore = summaryJobStore;
@@ -3119,6 +3220,7 @@ public final class TranslationService extends Service {
         pendingSceneApplyStore = null;
         conflictStore = null;
         sceneStore = null;
+        managementImportCoordinator = null;
         pendingProcessManager = null;
     }
 
