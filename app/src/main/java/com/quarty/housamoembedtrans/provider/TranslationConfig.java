@@ -1,13 +1,12 @@
 package com.quarty.housamoembedtrans.provider;
 
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
-import com.quarty.housamoembedtrans.util.IoUtils;
+import com.quarty.housamoembedtrans.storage.config.PromptStore;
 
 import android.content.Context;
 
 import org.json.JSONObject;
 
-import java.io.InputStream;
 import java.math.BigInteger;
 import java.util.Locale;
 
@@ -144,7 +143,7 @@ public final class TranslationConfig {
         return fromUserSettings(
             snapshot.config.getJSONObject("UserSettings"),
             snapshot.apiKey,
-            readAsset(context, "term/prompt.txt")
+            new PromptStore(context).loadTranslationPrompt()
         );
     }
 
@@ -327,13 +326,6 @@ public final class TranslationConfig {
         }
         if (systemPrompt == null || systemPrompt.trim().isEmpty()) {
             throw new IllegalArgumentException("System prompt is empty");
-        }
-    }
-
-    private static String readAsset(Context context, String path)
-        throws Exception {
-        try (InputStream input = context.getAssets().open(path)) {
-            return IoUtils.readUtf8Limited(input, 2 * 1024 * 1024);
         }
     }
 }

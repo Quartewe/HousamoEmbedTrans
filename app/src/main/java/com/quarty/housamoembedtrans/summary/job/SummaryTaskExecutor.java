@@ -8,6 +8,7 @@ import com.quarty.housamoembedtrans.context.model.GroupContextEntry;
 
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.storage.config.PromptStore;
 import com.quarty.housamoembedtrans.context.history.ContextContentHash;
 import com.quarty.housamoembedtrans.provider.RejectedApiResultStore;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
@@ -587,10 +588,7 @@ public final class SummaryTaskExecutor {
         boolean continueAfterManual = contextHistory != null
             && contextHistory.optBoolean("ContinueAutoSummaryAfterManual", false);
         TranslationConfig config = TranslationConfig.load(context);
-        String summaryPrompt = readAsset(
-            context,
-            SummaryRequestAssembler.SUMMARY_PROMPT_ASSET
-        );
+        String summaryPrompt = new PromptStore(context).loadSummaryPrompt();
         JSONObject summarySchema = readAssetJson(
             context,
             SummaryRequestAssembler.SUMMARY_RESULT_SCHEMA_ASSET
