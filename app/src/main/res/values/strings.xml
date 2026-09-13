@@ -42,6 +42,8 @@
     <string name="notification_failed_jobs_waiting">%1$d failed translation task(s) are waiting for your decision</string>
     <string name="notification_recovery_waiting_with_failures">%1$d queued task(s) and %2$d failed task(s) are waiting for your decision</string>
     <string name="notification_action_view_queue_repair">View queue recovery</string>
+    <string name="notification_action_view_tasks">View actionable tasks</string>
+    <string name="notification_action_view_waiting_results">Review waiting results</string>
     <string name="notification_repairing_damaged_jobs">Trying to repair damaged translation-job files…</string>
     <string name="notification_action_view_scene_sync">View Scene Sync</string>
     <string name="notification_action_view_scene_conflicts">View Scene conflicts</string>
@@ -155,6 +157,7 @@
 
     <string name="translation_queue_title">Queued translations</string>
     <string name="translation_queue_intro">Tap tasks in the order they should run. Numbered tasks are queued in that order; unselected startup tasks are canceled, while unselected failed candidates remain failed.</string>
+    <string name="translation_queue_open_pending_management">View pending work</string>
     <string name="translation_queue_empty">No startup translation tasks are waiting for an order.</string>
     <string name="translation_queue_repairing">Trying to repair damaged translation-job files…</string>
     <string name="translation_queue_count">%1$d startup task(s) are waiting</string>
@@ -282,6 +285,10 @@
     <string name="field_en">English (en)</string>
     <string name="field_zh_tw">Traditional Chinese (zh-tw)</string>
     <string name="field_zh_cn">Simplified Chinese (zh-cn)</string>
+    <string name="dictionary_detail_original_name">Original name</string>
+    <string name="dictionary_detail_english">English</string>
+    <string name="dictionary_detail_traditional_chinese">Traditional Chinese</string>
+    <string name="dictionary_detail_simplified_chinese">Simplified Chinese</string>
     <string name="field_called">Related caller (called)</string>
     <string name="field_school">Schools (school)</string>
     <string name="field_guild">Guilds (guild)</string>
@@ -300,6 +307,8 @@
     <string name="chardict_restored">Bundled character dictionary restored</string>
     <string name="unsaved_chardict_title">Discard unsaved edits?</string>
     <string name="unsaved_chardict_message">Changes made since the last dictionary save will be lost.</string>
+    <string name="unsaved_character_draft_title">Discard character draft?</string>
+    <string name="unsaved_character_draft_message">Unapplied changes in this character draft will be lost.</string>
     <string name="keep_editing">Keep editing</string>
     <string name="discard_changes">Discard</string>
     <string name="invalid_character_record">Invalid record</string>
@@ -532,6 +541,8 @@
     <string name="scene_context_add_scene">Add scene</string>
     <string name="scene_context_manual_section">Manual content (context)</string>
     <string name="scene_context_language_code">Language code</string>
+    <string name="scene_context_add_language">Add language</string>
+    <string name="scene_context_language_required">Language code is required</string>
     <string name="scene_context_manual_description">Manual description</string>
     <string name="scene_context_save_manual_description">Save description</string>
     <string name="scene_context_manual_summary">Manual summary</string>
@@ -544,6 +555,12 @@
     <string name="scene_context_manual_summary_saved">Manual summary saved in draft.</string>
     <string name="scene_context_manual_summary_deleted">Manual summary removed from draft.</string>
     <string name="scene_context_save_before_final_summary">Save the context before generating its final summary.</string>
+    <string name="scene_context_unavailable_scene_member">Unavailable scene: %1$s</string>
+    <string name="scene_context_unavailable_context_member">Unavailable context: %1$s</string>
+    <string name="scene_context_unavailable_scene_members">These scenes are unavailable: %1$s</string>
+    <string name="scene_context_unavailable_context_members">These contexts are unavailable: %1$s</string>
+    <string name="scene_context_remove_unavailable_scenes">Remove unavailable scenes before saving: %1$s</string>
+    <string name="scene_context_remove_unavailable_contexts">Remove unavailable contexts before saving: %1$s</string>
     <string name="scene_context_new_context">New context</string>
     <string name="scene_context_edit_context">Edit context</string>
     <string name="scene_context_new_group">New group</string>

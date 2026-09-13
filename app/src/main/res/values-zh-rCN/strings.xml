@@ -35,6 +35,8 @@
     <string name="notification_failed_jobs_waiting">有 %1$d 个失败翻译任务等待处理</string>
     <string name="notification_recovery_waiting_with_failures">有 %1$d 个等待任务和 %2$d 个失败任务等待处理</string>
     <string name="notification_action_view_queue_repair">查看队列修复</string>
+    <string name="notification_action_view_tasks">查看可执行任务</string>
+    <string name="notification_action_view_waiting_results">查看等待处理</string>
     <string name="notification_repairing_damaged_jobs">正在尝试修复损坏的文件…</string>
     <string name="notification_action_view_scene_sync">查看 Scene Sync</string>
     <string name="notification_action_view_scene_conflicts">查看剧情冲突</string>
@@ -142,6 +144,7 @@
 
     <string name="translation_queue_title">等待翻译的任务</string>
     <string name="translation_queue_intro">按照期望执行顺序点击任务。带编号的任务会按顺序入队；未选择的启动遗留任务会取消，未选择的失败候选会继续保留为失败。</string>
+    <string name="translation_queue_open_pending_management">查看待处理内容</string>
     <string name="translation_queue_empty">没有等待用户排列的启动遗留任务。</string>
     <string name="translation_queue_repairing">正在尝试修复损坏的文件…</string>
     <string name="translation_queue_count">有 %1$d 个启动遗留任务正在等待</string>
@@ -269,6 +272,10 @@
     <string name="field_en">英文（en）</string>
     <string name="field_zh_tw">繁体中文（zh-tw）</string>
     <string name="field_zh_cn">简体中文（zh-cn）</string>
+    <string name="dictionary_detail_original_name">原名</string>
+    <string name="dictionary_detail_english">英文</string>
+    <string name="dictionary_detail_traditional_chinese">繁体中文</string>
+    <string name="dictionary_detail_simplified_chinese">简体中文</string>
     <string name="field_called">关联称呼（called）</string>
     <string name="field_school">学校（school）</string>
     <string name="field_guild">公会（guild）</string>
@@ -287,6 +294,8 @@
     <string name="chardict_restored">已恢复包内角色字典</string>
     <string name="unsaved_chardict_title">放弃未保存的修改？</string>
     <string name="unsaved_chardict_message">上次保存后所做的角色字典修改将会丢失。</string>
+    <string name="unsaved_character_draft_title">放弃角色草稿？</string>
+    <string name="unsaved_character_draft_message">当前角色草稿中尚未应用的字段修改将会丢失。</string>
     <string name="keep_editing">继续编辑</string>
     <string name="discard_changes">放弃修改</string>
     <string name="invalid_character_record">无效记录</string>
@@ -513,6 +522,8 @@
     <string name="scene_context_add_scene">添加</string>
     <string name="scene_context_manual_section">人工内容（上下文）</string>
     <string name="scene_context_language_code">语言代码</string>
+    <string name="scene_context_add_language">添加语言</string>
+    <string name="scene_context_language_required">语言代码不能为空</string>
     <string name="scene_context_manual_description">人工说明</string>
     <string name="scene_context_save_manual_description">保存说明</string>
     <string name="scene_context_manual_summary">人工摘要</string>
@@ -524,6 +535,12 @@
     <string name="scene_context_manual_summary_saved">人工摘要已保存到草稿。</string>
     <string name="scene_context_manual_summary_deleted">已从草稿删除人工摘要。</string>
     <string name="scene_context_save_before_final_summary">请先保存该上下文，再生成最终摘要。</string>
+    <string name="scene_context_unavailable_scene_member">不可用剧情：%1$s</string>
+    <string name="scene_context_unavailable_context_member">不可用上下文：%1$s</string>
+    <string name="scene_context_unavailable_scene_members">以下剧情不可用：%1$s</string>
+    <string name="scene_context_unavailable_context_members">以下上下文不可用：%1$s</string>
+    <string name="scene_context_remove_unavailable_scenes">保存前请移除不可用剧情：%1$s</string>
+    <string name="scene_context_remove_unavailable_contexts">保存前请移除不可用上下文：%1$s</string>
     <string name="scene_context_new_context">新建上下文</string>
     <string name="scene_context_edit_context">编辑上下文</string>
     <string name="scene_context_new_group">新建分组</string>
