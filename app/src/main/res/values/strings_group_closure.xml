@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_group_manual_closure_section">Manual closure</string>
+    <string name="scene_group_manual_closure_loading">Reading closure state…</string>
+    <string name="scene_group_manual_closure_ready">This Group can start a manual closure.</string>
+    <string name="scene_group_manual_closure_requires_active">The first closure must start on the active Group.</string>
+    <string name="scene_group_manual_closure_open">Open manual closure</string>
+    <string name="scene_group_manual_closure_open_status">Closure is open; automatic Group summaries are paused.</string>
+    <string name="scene_group_manual_closure_end">End and generate summary</string>
+    <string name="scene_group_manual_closure_end_title">End manual closure?</string>
+    <string name="scene_group_manual_closure_end_message">The saved Group and its saved Context facts will be used to end this round and create a Group summary job. Unsaved editor changes are excluded.</string>
+    <string name="scene_group_manual_closure_reopen">Reopen manual closure</string>
+    <string name="scene_group_manual_closure_reopen_title">Reopen manual closure?</string>
+    <string name="scene_group_manual_closure_reopen_message">Reopening starts a new closure epoch without waiting for or canceling an old summary job and without changing the active Group.</string>
+    <string name="scene_group_manual_closure_retry">Retry summary</string>
+    <string name="scene_group_manual_closure_latest_facts_title">Saved Group facts changed</string>
+    <string name="scene_group_manual_closure_latest_facts_message">The saved Group or one of its saved Context summaries changed after this closure was closed. Retry using the latest saved facts?</string>
+    <string name="scene_group_manual_closure_opened">Manual Group closure opened.</string>
+    <string name="scene_group_manual_closure_reopened">A new manual Group closure epoch was opened.</string>
+    <string name="scene_group_manual_closure_queued">The Group closure was saved and its summary job was queued.</string>
+    <string name="scene_group_manual_closure_completed">This Group closure summary is complete.</string>
+    <string name="scene_group_manual_closure_job_active">The Group summary job is queued or running.</string>
+    <string name="scene_group_manual_closure_failed_status">The Group summary failed; you can retry it.</string>
+    <string name="scene_group_manual_closure_retry_status">The Group closure intent is not queued yet; retry explicitly.</string>
+    <string name="scene_group_manual_closure_no_facts">This Group has no saved Context facts to summarize.</string>
+    <string name="scene_group_manual_closure_missing_title">Context Final summaries are missing</string>
+    <string name="scene_group_manual_closure_missing_contexts">The summary cannot be generated yet. These Contexts are missing a current Final summary: %1$s</string>
+    <string name="scene_group_manual_closure_blocked_title">Summary jobs are still active</string>
+    <string name="scene_group_manual_closure_blocked">There are %1$d active summary job(s) for this Group. Finish or handle them before ending the closure.</string>
+    <string name="scene_group_manual_closure_open_tasks">Open tasks</string>
+    <string name="scene_group_manual_closure_failed_title">Group closure operation failed</string>
+    <string name="scene_group_manual_closure_failed">Group closure operation failed: %1$s</string>
+</resources>

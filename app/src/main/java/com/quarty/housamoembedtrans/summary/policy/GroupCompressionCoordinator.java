@@ -34,6 +34,13 @@ import java.util.Arrays;
  */
 public final class GroupCompressionCoordinator {
 
+    private static final String GROUP_OWNER_TYPE =
+        SceneContextStore.MANUAL_CLOSURE_GROUP_OWNER;
+    private static final String STATUS_QUEUED = "queued";
+    private static final String STATUS_RUNNING = "running";
+    private static final String STATUS_AWAITING_USER = "awaiting_user";
+    private static final String STATUS_FAILED = "failed";
+
     /** Immutable automatic-compression policy for one reconciliation. */
     public static final class Options {
         public boolean autoCompression;
@@ -46,10 +53,31 @@ public final class GroupCompressionCoordinator {
         public boolean groupJobReused;
         public boolean groupJobActive;
         public boolean suppressedByManual;
+        public boolean suppressedByClosure;
         public boolean dependenciesMissing;
         public boolean finalJobsRequested;
         public int pendingJobsRemoved;
         public String requestId;
+        /** True when the Group has no Context entries to summarize. */
+        public boolean noFacts;
+
+        /** Manual Group closure state/result fields. */
+        public boolean closureOpened;
+        public boolean closureReopened;
+        public boolean closureClosed;
+        public boolean closureQueued;
+        public boolean closureActive;
+        public boolean closureCompleted;
+        public boolean closureRetryable;
+        public boolean closeBlockedByActiveJobs;
+        public boolean closeIntentSaved;
+        public boolean admissionFailed;
+        public boolean requiresLatestFactsConfirmation;
+        public long closureEpoch;
+        public String closureSourceHash = "";
+        public String closureFailure = "";
+        public final List<String> activeSummaryRequestIds =
+            new ArrayList<>();
         public final List<String> missingContextIds = new ArrayList<>();
     }
 
@@ -78,6 +106,490 @@ public final class GroupCompressionCoordinator {
 
     public SummaryJobStore getSummaryJobStore() {
         return summaryJobStore;
+    }
+
+    /** Returns the durable Group closure round used by the management UI. */
+    public SceneContextStore.ManualClosureState getManualClosureState(
+        String groupId
+    ) throws Exception {
+        requireText(groupId, "group_id");
+        return SceneContextStore.withRootAccess(() ->
+            sceneContextStore.getManualClosureState(
+                GROUP_OWNER_TYPE,
+                groupId
+            )
+        );
+    }
+
+    /** True while automatic Group Summary reconciliation is held. */
+    public boolean isManualClosureOpen(String groupId) throws Exception {
+        return getManualClosureState(groupId).isOpen();
+    }
+
+    /**
+     * Starts a Group closure. The first round is restricted to the Active Group;
+     * a closed Group can be reopened without changing the Active Group.
+     */
+    public Result openManualClosure(String groupId) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            openManualClosureLocked(groupId)
+        );
+    }
+
+    private Result openManualClosureLocked(String groupId) throws Exception {
+        requireText(groupId, "group_id");
+        SceneContextStore.ManualClosureState current =
+            sceneContextStore.getManualClosureState(
+                GROUP_OWNER_TYPE,
+                groupId
+            );
+        if (current.isNone()
+            && !groupId.equals(sceneContextStore.getActiveGroupId())) {
+            throw new SceneContextStore.StorageException(
+                SceneContextStore.FailureKind.CONFLICT,
+                "the first Group closure must start on the active Group"
+            );
+        }
+        SceneContextStore.ManualClosureState next =
+            sceneContextStore.beginManualClosure(
+                GROUP_OWNER_TYPE,
+                groupId
+            );
+        Result result = new Result();
+        result.closureEpoch = next.epoch;
+        result.closureOpened = true;
+        result.closureReopened = current.isClosed();
+        return result;
+    }
+
+    /** Reopens a closed Group round without waiting for old Summary Jobs. */
+    public Result reopenManualClosure(String groupId) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            reopenManualClosureLocked(groupId)
+        );
+    }
+
+    private Result reopenManualClosureLocked(String groupId) throws Exception {
+        requireText(groupId, "group_id");
+        SceneContextStore.ManualClosureState current =
+            sceneContextStore.getManualClosureState(
+                GROUP_OWNER_TYPE,
+                groupId
+            );
+        if (!current.isClosed()) {
+            throw new SceneContextStore.StorageException(
+                SceneContextStore.FailureKind.INVALID_STATE,
+                "Group closure is not closed"
+            );
+        }
+        SceneContextStore.ManualClosureState next =
+            sceneContextStore.reopenManualClosure(
+                GROUP_OWNER_TYPE,
+                groupId
+            );
+        Result result = new Result();
+        result.closureEpoch = next.epoch;
+        result.closureOpened = true;
+        result.closureReopened = true;
+        return result;
+    }
+
+    /**
+     * Ends the current open Group round after the caller's confirmation. The
+     * cutoff is always the last Group entry, and the closed intent remains
+     * durable when admission fails so an explicit retry can recover it.
+     */
+    public Result endManualClosure(
+        String groupId,
+        String targetLang
+    ) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            endManualClosureLocked(groupId, targetLang)
+        );
+    }
+
+    private Result endManualClosureLocked(
+        String groupId,
+        String targetLang
+    ) throws Exception {
+        requireText(groupId, "group_id");
+        requireText(targetLang, "target_lang");
+        SceneContextStore.ManualClosureState current =
+            sceneContextStore.getManualClosureState(
+                GROUP_OWNER_TYPE,
+                groupId
+            );
+        if (!current.isOpen()) {
+            throw new SceneContextStore.StorageException(
+                SceneContextStore.FailureKind.INVALID_STATE,
+                "Group closure is not open"
+            );
+        }
+        Result result = new Result();
+        result.closureEpoch = current.epoch;
+        if (summaryJobStore.hasActiveJobsForOwner(
+            GROUP_OWNER_TYPE,
+            groupId
+        )) {
+            result.closeBlockedByActiveJobs = true;
+            result.closureActive = true;
+            result.activeSummaryRequestIds.addAll(
+                activeSummaryRequestIdsLocked(groupId)
+            );
+            return result;
+        }
+
+        JSONObject group = sceneContextStore.getGroup(groupId);
+        JSONArray groupContexts = group.optJSONArray("contexts");
+        Map<String, JSONObject> contextsById =
+            loadManualClosureContexts(group, targetLang, result);
+        if (result.noFacts || result.dependenciesMissing) {
+            return result;
+        }
+        String cutoff = GroupContextEntry.entryIdAt(
+            groupContexts,
+            groupContexts.length() - 1
+        );
+        String sourceHash = SummaryRequestAssembler.computeGroupSnapshotSourceHash(
+            group,
+            contextsById,
+            cutoff,
+            targetLang
+        );
+        SceneContextStore.ManualClosureState closed =
+            sceneContextStore.closeManualClosure(
+                GROUP_OWNER_TYPE,
+                groupId,
+                targetLang,
+                cutoff,
+                sourceHash
+            );
+        result.closureClosed = true;
+        result.closeIntentSaved = true;
+        result.closureEpoch = closed.epoch;
+        result.closureSourceHash = sourceHash;
+        admitClosureRequestLocked(
+            groupId,
+            targetLang,
+            cutoff,
+            closed.epoch,
+            sourceHash,
+            result
+        );
+        return result;
+    }
+
+    /**
+     * Retries a closed Group round. Passing {@code true} requires an explicit
+     * user confirmation when the current Group facts changed.
+     */
+    public Result retryManualClosure(
+        String groupId,
+        String targetLang,
+        boolean acceptCurrentFacts
+    ) throws Exception {
+        return SceneContextStore.withRootAccess(() ->
+            retryManualClosureLocked(groupId, targetLang, acceptCurrentFacts)
+        );
+    }
+
+    public Result retryManualClosure(
+        String groupId,
+        String targetLang
+    ) throws Exception {
+        return retryManualClosure(groupId, targetLang, false);
+    }
+
+    private Result retryManualClosureLocked(
+        String groupId,
+        String targetLang,
+        boolean acceptCurrentFacts
+    ) throws Exception {
+        requireText(groupId, "group_id");
+        SceneContextStore.ManualClosureState current =
+            sceneContextStore.getManualClosureState(
+                GROUP_OWNER_TYPE,
+                groupId
+            );
+        if (!current.isClosed()) {
+            throw new SceneContextStore.StorageException(
+                SceneContextStore.FailureKind.INVALID_STATE,
+                "Group closure is not closed"
+            );
+        }
+        Result result = new Result();
+        result.closureEpoch = current.epoch;
+        if (current.targetLang != null && !current.targetLang.trim().isEmpty()) {
+            targetLang = current.targetLang;
+        }
+        requireText(targetLang, "target_lang");
+        if (sceneContextStore.isManualClosureWritebackComplete(
+            GROUP_OWNER_TYPE,
+            groupId,
+            current.epoch,
+            current.requestId
+        )) {
+            result.closureCompleted = true;
+            return result;
+        }
+        if (summaryJobStore.hasActiveJobsForOwner(
+            GROUP_OWNER_TYPE,
+            groupId
+        )) {
+            result.closureActive = true;
+            result.closeBlockedByActiveJobs = true;
+            result.activeSummaryRequestIds.addAll(
+                activeSummaryRequestIdsLocked(groupId)
+            );
+            return result;
+        }
+
+        JSONObject group = sceneContextStore.getGroup(groupId);
+        JSONArray groupContexts = group.optJSONArray("contexts");
+        Map<String, JSONObject> contextsById =
+            loadManualClosureContexts(group, targetLang, result);
+        if (result.noFacts) {
+            return result;
+        }
+        if (result.dependenciesMissing) {
+            result.closureRetryable = true;
+            return result;
+        }
+        String cutoff = GroupContextEntry.entryIdAt(
+            groupContexts,
+            groupContexts.length() - 1
+        );
+        String sourceHash = SummaryRequestAssembler.computeGroupSnapshotSourceHash(
+            group,
+            contextsById,
+            cutoff,
+            targetLang
+        );
+        boolean factsChanged = !sourceHash.equals(current.sourceHash);
+        if (factsChanged && !acceptCurrentFacts) {
+            result.requiresLatestFactsConfirmation = true;
+            result.closureSourceHash = sourceHash;
+            return result;
+        }
+
+        String oldRequestId = current.requestId;
+        if (!oldRequestId.isEmpty() && summaryJobStore.hasJob(oldRequestId)) {
+            JSONObject state = summaryJobStore.readState(oldRequestId);
+            String status = state.optString("status", "");
+            if (STATUS_FAILED.equals(status) && !factsChanged) {
+                summaryJobStore.retryFailedJob(oldRequestId);
+                result.requestId = oldRequestId;
+                result.closureQueued = true;
+                result.closureActive = true;
+                return result;
+            }
+            if (isActiveSummaryStatus(status)) {
+                result.requestId = oldRequestId;
+                result.closureActive = true;
+                return result;
+            }
+        }
+
+        if (factsChanged || !oldRequestId.isEmpty()) {
+            current = sceneContextStore.updateManualClosureIntent(
+                GROUP_OWNER_TYPE,
+                groupId,
+                current.epoch,
+                targetLang,
+                cutoff,
+                sourceHash
+            );
+        }
+        result.closureSourceHash = sourceHash;
+        admitClosureRequestLocked(
+            groupId,
+            targetLang,
+            cutoff,
+            current.epoch,
+            sourceHash,
+            result
+        );
+        return result;
+    }
+
+    private Map<String, JSONObject> loadManualClosureContexts(
+        JSONObject group,
+        String targetLang,
+        Result result
+    ) throws Exception {
+        JSONArray groupContexts = group.optJSONArray("contexts");
+        if (groupContexts == null || groupContexts.length() == 0) {
+            result.noFacts = true;
+            return null;
+        }
+        Map<String, JSONObject> contextsById = new HashMap<>();
+        ContextCompressionCoordinator.Options contextOptions =
+            new ContextCompressionCoordinator.Options();
+        contextOptions.autoCompression = true;
+        for (int index = 0; index < groupContexts.length(); index++) {
+            String contextId = GroupContextEntry.contextIdAt(groupContexts, index);
+            JSONObject context;
+            try {
+                context = sceneContextStore.getContext(contextId);
+            } catch (SceneContextStore.StorageException missing) {
+                if (missing.kind == SceneContextStore.FailureKind.NOT_FOUND) {
+                    addMissingContext(result, contextId);
+                    continue;
+                }
+                throw missing;
+            }
+            contextsById.put(contextId, context);
+            if (!isFinalAvailable(context, targetLang)) {
+                addMissingContext(result, contextId);
+                if (contextCompressionCoordinator != null) {
+                    ContextCompressionCoordinator.Result contextResult =
+                        contextCompressionCoordinator.onContextFactsChanged(
+                            contextId,
+                            targetLang,
+                            contextOptions
+                        );
+                    if (contextResult.finalJobCreated
+                        || contextResult.finalJobActive
+                        || contextResult.finalReused) {
+                        result.finalJobsRequested = true;
+                    }
+                }
+            }
+        }
+        return contextsById;
+    }
+
+    private static void addMissingContext(Result result, String contextId) {
+        result.dependenciesMissing = true;
+        if (!result.missingContextIds.contains(contextId)) {
+            result.missingContextIds.add(contextId);
+        }
+    }
+
+    private void admitClosureRequestLocked(
+        String groupId,
+        String targetLang,
+        String cutoff,
+        long epoch,
+        String sourceHash,
+        Result result
+    ) throws Exception {
+        JSONObject request = new JSONObject()
+            .put("request_kind", "group_snapshot")
+            .put("owner_type", GROUP_OWNER_TYPE)
+            .put("owner_id", groupId)
+            .put("target_lang", targetLang)
+            .put("cutoff", cutoff)
+            .put("source_hash", sourceHash)
+            .put("manual_closure", true)
+            .put("closure_epoch", epoch);
+        SummaryJobStore.AdmissionResult admission;
+        try {
+            admission = summaryJobStore.admitUserRequested(request);
+        } catch (Exception failure) {
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = safeMessage(failure);
+            return;
+        }
+        result.requestId = admission.requestId;
+        if (SummaryJobStore.DISPOSITION_ACTIVE_TARGET_REJECTED.equals(
+            admission.disposition
+        )) {
+            result.closeBlockedByActiveJobs = true;
+            result.closureActive = true;
+            result.activeSummaryRequestIds.addAll(
+                activeSummaryRequestIdsLocked(groupId)
+            );
+            return;
+        }
+        if (!admission.created
+            && !SummaryJobStore.DISPOSITION_DUPLICATE_REJECTED.equals(
+                admission.disposition
+            )) {
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = admission.disposition;
+            return;
+        }
+
+        try {
+            sceneContextStore.recordManualClosureRequest(
+                GROUP_OWNER_TYPE,
+                groupId,
+                epoch,
+                admission.requestId
+            );
+        } catch (Exception bindingFailure) {
+            // Keep the durable closed intent. A later explicit retry can
+            // rediscover the request directory and bind the same epoch.
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = safeMessage(bindingFailure);
+            return;
+        }
+
+        String status = "";
+        try {
+            status = summaryJobStore.readState(admission.requestId)
+                .optString("status", "");
+        } catch (Exception stateFailure) {
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = safeMessage(stateFailure);
+            return;
+        }
+        if (isActiveSummaryStatus(status)) {
+            result.closureQueued = true;
+            result.closureActive = true;
+        } else if (STATUS_FAILED.equals(status)) {
+            result.closureRetryable = true;
+        } else {
+            result.admissionFailed = true;
+            result.closureRetryable = true;
+            result.closureFailure = "summary job is not active: " + status;
+        }
+    }
+
+    private List<String> activeSummaryRequestIdsLocked(String groupId)
+        throws Exception {
+        List<String> ids = new ArrayList<>();
+        for (String requestId : summaryJobStore.listRequestIds()) {
+            try {
+                JSONObject request = summaryJobStore.readRequest(requestId);
+                if (!GROUP_OWNER_TYPE.equals(
+                    request.optString("owner_type", "")
+                ) || !groupId.equals(request.optString("owner_id", ""))) {
+                    continue;
+                }
+                if (isActiveSummaryStatus(
+                    summaryJobStore.readState(requestId)
+                        .optString("status", "")
+                )) {
+                    ids.add(requestId);
+                }
+            } catch (Exception ignored) {
+                // hasActiveJobsForOwner is the authoritative blocking check;
+                // a damaged row should not make the closure appear clear.
+            }
+        }
+        return ids;
+    }
+
+    private static boolean isActiveSummaryStatus(String status) {
+        return STATUS_QUEUED.equals(status)
+            || STATUS_RUNNING.equals(status)
+            || STATUS_AWAITING_USER.equals(status);
+    }
+
+    private static String safeMessage(Throwable error) {
+        if (error == null || error.getMessage() == null
+            || error.getMessage().trim().isEmpty()) {
+            return error == null
+                ? "unknown failure"
+                : error.getClass().getSimpleName();
+        }
+        return error.getMessage();
     }
 
     /**
@@ -376,6 +888,19 @@ public final class GroupCompressionCoordinator {
 
         String groupId = group.optString("id", "");
         String storageName = group.optString("storage_name", "");
+        SceneContextStore.ManualClosureState closure =
+            sceneContextStore.getManualClosureState(
+                GROUP_OWNER_TYPE,
+                groupId
+            );
+        if (closure.isOpen()
+            || (closure.isClosed()
+                && closure.epoch > 0L
+                && (closure.requestId.isEmpty()
+                    || closure.completedRequestId.isEmpty()))) {
+            result.suppressedByClosure = true;
+            return result;
+        }
         GroupStore groupStore = sceneContextStore.getGroupStore();
         if (groupStore.hasManualSummary(storageName, targetLang)
             && !options.continueAfterManual) {
@@ -560,6 +1085,7 @@ public final class GroupCompressionCoordinator {
         target.groupJobReused |= source.groupJobReused;
         target.groupJobActive |= source.groupJobActive;
         target.suppressedByManual |= source.suppressedByManual;
+        target.suppressedByClosure |= source.suppressedByClosure;
         target.dependenciesMissing |= source.dependenciesMissing;
         target.finalJobsRequested |= source.finalJobsRequested;
         target.pendingJobsRemoved += source.pendingJobsRemoved;

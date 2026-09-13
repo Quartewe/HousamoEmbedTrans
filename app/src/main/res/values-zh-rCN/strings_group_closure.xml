@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_group_manual_closure_section">手动闭包</string>
+    <string name="scene_group_manual_closure_loading">正在读取闭包状态…</string>
+    <string name="scene_group_manual_closure_ready">当前 Group 可以开启手动闭包。</string>
+    <string name="scene_group_manual_closure_requires_active">首次开启需要先将该 Group 设为活动。</string>
+    <string name="scene_group_manual_closure_open">开启手动闭包</string>
+    <string name="scene_group_manual_closure_open_status">闭包已开启；Group 自动摘要生成已暂停。</string>
+    <string name="scene_group_manual_closure_end">结束并生成摘要</string>
+    <string name="scene_group_manual_closure_end_title">结束手动闭包？</string>
+    <string name="scene_group_manual_closure_end_message">将使用已保存的 Group 及其已保存 Context 事实结束本轮并创建 Group 摘要任务；编辑器中的未保存修改不会包含在本轮中。</string>
+    <string name="scene_group_manual_closure_reopen">重新开启手动闭包</string>
+    <string name="scene_group_manual_closure_reopen_title">重新开启手动闭包？</string>
+    <string name="scene_group_manual_closure_reopen_message">重新开启会进入新的闭包代次，不等待或取消旧摘要任务，也不会改变当前活动 Group。</string>
+    <string name="scene_group_manual_closure_retry">重试摘要</string>
+    <string name="scene_group_manual_closure_latest_facts_title">已保存的 Group 事实已变化</string>
+    <string name="scene_group_manual_closure_latest_facts_message">本轮闭包结束后，已保存的 Group 或其某个 Context 摘要发生了变化。是否使用最新已保存事实重试？</string>
+    <string name="scene_group_manual_closure_opened">手动 Group 闭包已开启。</string>
+    <string name="scene_group_manual_closure_reopened">已重新开启新的手动 Group 闭包代次。</string>
+    <string name="scene_group_manual_closure_queued">已保存 Group 闭包并加入摘要任务。</string>
+    <string name="scene_group_manual_closure_completed">本轮 Group 闭包摘要已完成。</string>
+    <string name="scene_group_manual_closure_job_active">本轮 Group 摘要任务正在排队或运行。</string>
+    <string name="scene_group_manual_closure_failed_status">本轮 Group 摘要失败，可以重试。</string>
+    <string name="scene_group_manual_closure_retry_status">本轮 Group 结束意图尚未入队，可以显式重试。</string>
+    <string name="scene_group_manual_closure_no_facts">该 Group 没有可用于摘要的已保存 Context 事实。</string>
+    <string name="scene_group_manual_closure_missing_title">缺少 Context Final 摘要</string>
+    <string name="scene_group_manual_closure_missing_contexts">暂时无法生成摘要。以下 Context 缺少当前 Final 摘要：%1$s</string>
+    <string name="scene_group_manual_closure_blocked_title">还有摘要任务未完成</string>
+    <string name="scene_group_manual_closure_blocked">当前有 %1$d 个活动摘要任务；完成或处理这些任务后才能结束本轮。</string>
+    <string name="scene_group_manual_closure_open_tasks">打开任务页</string>
+    <string name="scene_group_manual_closure_failed_title">Group 闭包操作失败</string>
+    <string name="scene_group_manual_closure_failed">Group 闭包操作失败：%1$s</string>
+</resources>
