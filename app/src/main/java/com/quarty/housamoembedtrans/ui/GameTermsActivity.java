@@ -4,12 +4,15 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.net.Uri;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,6 +25,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -42,9 +47,20 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** Searchable editor for the user-owned files/gameterms.json override. */
 public final class GameTermsActivity extends AppCompatActivity {
+
+    public static final String EXTRA_CREATE_TERM = "create_term";
+
+    public static final String EXTRA_TERM_NAME =
+        "term_name";
+    private static final String STATE_MANAGEMENT_LINK_CONSUMED =
+        "management_link_consumed";
+    private static final String STATE_MANAGEMENT_LINK_FAILURE_NOTIFIED =
+        "management_link_failure_notified";
 
     private static final String[] TERM_FIELD_ORDER = {
         "en",
@@ -60,11 +76,17 @@ public final class GameTermsActivity extends AppCompatActivity {
     private boolean dirty;
     private boolean userOverride;
     private boolean invalidUserOverride;
+    private boolean importBusy;
+    private boolean managementLinkConsumed;
+    private boolean managementLinkFailureNotified;
+    private ActivityResultLauncher<String[]> importLauncher;
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
     private EditText searchInput;
     private TextView statusView;
     private ListView termList;
     private Button saveButton;
+    private Button importButton;
     private MenuItem managementBatchMenuItem;
 
     private final List<String> allTerms = new ArrayList<>();
@@ -75,6 +97,16 @@ public final class GameTermsActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        managementLinkConsumed = savedInstanceState != null
+            && savedInstanceState.getBoolean(
+                STATE_MANAGEMENT_LINK_CONSUMED,
+                false
+            );
+        managementLinkFailureNotified = savedInstanceState != null
+            && savedInstanceState.getBoolean(
+                STATE_MANAGEMENT_LINK_FAILURE_NOTIFIED,
+                false
+            );
         setContentView(R.layout.activity_game_terms);
         SystemBarInsets.apply(findViewById(R.id.root_game_terms));
 
@@ -97,6 +129,11 @@ public final class GameTermsActivity extends AppCompatActivity {
         statusView = findViewById(R.id.tv_gameterms_status);
         termList = findViewById(R.id.list_game_terms);
         saveButton = findViewById(R.id.btn_save_gameterms);
+        importButton = findViewById(R.id.btn_import_gameterms);
+        importLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenMultipleDocuments(),
+            this::importTermDocuments
+        );
 
         adapter = new GameTermAdapter(this, visibleTerms);
         termList.setAdapter(adapter);
@@ -150,6 +187,28 @@ public final class GameTermsActivity extends AppCompatActivity {
         findViewById(R.id.btn_restore_gameterms).setOnClickListener(
             view -> confirmRestore()
         );
+        importButton.setOnClickListener(view -> {
+            if (dirty || importBusy) {
+                Toast.makeText(
+                    this,
+                    R.string.management_transfer_import_save_first,
+                    Toast.LENGTH_LONG
+                ).show();
+                return;
+            }
+            setImportBusy(true);
+            try {
+                importLauncher.launch(new String[] {
+                    "application/json",
+                    "text/json",
+                    "text/plain",
+                    "application/octet-stream"
+                });
+            } catch (RuntimeException error) {
+                setImportBusy(false);
+                showImportFailure(error);
+            }
+        });
         saveButton.setOnClickListener(view -> saveDictionary());
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -200,6 +259,14 @@ public final class GameTermsActivity extends AppCompatActivity {
         if (managementBatchController != null) {
             managementBatchController.saveState(outState);
         }
+        outState.putBoolean(
+            STATE_MANAGEMENT_LINK_CONSUMED,
+            managementLinkConsumed
+        );
+        outState.putBoolean(
+            STATE_MANAGEMENT_LINK_FAILURE_NOTIFIED,
+            managementLinkFailureNotified
+        );
         super.onSaveInstanceState(outState);
     }
 
@@ -215,6 +282,7 @@ public final class GameTermsActivity extends AppCompatActivity {
             rebuildTerms();
             updateStatus();
             setEditorEnabled(true);
+            consumeManagementLinkAfterLoad();
         } catch (Exception e) {
             dictionary = null;
             statusView.setText(getString(
@@ -222,7 +290,58 @@ public final class GameTermsActivity extends AppCompatActivity {
                 safeMessage(e)
             ));
             setEditorEnabled(false);
+            notifyManagementLinkLoadFailure();
         }
+    }
+
+    private void consumeManagementLinkAfterLoad() {
+        if (managementLinkConsumed) {
+            return;
+        }
+
+        Intent intent = getIntent();
+        if (intent != null && intent.getBooleanExtra(EXTRA_CREATE_TERM, false)) {
+            managementLinkConsumed = true;
+            editTerm(null);
+            return;
+        }
+        if (intent == null || !intent.hasExtra(EXTRA_TERM_NAME)) {
+            return;
+        }
+
+        String term = intent.getStringExtra(EXTRA_TERM_NAME);
+        managementLinkConsumed = true;
+        if (term == null || term.isEmpty() || !dictionary.has(term)) {
+            notifyManagementLinkTargetMissing();
+            return;
+        }
+        editTerm(term);
+    }
+
+    private boolean hasManagementLink() {
+        Intent intent = getIntent();
+        return intent != null && (intent.hasExtra(EXTRA_TERM_NAME)
+            || intent.getBooleanExtra(EXTRA_CREATE_TERM, false));
+    }
+
+    private void notifyManagementLinkLoadFailure() {
+        if (!hasManagementLink() || managementLinkFailureNotified) {
+            return;
+        }
+        managementLinkFailureNotified = true;
+        Toast.makeText(
+            this,
+            R.string.management_link_load_failed,
+            Toast.LENGTH_LONG
+        ).show();
+    }
+
+    private void notifyManagementLinkTargetMissing() {
+        Toast.makeText(
+            this,
+            R.string.management_link_target_missing,
+            Toast.LENGTH_LONG
+        ).show();
     }
 
     private void rebuildTerms() {
@@ -326,7 +445,33 @@ public final class GameTermsActivity extends AppCompatActivity {
         }
 
         AlertDialog dialog = builder.create();
+        final String initialKey = rawTextOf(keyInput);
+        Runnable dismissDraft = () -> {
+            boolean changed = !initialKey.equals(rawTextOf(keyInput));
+            for (TermFieldEditor field : fieldEditors) {
+                changed |= !formatValue(field.originalValue).equals(rawTextOf(field.input));
+            }
+            if (!changed) {
+                dialog.dismiss();
+                return;
+            }
+            new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.unsaved_gameterms_title)
+                .setMessage(R.string.unsaved_gameterms_message)
+                .setNegativeButton(R.string.keep_editing, null)
+                .setPositiveButton(R.string.discard_changes,
+                    (confirmation, which) -> dialog.dismiss())
+                .show();
+        };
+        dialog.setCanceledOnTouchOutside(false);
+        dialog.setOnKeyListener((ignored, keyCode, event) -> {
+            if (keyCode != android.view.KeyEvent.KEYCODE_BACK) return false;
+            if (event.getAction() == android.view.KeyEvent.ACTION_UP) dismissDraft.run();
+            return true;
+        });
         dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                .setOnClickListener(view -> dismissDraft.run());
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
                 saveTermFromDialog(
                     dialog,
@@ -432,6 +577,9 @@ public final class GameTermsActivity extends AppCompatActivity {
             JSONObject record = new JSONObject(originalRecord.toString());
             for (TermFieldEditor fieldEditor : fieldEditors) {
                 fieldEditor.layout.setError(null);
+                if (formatValue(fieldEditor.originalValue).equals(rawTextOf(fieldEditor.input))) {
+                    continue;
+                }
                 try {
                     record.put(
                         fieldEditor.key,
@@ -448,6 +596,20 @@ public final class GameTermsActivity extends AppCompatActivity {
             }
 
             ConfigStore.validateGameTermRecord(key, record);
+            if (hasManagementLink()) {
+                JSONObject saved = new JSONObject(dictionary.toString());
+                saved.put(key, record);
+                ConfigStore.validateGameTermDictionary(saved);
+                configStore.saveJson(ConfigStore.GAMETERMS_FILE_NAME, saved);
+                dictionary = saved;
+                dirty = false;
+                userOverride = true;
+                invalidUserOverride = false;
+                setResult(RESULT_OK);
+                dialog.dismiss();
+                finish();
+                return;
+            }
             dictionary.put(key, record);
             dirty = true;
             rebuildTerms();
@@ -529,6 +691,216 @@ public final class GameTermsActivity extends AppCompatActivity {
         }
     }
 
+    private void importTermDocuments(List<Uri> uris) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        if (dirty) {
+            setImportBusy(false);
+            showImportFailure(new IllegalStateException(
+                getString(R.string.management_transfer_import_save_first)
+            ));
+            return;
+        }
+        if (uris == null || uris.isEmpty()) {
+            setImportBusy(false);
+            return;
+        }
+        setImportBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                ManagementDictionaryTransfer.Batch batch =
+                    ManagementDictionaryTransfer.readAndValidate(
+                        this,
+                        uris,
+                        ConfigStore.GAMETERMS_FILE_NAME
+                    );
+                ConfigStore.JsonLoadResult current = configStore.loadJson(
+                    ConfigStore.GAMETERMS_FILE_NAME
+                );
+                Set<String> conflicts = dictionaryConflicts(
+                    current.json,
+                    batch
+                );
+                runOnUiThread(() -> showTermImportReview(batch, conflicts));
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    setImportBusy(false);
+                    showImportFailure(error);
+                });
+            }
+        });
+    }
+
+    private Set<String> dictionaryConflicts(
+        JSONObject current,
+        ManagementDictionaryTransfer.Batch batch
+    ) {
+        Set<String> conflicts = new LinkedHashSet<>();
+        if (current == null || batch == null) {
+            return conflicts;
+        }
+        for (String key : batch.keys) {
+            if (current.has(key)) {
+                conflicts.add(key);
+            }
+        }
+        return conflicts;
+    }
+
+    private void showTermImportReview(
+        ManagementDictionaryTransfer.Batch batch,
+        Set<String> conflicts
+    ) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        StringBuilder conflictText = new StringBuilder();
+        if (conflicts != null) {
+            int shown = 0;
+            for (String key : conflicts) {
+                if (shown++ >= 20) {
+                    conflictText.append("\n…");
+                    break;
+                }
+                if (conflictText.length() > 0) {
+                    conflictText.append('\n');
+                }
+                conflictText.append(key);
+            }
+        }
+        Set<String> expected = conflicts == null
+            ? Collections.emptySet()
+            : new LinkedHashSet<>(conflicts);
+        MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.management_transfer_import_title)
+            .setMessage(getString(
+                conflicts == null || conflicts.isEmpty()
+                    ? R.string.management_transfer_import_message
+                    : R.string.management_transfer_import_conflict_message,
+                batch.keys.size(),
+                conflictText.toString()
+            ))
+            .setNegativeButton(
+                R.string.management_transfer_import_cancel,
+                (d, which) -> setImportBusy(false)
+            );
+        if (conflicts == null || conflicts.isEmpty()) {
+            dialog.setPositiveButton(
+                R.string.management_transfer_import_confirm,
+                (d, which) -> commitTermImport(
+                    batch,
+                    Collections.emptySet(),
+                    expected
+                )
+            );
+        } else {
+            dialog.setNeutralButton(
+                R.string.management_transfer_import_keep,
+                (d, which) -> commitTermImport(
+                    batch,
+                    Collections.emptySet(),
+                    expected
+                )
+            );
+            dialog.setPositiveButton(
+                R.string.management_transfer_import_overwrite,
+                (d, which) -> commitTermImport(
+                    batch,
+                    expected,
+                    expected
+                )
+            );
+        }
+        dialog.setOnCancelListener(d -> setImportBusy(false));
+        dialog.show();
+    }
+
+    private void commitTermImport(
+        ManagementDictionaryTransfer.Batch batch,
+        Set<String> approved,
+        Set<String> expected
+    ) {
+        if (dirty) {
+            setImportBusy(false);
+            showImportFailure(new IllegalStateException(
+                getString(R.string.management_transfer_import_save_first)
+            ));
+            return;
+        }
+        setImportBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                ConfigStore.DictionaryMergeResult result =
+                    configStore.mergeImportedDictionary(
+                        ConfigStore.GAMETERMS_FILE_NAME,
+                        batch.records,
+                        approved,
+                        expected
+                    );
+                ConfigStore.JsonLoadResult loaded = configStore.loadJson(
+                    ConfigStore.GAMETERMS_FILE_NAME
+                );
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    dictionary = loaded.json;
+                    userOverride = loaded.userOverride;
+                    invalidUserOverride = loaded.invalidUserOverride;
+                    dirty = false;
+                    rebuildTerms();
+                    updateStatus();
+                    setImportBusy(false);
+                    Toast.makeText(
+                        this,
+                        getString(
+                            R.string.management_transfer_import_result,
+                            result.imported,
+                            result.overwritten,
+                            result.skipped
+                        ),
+                        Toast.LENGTH_LONG
+                    ).show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    setImportBusy(false);
+                    showImportFailure(error);
+                });
+            }
+        });
+    }
+
+    private void setImportBusy(boolean busy) {
+        importBusy = busy;
+        boolean editable = !busy && !batchMode && dictionary != null;
+        searchInput.setEnabled(!busy && dictionary != null);
+        termList.setEnabled(!busy && dictionary != null);
+        findViewById(R.id.btn_add_game_term).setEnabled(editable);
+        findViewById(R.id.btn_restore_gameterms).setEnabled(editable);
+        importButton.setEnabled(editable && !dirty);
+        saveButton.setEnabled(editable && (dirty || !userOverride));
+        setManagementBatchActionEnabled(editable);
+    }
+
+    private void showImportFailure(Throwable error) {
+        Toast.makeText(
+            this,
+            getString(
+                R.string.management_transfer_import_failed,
+                safeMessage(error)
+            ),
+            Toast.LENGTH_LONG
+        ).show();
+    }
+
     @Override
     protected void onDestroy() {
         if (managementBatchController != null) {
@@ -539,6 +911,7 @@ public final class GameTermsActivity extends AppCompatActivity {
             pendingProcessMoveController.close();
             pendingProcessMoveController = null;
         }
+        ioExecutor.shutdownNow();
         super.onDestroy();
     }
 
@@ -612,15 +985,18 @@ public final class GameTermsActivity extends AppCompatActivity {
         }
         statusView.setText(getString(statusId, dictionary.length()));
         saveButton.setEnabled(!batchMode && (dirty || !userOverride));
+        importButton.setEnabled(!batchMode && !importBusy && !dirty);
     }
 
     private void setEditorEnabled(boolean enabled) {
-        searchInput.setEnabled(enabled);
-        termList.setEnabled(enabled);
-        findViewById(R.id.btn_add_game_term).setEnabled(enabled && !batchMode);
-        findViewById(R.id.btn_restore_gameterms).setEnabled(enabled && !batchMode);
-        setManagementBatchActionEnabled(enabled && !batchMode);
-        saveButton.setEnabled(enabled && !batchMode);
+        boolean editable = enabled && !batchMode && !importBusy;
+        searchInput.setEnabled(enabled && !importBusy);
+        termList.setEnabled(enabled && !importBusy);
+        findViewById(R.id.btn_add_game_term).setEnabled(editable);
+        findViewById(R.id.btn_restore_gameterms).setEnabled(editable);
+        setManagementBatchActionEnabled(editable);
+        importButton.setEnabled(editable && !dirty);
+        saveButton.setEnabled(editable && (dirty || !userOverride));
     }
 
     private void setManagementBatchActionEnabled(boolean enabled) {
@@ -729,8 +1105,6 @@ public final class GameTermsActivity extends AppCompatActivity {
                     continue;
                 }
                 JSONObject payload = new JSONObject(record.toString());
-                payload.put("id", term);
-                payload.put("key", term);
                 output.add(new ManagementBatchController.Item(
                     ManagementBatchController.KIND_TERM,
                     term,
@@ -755,10 +1129,16 @@ public final class GameTermsActivity extends AppCompatActivity {
             batchMode = enabled;
             findViewById(R.id.btn_add_game_term).setEnabled(!enabled && dictionary != null);
             findViewById(R.id.btn_restore_gameterms).setEnabled(!enabled && dictionary != null);
-            saveButton.setEnabled(!enabled && dictionary != null);
-            searchInput.setEnabled(dictionary != null);
-            termList.setEnabled(dictionary != null);
-            setManagementBatchActionEnabled(!enabled && dictionary != null);
+            saveButton.setEnabled(
+                !enabled && !importBusy && dictionary != null
+                    && (dirty || !userOverride)
+            );
+            importButton.setEnabled(
+                !enabled && !importBusy && dictionary != null && !dirty
+            );
+            searchInput.setEnabled(!importBusy && dictionary != null);
+            termList.setEnabled(!importBusy && dictionary != null);
+            setManagementBatchActionEnabled(!enabled && !importBusy && dictionary != null);
             if (adapter != null) {
                 adapter.notifyDataSetChanged();
             }
@@ -827,61 +1207,88 @@ public final class GameTermsActivity extends AppCompatActivity {
 
     private final class GameTermAdapter extends ArrayAdapter<String> {
         GameTermAdapter(Context context, List<String> terms) {
-            super(context, android.R.layout.simple_list_item_2, android.R.id.text1, terms);
+            super(context, R.layout.item_dictionary_entry,
+                R.id.tv_dictionary_entry_title, terms);
         }
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            if (batchMode) {
-                String term = getItem(position);
-                LinearLayout row = new LinearLayout(GameTermsActivity.this);
-                row.setOrientation(LinearLayout.HORIZONTAL);
-                row.setGravity(Gravity.CENTER_VERTICAL);
-                MaterialCheckBox check = new MaterialCheckBox(
-                    GameTermsActivity.this
+            View view = convertView;
+            if (view == null || view.getId() != R.id.row_dictionary_entry) {
+                view = LayoutInflater.from(getContext()).inflate(
+                    R.layout.item_dictionary_entry,
+                    parent,
+                    false
                 );
-                check.setText(term);
-                check.setMinHeight(Math.round(
-                    56 * getResources().getDisplayMetrics().density
-                ));
-                check.setLayoutParams(new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
-                String key = ManagementBatchController.KIND_TERM + ":" + term;
-                check.setChecked(ManagementBatchSelection.contains(key));
-                check.setOnCheckedChangeListener((button, checked) -> {
-                    ManagementBatchSelection.set(key, checked);
-                    if (managementBatchController != null) {
-                        managementBatchController.onHostRowsChanged();
-                    }
-                });
-                row.addView(check);
-                return row;
             }
-            View view = super.getView(position, convertView, parent);
             String term = getItem(position);
-            TextView title = view.findViewById(android.R.id.text1);
-            TextView subtitle = view.findViewById(android.R.id.text2);
-            title.setText(term);
+            if (term == null) {
+                term = "";
+            }
+            TextView title = view.findViewById(R.id.tv_dictionary_entry_title);
+            TextView subtitle = view.findViewById(R.id.tv_dictionary_entry_subtitle);
+            MaterialCheckBox check = view.findViewById(R.id.check_dictionary_entry);
+            title.setText(termTitle(term));
             subtitle.setText(termSubtitle(term));
+            check.setVisibility(batchMode ? View.VISIBLE : View.GONE);
+            check.setChecked(batchMode && ManagementBatchSelection.contains(
+                ManagementBatchController.KIND_TERM + ":" + term
+            ));
+            check.setContentDescription(getString(
+                R.string.management_home_batch_select,
+                termTitle(term)
+            ));
             return view;
         }
 
+        private String termTitle(String term) {
+            JSONObject record = dictionary == null
+                ? null
+                : dictionary.optJSONObject(term);
+            String localized = localizedValue(record);
+            return localized.isEmpty() ? term : localized;
+        }
+
         private String termSubtitle(String term) {
-            JSONObject record = dictionary.optJSONObject(term);
+            JSONObject record = dictionary == null
+                ? null
+                : dictionary.optJSONObject(term);
             if (record == null) {
                 return getString(R.string.gameterms_record_invalid, term);
             }
 
-            List<String> parts = new ArrayList<>();
-            String zhCn = record.optString("zh-cn", "");
-            String en = record.optString("en", "");
-            if (!zhCn.isEmpty()) parts.add(zhCn);
-            if (!en.isEmpty()) parts.add(en);
-            return parts.isEmpty()
+            return term.isEmpty()
                 ? getString(R.string.no_localized_term)
-                : TextUtils.join(" · ", parts);
+                : term;
+        }
+
+        private String localizedValue(JSONObject record) {
+            if (record == null) {
+                return "";
+            }
+            Locale locale = getResources().getConfiguration().locale;
+            boolean traditionalChinese = "zh".equals(locale.getLanguage())
+                && ("TW".equalsIgnoreCase(locale.getCountry())
+                    || "HK".equalsIgnoreCase(locale.getCountry())
+                    || "MO".equalsIgnoreCase(locale.getCountry()));
+            String preferred = traditionalChinese
+                ? record.optString("zh-tw", "")
+                : "zh".equals(locale.getLanguage())
+                    ? record.optString("zh-cn", "")
+                    : "en".equals(locale.getLanguage())
+                        ? record.optString("en", "")
+                        : "";
+            if (!preferred.isEmpty()) {
+                return preferred;
+            }
+            String fallback = record.optString("zh-cn", "");
+            if (!fallback.isEmpty()) {
+                return fallback;
+            }
+            fallback = record.optString("en", "");
+            return fallback.isEmpty()
+                ? record.optString("zh-tw", "")
+                : fallback;
         }
     }
 }

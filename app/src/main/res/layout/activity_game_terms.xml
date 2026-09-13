@@ -26,7 +26,7 @@
         android:layout_marginTop="4dp"
         android:text="@string/gameterms_editor_hint"
         android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-        android:textColor="?android:attr/textColorSecondary" />
+        android:textColor="@color/het_on_surface_muted" />
 
     <TextView
         android:id="@+id/tv_gameterms_status"
@@ -63,7 +63,8 @@
             android:layout_height="match_parent"
             android:choiceMode="none"
             android:clipToPadding="false"
-            android:dividerHeight="1dp"
+            android:divider="@null"
+            android:dividerHeight="0dp"
             android:paddingBottom="8dp" />
 
         <TextView
@@ -72,40 +73,62 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:text="@string/no_game_terms_found"
-            android:textColor="?android:attr/textColorSecondary"
+            android:textColor="@color/het_on_surface_muted"
             android:visibility="gone" />
     </FrameLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_restore_gameterms"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
-            android:layout_weight="1"
-            android:text="@string/reset_defaults" />
+            android:orientation="horizontal">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_add_game_term"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:layout_weight="1"
-            android:text="@string/add_game_term" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_restore_gameterms"
+                style="@style/Widget.HET.Button.Secondary"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:text="@string/reset_defaults" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_save_gameterms"
-            android:layout_width="0dp"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_import_gameterms"
+                style="@style/Widget.HET.Button.Secondary"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                android:text="@string/management_transfer_import_terms" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_weight="1"
-            android:text="@string/save_settings" />
+            android:layout_marginTop="4dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_add_game_term"
+                style="@style/Widget.HET.Button.Secondary"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:text="@string/add_game_term" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save_gameterms"
+                style="@style/Widget.HET.Button.Primary"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                android:text="@string/save_settings" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>
