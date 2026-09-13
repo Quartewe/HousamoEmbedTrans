@@ -270,7 +270,7 @@ final class ManagementHomeBatchDataSource
         activity.reloadHomeAfterBatchMove();
     }
 
-    private void addStoreItem(
+    private static void addStoreItem(
         List<ManagementBatchController.Item> output,
         String kind,
         JSONObject source,
@@ -296,7 +296,7 @@ final class ManagementHomeBatchDataSource
         ));
     }
 
-    private void addDictionaryItems(
+    private static void addDictionaryItems(
         List<ManagementBatchController.Item> output,
         String kind,
         JSONObject dictionary,

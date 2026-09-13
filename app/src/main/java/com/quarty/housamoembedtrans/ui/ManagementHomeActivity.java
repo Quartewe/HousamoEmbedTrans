@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.context.store.SceneContextStore;
 
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -396,8 +397,8 @@ public final class ManagementHomeActivity extends AppCompatActivity {
 
     private boolean hasActivePointers() {
         return snapshot != null
-            && (!isEmpty(snapshot.activeContextId)
-                || !isEmpty(snapshot.activeGroupId));
+            && (!android.text.TextUtils.isEmpty(snapshot.activeContextId)
+                || !android.text.TextUtils.isEmpty(snapshot.activeGroupId));
     }
 
     private void clearActivePointers() {
@@ -444,9 +445,9 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                     : R.string.management_home_mode_tree
             );
             managementViewMenuItem.setContentDescription(
-                mode == MODE_TREE
+                getString(mode == MODE_TREE
                     ? R.string.management_home_mode_list
-                    : R.string.management_home_mode_tree
+                    : R.string.management_home_mode_tree)
             );
             managementViewMenuItem.setEnabled(!batchMode && !destroyed);
         }
