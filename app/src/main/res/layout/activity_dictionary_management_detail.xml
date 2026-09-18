@@ -5,20 +5,19 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/het_surface"
-    android:orientation="vertical"
-    android:paddingStart="16dp"
-    android:paddingTop="16dp"
-    android:paddingEnd="16dp">
+    android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar_dictionary_management_detail"
+        style="@style/Widget.HET.StaticDetail.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="?attr/actionBarSize"
+        android:layout_height="56dp"
+        android:minHeight="56dp"
         app:navigationContentDescription="@string/back_action"
         app:navigationIcon="?attr/homeAsUpIndicator" />
 
-    <androidx.core.widget.NestedScrollView
+    <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
+        style="@style/Widget.HET.ScrollView"
         android:id="@+id/scroll_dictionary_management_detail"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -30,16 +29,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingTop="4dp"
-            android:paddingBottom="12dp">
+            android:paddingStart="14dp"
+            android:paddingTop="15dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="20dp">
 
             <TextView
                 android:id="@+id/tv_dictionary_management_detail_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                android:textColor="@color/het_on_surface_muted" />
+                android:textAppearance="@style/TextAppearance.HET.StaticDetail.Status" />
 
             <LinearLayout
                 android:id="@+id/container_dictionary_management_detail"
@@ -47,5 +47,16 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
         </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+    </com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView>
+
+    <LinearLayout
+        android:id="@+id/page_actions"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/het_bottom_bar_height"
+        android:background="@drawable/bg_primary_navigation"
+        android:baselineAligned="false"
+        android:gravity="end|center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp" />
 </LinearLayout>

@@ -2,6 +2,19 @@
 <resources>
     <string name="dictionary_detail_character_title">Character details</string>
     <string name="dictionary_detail_term_title">Game term details</string>
+    <string name="dictionary_detail_character_label">Character dictionary record</string>
+    <string name="dictionary_detail_term_label">Game term dictionary record</string>
+    <string name="dictionary_detail_character_kind">Character</string>
+    <string name="dictionary_detail_term_kind">Game term</string>
+    <string name="dictionary_detail_fields_title">Fields</string>
+    <string name="dictionary_detail_description_title">Description and notes</string>
+    <string name="dictionary_detail_alias">Aliases</string>
+    <string name="dictionary_detail_school">School</string>
+    <string name="dictionary_detail_guild">Guild</string>
+    <string name="dictionary_detail_origin_world">Origin world</string>
+    <string name="dictionary_detail_relationships">Relationships</string>
+    <string name="dictionary_detail_speech_style">Speech style</string>
+    <string name="dictionary_detail_unfilled">Not provided</string>
     <string name="dictionary_detail_loading">Loading dictionary record…</string>
     <string name="dictionary_detail_unavailable">This dictionary record cannot be opened.</string>
     <string name="dictionary_detail_missing">The dictionary record is no longer available.</string>

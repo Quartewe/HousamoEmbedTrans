@@ -2,6 +2,19 @@
 <resources>
     <string name="dictionary_detail_character_title">角色详情</string>
     <string name="dictionary_detail_term_title">游戏术语详情</string>
+    <string name="dictionary_detail_character_label">角色词典记录</string>
+    <string name="dictionary_detail_term_label">游戏术语记录</string>
+    <string name="dictionary_detail_character_kind">角色</string>
+    <string name="dictionary_detail_term_kind">游戏术语</string>
+    <string name="dictionary_detail_fields_title">字段</string>
+    <string name="dictionary_detail_description_title">描述与备注</string>
+    <string name="dictionary_detail_alias">别名</string>
+    <string name="dictionary_detail_school">学校</string>
+    <string name="dictionary_detail_guild">公会</string>
+    <string name="dictionary_detail_origin_world">来源世界</string>
+    <string name="dictionary_detail_relationships">关系</string>
+    <string name="dictionary_detail_speech_style">说话风格</string>
+    <string name="dictionary_detail_unfilled">未填写</string>
     <string name="dictionary_detail_loading">正在读取词典记录…</string>
     <string name="dictionary_detail_unavailable">无法打开这条词典记录。</string>
     <string name="dictionary_detail_missing">词典记录已不可用。</string>
