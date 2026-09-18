@@ -4,66 +4,82 @@
     android:id="@+id/root_scene_conflicts"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/het_surface"
     android:clipToPadding="false"
     android:orientation="vertical"
-    android:padding="20dp">
+    android:paddingBottom="20dp">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar_scene_conflicts"
+        style="@style/Widget.HET.StaticDetail.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="?attr/actionBarSize"
+        android:layout_height="56dp"
+        android:minHeight="56dp"
         app:navigationContentDescription="@string/back_action"
         app:navigationIcon="?attr/homeAsUpIndicator"
         app:title="@string/scene_conflicts_title" />
 
     <TextView
+        style="@style/TextAppearance.HET.StaticDetail.Body"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="15dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
         android:text="@string/scene_conflicts_intro"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-        android:textColor="?android:attr/textColorSecondary" />
+        />
 
     <TextView
         android:id="@+id/tv_scene_conflicts_runtime_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
         android:background="@drawable/bg_config_status"
         android:padding="12dp"
         android:text="@string/scene_sync_service_starting"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+        android:textAppearance="@style/TextAppearance.HET.StaticDetail.Body" />
 
     <TextView
         android:id="@+id/tv_scene_conflicts_summary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
         android:text="@string/scene_conflicts_loading"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
-        android:textStyle="bold" />
+        android:textAppearance="@style/TextAppearance.HET.StaticDetail.SectionTitle" />
 
     <TextView
         android:id="@+id/tv_scene_conflicts_empty"
+        style="@style/TextAppearance.HET.StaticDetail.Empty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="14dp"
         android:gravity="center"
-        android:padding="20dp"
-        android:text="@string/scene_conflicts_loading"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
-        android:textColor="?android:attr/textColorSecondary" />
+        android:padding="12dp"
+        android:text="@string/scene_conflicts_loading" />
 
-    <ListView
+    <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
+        style="@style/Widget.HET.ScrollView"
         android:id="@+id/list_scene_conflicts"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:descendantFocusability="afterDescendants"
-        android:divider="@android:color/transparent"
-        android:dividerHeight="10dp"
-        android:paddingBottom="8dp" />
+        android:fillViewport="true"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp">
+
+        <LinearLayout
+            android:id="@+id/container_scene_conflicts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="8dp" />
+    </com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView>
 </LinearLayout>

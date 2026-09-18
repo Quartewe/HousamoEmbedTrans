@@ -162,7 +162,7 @@ public final class PendingProcessMoveController implements AutoCloseable {
                 notifyFinished(onFinished);
                 return;
             }
-            new MaterialAlertDialogBuilder(activity)
+            new UiMaterialAlertDialogBuilder(activity)
                 .setTitle(activity.getString(
                     R.string.pending_process_move_object_title,
                     displayName

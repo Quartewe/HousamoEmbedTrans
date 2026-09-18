@@ -16,7 +16,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -59,6 +58,8 @@ public final class SceneConflictsActivity extends AppCompatActivity {
     private SceneStore sceneStore;
     private ConflictStore conflictStore;
     private ConflictAdapter adapter;
+    private DraggableScrollbarNestedScrollView conflictScroll;
+    private LinearLayout conflictContainer;
     private TextView runtimeStatus;
     private TextView summary;
     private TextView emptyMessage;
@@ -92,10 +93,10 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         );
         summary = findViewById(R.id.tv_scene_conflicts_summary);
         emptyMessage = findViewById(R.id.tv_scene_conflicts_empty);
-        ListView conflictList = findViewById(R.id.list_scene_conflicts);
+        conflictScroll = findViewById(R.id.list_scene_conflicts);
+        conflictContainer = findViewById(R.id.container_scene_conflicts);
         adapter = new ConflictAdapter();
-        conflictList.setAdapter(adapter);
-        conflictList.setEmptyView(emptyMessage);
+        refreshConflictRows();
 
         MaterialToolbar toolbar = findViewById(
             R.id.toolbar_scene_conflicts
@@ -179,7 +180,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         }
 
         renderRuntimeSnapshot(changed);
-        adapter.notifyDataSetChanged();
+        refreshConflictRows();
         if (serviceUnavailableDuringPending) {
             showManualOutcome(
                 SceneSyncRuntimeState.Outcome.UNAVAILABLE
@@ -232,7 +233,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         reloadRequested = false;
         summary.setText(R.string.scene_conflicts_loading);
         emptyMessage.setText(R.string.scene_conflicts_loading);
-        adapter.notifyDataSetChanged();
+        refreshConflictRows();
         int generation = ++loadGeneration;
 
         ioExecutor.execute(() -> {
@@ -300,7 +301,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         conflicts.clear();
         conflicts.addAll(result.rows);
         retainExpandedScenes();
-        adapter.notifyDataSetChanged();
+        refreshConflictRows();
 
         if (result.failed) {
             summary.setText(R.string.scene_conflicts_load_failed);
@@ -332,7 +333,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         } else {
             expandedScenes.add(sceneName);
         }
-        adapter.notifyDataSetChanged();
+        refreshConflictRows();
     }
 
     private void chooseCandidate(String sceneName, boolean chooseHet) {
@@ -340,7 +341,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
             return;
         }
         manualActionPending = true;
-        adapter.notifyDataSetChanged();
+        refreshConflictRows();
         if (chooseHet) {
             runtimeState.chooseHet(sceneName, false);
         } else {
@@ -458,6 +459,44 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         if (result.length() > 0) {
             result.append("\n");
         }
+    }
+
+    private void refreshConflictRows() {
+        if (adapter == null || conflictContainer == null) {
+            return;
+        }
+        int previousScrollY = conflictScroll == null
+            ? 0
+            : conflictScroll.getScrollY();
+        conflictContainer.removeAllViews();
+        for (int position = 0; position < adapter.getCount(); position++) {
+            View row = adapter.getView(
+                position,
+                null,
+                conflictContainer
+            );
+            LinearLayout.LayoutParams rowParams = row.getLayoutParams()
+                instanceof LinearLayout.LayoutParams
+                ? (LinearLayout.LayoutParams) row.getLayoutParams()
+                : new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+            rowParams.bottomMargin = dp(10);
+            conflictContainer.addView(row, rowParams);
+        }
+        emptyMessage.setVisibility(
+            adapter.getCount() == 0 ? View.VISIBLE : View.GONE
+        );
+        if (conflictScroll != null && previousScrollY > 0) {
+            conflictScroll.post(() -> conflictScroll.scrollTo(0, previousScrollY));
+        }
+    }
+
+    private int dp(int value) {
+        return Math.round(
+            value * getResources().getDisplayMetrics().density
+        );
     }
 
     private String displayValue(String value) {
