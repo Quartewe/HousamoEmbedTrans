@@ -7,6 +7,7 @@ import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
 import android.content.Intent;
 import android.content.res.ColorStateList;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -59,6 +60,14 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     private static final String STATE_LAYER = "context_detail.layer";
     private static final String LAYER_DETAIL = "detail";
     private static final String LAYER_GROUP_SCENES = "group_scenes";
+    private static final String LAYER_SUMMARY = "summary";
+    private static final String LAYER_RELATIONS = "relations";
+    private static final String LAYER_SCENES = "scenes";
+    private static final String LAYER_MEMBERS = "members";
+    private static final String LAYER_CHARACTERS = "characters";
+    private static final String LAYER_TERMS = "terms";
+    private static final String LAYER_SUMMARIES = "summaries";
+    private static final String LAYER_MANUAL = "manual";
 
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private final Set<String> expandedSections = new LinkedHashSet<>();
@@ -67,6 +76,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private TextView status;
     private LinearLayout content;
+    private LinearLayout pageActions;
     private String kind;
     private String objectId;
     private LoadedData loadedData;
@@ -74,17 +84,16 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     private boolean lifecycleStarted;
     private boolean destroyed;
     private boolean editingAllowed;
+    private boolean stylePreview;
     private PendingProcessMoveController pendingMoveController;
     private boolean pendingMoveBusy;
     private MaterialButton editAction;
     private MaterialButton moveAction;
     private boolean showingGroupSceneList;
+    private String detailLayer = LAYER_SUMMARY;
+    private SceneContextStore.ManualClosureState closureState;
     private int savedScrollY = -1;
     private int savedSceneListScrollY = -1;
-
-    private interface BodyRenderer {
-        void render(LinearLayout body);
-    }
 
     private static final class GroupLink {
         final String id;
@@ -181,6 +190,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         final AggregateData aggregate;
         final String activeContextId;
         final String activeGroupId;
+        final SceneContextStore.ManualClosureState closureState;
 
         LoadedData(
             JSONObject document,
@@ -189,7 +199,8 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             List<SceneLink> scenes,
             AggregateData aggregate,
             String activeContextId,
-            String activeGroupId
+            String activeGroupId,
+            SceneContextStore.ManualClosureState closureState
         ) {
             this.document = document;
             this.groups = groups;
@@ -198,6 +209,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             this.aggregate = aggregate;
             this.activeContextId = activeContextId;
             this.activeGroupId = activeGroupId;
+            this.closureState = closureState;
         }
     }
 
@@ -207,7 +219,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         setContentView(R.layout.activity_context_management_detail);
         SystemBarInsets.apply(findViewById(R.id.root_context_management_detail));
 
-        String restoredLayer = LAYER_DETAIL;
+        String restoredLayer = LAYER_SUMMARY;
 
         toolbar = findViewById(R.id.toolbar_context_management_detail);
         toolbar.setNavigationOnClickListener(
@@ -216,6 +228,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         scrollView = findViewById(R.id.scroll_context_management_detail);
         status = findViewById(R.id.tv_context_management_detail_status);
         content = findViewById(R.id.container_context_management_detail);
+        pageActions = findViewById(R.id.page_actions);
 
         if (savedInstanceState != null) {
             String[] expanded = savedInstanceState.getStringArray(STATE_EXPANDED);
@@ -229,15 +242,19 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             );
             restoredLayer = savedInstanceState.getString(
                 STATE_LAYER,
-                LAYER_DETAIL
+                LAYER_SUMMARY
             );
         }
 
         Intent intent = getIntent();
         kind = intent == null ? null : intent.getStringExtra(EXTRA_KIND);
         objectId = intent == null ? null : intent.getStringExtra(EXTRA_ID);
+        stylePreview = isStylePreviewRequest();
         showingGroupSceneList = KIND_GROUP.equals(kind)
             && LAYER_GROUP_SCENES.equals(restoredLayer);
+        detailLayer = showingGroupSceneList
+            ? LAYER_SUMMARY
+            : normalizeDetailLayer(restoredLayer);
         getOnBackPressedDispatcher().addCallback(
             this,
             new OnBackPressedCallback(true) {
@@ -245,21 +262,25 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                 public void handleOnBackPressed() {
                     if (showingGroupSceneList) {
                         showGroupDetailLayer();
+                    } else if (!LAYER_SUMMARY.equals(detailLayer)) {
+                        detailLayer = LAYER_SUMMARY;
+                        renderDocument();
                     } else {
                         finish();
                     }
                 }
             }
         );
+        if (stylePreview) {
+            loadPreviewData(intent);
+            return;
+        }
         if (!isSupportedRequest()) {
             showFailure(getString(R.string.context_detail_unavailable));
             return;
         }
         updateToolbarTitle();
         status.setText(R.string.context_detail_loading);
-        if (!showingGroupSceneList) {
-            addEditButton(false);
-        }
     }
 
     @Override
@@ -271,7 +292,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (isSupportedRequest()) {
+        if (isSupportedRequest() && !stylePreview) {
             loadAsync();
         }
     }
@@ -298,7 +319,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         );
         outState.putString(
             STATE_LAYER,
-            showingGroupSceneList ? LAYER_GROUP_SCENES : LAYER_DETAIL
+            showingGroupSceneList ? LAYER_GROUP_SCENES : detailLayer
         );
         outState.putInt(STATE_SCROLL_Y, savedScrollY);
         outState.putInt(STATE_SCENE_LIST_SCROLL_Y, savedSceneListScrollY);
@@ -314,16 +335,103 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    private void loadPreviewData(Intent intent) {
+        JSONObject document = StylePreview.payloadOf(intent);
+        if (document == null) {
+            document = StylePreview.sample(
+                isContext()
+                    ? StylePreview.KIND_CONTEXT_DETAIL
+                    : StylePreview.KIND_GROUP_DETAIL
+            );
+        }
+        if (document == null) {
+            showFailure(getString(R.string.context_detail_missing));
+            return;
+        }
+        List<GroupLink> groups = new ArrayList<>();
+        JSONArray groupEntries = document.optJSONArray("groups");
+        for (int index = 0;
+             groupEntries != null && index < groupEntries.length();
+             index++) {
+            JSONObject entry = groupEntries.optJSONObject(index);
+            if (entry == null) {
+                continue;
+            }
+            String id = entry.optString("id", "").trim();
+            if (!id.isEmpty()) {
+                groups.add(new GroupLink(
+                    id,
+                    firstNonEmpty(
+                        entry.optString("display_name", ""),
+                        id
+                    )
+                ));
+            }
+        }
+        List<ContextMember> members = new ArrayList<>();
+        JSONArray contextEntries = document.optJSONArray("contexts");
+        for (int index = 0;
+             contextEntries != null && index < contextEntries.length();
+             index++) {
+            JSONObject entry = contextEntries.optJSONObject(index);
+            if (entry == null) {
+                continue;
+            }
+            String id = firstNonEmpty(
+                entry.optString("context_id", ""),
+                entry.optString("id", "")
+            ).trim();
+            if (!id.isEmpty()) {
+                members.add(new ContextMember(
+                    id,
+                    firstNonEmpty(entry.optString("display_name", ""), id),
+                    true
+                ));
+            }
+        }
+        List<SceneLink> scenes = new ArrayList<>();
+        JSONArray sceneEntries = document.optJSONArray("scenes");
+        for (int index = 0;
+             sceneEntries != null && index < sceneEntries.length();
+             index++) {
+            JSONObject entry = sceneEntries.optJSONObject(index);
+            if (entry == null) {
+                continue;
+            }
+            String scene = entry.optString("scene", "").trim();
+            if (!scene.isEmpty()) {
+                scenes.add(new SceneLink(scene, true));
+            }
+        }
+        loadedData = new LoadedData(
+            document,
+            groups,
+            members,
+            scenes,
+            new AggregateData(
+                new ArrayList<AggregateCharacter>(),
+                new ArrayList<AggregateCharacter>(),
+                new ArrayList<AggregateTerm>(),
+                0
+            ),
+            "",
+            "",
+            null
+        );
+        closureState = null;
+        editingAllowed = false;
+        renderDocument();
+    }
+
     private void loadAsync() {
         final long request = ++loadGeneration;
         loadedData = null;
+        closureState = null;
         editingAllowed = false;
         content.removeAllViews();
+        clearPageActions();
         status.setVisibility(View.VISIBLE);
         status.setText(R.string.context_detail_loading);
-        if (!showingGroupSceneList) {
-            addEditButton(false);
-        }
 
         ioExecutor.execute(() -> {
             try {
@@ -358,6 +466,15 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                     characterDictionary,
                     termDictionary
                 );
+                SceneContextStore.ManualClosureState loadedClosure = null;
+                try {
+                    loadedClosure = store.getManualClosureState(
+                        isContext() ? KIND_CONTEXT : KIND_GROUP,
+                        objectId
+                    );
+                } catch (Exception ignored) {
+                    // Detail remains readable when a legacy sidecar is unavailable.
+                }
                 LoadedData data = new LoadedData(
                     document,
                     groups,
@@ -365,7 +482,8 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                     sceneLoad.sceneLinks,
                     sceneLoad.aggregate,
                     store.getActiveContextId(),
-                    store.getActiveGroupId()
+                    store.getActiveGroupId(),
+                    loadedClosure
                 );
                 runOnUiThread(() -> {
                     if (!isCurrentRequest(request)) {
@@ -693,6 +811,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     }
 
     private void renderDocument() {
+        clearPageActions();
         if (loadedData == null || loadedData.document == null) {
             showFailure(getString(R.string.context_detail_missing));
             return;
@@ -704,113 +823,991 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         updateToolbarTitle();
         status.setVisibility(View.GONE);
         content.removeAllViews();
-        addEditButton(editingAllowed);
-        addOverview();
-        if (loadedData.aggregate.missingSceneCount > 0) {
-            addNotice(
-                getString(
-                    R.string.context_detail_missing_scenes,
-                    loadedData.aggregate.missingSceneCount
-                )
-            );
+        if (LAYER_SUMMARY.equals(detailLayer)) {
+            renderPrototypeSummary();
+        } else {
+            renderPrototypeLayer();
         }
+        restoreScrollIfNeeded();
+    }
+
+    private String normalizeDetailLayer(String layer) {
+        if (LAYER_RELATIONS.equals(layer)
+            || LAYER_SCENES.equals(layer)
+            || LAYER_MEMBERS.equals(layer)
+            || LAYER_CHARACTERS.equals(layer)
+            || LAYER_TERMS.equals(layer)
+            || LAYER_SUMMARIES.equals(layer)
+            || LAYER_MANUAL.equals(layer)) {
+            return layer;
+        }
+        return LAYER_SUMMARY;
+    }
+
+    private void renderPrototypeSummary() {
+        String displayName = loadedData.document.optString("display_name", "");
+        addPrototypeHeading(
+            displayName,
+            getString(isContext()
+                ? R.string.detail_proto_context_kind
+                : R.string.detail_proto_group_kind)
+        );
+
+        LinearLayout metadata = new LinearLayout(this);
+        metadata.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout firstRow = new LinearLayout(this);
+        firstRow.setOrientation(LinearLayout.HORIZONTAL);
+        firstRow.setGravity(Gravity.TOP);
         if (isContext()) {
-            addDisclosure(
-                "relations",
-                getString(R.string.context_detail_relations),
-                getString(
-                    R.string.context_detail_relations_count,
-                    loadedData.scenes.size(),
-                    loadedData.groups.size()
-                ),
-                false,
-                this::renderContextRelations
+            addPrototypeMetaCell(
+                firstRow,
+                getString(R.string.detail_proto_context_groups),
+                groupPreview(),
+                true
+            );
+            addPrototypeMetaCell(
+                firstRow,
+                getString(R.string.detail_proto_context_scenes),
+                String.valueOf(loadedData.scenes.size()),
+                false
             );
         } else {
-            addDisclosure(
-                "members",
-                getString(R.string.context_detail_members),
-                getString(
-                    R.string.context_detail_members_count,
-                    loadedData.members.size()
-                ),
-                false,
-                this::renderGroupMembers
+            addPrototypeMetaCell(
+                firstRow,
+                getString(R.string.detail_proto_group_contexts),
+                String.valueOf(loadedData.members.size()),
+                true
             );
+            addPrototypeMetaCell(
+                firstRow,
+                getString(R.string.detail_proto_group_scenes),
+                String.valueOf(loadedData.scenes.size()),
+                false
+            );
+        }
+        metadata.addView(firstRow, fullWidthParams(8));
+        addPrototypeMetaCell(
+            metadata,
+            getString(R.string.detail_proto_context_summary_languages),
+            summaryLanguageText()
+        );
+        String updatedTime = formatTimeIfPresent(
+            loadedData.document.opt("updated_at")
+        );
+        if (!TextUtils.isEmpty(updatedTime)) {
+            addPrototypeMetaCell(
+                metadata,
+                getString(R.string.detail_proto_updated_at),
+                updatedTime
+            );
+        }
+        content.addView(metadata, fullWidthParams(0));
+
+        if (loadedData.aggregate.missingSceneCount > 0) {
+            addNotice(getString(
+                R.string.context_detail_missing_scenes,
+                loadedData.aggregate.missingSceneCount
+            ));
         }
         if (hasUnavailableMembers()) {
             addNotice(getString(R.string.context_detail_partial_members));
         }
-        if (!isContext()) {
-            addLinkRow(
-                content,
-                getString(R.string.context_detail_group_scenes_entry),
-                getString(
-                    R.string.context_detail_group_scenes_count,
-                    loadedData.scenes.size()
-                ),
-                this::showGroupSceneList,
+        addPrototypeClosureCard();
+
+        addPrototypeSummaryCard(
+            getString(R.string.detail_proto_context_summary),
+            summaryPreview(),
+            () -> openDetailLayer(LAYER_SUMMARIES)
+        );
+        if (isContext()) {
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_context_scenes)
+                    + " · " + loadedData.scenes.size(),
+                scenePreview(),
+                () -> openDetailLayer(LAYER_SCENES)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_context_primary)
+                    + " · " + loadedData.aggregate.primaryCharacters.size(),
+                aggregateCharacterPreview(loadedData.aggregate.primaryCharacters),
+                () -> openDetailLayer(LAYER_CHARACTERS)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_context_secondary)
+                    + " · " + loadedData.aggregate.secondaryCharacters.size(),
+                aggregateCharacterPreview(loadedData.aggregate.secondaryCharacters),
+                () -> openDetailLayer(LAYER_CHARACTERS)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_context_terms)
+                    + " · " + loadedData.aggregate.terms.size(),
+                aggregateTermPreview(),
+                () -> openDetailLayer(LAYER_TERMS)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.context_detail_manual_descriptions),
+                manualDescriptionPreview(),
+                () -> openDetailLayer(LAYER_MANUAL)
+            );
+        } else {
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_group_contexts)
+                    + " · " + loadedData.members.size(),
+                memberPreview(),
+                () -> openDetailLayer(LAYER_MEMBERS)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_group_scenes)
+                    + " · " + loadedData.scenes.size(),
+                scenePreview(),
+                () -> openDetailLayer(LAYER_SCENES)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_context_primary)
+                    + " · " + loadedData.aggregate.primaryCharacters.size(),
+                aggregateCharacterPreview(loadedData.aggregate.primaryCharacters),
+                () -> openDetailLayer(LAYER_CHARACTERS)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_context_secondary)
+                    + " · " + loadedData.aggregate.secondaryCharacters.size(),
+                aggregateCharacterPreview(loadedData.aggregate.secondaryCharacters),
+                () -> openDetailLayer(LAYER_CHARACTERS)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.detail_proto_context_terms)
+                    + " · " + loadedData.aggregate.terms.size(),
+                aggregateTermPreview(),
+                () -> openDetailLayer(LAYER_TERMS)
+            );
+        }
+
+        setPendingMoveBusy(pendingMoveBusy);
+    }
+
+    private void addPrototypeHeading(String title, String kindLabel) {
+        LinearLayout heading = new LinearLayout(this);
+        heading.setOrientation(LinearLayout.HORIZONTAL);
+        heading.setGravity(Gravity.TOP);
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        addPrototypeText(
+            copy,
+            title,
+            R.style.TextAppearance_HET_DetailPrototype_Heading,
+            0,
+            2
+        );
+        addPrototypeText(
+            copy,
+            kindLabel,
+            R.style.TextAppearance_HET_DetailPrototype_Kind,
+            0,
+            0
+        );
+        heading.addView(copy, new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        ));
+        MaterialButton edit = prototypeButton(
+            getString(R.string.detail_proto_context_edit,
+                getString(isContext()
+                    ? R.string.context_detail_context_title
+                    : R.string.context_detail_group_title)),
+            false
+        );
+        edit.setOnClickListener(view -> openEditor());
+        editAction = edit;
+        addPageAction(edit, wrapButtonParams(0));
+        if (!stylePreview) {
+            MaterialButton move = prototypeButton(
+                getString(R.string.detail_proto_context_move),
+                true
+            );
+            move.setOnClickListener(view -> moveCurrentToPending());
+            moveAction = move;
+            addPageAction(move, wrapButtonParams(0));
+        } else {
+            moveAction = null;
+        }
+        content.addView(heading, fullWidthParams(10));
+    }
+
+    private void addPrototypeMetaCell(
+        LinearLayout row,
+        String label,
+        String value,
+        boolean first
+    ) {
+        MaterialCardView card = prototypeCard(0);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeText(
+            body,
+            label,
+            R.style.TextAppearance_HET_DetailPrototype_MetaLabel,
+            0,
+            2
+        );
+        addPrototypeText(
+            body,
+            emptyFallback(value),
+            R.style.TextAppearance_HET_DetailPrototype_MetaValue,
+            0,
+            0
+        );
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        );
+        if (!first) {
+            params.leftMargin = dp(8);
+        }
+        row.addView(card, params);
+    }
+
+    private void addPrototypeMetaCell(
+        LinearLayout parent,
+        String label,
+        String value
+    ) {
+        MaterialCardView card = prototypeCard(0);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeText(
+            body,
+            label,
+            R.style.TextAppearance_HET_DetailPrototype_MetaLabel,
+            0,
+            2
+        );
+        addPrototypeText(
+            body,
+            emptyFallback(value),
+            R.style.TextAppearance_HET_DetailPrototype_MetaValue,
+            0,
+            0
+        );
+        parent.addView(card, fullWidthParams(8));
+    }
+
+    private void addPrototypeClosureCard() {
+        MaterialCardView card = prototypeCard(8);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeText(
+            body,
+            getString(R.string.detail_proto_context_manual_closure),
+            R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+            0,
+            3
+        );
+        String statusText;
+        if (closureState == null) {
+            statusText = getString(R.string.detail_proto_context_closure_unknown);
+        } else if (closureState.isOpen()) {
+            statusText = getString(R.string.detail_proto_context_closure_open);
+        } else if (closureState.isClosed()) {
+            statusText = getString(R.string.detail_proto_context_closure_closed);
+        } else {
+            statusText = getString(R.string.detail_proto_context_closure_none);
+        }
+        addPrototypeText(
+            body,
+            statusText,
+            R.style.TextAppearance_HET_DetailPrototype_CardPreview,
+            0,
+            5
+        );
+        MaterialButton manage = prototypeButton(
+            getString(R.string.detail_proto_context_closure_manage),
+            false
+        );
+        manage.setOnClickListener(view -> openEditor());
+        body.addView(manage, fullWidthButtonParams(0));
+        content.addView(card);
+    }
+
+    private void renderPrototypeLayer() {
+        String label;
+        if (LAYER_SCENES.equals(detailLayer)) {
+            label = getString(R.string.detail_proto_scene_kind);
+        } else if (LAYER_MEMBERS.equals(detailLayer)) {
+            label = getString(R.string.detail_proto_context_kind);
+        } else if (LAYER_CHARACTERS.equals(detailLayer)) {
+            label = getString(R.string.detail_proto_characters);
+        } else if (LAYER_TERMS.equals(detailLayer)) {
+            label = getString(R.string.detail_proto_context_terms);
+        } else if (LAYER_SUMMARIES.equals(detailLayer)) {
+            label = getString(R.string.detail_proto_context_summary);
+        } else if (LAYER_MANUAL.equals(detailLayer)) {
+            label = getString(R.string.context_detail_manual_descriptions);
+        } else {
+            label = getString(R.string.context_detail_relations);
+        }
+        addPrototypeHeading(
+            loadedData.document.optString("display_name", "") + " · " + label,
+            getString(R.string.detail_proto_context_layer_description)
+        );
+        if (loadedData.aggregate.missingSceneCount > 0) {
+            addNotice(getString(
+                R.string.context_detail_missing_scenes,
+                loadedData.aggregate.missingSceneCount
+            ));
+        }
+        if (LAYER_SCENES.equals(detailLayer)) {
+            renderPrototypeScenes(content);
+        } else if (LAYER_MEMBERS.equals(detailLayer)) {
+            renderPrototypeMembers(content);
+        } else if (LAYER_CHARACTERS.equals(detailLayer)) {
+            renderPrototypeCharacters(content);
+        } else if (LAYER_TERMS.equals(detailLayer)) {
+            renderPrototypeTerms(content);
+        } else if (LAYER_SUMMARIES.equals(detailLayer)) {
+            renderPrototypeSummaries(content);
+        } else if (LAYER_MANUAL.equals(detailLayer)) {
+            renderPrototypeManual(content);
+        } else {
+            renderPrototypeRelations(content);
+        }
+    }
+
+    private void renderPrototypeScenes(LinearLayout parent) {
+        if (loadedData.scenes.isEmpty()) {
+            addPrototypeEmpty(parent);
+            return;
+        }
+        for (SceneLink scene : loadedData.scenes) {
+            addPrototypeLinkRow(
+                parent,
+                scene.sceneName,
+                getString(scene.available
+                    ? R.string.context_detail_scenes
+                    : R.string.context_detail_unavailable_scene),
+                scene.available ? () -> openScene(scene.sceneName) : null,
+                scene.available
+            );
+        }
+    }
+
+    private void renderPrototypeMembers(LinearLayout parent) {
+        if (loadedData.members.isEmpty()) {
+            addPrototypeEmpty(parent);
+            return;
+        }
+        for (ContextMember member : loadedData.members) {
+            addPrototypeLinkRow(
+                parent,
+                member.displayName,
+                getString(R.string.context_detail_members),
+                member.available
+                    ? () -> openDetail(KIND_CONTEXT, member.id)
+                    : null,
+                member.available
+            );
+        }
+    }
+
+    private void renderPrototypeRelations(LinearLayout parent) {
+        addPrototypeSectionHeading(parent, getString(
+            R.string.context_detail_scenes_count,
+            loadedData.scenes.size()
+        ));
+        renderPrototypeScenes(parent);
+        if (isContext()) {
+            addPrototypeSectionHeading(parent, getString(
+                R.string.context_detail_groups_count,
+                loadedData.groups.size()
+            ));
+            if (loadedData.groups.isEmpty()) {
+                addPrototypeEmpty(parent);
+            } else {
+                for (GroupLink group : loadedData.groups) {
+                    addPrototypeLinkRow(
+                        parent,
+                        group.displayName,
+                        getString(R.string.context_detail_groups),
+                        () -> openDetail(KIND_GROUP, group.id),
+                        true
+                    );
+                }
+            }
+        } else {
+            addPrototypeSectionHeading(parent, getString(
+                R.string.context_detail_members_count,
+                loadedData.members.size()
+            ));
+            renderPrototypeMembers(parent);
+        }
+    }
+
+    private void renderPrototypeCharacters(LinearLayout parent) {
+        addPrototypeSectionHeading(parent, getString(
+            R.string.context_detail_primary_characters_count,
+            loadedData.aggregate.primaryCharacters.size()
+        ));
+        renderPrototypeAggregateCharacters(
+            parent,
+            loadedData.aggregate.primaryCharacters
+        );
+        addPrototypeSectionHeading(parent, getString(
+            R.string.context_detail_secondary_characters_count,
+            loadedData.aggregate.secondaryCharacters.size()
+        ));
+        renderPrototypeAggregateCharacters(
+            parent,
+            loadedData.aggregate.secondaryCharacters
+        );
+    }
+
+    private void renderPrototypeAggregateCharacters(
+        LinearLayout parent,
+        List<AggregateCharacter> entries
+    ) {
+        if (entries.isEmpty()) {
+            addPrototypeEmpty(parent);
+            return;
+        }
+        for (AggregateCharacter aggregate : entries) {
+            String title;
+            String role;
+            String sourceName;
+            if (aggregate.entry instanceof SceneManagementDetailData.CharacterEntry) {
+                SceneManagementDetailData.CharacterEntry entry =
+                    (SceneManagementDetailData.CharacterEntry) aggregate.entry;
+                title = displayCharacterName(entry);
+                role = entry.role;
+                sourceName = entry.name;
+            } else {
+                SceneManagementDetailData.MentionedCharacterEntry entry =
+                    (SceneManagementDetailData.MentionedCharacterEntry)
+                        aggregate.entry;
+                title = displayMentionedName(entry);
+                role = "mentioned";
+                sourceName = entry.name;
+            }
+            addPrototypeLinkRow(
+                parent,
+                title,
+                aggregate.sceneName,
+                () -> openSceneCharacter(aggregate.sceneName, role, sourceName),
                 true
             );
         }
-        addDisclosure(
-            "aggregate-primary",
-            getString(R.string.context_detail_primary_characters),
-            getString(
-                R.string.context_detail_primary_characters_count,
-                loadedData.aggregate.primaryCharacters.size()
-            ),
-            false,
-            this::renderPrimaryCharacters
-        );
-        addDisclosure(
-            "aggregate-secondary",
-            getString(R.string.context_detail_secondary_characters),
-            getString(
-                R.string.context_detail_secondary_characters_count,
-                loadedData.aggregate.secondaryCharacters.size()
-            ),
-            false,
-            this::renderSecondaryCharacters
-        );
-        addDisclosure(
-            "aggregate-terms",
-            getString(R.string.context_detail_terms),
-            getString(
-                R.string.context_detail_terms_count,
-                loadedData.aggregate.terms.size()
-            ),
-            false,
-            this::renderAggregateTerms
-        );
-        addDisclosure(
-            "summaries",
-            getString(R.string.context_detail_summaries),
-            getString(
-                R.string.context_detail_summary_count,
-                languageObjectCount(loadedData.document.optJSONObject("summary"))
-            ),
-            false,
-            body -> renderSummaries(body, loadedData.document.optJSONObject("summary"))
-        );
-        if (isContext()) {
-            addDisclosure(
-                "manual",
-                getString(R.string.context_detail_manual_descriptions),
-                getString(
-                    R.string.context_detail_manual_description_count,
-                    languageObjectCount(
-                        loadedData.document.optJSONObject("manual_descriptions")
-                    )
-                ),
-                false,
-                body -> renderManualDescriptions(
-                    body,
-                    loadedData.document.optJSONObject("manual_descriptions")
-                )
+    }
+
+    private void renderPrototypeTerms(LinearLayout parent) {
+        if (loadedData.aggregate.terms.isEmpty()) {
+            addPrototypeEmpty(parent);
+            return;
+        }
+        for (AggregateTerm aggregate : loadedData.aggregate.terms) {
+            addPrototypeLinkRow(
+                parent,
+                SceneManagementDetailData.displayTermName(aggregate.entry),
+                aggregate.sceneName,
+                () -> openSceneTerm(aggregate.sceneName, aggregate.entry.term),
+                true
             );
         }
-        restoreScrollIfNeeded();
+    }
+
+    private void renderPrototypeSummaries(LinearLayout parent) {
+        JSONObject summaries = loadedData.document.optJSONObject("summary");
+        if (languageKeys(summaries).isEmpty()) {
+            addPrototypeEmpty(parent);
+            return;
+        }
+        MaterialCardView card = prototypeCard(0);
+        LinearLayout body = prototypeCardBody(card);
+        renderSummaries(body, summaries);
+        parent.addView(card);
+    }
+
+    private void renderPrototypeManual(LinearLayout parent) {
+        JSONObject descriptions = loadedData.document.optJSONObject(
+            "manual_descriptions"
+        );
+        if (languageKeys(descriptions).isEmpty()) {
+            addPrototypeEmpty(parent);
+            return;
+        }
+        MaterialCardView card = prototypeCard(0);
+        LinearLayout body = prototypeCardBody(card);
+        renderManualDescriptions(body, descriptions);
+        parent.addView(card);
+    }
+
+    private void addPrototypeSummaryCard(
+        String title,
+        String preview,
+        Runnable action
+    ) {
+        MaterialCardView card = prototypeCard(8);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(view -> action.run());
+        LinearLayout body = prototypeCardBody(card);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView titleView = prototypeTextView(
+            title,
+            R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+            false
+        );
+        titleView.setSingleLine(true);
+        titleView.setMaxLines(1);
+        titleView.setEllipsize(TextUtils.TruncateAt.END);
+        titleView.setTextSize(12);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
+        copy.addView(titleView, fullWidthParams(3));
+        TextView previewView = prototypeTextView(
+            emptyFallback(trimPreview(preview)),
+            R.style.TextAppearance_HET_DetailPrototype_CardPreview,
+            false
+        );
+        previewView.setSingleLine(true);
+        previewView.setMaxLines(1);
+        previewView.setEllipsize(TextUtils.TruncateAt.END);
+        previewView.setTextSize(13);
+        previewView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        copy.addView(previewView, fullWidthParams(0));
+        row.addView(copy, new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        ));
+        TextView arrow = prototypeTextView(
+            "›",
+            R.style.TextAppearance_HET_DetailPrototype_MetaLabel,
+            false
+        );
+        arrow.setTextSize(24);
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LinearLayout.LayoutParams(dp(20), dp(28)));
+        body.addView(row, fullWidthParams(0));
+        content.addView(card);
+    }
+
+    private void addPrototypeLinkRow(
+        LinearLayout parent,
+        String title,
+        String subtitle,
+        Runnable action,
+        boolean enabled
+    ) {
+        MaterialCardView card = prototypeCard(6);
+        card.setEnabled(enabled);
+        card.setAlpha(enabled ? 1.0f : 0.65f);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeText(
+            body,
+            title,
+            R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+            0,
+            2,
+            false
+        );
+        addPrototypeText(
+            body,
+            subtitle,
+            R.style.TextAppearance_HET_DetailPrototype_CardPreview,
+            0,
+            0,
+            false
+        );
+        if (action != null) {
+            card.setClickable(true);
+            card.setOnClickListener(view -> action.run());
+        }
+        parent.addView(card);
+    }
+
+    private void addPrototypeSectionHeading(LinearLayout parent, String text) {
+        addPrototypeText(
+            parent,
+            text,
+            R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+            2,
+            4
+        );
+    }
+
+    private void addPrototypeEmpty(LinearLayout parent) {
+        addPrototypeText(
+            parent,
+            getString(R.string.detail_proto_context_no_preview),
+            R.style.TextAppearance_HET_DetailPrototype_Metadata,
+            0,
+            6
+        );
+    }
+
+    private void openDetailLayer(String nextLayer) {
+        if (nextLayer == null || loadedData == null) {
+            return;
+        }
+        rememberScroll();
+        detailLayer = normalizeDetailLayer(nextLayer);
+        if (scrollView != null) {
+            scrollView.scrollTo(0, 0);
+        }
+        renderDocument();
+    }
+
+    private void moveCurrentToPending() {
+        if (stylePreview
+            || !editingAllowed
+            || loadedData == null
+            || pendingMoveBusy) {
+            return;
+        }
+        if (pendingMoveController == null) {
+            pendingMoveController = new PendingProcessMoveController(this);
+        }
+        setPendingMoveBusy(true);
+        pendingMoveController.confirmMove(
+            isContext() ? KIND_CONTEXT : KIND_GROUP,
+            objectId,
+            objectId,
+            () -> {
+                setResult(RESULT_OK);
+                finish();
+            },
+            () -> setPendingMoveBusy(false)
+        );
+    }
+
+    private String groupPreview() {
+        if (loadedData.groups.isEmpty()) {
+            return getString(R.string.detail_proto_context_no_preview);
+        }
+        List<String> names = new ArrayList<>();
+        for (GroupLink group : loadedData.groups) {
+            if (group != null && !group.displayName.isEmpty()) {
+                names.add(group.displayName);
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_context_no_preview)
+            : TextUtils.join("、", names);
+    }
+
+    private String memberPreview() {
+        if (loadedData.members.isEmpty()) {
+            return getString(R.string.detail_proto_context_no_preview);
+        }
+        List<String> names = new ArrayList<>();
+        for (ContextMember member : loadedData.members) {
+            if (member != null && !member.displayName.isEmpty()) {
+                names.add(member.displayName);
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_context_no_preview)
+            : TextUtils.join("、", names);
+    }
+
+    private String scenePreview() {
+        if (loadedData.scenes.isEmpty()) {
+            return getString(R.string.detail_proto_context_no_preview);
+        }
+        List<String> names = new ArrayList<>();
+        for (SceneLink scene : loadedData.scenes) {
+            if (scene != null && !scene.sceneName.isEmpty()) {
+                names.add(scene.sceneName);
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_context_no_preview)
+            : TextUtils.join("、", names);
+    }
+
+    private String aggregateCharacterPreview(List<AggregateCharacter> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return getString(R.string.detail_proto_context_no_preview);
+        }
+        List<String> names = new ArrayList<>();
+        for (AggregateCharacter aggregate : entries) {
+            if (aggregate == null || aggregate.entry == null) {
+                continue;
+            }
+            String name;
+            if (aggregate.entry instanceof SceneManagementDetailData.CharacterEntry) {
+                name = displayCharacterName(
+                    (SceneManagementDetailData.CharacterEntry) aggregate.entry
+                );
+            } else {
+                name = displayMentionedName(
+                    (SceneManagementDetailData.MentionedCharacterEntry)
+                        aggregate.entry
+                );
+            }
+            if (!name.isEmpty()) {
+                names.add(name);
+            }
+            if (names.size() >= 5) {
+                break;
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_context_no_preview)
+            : TextUtils.join("、", names);
+    }
+
+    private String aggregateTermPreview() {
+        if (loadedData.aggregate.terms.isEmpty()) {
+            return getString(R.string.detail_proto_context_no_preview);
+        }
+        List<String> names = new ArrayList<>();
+        for (AggregateTerm aggregate : loadedData.aggregate.terms) {
+            if (aggregate != null && aggregate.entry != null) {
+                names.add(SceneManagementDetailData.displayTermName(
+                    aggregate.entry
+                ));
+            }
+            if (names.size() >= 5) {
+                break;
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_context_no_preview)
+            : TextUtils.join("、", names);
+    }
+
+    private String summaryPreview() {
+        JSONObject summaries = loadedData.document.optJSONObject("summary");
+        for (String language : languageKeys(summaries)) {
+            JSONObject record = summaries.optJSONObject(language);
+            String text = summaryRecordText(record);
+            if (!text.isEmpty()) {
+                return text;
+            }
+        }
+        return getString(R.string.detail_proto_context_no_preview);
+    }
+
+    private String manualDescriptionPreview() {
+        JSONObject descriptions = loadedData.document.optJSONObject(
+            "manual_descriptions"
+        );
+        for (String language : languageKeys(descriptions)) {
+            JSONObject record = descriptions.optJSONObject(language);
+            String text = record == null ? "" : record.optString("text", "");
+            if (!text.trim().isEmpty()) {
+                return text;
+            }
+        }
+        return getString(R.string.detail_proto_context_no_preview);
+    }
+
+    private String summaryLanguageText() {
+        Set<String> languages = new LinkedHashSet<>();
+        languages.addAll(languageKeys(
+            loadedData.document.optJSONObject("summary")
+        ));
+        if (languages.isEmpty()) {
+            return getString(R.string.detail_proto_context_no_preview);
+        }
+        List<String> labels = new ArrayList<>();
+        for (String language : languages) {
+            labels.add(languageName(language));
+        }
+        return TextUtils.join("、", labels);
+    }
+
+    private String summaryRecordText(JSONObject record) {
+        if (record == null) {
+            return "";
+        }
+        String[] fields = new String[] {"final", "current", "manual"};
+        for (String field : fields) {
+            JSONObject nested = record.optJSONObject(field);
+            if (nested != null) {
+                String text = nested.optString("text", "").trim();
+                if (!text.isEmpty()) {
+                    return text;
+                }
+            }
+        }
+        return record.optString("text", "").trim();
+    }
+
+    private String trimPreview(String value) {
+        String text = value == null ? "" : value.trim().replace('\n', ' ');
+        if (text.length() <= 120) {
+            return text;
+        }
+        return text.substring(0, 117) + "…";
+    }
+
+    private String emptyFallback(String value) {
+        return value == null || value.trim().isEmpty()
+            ? getString(R.string.context_detail_empty_value)
+            : value;
+    }
+
+    private String firstNonEmpty(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private MaterialCardView prototypeCard(int bottomMargin) {
+        MaterialCardView card = new MaterialCardView(
+            new ContextThemeWrapper(this, R.style.Widget_HET_DetailCard)
+        );
+        card.setCardElevation(0);
+        card.setRadius(dp(14));
+        card.setCardBackgroundColor(ContextCompat.getColor(
+            this,
+            R.color.het_surface_container
+        ));
+        card.setStrokeWidth(0);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(11), dp(10), dp(11), dp(10));
+        card.addView(body);
+        card.setTag(body);
+        card.setLayoutParams(fullWidthParams(bottomMargin));
+        return card;
+    }
+
+    private LinearLayout prototypeCardBody(MaterialCardView card) {
+        return (LinearLayout) card.getTag();
+    }
+
+    private TextView prototypeTextView(String value, int style) {
+        return prototypeTextView(value, style, true);
+    }
+
+    private TextView prototypeTextView(
+        String value,
+        int style,
+        boolean selectable
+    ) {
+        TextView text = new TextView(this);
+        text.setTextAppearance(this, style);
+        text.setText(value == null ? "" : value);
+        text.setTextIsSelectable(selectable);
+        return text;
+    }
+
+    private void addPrototypeText(
+        View parent,
+        String value,
+        int style,
+        int topMargin,
+        int bottomMargin
+    ) {
+        addPrototypeText(
+            parent,
+            value,
+            style,
+            topMargin,
+            bottomMargin,
+            true
+        );
+    }
+
+    private void addPrototypeText(
+        View parent,
+        String value,
+        int style,
+        int topMargin,
+        int bottomMargin,
+        boolean selectable
+    ) {
+        LinearLayout column = parent instanceof MaterialCardView
+            ? prototypeCardBody((MaterialCardView) parent)
+            : (LinearLayout) parent;
+        TextView text = prototypeTextView(value, style, selectable);
+        LinearLayout.LayoutParams params = fullWidthParams(bottomMargin);
+        params.topMargin = dp(topMargin);
+        column.addView(text, params);
+    }
+
+    private MaterialButton prototypeButton(String value, boolean danger) {
+        MaterialButton button = new MaterialButton(
+            new ContextThemeWrapper(
+                this,
+                danger
+                    ? R.style.Widget_HET_DetailPrototype_Button_Danger
+                    : R.style.Widget_HET_DetailPrototype_Button
+            )
+        );
+        button.setText(value);
+        button.setAllCaps(false);
+        button.setTextSize(13);
+        button.setMinWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setPadding(dp(12), 0, dp(12), 0);
+        button.setCornerRadius(dp(17));
+        if (danger) {
+            button.setBackgroundTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.het_error)
+            ));
+            button.setTextColor(ContextCompat.getColor(
+                this,
+                R.color.het_on_error
+            ));
+            button.setStrokeWidth(0);
+        } else {
+            button.setBackgroundTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(
+                    this,
+                    R.color.het_surface_container_high
+                )
+            ));
+            button.setTextColor(ContextCompat.getColor(
+                this,
+                R.color.het_on_surface
+            ));
+            button.setStrokeWidth(dp(1));
+            button.setStrokeColor(ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.het_outline_soft)
+            ));
+        }
+        return button;
+    }
+
+    private LinearLayout.LayoutParams fullWidthParams(int bottomMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.bottomMargin = dp(bottomMargin);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams wrapButtonParams(int bottomMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            dp(34)
+        );
+        params.gravity = Gravity.END;
+        params.bottomMargin = dp(bottomMargin);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams fullWidthButtonParams(int bottomMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(34)
+        );
+        params.bottomMargin = dp(bottomMargin);
+        return params;
     }
 
     private void renderGroupSceneList() {
@@ -868,15 +1865,6 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         restoreScrollIfNeeded();
     }
 
-    private void showGroupSceneList() {
-        if (loadedData == null || isContext()) {
-            return;
-        }
-        rememberScroll();
-        showingGroupSceneList = true;
-        renderDocument();
-    }
-
     private void showGroupDetailLayer() {
         if (!showingGroupSceneList) {
             finish();
@@ -912,41 +1900,10 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         return false;
     }
 
-    private void addOverview() {
-        JSONObject document = loadedData.document;
-        MaterialCardView card = cardColumn();
-        addText(
-            card,
-            document.optString("display_name", ""),
-            20,
-            true
-        );
-        addText(
-            card,
-            getString(
-                R.string.context_detail_record,
-                getString(isContext()
-                    ? R.string.context_detail_context_title
-                    : R.string.context_detail_group_title)
-            ),
-            12,
-            false
-        );
-        boolean active = isContext()
-            ? objectId.equals(loadedData.activeContextId)
-            : objectId.equals(loadedData.activeGroupId);
-        if (active) {
-            addToneText(
-                card,
-                getString(R.string.context_detail_active),
-                R.color.het_good_container,
-                R.color.het_good
-            );
-        }
-        content.addView(card);
-    }
-
     private void addEditButton(boolean enabled) {
+        if (stylePreview) {
+            return;
+        }
         MaterialButton button = new MaterialButton(this);
         editAction = button;
         button.setText(isContext()
@@ -955,10 +1912,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         button.setAllCaps(false);
         button.setEnabled(enabled && !pendingMoveBusy);
         button.setOnClickListener(view -> openEditor());
-        content.addView(button, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        addPageAction(button, wrapButtonParams(0));
         moveAction = new MaterialButton(this);
         moveAction.setText(R.string.pending_process_move);
         moveAction.setAllCaps(false);
@@ -975,262 +1929,35 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                 () -> { setResult(RESULT_OK); finish(); },
                 () -> setPendingMoveBusy(false));
         });
-        content.addView(moveAction, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        addPageAction(moveAction, wrapButtonParams(0));
     }
 
     private void setPendingMoveBusy(boolean busy) {
         pendingMoveBusy = busy;
-        boolean enabled = !busy && editingAllowed && loadedData != null;
+        boolean enabled = !busy
+            && loadedData != null
+            && (editingAllowed || stylePreview);
         if (editAction != null) editAction.setEnabled(enabled);
         if (moveAction != null) moveAction.setEnabled(enabled);
     }
 
     private void openEditor() {
+        if (stylePreview) {
+            startActivity(StylePreview.intentFor(
+                this,
+                isContext()
+                    ? StylePreview.KIND_CONTEXT_EDITOR
+                    : StylePreview.KIND_GROUP_EDITOR
+            ));
+            return;
+        }
         if (loadedData == null || !editingAllowed || !isSupportedRequest() || pendingMoveBusy) {
             return;
         }
-        Intent intent = new Intent(this, SceneContextActivity.class);
-        intent.putExtra(
-            isContext()
-                ? SceneContextActivity.EXTRA_MANAGEMENT_CONTEXT_ID
-                : SceneContextActivity.EXTRA_MANAGEMENT_GROUP_ID,
-            objectId
-        );
+        Intent intent = new Intent(this, ContextGroupEditorActivity.class);
+        intent.putExtra(ContextGroupEditorActivity.EXTRA_KIND, kind);
+        intent.putExtra(ContextGroupEditorActivity.EXTRA_ID, objectId);
         startActivity(intent);
-    }
-
-    private void addDisclosure(
-        String key,
-        String title,
-        String count,
-        boolean defaultExpanded,
-        BodyRenderer renderer
-    ) {
-        MaterialCardView card = cardColumn();
-        LinearLayout column = (LinearLayout) card.getTag();
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(16), dp(8), dp(12), dp(8));
-        TextView titleView = new TextView(this);
-        titleView.setTextAppearance(this, R.style.Widget_HET_SectionTitle);
-        titleView.setText(title);
-        header.addView(titleView, new LinearLayout.LayoutParams(
-            0,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            1
-        ));
-        TextView countView = new TextView(this);
-        countView.setTextAppearance(this, R.style.Widget_HET_SectionArrow);
-        countView.setText(count);
-        header.addView(countView);
-        TextView arrow = new TextView(this);
-        arrow.setTextAppearance(this, R.style.Widget_HET_SectionArrow);
-        header.addView(arrow, new LinearLayout.LayoutParams(
-            dp(32),
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        LinearLayout body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(16), 0, dp(16), dp(12));
-        renderer.render(body);
-        boolean expanded = expandedSections.contains(key) || defaultExpanded;
-        body.setVisibility(expanded ? View.VISIBLE : View.GONE);
-        arrow.setText(expanded
-            ? R.string.array_indicator_expanded
-            : R.string.array_indicator_collapsed);
-        header.setContentDescription(getString(
-            expanded
-                ? R.string.context_detail_collapse
-                : R.string.context_detail_expand,
-            title
-        ));
-        header.setOnClickListener(view -> {
-            boolean next = body.getVisibility() != View.VISIBLE;
-            body.setVisibility(next ? View.VISIBLE : View.GONE);
-            arrow.setText(next
-                ? R.string.array_indicator_expanded
-                : R.string.array_indicator_collapsed);
-            header.setContentDescription(getString(
-                next
-                    ? R.string.context_detail_collapse
-                    : R.string.context_detail_expand,
-                title
-            ));
-            if (next) {
-                expandedSections.add(key);
-            } else {
-                expandedSections.remove(key);
-            }
-        });
-        column.setPadding(0, 0, 0, 0);
-        column.addView(header);
-        column.addView(body);
-        content.addView(card);
-    }
-
-    private void renderContextRelations(LinearLayout body) {
-        addSectionHeading(body, getString(
-            R.string.context_detail_scenes_count,
-            loadedData.scenes.size()
-        ));
-        if (loadedData.scenes.isEmpty()) {
-            addText(body, getString(R.string.context_detail_no_entries), 14, false);
-        } else {
-            for (SceneLink scene : loadedData.scenes) {
-                addLinkRow(
-                    body,
-                    scene.sceneName,
-                    getString(scene.available
-                        ? R.string.context_detail_scenes
-                        : R.string.context_detail_unavailable_scene),
-                    scene.available
-                        ? () -> openScene(scene.sceneName)
-                        : null,
-                    scene.available
-                );
-            }
-        }
-
-        addSectionHeading(body, getString(
-            R.string.context_detail_groups_count,
-            loadedData.groups.size()
-        ));
-        if (loadedData.groups.isEmpty()) {
-            addText(body, getString(R.string.context_detail_no_entries), 14, false);
-        } else {
-            for (GroupLink group : loadedData.groups) {
-                addLinkRow(
-                    body,
-                    group.displayName,
-                    getString(R.string.context_detail_groups),
-                    () -> openDetail(KIND_GROUP, group.id),
-                    true
-                );
-            }
-        }
-    }
-
-    private void renderGroupMembers(LinearLayout body) {
-        if (loadedData.members.isEmpty()) {
-            addText(body, getString(R.string.context_detail_no_entries), 14, false);
-            return;
-        }
-        for (ContextMember member : loadedData.members) {
-            addLinkRow(
-                body,
-                member.displayName,
-                getString(R.string.context_detail_members),
-                member.available
-                    ? () -> openDetail(KIND_CONTEXT, member.id)
-                    : null,
-                member.available
-            );
-        }
-    }
-
-    private void renderPrimaryCharacters(LinearLayout body) {
-        addAggregateHint(body);
-        renderAggregateCharacters(body, loadedData.aggregate.primaryCharacters);
-    }
-
-    private void renderSecondaryCharacters(LinearLayout body) {
-        addAggregateHint(body);
-        renderAggregateCharacters(body, loadedData.aggregate.secondaryCharacters);
-    }
-
-    private void renderAggregateCharacters(
-        LinearLayout body,
-        List<AggregateCharacter> entries
-    ) {
-        if (entries.isEmpty()) {
-            addText(body, getString(R.string.context_detail_no_entries), 14, false);
-            return;
-        }
-        for (AggregateCharacter aggregate : entries) {
-            String title;
-            String subtitle;
-            String role;
-            if (aggregate.entry instanceof SceneManagementDetailData.CharacterEntry) {
-                SceneManagementDetailData.CharacterEntry entry =
-                    (SceneManagementDetailData.CharacterEntry) aggregate.entry;
-                title = displayCharacterName(entry);
-                subtitle = getString(
-                    entry.temporary
-                        ? R.string.scene_detail_temporary_character
-                        : R.string.scene_detail_dictionary_character,
-                    entry.name
-                );
-                role = entry.role;
-            } else {
-                SceneManagementDetailData.MentionedCharacterEntry entry =
-                    (SceneManagementDetailData.MentionedCharacterEntry)
-                        aggregate.entry;
-                title = displayMentionedName(entry);
-                subtitle = getString(
-                    entry.temporary
-                        ? R.string.scene_detail_temporary_character
-                        : R.string.scene_detail_dictionary_character,
-                    entry.name
-                );
-                role = "mentioned";
-            }
-            addLinkRow(
-                body,
-                title,
-                subtitle + " · " + aggregate.sceneName,
-                () -> openSceneCharacter(
-                    aggregate.sceneName,
-                    role,
-                    aggregate.entry instanceof SceneManagementDetailData.CharacterEntry
-                        ? ((SceneManagementDetailData.CharacterEntry)
-                            aggregate.entry).name
-                        : ((SceneManagementDetailData.MentionedCharacterEntry)
-                            aggregate.entry).name
-                ),
-                true
-            );
-        }
-    }
-
-    private void renderAggregateTerms(LinearLayout body) {
-        addAggregateHint(body);
-        if (loadedData.aggregate.terms.isEmpty()) {
-            addText(body, getString(R.string.context_detail_no_entries), 14, false);
-            return;
-        }
-        for (AggregateTerm aggregate : loadedData.aggregate.terms) {
-            SceneManagementDetailData.TermEntry entry = aggregate.entry;
-            addLinkRow(
-                body,
-                SceneManagementDetailData.displayTermName(entry),
-                getString(
-                    entry.temporary
-                        ? R.string.scene_detail_temporary_term
-                        : R.string.scene_detail_dictionary_term,
-                    entry.term
-                ) + " · " + aggregate.sceneName,
-                () -> openSceneTerm(aggregate.sceneName, entry.term),
-                true
-            );
-        }
-    }
-
-    private void addAggregateHint(LinearLayout body) {
-        int available = 0;
-        for (SceneLink scene : loadedData.scenes) {
-            if (scene.available) {
-                available++;
-            }
-        }
-        addText(
-            body,
-            getString(R.string.context_detail_aggregate_scene_hint, available),
-            12,
-            false
-        );
     }
 
     private String displayCharacterName(
@@ -1344,22 +2071,14 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         boolean enabled
     ) {
         MaterialCardView card = cardColumn();
-        addText(card, title, 16, true);
-        addText(card, subtitle, 12, false);
+        addText(card, title, 16, true, false);
+        addText(card, subtitle, 12, false, false);
         card.setEnabled(enabled);
         card.setAlpha(enabled ? 1.0f : 0.65f);
         if (action != null) {
             card.setOnClickListener(view -> action.run());
         }
         parent.addView(card);
-    }
-
-    private void addSectionHeading(LinearLayout parent, String text) {
-        TextView heading = new TextView(this);
-        heading.setTextAppearance(this, R.style.Widget_HET_SectionTitle);
-        heading.setText(text);
-        heading.setPadding(0, dp(8), 0, dp(4));
-        parent.addView(heading);
     }
 
     private void addNotice(String text) {
@@ -1369,7 +2088,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             com.google.android.material.R.style.TextAppearance_MaterialComponents_Body2
         );
         notice.setText(text);
-        notice.setTextSize(12);
+        notice.setTextSize(14);
         notice.setTextColor(ContextCompat.getColor(this, R.color.het_warning));
         GradientDrawable background = new GradientDrawable();
         background.setColor(ContextCompat.getColor(
@@ -1385,32 +2104,6 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         );
         params.bottomMargin = dp(8);
         content.addView(notice, params);
-    }
-
-    private void addToneText(
-        View parent,
-        String text,
-        int backgroundColor,
-        int foregroundColor
-    ) {
-        LinearLayout column = parent instanceof MaterialCardView
-            ? (LinearLayout) parent.getTag()
-            : (LinearLayout) parent;
-        TextView value = new TextView(this);
-        value.setTextAppearance(
-            this,
-            com.google.android.material.R.style.TextAppearance_MaterialComponents_Body2
-        );
-        value.setText(text);
-        value.setTextSize(12);
-        value.setTypeface(value.getTypeface(), android.graphics.Typeface.BOLD);
-        value.setTextColor(ContextCompat.getColor(this, foregroundColor));
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(ContextCompat.getColor(this, backgroundColor));
-        background.setCornerRadius(dp(10));
-        value.setBackground(background);
-        value.setPadding(dp(10), dp(6), dp(10), dp(6));
-        column.addView(value);
     }
 
     private MaterialCardView cardColumn() {
@@ -1476,6 +2169,16 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         int sizeSp,
         boolean bold
     ) {
+        addText(parent, text, sizeSp, bold, true);
+    }
+
+    private void addText(
+        View parent,
+        String text,
+        int sizeSp,
+        boolean bold,
+        boolean selectable
+    ) {
         LinearLayout column = parent instanceof MaterialCardView
             ? (LinearLayout) parent.getTag()
             : (LinearLayout) parent;
@@ -1485,11 +2188,11 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             com.google.android.material.R.style.TextAppearance_MaterialComponents_Body2
         );
         value.setText(text);
-        value.setTextSize(sizeSp);
+        value.setTextSize(sizeSp + 2);
         value.setTypeface(value.getTypeface(), bold
             ? android.graphics.Typeface.BOLD
             : android.graphics.Typeface.NORMAL);
-        value.setTextIsSelectable(true);
+        value.setTextIsSelectable(selectable);
         value.setPadding(0, dp(2), 0, dp(6));
         column.addView(value);
     }
@@ -1510,10 +2213,6 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         return result;
     }
 
-    private int languageObjectCount(JSONObject values) {
-        return languageKeys(values).size();
-    }
-
     private String languageName(String value) {
         String code = value == null
             ? ""
@@ -1532,6 +2231,13 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     }
 
     private String formatTime(Object value) {
+        String formatted = formatTimeIfPresent(value);
+        return TextUtils.isEmpty(formatted)
+            ? getString(R.string.context_detail_empty_value)
+            : formatted;
+    }
+
+    private String formatTimeIfPresent(Object value) {
         long millis = 0L;
         if (value instanceof Number) {
             millis = ((Number) value).longValue();
@@ -1539,11 +2245,15 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             try {
                 millis = Long.parseLong(value.toString());
             } catch (NumberFormatException ignored) {
-                // Keep the localized empty marker below.
+                return "";
             }
         }
         if (millis <= 0L) {
-            return getString(R.string.context_detail_empty_value);
+            return "";
+        }
+        if (millis < 100_000_000_000L
+            && millis <= Long.MAX_VALUE / 1000L) {
+            millis *= 1000L;
         }
         return DateFormat.getDateTimeInstance(
             DateFormat.SHORT,
@@ -1553,6 +2263,13 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     }
 
     private void openScene(String sceneName) {
+        if (stylePreview) {
+            startActivity(StylePreview.intentFor(
+                this,
+                StylePreview.KIND_SCENE_DETAIL
+            ));
+            return;
+        }
         startActivity(new Intent(this, SceneManagementDetailActivity.class)
             .putExtra(SceneManagementDetailActivity.EXTRA_SCENE_NAME, sceneName));
     }
@@ -1562,6 +2279,16 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         String role,
         String name
     ) {
+        if (stylePreview) {
+            Intent preview = StylePreview.intentFor(
+                this,
+                StylePreview.KIND_SCENE_DETAIL
+            );
+            preview.putExtra(SceneManagementDetailActivity.EXTRA_CHARACTER_ROLE, role);
+            preview.putExtra(SceneManagementDetailActivity.EXTRA_CHARACTER_NAME, name);
+            startActivity(preview);
+            return;
+        }
         startActivity(new Intent(this, SceneManagementDetailActivity.class)
             .putExtra(SceneManagementDetailActivity.EXTRA_SCENE_NAME, sceneName)
             .putExtra(SceneManagementDetailActivity.EXTRA_CHARACTER_ROLE, role)
@@ -1569,12 +2296,30 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     }
 
     private void openSceneTerm(String sceneName, String term) {
+        if (stylePreview) {
+            Intent preview = StylePreview.intentFor(
+                this,
+                StylePreview.KIND_SCENE_DETAIL
+            );
+            preview.putExtra(SceneManagementDetailActivity.EXTRA_TERM_NAME, term);
+            startActivity(preview);
+            return;
+        }
         startActivity(new Intent(this, SceneManagementDetailActivity.class)
             .putExtra(SceneManagementDetailActivity.EXTRA_SCENE_NAME, sceneName)
             .putExtra(SceneManagementDetailActivity.EXTRA_TERM_NAME, term));
     }
 
     private void openDetail(String nextKind, String nextId) {
+        if (stylePreview) {
+            startActivity(StylePreview.intentFor(
+                this,
+                KIND_CONTEXT.equals(nextKind)
+                    ? StylePreview.KIND_CONTEXT_DETAIL
+                    : StylePreview.KIND_GROUP_DETAIL
+            ));
+            return;
+        }
         startActivity(new Intent(this, ContextManagementDetailActivity.class)
             .putExtra(EXTRA_KIND, nextKind)
             .putExtra(EXTRA_ID, nextId));
@@ -1582,6 +2327,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
 
     private void showFailure(String message) {
         editingAllowed = false;
+        clearPageActions();
         if (status != null) {
             status.setVisibility(View.VISIBLE);
             status.setText(message);
@@ -1592,6 +2338,22 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                 addEditButton(false);
             }
         }
+    }
+
+    private void addPageAction(View action, LinearLayout.LayoutParams params) {
+        params.gravity = Gravity.CENTER_VERTICAL;
+        if (pageActions.getChildCount() > 0) {
+            params.leftMargin = dp(6);
+        }
+        pageActions.addView(action, params);
+        pageActions.setVisibility(View.VISIBLE);
+    }
+
+    private void clearPageActions() {
+        editAction = null;
+        moveAction = null;
+        pageActions.removeAllViews();
+        pageActions.setVisibility(View.GONE);
     }
 
     private void rememberScroll() {
@@ -1626,6 +2388,18 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
 
     private boolean isContext() {
         return KIND_CONTEXT.equals(kind);
+    }
+
+    private boolean isStylePreviewRequest() {
+        if (!StylePreview.isEnabled(this)) {
+            return false;
+        }
+        String previewKind = StylePreview.kindOf(getIntent());
+        return (isContext()
+            && StylePreview.KIND_CONTEXT_DETAIL.equals(previewKind))
+            || (!isContext()
+                && KIND_GROUP.equals(kind)
+                && StylePreview.KIND_GROUP_DETAIL.equals(previewKind));
     }
 
     private int dp(int value) {
