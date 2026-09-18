@@ -1286,6 +1286,26 @@ public final class SceneStore {
         }
     }
 
+    /** One in-memory edit for an existing Scene text translation. */
+    public static final class TranslationEdit {
+        public final String path;
+        public final String language;
+        public final String expected;
+        public final String value;
+
+        public TranslationEdit(
+            String path,
+            String language,
+            String expected,
+            String value
+        ) {
+            this.path = path;
+            this.language = language;
+            this.expected = expected;
+            this.value = value;
+        }
+    }
+
     /**
      * Checks the same formal Scene and management-Pending boundary used by
      * Scene mutations before a HET-only Scene edit is committed.
@@ -3163,6 +3183,384 @@ public final class SceneStore {
         }
         IoUtils.writeAtomically(new File(sceneDirectory, fileName), scene.bytes);
         clearSceneDeletionIntent(sceneName);
+    }
+
+    /**
+     * Applies point edits to existing translation values in one Scene.
+     *
+     * <p>The supplied {@code expectedScene} is the editor's read snapshot.
+     * Every edit is checked against that snapshot for its path, order key,
+     * source text, and old translation.  The current Scene is then used as
+     * the write base, so unrelated newer fields and languages survive.  A
+     * changed source/order or an edit made by another writer is rejected;
+     * seeing the requested new value is an idempotent retry.</p>
+     *
+     * <p>This is deliberately a fail-fast mutation.  It is not placed in the
+     * deferred Scene mutation pool because replaying a point edit against a
+     * later Scene would silently change its meaning.  The existing admission
+     * monitor is held across the read/merge/validation/atomic write so every
+     * HET SceneStore instance in this process observes one mutation boundary.</p>
+     */
+    public synchronized void updateTranslations(
+        String sceneName,
+        JSONObject expectedScene,
+        List<TranslationEdit> edits
+    ) throws Exception {
+        sceneName = requireSceneName(sceneName);
+        if (expectedScene == null) {
+            throw new IllegalArgumentException("expected Scene is required");
+        }
+        String expectedName = expectedScene.optString("scene", "");
+        if (!sceneName.equals(expectedName)) {
+            throw new IllegalArgumentException(
+                "expected Scene identity does not match requested Scene"
+            );
+        }
+        if (edits == null || edits.isEmpty()) {
+            return;
+        }
+
+        synchronized (MUTATION_ADMISSION.lock) {
+            requireTranslationMutationBoundaryLocked();
+            MUTATION_ADMISSION.activeExternalMutations++;
+            try {
+                requireSceneFamilyNotManagementPending(sceneName);
+                ValidatedScene current = readValidSceneByName(sceneName);
+                if (current == null || isSceneDeleted(sceneName)) {
+                    throw new IOException("scene file no longer exists");
+                }
+                JSONObject currentScene = new JSONObject(new String(
+                    current.bytes,
+                    StandardCharsets.UTF_8
+                ));
+                Set<String> seenEdits = new HashSet<>();
+                boolean changed = false;
+                for (TranslationEdit edit : edits) {
+                    if (edit == null) {
+                        throw new IllegalArgumentException(
+                            "translation edit is null"
+                        );
+                    }
+                    requireTranslationEdit(edit);
+                    String editKey = edit.path + "\u0000" + edit.language;
+                    if (!seenEdits.add(editKey)) {
+                        throw new IllegalArgumentException(
+                            "duplicate translation edit " + edit.path
+                                + " / " + edit.language
+                        );
+                    }
+
+                    JSONObject expectedItem = textItemAtPath(
+                        expectedScene,
+                        edit.path
+                    );
+                    JSONObject currentItem = textItemAtPath(
+                        currentScene,
+                        edit.path
+                    );
+                    if (!orderEquals(
+                        expectedItem.opt("order"),
+                        currentItem.opt("order")
+                    )) {
+                        throw translationConflict(
+                            "Scene item order changed at " + edit.path
+                        );
+                    }
+                    String expectedSource = requiredText(
+                        expectedItem,
+                        edit.path
+                    );
+                    String currentSource = requiredText(
+                        currentItem,
+                        edit.path
+                    );
+                    if (!expectedSource.equals(currentSource)) {
+                        throw translationConflict(
+                            "Scene source changed at " + edit.path
+                        );
+                    }
+                    String snapshotValue = requiredTranslation(
+                        expectedItem,
+                        edit.language,
+                        edit.path
+                    );
+                    if (!snapshotValue.equals(edit.expected)) {
+                        throw new IllegalArgumentException(
+                            "translation edit does not match its Scene snapshot"
+                                + " at " + edit.path
+                        );
+                    }
+                    String currentValue = requiredTranslation(
+                        currentItem,
+                        edit.language,
+                        edit.path
+                    );
+                    validateEditedTranslation(
+                        expectedScene,
+                        edit.expected,
+                        edit.value,
+                        edit.path
+                    );
+                    if (!currentValue.equals(edit.expected)
+                        && !currentValue.equals(edit.value)) {
+                        throw translationConflict(
+                            "translation changed at " + edit.path
+                                + " / " + edit.language
+                        );
+                    }
+                    if (!currentValue.equals(edit.value)) {
+                        currentItem.optJSONObject("translations")
+                            .put(edit.language, edit.value);
+                        changed = true;
+                    }
+                }
+                if (!changed) {
+                    return;
+                }
+                ValidatedScene updated = validate(serializeScene(currentScene));
+                if (!sceneName.equals(updated.sceneName)) {
+                    throw new IOException(
+                        "scene name changed while saving translations"
+                    );
+                }
+                saveInternal(updated);
+            } finally {
+                MUTATION_ADMISSION.activeExternalMutations--;
+                MUTATION_ADMISSION.lock.notifyAll();
+            }
+        }
+    }
+
+    private void requireTranslationMutationBoundaryLocked()
+        throws IOException {
+        if (MUTATION_ADMISSION.fullSyncActive
+            || MUTATION_ADMISSION.draining
+            || MUTATION_ADMISSION.drainerActive
+            || MUTATION_ADMISSION.pendingDeferredAdmissions != 0
+            || MUTATION_ADMISSION.activeExternalMutations != 0
+            || MUTATION_ADMISSION.activeInternalMutations != 0
+            || MutationAdmission.recoveryBlocked(this)) {
+            throw new IOException(
+                "Scene translation mutation is unavailable at the current "
+                    + "Scene mutation boundary"
+            );
+        }
+    }
+
+    private static void requireTranslationEdit(TranslationEdit edit) {
+        if (edit.path == null || edit.path.isEmpty()) {
+            throw new IllegalArgumentException("translation edit path is empty");
+        }
+        if (edit.language == null || edit.language.isEmpty()) {
+            throw new IllegalArgumentException(
+                "translation edit language is empty"
+            );
+        }
+        if (edit.expected == null || edit.expected.isEmpty()) {
+            throw new IllegalArgumentException(
+                "expected translation is empty"
+            );
+        }
+        if (edit.value == null || edit.value.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                "translated value is empty"
+            );
+        }
+    }
+
+    private static IOException translationConflict(String message) {
+        return new IOException(message + "; reopen the Scene editor before saving");
+    }
+
+    private static JSONObject textItemAtPath(JSONObject root, String path)
+        throws IOException {
+        if (root == null || path == null || !path.startsWith("scene_items")) {
+            throw new IOException("invalid Scene translation path: " + path);
+        }
+        int cursor = "scene_items".length();
+        Object current = root.optJSONArray("scene_items");
+        if (!(current instanceof JSONArray)) {
+            throw new IOException("Scene has no scene_items array");
+        }
+        while (cursor < path.length()) {
+            char token = path.charAt(cursor);
+            if (token == '[') {
+                int end = path.indexOf(']', cursor + 1);
+                if (end < 0 || end == cursor + 1) {
+                    throw new IOException(
+                        "invalid Scene translation path: " + path
+                    );
+                }
+                int index;
+                try {
+                    index = Integer.parseInt(path.substring(cursor + 1, end));
+                } catch (NumberFormatException invalidIndex) {
+                    throw new IOException(
+                        "invalid Scene translation index: " + path,
+                        invalidIndex
+                    );
+                }
+                if (index < 0 || !(current instanceof JSONArray)) {
+                    throw new IOException(
+                        "invalid Scene translation path: " + path
+                    );
+                }
+                current = ((JSONArray) current).opt(index);
+                if (current == null || current == JSONObject.NULL) {
+                    throw new IOException(
+                        "Scene translation path is missing: " + path
+                    );
+                }
+                cursor = end + 1;
+                continue;
+            }
+            if (token == '.') {
+                int start = ++cursor;
+                while (cursor < path.length()) {
+                    char character = path.charAt(cursor);
+                    if (!(Character.isLetterOrDigit(character)
+                        || character == '_')) {
+                        break;
+                    }
+                    cursor++;
+                }
+                if (start == cursor || !(current instanceof JSONObject)) {
+                    throw new IOException(
+                        "invalid Scene translation path: " + path
+                    );
+                }
+                String member = path.substring(start, cursor);
+                current = ((JSONObject) current).opt(member);
+                if (current == null || current == JSONObject.NULL) {
+                    throw new IOException(
+                        "Scene translation path is missing: " + path
+                    );
+                }
+                continue;
+            }
+            throw new IOException("invalid Scene translation path: " + path);
+        }
+        if (!(current instanceof JSONObject)
+            || !"text".equals(((JSONObject) current).optString("type", ""))) {
+            throw new IOException(
+                "Scene translation path does not identify a text item: " + path
+            );
+        }
+        return (JSONObject) current;
+    }
+
+    private static String requiredText(JSONObject item, String path)
+        throws IOException {
+        Object value = item == null ? null : item.opt("text");
+        if (!(value instanceof String)) {
+            throw new IOException("Scene text is invalid at " + path);
+        }
+        return (String) value;
+    }
+
+    private static String requiredTranslation(
+        JSONObject item,
+        String language,
+        String path
+    ) throws IOException {
+        JSONObject translations = item == null
+            ? null
+            : item.optJSONObject("translations");
+        Object value = translations == null ? null : translations.opt(language);
+        if (!(value instanceof String) || ((String) value).isEmpty()) {
+            throw translationConflict(
+                "translation language is missing at " + path
+            );
+        }
+        return (String) value;
+    }
+
+    private static boolean orderEquals(Object expected, Object current)
+        throws IOException {
+        return orderSignature(expected).equals(orderSignature(current));
+    }
+
+    private static String orderSignature(Object value) throws IOException {
+        if (!(value instanceof JSONObject)) {
+            throw new IOException("Scene text item order is invalid");
+        }
+        JSONObject order = (JSONObject) value;
+        return orderInteger(order, "label_index") + ":"
+            + orderInteger(order, "page_no") + ":"
+            + orderInteger(order, "cmd_index") + ":"
+            + orderInteger(order, "sub_index");
+    }
+
+    private static long orderInteger(JSONObject order, String key)
+        throws IOException {
+        Object value = order.opt(key);
+        if (!(value instanceof Integer) && !(value instanceof Long)) {
+            throw new IOException("Scene text item order is missing " + key);
+        }
+        return ((Number) value).longValue();
+    }
+
+    private static void validateEditedTranslation(
+        JSONObject expectedScene,
+        String expected,
+        String value,
+        String path
+    ) throws IOException {
+        List<String> labels = protectedLabels(expectedScene);
+        List<String> expectedTokens = protectedTokenSequence(expected, labels);
+        List<String> actualTokens = protectedTokenSequence(value, labels);
+        if (!expectedTokens.equals(actualTokens)) {
+            throw new IOException(
+                "protected token sequence changed at " + path
+            );
+        }
+    }
+
+    private static List<String> protectedLabels(JSONObject scene)
+        throws IOException {
+        List<String> labels = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        JSONArray values = scene == null ? null : scene.optJSONArray("protect");
+        for (int index = 0; values != null && index < values.length(); index++) {
+            JSONObject token = values.optJSONObject(index);
+            if (token == null) {
+                throw new IOException("Scene protected token is invalid");
+            }
+            Object labelValue = token.opt("label");
+            if (!(labelValue instanceof String)
+                || ((String) labelValue).isEmpty()) {
+                throw new IOException("Scene protected token label is invalid");
+            }
+            String label = (String) labelValue;
+            if (seen.add(label)) {
+                labels.add(label);
+            }
+        }
+        return labels;
+    }
+
+    private static List<String> protectedTokenSequence(
+        String value,
+        List<String> labels
+    ) {
+        List<String> result = new ArrayList<>();
+        for (int offset = 0; offset < value.length();) {
+            String matched = null;
+            for (String label : labels) {
+                if (value.startsWith(label, offset)
+                    && (matched == null
+                        || label.length() > matched.length())) {
+                    matched = label;
+                }
+            }
+            if (matched == null) {
+                offset++;
+            } else {
+                result.add(matched);
+                offset += matched.length();
+            }
+        }
+        return result;
     }
 
     public synchronized MutationReceipt<ValidatedScene> removeLanguage(
