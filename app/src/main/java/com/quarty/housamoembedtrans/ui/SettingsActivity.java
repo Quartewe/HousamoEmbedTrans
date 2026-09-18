@@ -45,15 +45,11 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 /** Settings home. Each card opens an independent category editor. */
 public final class SettingsActivity extends AppCompatActivity {
     private static final int REQUEST_NOTIFICATION_PERMISSION = 1001;
     private static final int REQUEST_EXPORT_LOGS = 1002;
-    private static final int LOGCAT_LINE_LIMIT = 2000;
-    private static final int LOGCAT_MAX_BYTES = 512 * 1024;
-    private static final long LOGCAT_TIMEOUT_MS = 8_000L;
 
     private ConfigStore configStore;
     private TextView configStatus;
@@ -304,26 +300,19 @@ public final class SettingsActivity extends AppCompatActivity {
             // enforces the non-privileged reader UID boundary instead.
             process = new ProcessBuilder(
                 "logcat",
-                "-d",
-                "-t",
-                Integer.toString(LOGCAT_LINE_LIMIT)
+                "-d"
             )
                 .redirectErrorStream(true)
                 .redirectOutput(temporary)
                 .start();
             activeLogcatProcess = process;
-            if (!process.waitFor(LOGCAT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                throw new IOException("logcat read timed out");
-            }
+            process.waitFor();
             if (process.exitValue() != 0) {
                 throw new IOException(
                     "logcat exited with code " + process.exitValue()
                 );
             }
             ensureLogExportActive(generation);
-            if (temporary.length() > LOGCAT_MAX_BYTES) {
-                throw new IOException("logcat output exceeds size limit");
-            }
             return readLogcatFile(temporary, generation);
         } finally {
             activeLogcatProcess = null;
@@ -341,7 +330,6 @@ public final class SettingsActivity extends AppCompatActivity {
         throws Exception {
         StringBuilder content = new StringBuilder();
         int lineCount = 0;
-        int byteCount = 0;
         try (BufferedReader input = new BufferedReader(
             new InputStreamReader(
                 new FileInputStream(source),
@@ -349,15 +337,9 @@ public final class SettingsActivity extends AppCompatActivity {
             )
         )) {
             String line;
-            while (lineCount < LOGCAT_LINE_LIMIT
-                && (line = input.readLine()) != null) {
+            while ((line = input.readLine()) != null) {
                 ensureLogExportActive(generation);
-                int lineBytes = line.getBytes(StandardCharsets.UTF_8).length + 1;
-                if (lineBytes > LOGCAT_MAX_BYTES - byteCount) {
-                    throw new IOException("logcat output exceeds size limit");
-                }
                 content.append(line).append('\n');
-                byteCount += lineBytes;
                 lineCount++;
             }
         }
@@ -379,9 +361,6 @@ public final class SettingsActivity extends AppCompatActivity {
     ) throws Exception {
         ensureLogExportActive(generation);
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > LOGCAT_MAX_BYTES) {
-            throw new IOException("logcat output exceeds size limit");
-        }
         try (OutputStream output = getContentResolver().openOutputStream(
             destination,
             "w"

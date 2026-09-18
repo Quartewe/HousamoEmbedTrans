@@ -2,7 +2,7 @@
 <resources>
     <string name="settings_rebuild_toolbar_title">设置</string>
     <string name="settings_rebuild_export_logs">导出运行日志</string>
-    <string name="settings_rebuild_export_logs_description">导出 HET 应用最近约 2000 行日志，保存到你选择的文本文件。仅包含 HET 应用自身日志，不包含游戏进程日志。</string>
+    <string name="settings_rebuild_export_logs_description">导出系统日志缓冲区中当前可读取的 HET 应用日志，保存到你选择的文件。仅包含 HET 应用自身日志，不包含游戏进程日志。</string>
     <string name="settings_rebuild_export_logs_choose">选择文件</string>
     <string name="settings_rebuild_export_logs_in_progress">正在读取 HET 日志…</string>
     <string name="settings_rebuild_export_logs_empty">没有可导出的 HET 应用日志。</string>

@@ -2,7 +2,7 @@
 <resources>
     <string name="settings_rebuild_toolbar_title">Settings</string>
     <string name="settings_rebuild_export_logs">Export runtime logs</string>
-    <string name="settings_rebuild_export_logs_description">Export about the latest 2,000 lines of HET app logs to the text file you choose. Includes HET app logs only and excludes game process logs.</string>
+    <string name="settings_rebuild_export_logs_description">Export the HET app logs currently available in the system log buffer to the file you choose. Includes HET app logs only and excludes game process logs.</string>
     <string name="settings_rebuild_export_logs_choose">Choose file</string>
     <string name="settings_rebuild_export_logs_in_progress">Reading HET logs...</string>
     <string name="settings_rebuild_export_logs_empty">No HET app logs are available to export.</string>
