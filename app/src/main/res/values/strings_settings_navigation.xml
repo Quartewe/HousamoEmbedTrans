@@ -3,6 +3,7 @@
     <string name="primary_nav_tasks">任务</string>
     <string name="primary_nav_management">管理</string>
     <string name="primary_nav_settings">设置</string>
+    <string name="settings_home_eyebrow">Application settings</string>
     <string name="management_home_title">管理</string>
     <string name="management_home_intro">选择要维护的剧情、上下文、角色、术语或导入数据。</string>
     <string name="management_home_scene_files">剧情文件</string>

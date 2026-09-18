@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="81dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    app:cardBackgroundColor="@color/het_surface_container"
+    app:cardCornerRadius="18dp"
+    app:cardElevation="0dp"
+    app:cardPreventCornerOverlap="false"
+    app:cardUseCompatPadding="false"
+    app:strokeColor="@color/het_outline_soft"
+    app:strokeWidth="1dp">
+
+    <LinearLayout
+        android:id="@+id/settings_category_body"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="81dp"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="13dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="13dp">
+
+        <LinearLayout
+            android:id="@+id/settings_category_copy"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_settings_category_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="@color/het_on_surface"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                tools:text="@string/settings_category_translation_service" />
+
+            <TextView
+                android:id="@+id/tv_settings_category_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:lineSpacingMultiplier="1.35"
+                android:maxLines="1"
+                android:textColor="@color/het_on_surface_muted"
+                android:textSize="12sp"
+                tools:text="@string/settings_category_translation_service_description" />
+
+            <TextView
+                android:id="@+id/tv_settings_category_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:lineSpacingMultiplier="1.35"
+                android:maxLines="1"
+                android:textColor="@color/het_primary_strong"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                tools:text="OpenAI 兼容 · 模型未填写 · API key 未设置" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_settings_category_arrow"
+            android:layout_width="22dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="›"
+            android:textColor="@color/het_primary_strong"
+            android:textSize="22sp" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

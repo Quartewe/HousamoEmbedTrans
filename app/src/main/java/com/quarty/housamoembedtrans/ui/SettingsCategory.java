@@ -124,7 +124,7 @@ public final class SettingsCategory {
                 + " · "
                 + (model.isEmpty() ? "模型未填写" : model)
                 + " · "
-                + target
+                + targetLabel(target)
                 + " · "
                 + (apiKey == null || apiKey.isEmpty()
                     ? "API key 未设置"
@@ -160,7 +160,11 @@ public final class SettingsCategory {
                 + (context == null
                     ? 30
                     : context.optInt("DefaultRecentPercent", 30))
-                + "%";
+                + "% · "
+                + (context == null
+                    ? 10
+                    : context.optInt("DefaultRecentSceneLimit", 10))
+                + " 段剧情";
         }
         if (TASK_RECOVERY.equals(definition.id)) {
             return "翻译"
@@ -188,5 +192,18 @@ public final class SettingsCategory {
                 || userSettings.optBoolean("EnableFailedApiResponseDump", false)
             ? "页面记录、解析和失败响应诊断已开启"
             : "页面记录、解析和失败响应诊断已关闭";
+    }
+
+    private static String targetLabel(String target) {
+        if ("zh-cn".equalsIgnoreCase(target)) {
+            return "简体中文";
+        }
+        if ("zh-tw".equalsIgnoreCase(target)) {
+            return "繁体中文";
+        }
+        if ("en".equalsIgnoreCase(target)) {
+            return "English";
+        }
+        return target == null || target.trim().isEmpty() ? "自定义语言" : target;
     }
 }
