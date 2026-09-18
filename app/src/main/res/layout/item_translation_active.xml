@@ -3,10 +3,10 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/card_translation_active_item"
-    style="@style/Widget.HET.TonalCard"
+    style="@style/Widget.HET.StaticTask.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
+    android:layout_marginBottom="7dp"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground"
@@ -17,29 +17,32 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="12dp">
 
         <TextView
             android:id="@+id/tv_translation_active_scene"
+            style="@style/TextAppearance.HET.StaticTask.Title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-            android:textStyle="bold" />
+            android:ellipsize="end"
+            android:maxLines="2" />
 
         <TextView
             android:id="@+id/tv_translation_active_status"
+            style="@style/TextAppearance.HET.StaticTask.Body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+            android:layout_marginTop="7dp"
+            android:background="@drawable/bg_static_task_status"
+            android:padding="8dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_translation_active_details"
-            style="@style/Widget.HET.Button.Text"
+            style="@style/Widget.HET.StaticTask.Button.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="5dp"
             android:text="@string/translation_stop_details" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

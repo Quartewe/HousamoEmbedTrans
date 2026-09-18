@@ -1,50 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/card_summary_failed_item"
-    style="@style/Widget.HET.TonalCard"
+    style="@style/Widget.HET.StaticTask.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
-    app:strokeColor="?attr/colorPrimary"
-    app:strokeWidth="1dp">
+    android:layout_marginBottom="7dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="12dp">
 
         <TextView
             android:id="@+id/tv_summary_failed_title"
+            style="@style/TextAppearance.HET.StaticTask.Title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-            android:textStyle="bold" />
+            />
 
         <TextView
             android:id="@+id/tv_summary_failed_detail"
+            style="@style/TextAppearance.HET.StaticTask.Meta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-            android:textColor="?android:attr/textColorSecondary" />
+            />
 
         <TextView
             android:id="@+id/tv_summary_failed_error"
+            style="@style/TextAppearance.HET.StaticTask.Body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="?android:attr/textColorSecondary" />
+            android:layout_marginTop="7dp"
+            android:background="@drawable/bg_static_task_status"
+            android:paddingStart="8dp"
+            android:paddingTop="7dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="7dp"
+            />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_summary_failed_retry"
-            style="@style/Widget.HET.Button.Secondary"
-            android:layout_width="match_parent"
+            style="@style/Widget.HET.StaticTask.Button.Secondary"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_gravity="end"
+            android:layout_marginTop="7dp"
             android:text="@string/summary_failed_retry" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
