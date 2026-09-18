@@ -8,6 +8,7 @@
     <string name="style_preview_read_only_body">样例通过 Activity Intent 传入。预览期间不会写入 Store、删除数据、请求翻译，也不会提交导入或导出。</string>
     <string name="style_preview_tasks">任务页</string>
     <string name="style_preview_management_home">管理首页</string>
+    <string name="style_preview_scene_sync">剧情同步</string>
     <string name="style_preview_management_export">管理导出区域</string>
     <string name="style_preview_scene_detail">Scene 详情</string>
     <string name="style_preview_scene_editor">Scene 编辑</string>
@@ -24,6 +25,7 @@
     <string name="style_preview_tasks_description">查看排队、进行中、失败、完成和等待处理等任务状态。</string>
     <string name="style_preview_waiting_body">当前包含等待处理样例，用于视觉核对；预览中的操作均已禁用。</string>
     <string name="style_preview_management_home_description">查看数量、分区、筛选和管理入口。</string>
+    <string name="style_preview_scene_sync_description">查看剧情文件、同步状态、结果摘要和只读下拉框。</string>
     <string name="style_preview_management_export_description">查看管理导出控件和只读预览状态。</string>
     <string name="style_preview_scene_detail_description">查看 Scene 元数据、角色、术语、原文行和译文。</string>
     <string name="style_preview_scene_editor_description">查看 Scene 标识、语言、摘要、关联和原文区域。</string>

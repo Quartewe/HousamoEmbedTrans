@@ -101,6 +101,7 @@ public final class StylePreviewActivity extends AppCompatActivity {
     private int labelFor(String kind) {
         if (StylePreview.KIND_TASKS.equals(kind)) return R.string.style_preview_tasks;
         if (StylePreview.KIND_MANAGEMENT_HOME.equals(kind)) return R.string.style_preview_management_home;
+        if (StylePreview.KIND_SCENE_SYNC.equals(kind)) return R.string.style_preview_scene_sync;
         if (StylePreview.KIND_MANAGEMENT_EXPORT.equals(kind)) return R.string.style_preview_management_export;
         if (StylePreview.KIND_SCENE_DETAIL.equals(kind)) return R.string.style_preview_scene_detail;
         if (StylePreview.KIND_SCENE_EDITOR.equals(kind)) return R.string.style_preview_scene_editor;
@@ -119,6 +120,7 @@ public final class StylePreviewActivity extends AppCompatActivity {
     private int descriptionFor(String kind) {
         if (StylePreview.KIND_TASKS.equals(kind)) return R.string.style_preview_tasks_description;
         if (StylePreview.KIND_MANAGEMENT_HOME.equals(kind)) return R.string.style_preview_management_home_description;
+        if (StylePreview.KIND_SCENE_SYNC.equals(kind)) return R.string.style_preview_scene_sync_description;
         if (StylePreview.KIND_MANAGEMENT_EXPORT.equals(kind)) return R.string.style_preview_management_export_description;
         if (StylePreview.KIND_SCENE_DETAIL.equals(kind)) return R.string.style_preview_scene_detail_description;
         if (StylePreview.KIND_SCENE_EDITOR.equals(kind)) return R.string.style_preview_scene_editor_description;

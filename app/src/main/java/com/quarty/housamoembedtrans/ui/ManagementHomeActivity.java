@@ -413,7 +413,10 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         });
         syncItem.setOnMenuItemClickListener(item -> {
             if (stylePreview) {
-                showPreviewNotice();
+                startActivity(StylePreview.intentFor(
+                    this,
+                    StylePreview.KIND_SCENE_SYNC
+                ));
             } else {
                 startActivity(new Intent(this, SceneFilesActivity.class));
             }

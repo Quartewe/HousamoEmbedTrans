@@ -29,6 +29,7 @@ public final class StylePreview {
 
     public static final String KIND_TASKS = "tasks";
     public static final String KIND_MANAGEMENT_HOME = "management-home";
+    public static final String KIND_SCENE_SYNC = "scene-sync";
     public static final String KIND_MANAGEMENT_EXPORT = "management-export";
     public static final String KIND_SCENE_DETAIL = "scene-detail";
     public static final String KIND_SCENE_EDITOR = "scene-editor";
@@ -52,6 +53,7 @@ public final class StylePreview {
         Arrays.asList(
             KIND_TASKS,
             KIND_MANAGEMENT_HOME,
+            KIND_SCENE_SYNC,
             KIND_MANAGEMENT_EXPORT,
             KIND_SCENE_DETAIL,
             KIND_SCENE_EDITOR,
@@ -133,6 +135,9 @@ public final class StylePreview {
             || KIND_MANAGEMENT_EXPORT.equals(kind)) {
             return putPreview(new Intent(context, ManagementHomeActivity.class), kind);
         }
+        if (KIND_SCENE_SYNC.equals(kind)) {
+            return putPreview(new Intent(context, SceneFilesActivity.class), kind);
+        }
         if (KIND_SCENE_DETAIL.equals(kind)) {
             return putPreview(new Intent(context, SceneManagementDetailActivity.class)
                 .putExtra(SceneManagementDetailActivity.EXTRA_SCENE_NAME, SAMPLE_SCENE_NAME), kind);
@@ -179,6 +184,7 @@ public final class StylePreview {
             if (KIND_TASKS.equals(kind)) return sampleTasks();
             if (KIND_MANAGEMENT_HOME.equals(kind)
                 || KIND_MANAGEMENT_EXPORT.equals(kind)) return sampleManagementHome();
+            if (KIND_SCENE_SYNC.equals(kind)) return sampleSceneSync();
             if (KIND_SCENE_DETAIL.equals(kind)
                 || KIND_SCENE_EDITOR.equals(kind)) return sampleScene();
             if (KIND_CONTEXT_DETAIL.equals(kind)
@@ -495,5 +501,31 @@ public final class StylePreview {
                 .put("characters", new JSONObject())
                 .put("terms", new JSONObject())
                 .put("active_jobs", new JSONObject()));
+    }
+
+    private static JSONObject sampleSceneSync() throws JSONException {
+        return new JSONObject()
+            .put("version", 1)
+            .put("scenes", new JSONArray()
+                .put(new JSONObject()
+                    .put("name", SAMPLE_SCENE_NAME)
+                    .put("languages", new JSONArray().put("zh-cn").put("en"))))
+            .put("selected_scene", SAMPLE_SCENE_NAME)
+            .put("selected_language", "zh-cn")
+            .put("runtime", new JSONObject()
+                .put("service_available", true)
+                .put("game_port_available", true)
+                .put("phase", "IDLE")
+                .put("active_api_jobs", 1)
+                .put("pending_conflict_count", 1)
+                .put("last_action", "MANUAL_REFRESH")
+                .put("last_outcome", "NEEDS_ATTENTION")
+                .put("scene_summaries", new JSONArray()
+                    .put(new JSONObject()
+                        .put("scene", SAMPLE_SCENE_NAME)
+                        .put("direction", "GAME_TO_HET")
+                        .put("status", "NEEDS_ATTENTION"))))
+            .put("last_result", "样例刷新完成；保留 1 个待处理冲突。")
+            .put("read_only", true);
     }
 }

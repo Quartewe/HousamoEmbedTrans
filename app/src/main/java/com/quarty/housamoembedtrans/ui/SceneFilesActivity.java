@@ -33,6 +33,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.checkbox.MaterialCheckBox;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -40,6 +41,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -52,22 +54,27 @@ import java.util.concurrent.Executors;
 public final class SceneFilesActivity extends AppCompatActivity {
     private static final String TAG = "SceneFilesActivity";
 
-    private final SceneSyncRuntimeState runtimeState =
-        SceneSyncRuntimeState.getInstance();
-    private final SceneSyncUiVisibility.ActivityFlag visibilityFlag =
-        SceneSyncUiVisibility.newSceneFilesFlag();
-    private final SceneSyncRuntimeBinding runtimeBinding =
-        new SceneSyncRuntimeBinding(
-            this,
-            runtimeState,
-            visibilityFlag,
-            this::acceptRuntimeSnapshot
-        );
-    private final List<SceneStore.SceneInfo> scenes = new ArrayList<>();
+    private static final class SceneRow {
+        final String sceneName;
+        final List<String> languages;
+
+        SceneRow(String sceneName, List<String> languages) {
+            this.sceneName = sceneName == null ? "" : sceneName;
+            this.languages = Collections.unmodifiableList(
+                new ArrayList<>(languages == null
+                    ? Collections.emptyList()
+                    : languages)
+            );
+        }
+    }
+
+    private SceneSyncRuntimeState runtimeState;
+    private SceneSyncUiVisibility.ActivityFlag visibilityFlag;
+    private SceneSyncRuntimeBinding runtimeBinding;
+    private final List<SceneRow> scenes = new ArrayList<>();
     private final List<String> sceneFileLabels = new ArrayList<>();
     private final List<String> sceneLanguages = new ArrayList<>();
-    private final ExecutorService ioExecutor =
-        Executors.newSingleThreadExecutor();
+    private ExecutorService ioExecutor;
 
     private SceneStore sceneStore;
     private PendingProcessMoveController pendingMoveController;
@@ -94,8 +101,9 @@ public final class SceneFilesActivity extends AppCompatActivity {
     private ArrayAdapter<String> sceneLanguageAdapter;
     private ActivityResultLauncher<String[]> importLauncher;
     private ActivityResultLauncher<Uri> exportLauncher;
-    private SceneSyncRuntimeState.Snapshot runtimeSnapshot =
-        runtimeState.getSnapshot();
+    private SceneSyncRuntimeState.Snapshot runtimeSnapshot;
+    private JSONObject stylePreviewPayload;
+    private boolean stylePreview;
     private boolean busy = true;
     private boolean batchMode;
     private boolean refreshRequestPending;
@@ -103,23 +111,33 @@ public final class SceneFilesActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        stylePreview = StylePreview.isEnabled(this);
+        if (stylePreview) {
+            stylePreviewPayload = StylePreview.payloadOf(getIntent());
+            if (stylePreviewPayload == null) {
+                stylePreviewPayload = StylePreview.sample(
+                    StylePreview.KIND_SCENE_SYNC
+                );
+            }
+        } else {
+            initializeProductionState();
+        }
         setContentView(R.layout.activity_scene_files);
         SystemBarInsets.apply(findViewById(R.id.root_scene_files));
         MaterialToolbar toolbar = findViewById(R.id.toolbar_scene_files);
         toolbar.setNavigationOnClickListener(
             view -> getOnBackPressedDispatcher().onBackPressed()
         );
-        toolbar.inflateMenu(R.menu.menu_management_batch);
-        managementBatchMenuItem = toolbar.getMenu().findItem(
-            R.id.action_management_batch
-        );
-        managementBatchMenuItem.setOnMenuItemClickListener(item -> {
-            toggleManagementBatch();
-            return true;
-        });
-
-        sceneStore = new SceneStore(this);
-        pendingMoveController = new PendingProcessMoveController(this);
+        if (!stylePreview) {
+            toolbar.inflateMenu(R.menu.menu_management_batch);
+            managementBatchMenuItem = toolbar.getMenu().findItem(
+                R.id.action_management_batch
+            );
+            managementBatchMenuItem.setOnMenuItemClickListener(item -> {
+                toggleManagementBatch();
+                return true;
+            });
+        }
         summary = findViewById(R.id.tv_scene_summary);
         lastResult = findViewById(R.id.tv_scene_last_result);
         runtimeStatus = findViewById(R.id.tv_scene_sync_runtime_status);
@@ -159,44 +177,53 @@ public final class SceneFilesActivity extends AppCompatActivity {
         );
         sceneLanguageSpinner.setAdapter(sceneLanguageAdapter);
 
-        importLauncher = registerForActivityResult(
-            new ActivityResultContracts.OpenMultipleDocuments(),
-            this::importScenes
-        );
-        exportLauncher = registerForActivityResult(
-            new ActivityResultContracts.OpenDocumentTree(),
-            this::exportScenes
-        );
+        if (!stylePreview) {
+            importLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenMultipleDocuments(),
+                this::importScenes
+            );
+            exportLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocumentTree(),
+                this::exportScenes
+            );
 
-        importButton.setOnClickListener(view -> importLauncher.launch(new String[] {
-            "application/json",
-            "text/json",
-            "text/plain",
-            "application/octet-stream"
-        }));
-        exportButton.setOnClickListener(view -> exportLauncher.launch(null));
-        deleteLanguageButton.setOnClickListener(
-            view -> moveSelectedLanguageToPending()
-        );
-        deleteFileButton.setOnClickListener(
-            view -> moveSelectedSceneToPending()
-        );
-        refreshButton.setOnClickListener(view -> requestSceneRefresh());
-        conflictsButton.setOnClickListener(view -> startActivity(
-            new Intent(this, SceneConflictsActivity.class)
-        ));
+            importButton.setOnClickListener(view -> importLauncher.launch(new String[] {
+                "application/json",
+                "text/json",
+                "text/plain",
+                "application/octet-stream"
+            }));
+            exportButton.setOnClickListener(view -> exportLauncher.launch(null));
+            deleteLanguageButton.setOnClickListener(
+                view -> moveSelectedLanguageToPending()
+            );
+            deleteFileButton.setOnClickListener(
+                view -> moveSelectedSceneToPending()
+            );
+            refreshButton.setOnClickListener(view -> requestSceneRefresh());
+            conflictsButton.setOnClickListener(view -> startActivity(
+                new Intent(this, SceneConflictsActivity.class)
+            ));
+        }
         detailButton.setOnClickListener(view -> {
-            SceneStore.SceneInfo scene = selectedScene();
+            SceneRow scene = selectedScene();
             if (scene == null) {
                 return;
             }
-            startActivity(new Intent(
-                this,
-                SceneManagementDetailActivity.class
-            ).putExtra(
-                SceneManagementDetailActivity.EXTRA_SCENE_NAME,
-                scene.sceneName
-            ));
+            if (stylePreview) {
+                startActivity(StylePreview.intentFor(
+                    this,
+                    StylePreview.KIND_SCENE_DETAIL
+                ));
+            } else {
+                startActivity(new Intent(
+                    this,
+                    SceneManagementDetailActivity.class
+                ).putExtra(
+                    SceneManagementDetailActivity.EXTRA_SCENE_NAME,
+                    scene.sceneName
+                ));
+            }
         });
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -248,19 +275,180 @@ public final class SceneFilesActivity extends AppCompatActivity {
                 }
             }
         );
-        renderRuntimeSnapshot(runtimeSnapshot);
-        updateActionState();
-        refreshScenesAsync();
-        managementBatchController = ManagementBatchController.attach(
+        if (stylePreview) {
+            loadStylePreview();
+        } else {
+            renderRuntimeSnapshot(runtimeSnapshot);
+            updateActionState();
+            refreshScenesAsync();
+            managementBatchController = ManagementBatchController.attach(
+                this,
+                findViewById(R.id.scroll_scene_files),
+                new SceneBatchDataSource(),
+                savedInstanceState
+            );
+        }
+    }
+
+    private void initializeProductionState() {
+        runtimeState = SceneSyncRuntimeState.getInstance();
+        visibilityFlag = SceneSyncUiVisibility.newSceneFilesFlag();
+        runtimeBinding = new SceneSyncRuntimeBinding(
             this,
-            findViewById(R.id.scroll_scene_files),
-            new SceneBatchDataSource(),
-            savedInstanceState
+            runtimeState,
+            visibilityFlag,
+            this::acceptRuntimeSnapshot
+        );
+        sceneStore = new SceneStore(this);
+        pendingMoveController = new PendingProcessMoveController(this);
+        ioExecutor = Executors.newSingleThreadExecutor();
+        runtimeSnapshot = runtimeState.getSnapshot();
+    }
+
+    private void loadStylePreview() {
+        JSONArray previewScenes = stylePreviewPayload.optJSONArray("scenes");
+        scenes.clear();
+        if (previewScenes != null) {
+            for (int index = 0; index < previewScenes.length(); index++) {
+                JSONObject value = previewScenes.optJSONObject(index);
+                if (value == null) {
+                    continue;
+                }
+                String name = value.optString("name", "").trim();
+                if (name.isEmpty()) {
+                    continue;
+                }
+                ArrayList<String> languages = new ArrayList<>();
+                JSONArray values = value.optJSONArray("languages");
+                if (values != null) {
+                    for (int languageIndex = 0;
+                         languageIndex < values.length();
+                         languageIndex++) {
+                        String language = values.optString(languageIndex, "").trim();
+                        if (!language.isEmpty()) {
+                            languages.add(language);
+                        }
+                    }
+                }
+                scenes.add(new SceneRow(name, languages));
+            }
+        }
+
+        sceneFileLabels.clear();
+        if (scenes.isEmpty()) {
+            sceneFileLabels.add(getString(R.string.scene_files_empty));
+        } else {
+            for (SceneRow scene : scenes) {
+                sceneFileLabels.add(scene.sceneName);
+            }
+        }
+        sceneFileAdapter.notifyDataSetChanged();
+        int selectedScene = indexOfScene(
+            previewValue(stylePreviewPayload, "selected_scene")
+        );
+        sceneFileSpinner.setSelection(selectedScene < 0 ? 0 : selectedScene, false);
+        updateLanguageChoices(
+            previewValue(stylePreviewPayload, "selected_language")
+        );
+
+        summary.setText(getString(R.string.scene_files_summary, scenes.size()));
+        runtimeSnapshot = previewRuntimeSnapshot(
+            stylePreviewPayload.optJSONObject("runtime")
+        );
+        renderRuntimeSnapshot(runtimeSnapshot);
+        lastResult.setText(previewValue(
+            stylePreviewPayload,
+            "last_result"
+        ));
+        if (TextUtils.isEmpty(lastResult.getText())) {
+            lastResult.setText(R.string.style_preview_read_only_body);
+        }
+        busy = false;
+        refreshRequestPending = false;
+        batchMode = false;
+        renderBatchRows();
+        updateActionState();
+    }
+
+    private SceneSyncRuntimeState.Snapshot previewRuntimeSnapshot(
+        JSONObject value
+    ) {
+        JSONObject runtime = value == null ? new JSONObject() : value;
+        ArrayList<SceneSyncRuntimeState.SceneSummary> summaries = new ArrayList<>();
+        JSONArray values = runtime.optJSONArray("scene_summaries");
+        if (values != null) {
+            for (int index = 0; index < values.length(); index++) {
+                JSONObject item = values.optJSONObject(index);
+                if (item == null) {
+                    continue;
+                }
+                String scene = item.optString("scene", "").trim();
+                if (scene.isEmpty()) {
+                    continue;
+                }
+                summaries.add(new SceneSyncRuntimeState.SceneSummary(
+                    scene,
+                    enumValue(
+                        SceneSyncRuntimeState.Direction.class,
+                        item.optString("direction", "UNKNOWN"),
+                        SceneSyncRuntimeState.Direction.UNKNOWN
+                    ),
+                    enumValue(
+                        SceneSyncRuntimeState.Status.class,
+                        item.optString("status", "NOT_PROCESSED"),
+                        SceneSyncRuntimeState.Status.NOT_PROCESSED
+                    )
+                ));
+            }
+        }
+        return new SceneSyncRuntimeState.Snapshot(
+            runtime.optBoolean("service_available", false),
+            runtime.optBoolean("game_port_available", false),
+            enumValue(
+                SceneSyncRuntimeState.Phase.class,
+                runtime.optString("phase", "IDLE"),
+                SceneSyncRuntimeState.Phase.IDLE
+            ),
+            Math.max(0, runtime.optInt("active_api_jobs", 0)),
+            Math.max(0, runtime.optInt("pending_conflict_count", 0)),
+            enumValue(
+                SceneSyncRuntimeState.Action.class,
+                runtime.optString("last_action", "NONE"),
+                SceneSyncRuntimeState.Action.NONE
+            ),
+            enumValue(
+                SceneSyncRuntimeState.Outcome.class,
+                runtime.optString("last_outcome", "NONE"),
+                SceneSyncRuntimeState.Outcome.NONE
+            ),
+            summaries
         );
     }
 
+    private static String previewValue(JSONObject value, String key) {
+        if (value == null) {
+            return "";
+        }
+        return value.optString(key, "");
+    }
+
+    private static <T extends Enum<T>> T enumValue(
+        Class<T> type,
+        String value,
+        T fallback
+    ) {
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Enum.valueOf(type, value.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException error) {
+            return fallback;
+        }
+    }
+
     private void toggleManagementBatch() {
-        if (managementBatchController == null) {
+        if (stylePreview || managementBatchController == null) {
             return;
         }
         if (managementBatchController.isActive()) {
@@ -281,25 +469,29 @@ public final class SceneFilesActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        runtimeBinding.start();
-        if (managementBatchController != null) {
+        if (!stylePreview && runtimeBinding != null) {
+            runtimeBinding.start();
+        }
+        if (!stylePreview && managementBatchController != null) {
             managementBatchController.onStart();
         }
     }
 
     @Override
     protected void onStop() {
-        if (managementBatchController != null) {
+        if (!stylePreview && managementBatchController != null) {
             managementBatchController.onStop();
         }
-        runtimeBinding.stop();
+        if (!stylePreview && runtimeBinding != null) {
+            runtimeBinding.stop();
+        }
         super.onStop();
     }
 
     private void acceptRuntimeSnapshot(
         SceneSyncRuntimeState.Snapshot changed
     ) {
-        if (changed == null || isFinishing() || isDestroyed()) {
+        if (stylePreview || changed == null || isFinishing() || isDestroyed()) {
             return;
         }
         runtimeSnapshot = changed;
@@ -484,7 +676,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private void importScenes(List<Uri> uris) {
-        if (uris == null || uris.isEmpty()) {
+        if (stylePreview || uris == null || uris.isEmpty()) {
             return;
         }
 
@@ -545,7 +737,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private void exportScenes(Uri treeUri) {
-        if (treeUri == null) {
+        if (stylePreview || treeUri == null) {
             return;
         }
 
@@ -666,6 +858,9 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private void refreshScenesAsync() {
+        if (stylePreview || sceneStore == null || ioExecutor == null) {
+            return;
+        }
         setBusy(true);
         ioExecutor.execute(() -> {
             try {
@@ -694,11 +889,12 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private void requestSceneRefresh() {
-        if (!canRequestSceneRefresh()) {
+        if (stylePreview || runtimeState == null || sceneStore == null
+            || ioExecutor == null || !canRequestSceneRefresh()) {
             return;
         }
 
-        SceneStore.SceneInfo selected = selectedScene();
+        SceneRow selected = selectedScene();
         String preferredSceneName = selected == null
             ? null
             : selected.sceneName;
@@ -781,7 +977,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         String preferredSceneName,
         String preferredLanguage
     ) {
-        SceneStore.SceneInfo previousScene = selectedScene();
+        SceneRow previousScene = selectedScene();
         String wantedSceneName = preferredSceneName;
         if (wantedSceneName == null && previousScene != null) {
             wantedSceneName = previousScene.sceneName;
@@ -794,12 +990,18 @@ public final class SceneFilesActivity extends AppCompatActivity {
         }
 
         scenes.clear();
-        scenes.addAll(refreshedScenes);
+        if (refreshedScenes != null) {
+            for (SceneStore.SceneInfo scene : refreshedScenes) {
+                if (scene != null) {
+                    scenes.add(new SceneRow(scene.sceneName, scene.languages));
+                }
+            }
+        }
         sceneFileLabels.clear();
         if (scenes.isEmpty()) {
             sceneFileLabels.add(getString(R.string.scene_files_empty));
         } else {
-            for (SceneStore.SceneInfo scene : scenes) {
+            for (SceneRow scene : scenes) {
                 sceneFileLabels.add(scene.sceneName);
             }
         }
@@ -807,9 +1009,13 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
         int selectedIndex = indexOfScene(wantedSceneName);
         sceneFileSpinner.setSelection(selectedIndex < 0 ? 0 : selectedIndex, false);
-        int pendingMutations = sceneStore.getDeferredMutationCount();
+        int pendingMutations = sceneStore == null
+            ? 0
+            : sceneStore.getDeferredMutationCount();
         String pendingMutationDiagnostic =
-            sceneStore.getDeferredMutationDiagnostic();
+            sceneStore == null
+                ? ""
+                : sceneStore.getDeferredMutationDiagnostic();
         boolean hasPendingMutationNotice = pendingMutations > 0
             || !pendingMutationDiagnostic.trim().isEmpty();
         String sceneSummary = getString(
@@ -841,7 +1047,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
     private void updateLanguageChoices(String preferredLanguage) {
         sceneLanguages.clear();
-        SceneStore.SceneInfo scene = selectedScene();
+        SceneRow scene = selectedScene();
         if (scene == null || scene.languages.isEmpty()) {
             sceneLanguages.add(getString(R.string.scene_languages_empty));
         } else {
@@ -855,7 +1061,9 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private boolean canRequestSceneRefresh() {
-        return !batchMode
+        return !stylePreview
+            && runtimeSnapshot != null
+            && !batchMode
             && !busy
             && !refreshRequestPending
             && runtimeSnapshot.phase == SceneSyncRuntimeState.Phase.IDLE
@@ -866,6 +1074,21 @@ public final class SceneFilesActivity extends AppCompatActivity {
         boolean hasScene = selectedScene() != null;
         boolean hasLanguage = selectedLanguage() != null;
         boolean localUiBusy = busy || refreshRequestPending;
+        if (stylePreview) {
+            importButton.setEnabled(false);
+            exportButton.setEnabled(false);
+            deleteLanguageButton.setEnabled(false);
+            deleteFileButton.setEnabled(false);
+            refreshButton.setEnabled(false);
+            conflictsButton.setEnabled(false);
+            sceneFileSpinner.setEnabled(!scenes.isEmpty());
+            sceneLanguageSpinner.setEnabled(hasScene && hasLanguage);
+            detailButton.setEnabled(hasScene);
+            if (managementBatchMenuItem != null) {
+                managementBatchMenuItem.setEnabled(false);
+            }
+            return;
+        }
         importButton.setEnabled(!localUiBusy && !batchMode);
         exportButton.setEnabled(!localUiBusy && !batchMode && !scenes.isEmpty());
         sceneFileSpinner.setEnabled(!localUiBusy && hasScene && !batchMode);
@@ -877,7 +1100,9 @@ public final class SceneFilesActivity extends AppCompatActivity {
         detailButton.setEnabled(
             !localUiBusy && hasScene && !batchMode
         );
-        managementBatchMenuItem.setEnabled(!localUiBusy && !batchMode);
+        if (managementBatchMenuItem != null) {
+            managementBatchMenuItem.setEnabled(!localUiBusy && !batchMode);
+        }
     }
 
     /** Renders selection affordances for the same Scene model as the spinner. */
@@ -892,7 +1117,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
             return;
         }
         batchRows.setVisibility(View.VISIBLE);
-        for (SceneStore.SceneInfo scene : scenes) {
+        for (SceneRow scene : scenes) {
             if (scene == null || scene.sceneName == null
                 || scene.sceneName.trim().isEmpty()) {
                 continue;
@@ -1046,7 +1271,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
             throws Exception {
             List<ManagementBatchController.Item> all = snapshotItems();
             java.util.Set<String> visible = new java.util.LinkedHashSet<>();
-            for (SceneStore.SceneInfo scene : scenes) {
+            for (SceneRow scene : scenes) {
                 if (scene != null) {
                     visible.add(scene.sceneName);
                 }
@@ -1088,7 +1313,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         }
     }
 
-    private SceneStore.SceneInfo selectedScene() {
+    private SceneRow selectedScene() {
         int position = sceneFileSpinner.getSelectedItemPosition();
         return position >= 0 && position < scenes.size()
             ? scenes.get(position)
@@ -1096,7 +1321,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private String selectedLanguage() {
-        SceneStore.SceneInfo scene = selectedScene();
+        SceneRow scene = selectedScene();
         int position = sceneLanguageSpinner.getSelectedItemPosition();
         return scene != null
             && !scene.languages.isEmpty()
@@ -1119,7 +1344,10 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private void moveSelectedLanguageToPending() {
-        SceneStore.SceneInfo scene = selectedScene();
+        if (stylePreview || pendingMoveController == null) {
+            return;
+        }
+        SceneRow scene = selectedScene();
         String language = selectedLanguage();
         if (scene == null || language == null) {
             return;
@@ -1141,7 +1369,10 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private void moveSelectedSceneToPending() {
-        SceneStore.SceneInfo scene = selectedScene();
+        if (stylePreview || pendingMoveController == null) {
+            return;
+        }
+        SceneRow scene = selectedScene();
         if (scene == null) {
             return;
         }
@@ -1210,13 +1441,19 @@ public final class SceneFilesActivity extends AppCompatActivity {
             managementBatchController.close();
             managementBatchController = null;
         }
-        runtimeBinding.stop();
-        visibilityFlag.close();
+        if (!stylePreview && runtimeBinding != null) {
+            runtimeBinding.stop();
+        }
+        if (!stylePreview && visibilityFlag != null) {
+            visibilityFlag.close();
+        }
         if (pendingMoveController != null) {
             pendingMoveController.close();
             pendingMoveController = null;
         }
-        ioExecutor.shutdownNow();
+        if (!stylePreview && ioExecutor != null) {
+            ioExecutor.shutdownNow();
+        }
         super.onDestroy();
     }
 }
