@@ -50,7 +50,11 @@ public final class SceneAnnotationStore {
         return document;
     }
 
-    /** Caller owns the Review journal and root access for the entire commit. */
+    /**
+     * Caller owns root access for the entire commit. A full Context Review
+     * also owns its journal; annotation-only callers recover old journals
+     * first and rely on this sidecar's single AtomicFile/CAS write.
+     */
     public void saveInReview(
         SceneStore sceneStore,
         String scene,
