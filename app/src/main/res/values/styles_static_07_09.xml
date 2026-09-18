@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Static 07/08 detail shells keep the confirmed 56dp Android toolbar
+         while sharing the settings surface separator and accent role. -->
+    <style name="Widget.HET.StaticDetail.Toolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:background">@drawable/bg_settings_toolbar</item>
+        <item name="android:elevation">0dp</item>
+        <item name="titleTextColor">@color/het_on_surface</item>
+        <item name="contentInsetStartWithNavigation">4dp</item>
+        <item name="titleTextAppearance">@style/TextAppearance.HET.StaticDetail.ToolbarTitle</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDetail.ToolbarTitle" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDetail.Body" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineSpacingMultiplier">1.45</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDetail.Status" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingMultiplier">1.4</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDetail.SectionTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDetail.Caption" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDetail.Empty" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineSpacingMultiplier">1.45</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- XML buttons use the same Material 2 roles as the existing app, with
+         the compact 40dp/13sp metrics from the management prototype. -->
+    <style name="Widget.HET.StaticDetail.Button.Primary" parent="Widget.HET.Button.Primary">
+        <item name="android:minHeight">40dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.StaticDetail.Button.Secondary" parent="Widget.HET.Button.Secondary">
+        <item name="android:minHeight">40dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.StaticDetail.Button.Danger" parent="Widget.HET.Button.Danger">
+        <item name="android:minHeight">40dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.StaticDetail.Button.Text" parent="Widget.HET.Button.Text">
+        <item name="android:minHeight">40dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.StaticDetail.FieldLabel" parent="Widget.HET.FieldLabel">
+        <item name="android:textSize">13sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.StaticDetail.Spinner" parent="Widget.HET.Spinner">
+        <item name="android:textSize">14sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDictionary.EntryTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:lineSpacingMultiplier">1.25</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDictionary.EntrySubtitle" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDictionary.ArrayTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDictionary.ArrayElementTitle" parent="TextAppearance.MaterialComponents.Subtitle2">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.StaticDictionary.ArrayAdd" parent="Widget.HET.StaticDetail.Button.Text">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticDictionary.ArrayDelete" parent="Widget.HET.StaticDetail.Button.Text">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">34dp</item>
+        <item name="android:minHeight">34dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/het_error</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticDictionary.Helper" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingMultiplier">1.45</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.StaticDictionary.FieldInput" parent="Widget.MaterialComponents.TextInputEditText.OutlinedBox">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+</resources>

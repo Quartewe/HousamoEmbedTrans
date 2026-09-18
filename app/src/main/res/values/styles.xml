@@ -123,6 +123,10 @@
         <item name="android:minWidth">0dp</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="elevation">0dp</item>
+        <item name="pressedTranslationZ">0dp</item>
         <item name="android:textAllCaps">false</item>
         <item name="cornerRadius">20dp</item>
     </style>
@@ -166,9 +170,25 @@
         <item name="android:minWidth">0dp</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="elevation">0dp</item>
+        <item name="pressedTranslationZ">0dp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:textColor">@color/het_primary</item>
         <item name="cornerRadius">20dp</item>
+    </style>
+
+    <!-- Page scroll containers use one visible, theme-coloured thumb. The
+         custom scroll host supplies drag handling where the page uses it;
+         this style only makes the native scrollbar visible and consistent. -->
+    <style name="Widget.HET.ScrollView">
+        <item name="android:scrollbars">vertical</item>
+        <item name="android:fadeScrollbars">false</item>
+        <item name="android:scrollbarStyle">insideOverlay</item>
+        <item name="android:scrollbarSize">4dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:scrollbarThumbVertical">@drawable/het_scrollbar_thumb_vertical</item>
     </style>
 
     <!-- Relation/array/file empty states stay compact and do not reserve a

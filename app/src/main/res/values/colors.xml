@@ -11,6 +11,7 @@
          application still uses Material Components (Material 2) roles. -->
     <color name="het_primary">#FF4D5FB3</color>
     <color name="het_primary_dark">#FF34458F</color>
+    <color name="het_primary_strong">#FF34458F</color>
     <color name="het_secondary">#FF4D5FB3</color>
     <color name="het_primary_container">#FFDFE5FF</color>
     <color name="het_on_primary_container">#FF0E1B4F</color>

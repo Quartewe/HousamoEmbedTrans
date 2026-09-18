@@ -2,6 +2,7 @@
 <resources>
     <color name="het_primary">#FFB9C4FF</color>
     <color name="het_primary_dark">#FF39456F</color>
+    <color name="het_primary_strong">#FFD0D6FF</color>
     <color name="het_secondary">#FFB9C4FF</color>
     <color name="het_primary_container">#FF39456F</color>
     <color name="het_on_primary_container">#FFE3E6FF</color>
