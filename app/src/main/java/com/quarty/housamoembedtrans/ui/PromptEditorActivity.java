@@ -4,8 +4,10 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.storage.config.PromptStore;
 
 import android.os.Bundle;
+import android.content.res.ColorStateList;
+import android.text.Editable;
 import android.text.TextUtils;
-import android.view.View;
+import android.text.TextWatcher;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -13,7 +15,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.IOException;
@@ -55,8 +56,13 @@ public final class PromptEditorActivity extends AppCompatActivity {
     private EditText role;
     private EditText style;
     private EditText context;
+    private android.widget.TextView kindTitle;
+    private android.widget.TextView kindHelper;
+    private MaterialButton translationTab;
+    private MaterialButton summaryTab;
     private TextViewHandle readonly;
     private MaterialButton saveButton;
+    private boolean suppressDraftWatchers;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,11 +78,43 @@ public final class PromptEditorActivity extends AppCompatActivity {
         role = findViewById(R.id.et_prompt_role);
         style = findViewById(R.id.et_prompt_style);
         context = findViewById(R.id.et_prompt_context);
+        kindTitle = findViewById(R.id.tv_prompt_kind_title);
+        kindHelper = findViewById(R.id.tv_prompt_kind_helper);
         saveButton = findViewById(R.id.btn_prompt_save);
+        TextWatcher draftWatcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(
+                CharSequence source,
+                int start,
+                int count,
+                int after
+            ) {
+            }
+
+            @Override
+            public void onTextChanged(
+                CharSequence source,
+                int start,
+                int before,
+                int count
+            ) {
+                if (!suppressDraftWatchers) {
+                    captureActiveDraft();
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        };
+        role.addTextChangedListener(draftWatcher);
+        style.addTextChangedListener(draftWatcher);
+        context.addTextChangedListener(draftWatcher);
 
         MaterialToolbar toolbar = findViewById(R.id.toolbar_prompt_editor);
         toolbar.setNavigationOnClickListener(view -> onBackPressed());
-        MaterialButtonToggleGroup tabs = findViewById(R.id.prompt_kind_tabs);
+        translationTab = findViewById(R.id.btn_prompt_translation);
+        summaryTab = findViewById(R.id.btn_prompt_summary);
         findViewById(R.id.btn_prompt_discard).setOnClickListener(
             view -> discardActiveDraft()
         );
@@ -86,24 +124,13 @@ public final class PromptEditorActivity extends AppCompatActivity {
         saveButton.setOnClickListener(view -> saveActiveDraft());
 
         restoreDraftState(savedInstanceState);
-        tabs.check(
-            PromptStore.SUMMARY.equals(activeKind)
-                ? R.id.btn_prompt_summary
-                : R.id.btn_prompt_translation
+        translationTab.setOnClickListener(
+            view -> selectPromptKind(PromptStore.TRANSLATION)
+        );
+        summaryTab.setOnClickListener(
+            view -> selectPromptKind(PromptStore.SUMMARY)
         );
         showActiveDraft();
-        tabs.addOnButtonCheckedListener(
-            (group, checkedId, isChecked) -> {
-                if (!isChecked) {
-                    return;
-                }
-                captureActiveDraft();
-                activeKind = checkedId == R.id.btn_prompt_summary
-                    ? PromptStore.SUMMARY
-                    : PromptStore.TRANSLATION;
-                showActiveDraft();
-            }
-        );
     }
 
     @Override
@@ -119,7 +146,7 @@ public final class PromptEditorActivity extends AppCompatActivity {
     public void onBackPressed() {
         captureActiveDraft();
         if (isDirty(PromptStore.TRANSLATION) || isDirty(PromptStore.SUMMARY)) {
-            new MaterialAlertDialogBuilder(this)
+            new UiMaterialAlertDialogBuilder(this)
                 .setTitle(R.string.settings_prompt_discard_title)
                 .setMessage(R.string.settings_prompt_discard_message)
                 .setNegativeButton(R.string.cancel_action, null)
@@ -228,22 +255,65 @@ public final class PromptEditorActivity extends AppCompatActivity {
         if (values == null) {
             return;
         }
+        suppressDraftWatchers = true;
         role.setText(values.role);
         style.setText(values.style);
         context.setText(values.context);
+        suppressDraftWatchers = false;
+        boolean summary = PromptStore.SUMMARY.equals(activeKind);
+        kindTitle.setText(summary
+            ? R.string.settings_rebuild_prompt_summary_title
+            : R.string.settings_rebuild_prompt_translation_title);
+        kindHelper.setText(R.string.settings_prompt_subtitle);
         TextViewHandle readOnly = new TextViewHandle(
             findViewById(R.id.tv_prompt_readonly)
         );
-        readOnly.setText(
-            PromptStore.SUMMARY.equals(activeKind)
-                ? R.string.settings_prompt_readonly_summary
-                : R.string.settings_prompt_readonly_translation
-        );
+        readOnly.setText(summary
+            ? R.string.settings_rebuild_prompt_summary_constraints
+            : R.string.settings_rebuild_prompt_translation_constraints);
         saveButton.setText(
             isDirty(activeKind)
                 ? R.string.settings_prompt_save
                 : R.string.settings_prompt_saved
         );
+        updatePromptTabs();
+    }
+
+    private void selectPromptKind(String kind) {
+        if (kind == null || kind.equals(activeKind)) {
+            return;
+        }
+        captureActiveDraft();
+        activeKind = kind;
+        showActiveDraft();
+    }
+
+    private void updatePromptTabs() {
+        if (translationTab == null || summaryTab == null) {
+            return;
+        }
+        setPromptTabState(
+            translationTab,
+            PromptStore.TRANSLATION.equals(activeKind)
+        );
+        setPromptTabState(
+            summaryTab,
+            PromptStore.SUMMARY.equals(activeKind)
+        );
+    }
+
+    private void setPromptTabState(MaterialButton tab, boolean selected) {
+        tab.setBackgroundTintList(ColorStateList.valueOf(getColor(
+            selected
+                ? R.color.het_primary_container
+                : android.R.color.transparent
+        )));
+        tab.setTextColor(getColor(
+            selected
+                ? R.color.het_on_primary_container
+                : R.color.het_on_surface_muted
+        ));
+        tab.setStrokeWidth(0);
     }
 
     private void captureActiveDraft() {
@@ -302,7 +372,7 @@ public final class PromptEditorActivity extends AppCompatActivity {
             ).show();
             return;
         }
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.settings_prompt_discard_title)
             .setMessage(R.string.settings_prompt_discard_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -325,7 +395,7 @@ public final class PromptEditorActivity extends AppCompatActivity {
     }
 
     private void confirmReset() {
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.settings_prompt_reset_title)
             .setMessage(R.string.settings_prompt_reset_message)
             .setNegativeButton(R.string.cancel_action, null)
