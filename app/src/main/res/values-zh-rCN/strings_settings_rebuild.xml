@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_rebuild_toolbar_title">设置</string>
+    <string name="settings_rebuild_export_logs">导出运行日志</string>
+    <string name="settings_rebuild_export_logs_description">导出 HET 应用最近约 2000 行日志，保存到你选择的文本文件。仅包含 HET 应用自身日志，不包含游戏进程日志。</string>
+    <string name="settings_rebuild_export_logs_choose">选择文件</string>
+    <string name="settings_rebuild_export_logs_filename">housamo-het-log.txt</string>
+    <string name="settings_rebuild_export_logs_in_progress">正在读取 HET 日志…</string>
+    <string name="settings_rebuild_export_logs_empty">没有可导出的 HET 应用日志。</string>
+    <string name="settings_rebuild_export_logs_success">已导出 %1$d 行 HET 日志。</string>
+    <string name="settings_rebuild_export_logs_failed">日志导出失败：%1$s</string>
+    <string name="settings_rebuild_config_source_info">查看配置来源</string>
+    <string name="settings_rebuild_config_source_unknown">当前配置来源暂不可读。</string>
+    <string name="settings_rebuild_close">知道了</string>
+    <string name="settings_rebuild_theme_title">主题模式</string>
+    <string name="settings_rebuild_theme_hint">立即应用到当前应用界面；系统模式跟随设备设置。</string>
+    <string name="settings_rebuild_theme_system">跟随系统</string>
+    <string name="settings_rebuild_theme_light">浅色</string>
+    <string name="settings_rebuild_theme_dark">深色</string>
+    <string name="settings_rebuild_more">更多</string>
+    <string name="settings_rebuild_more_title">设置操作</string>
+    <string name="settings_rebuild_settings_saved">已保存</string>
+    <string name="settings_rebuild_custom_target">自定义目标语言</string>
+    <string name="settings_rebuild_custom_target_hint">请输入语言名称或代码，最多 100 个字符。</string>
+    <string name="settings_rebuild_error_too_long">内容超过允许长度。</string>
+    <string name="settings_rebuild_model_query_action">查询</string>
+    <string name="settings_rebuild_model_query_retry">重试</string>
+    <string name="settings_rebuild_model_query_loading">查询中…</string>
+    <string name="settings_rebuild_model_query_idle">查询服务支持的模型；不会发送翻译请求。</string>
+    <string name="settings_rebuild_base_url_placeholder">https://api.openai.com/v1</string>
+    <string name="settings_rebuild_model_placeholder">gpt-4o-mini</string>
+    <string name="settings_rebuild_model_query_success">已找到 %1$d 个模型，请选择要使用的模型。</string>
+    <string name="settings_rebuild_model_query_failure">查询失败：%1$s</string>
+    <string name="settings_rebuild_model_query_empty">服务没有返回可用模型。</string>
+    <string name="settings_rebuild_matching_rules_title">匹配规则说明（点击展开）</string>
+    <string name="settings_rebuild_matching_rules_body">高相关性门槛必须不低于中相关性门槛；次要角色点名门槛必须不低于仅名称点名门槛。相关角色和术语会根据配置的关联次数加入上下文。</string>
+    <string name="settings_rebuild_matching_rules_heading">详细匹配规则（点击展开）</string>
+    <string name="settings_rebuild_matching_rules_hint">查看角色命中、分组和术语上下文的计算说明。</string>
+    <string name="settings_rebuild_matching_rules_detail">Aho–Corasick 会同时扫描角色名、别名和游戏术语。
+
+1. 变量与命中分数
+speakerTurns：角色作为当前说话角色的对话段数。
+showHits：角色立绘在当前剧情中显示的次数。
+textHits：正文命中的角色名或有效别名分数之和；普通命中计 1 分，角色名左右紧邻片假名时计 0.1 分。
+sceneItemCount：当前剧情中需要翻译的内容数量。
+speakerScore = speakerTurns × 10；showScore = showHits × 2；textScore = textHits。
+relevance = 5 × ln(1 + speakerTurns) + 2 × ln(1 + showHits) + ln(1 + textHits)。
+density = (speakerScore + showScore + textScore) / sqrt(sceneItemCount)。
+
+2. 角色分组
+满足任一条件为主要角色完整资料：speakerTurns ≥ 2；speakerTurns ≥ 1 且 showHits ≥ 1；relevance ≥ HighRelevance；relevance ≥ MidRelevance 且 density ≥ DensityHigh。
+未成为主要角色时，若 textScore ≥ TextLowScore，或 textScore &gt; TextMentionedScore 且 RelatedNum(name, highSet) ≥ RelatedNum，则为次要角色完整资料；否则 textScore ≥ TextMentionedScore 进入 mentioned，仅保留名称和译名。
+
+3. 别名与特殊称呼
+只附加当前实际命中的别名；别名累计分数 ≥ TextMentionedScore；called 限制为空，或受限角色就是当前说话人。mc 条件昵称还需要受限角色存在对话、立绘或正文信号。
+
+4. 游戏术语
+直接命中分数 ≥ TextMentionedScore；主要角色的 guild、school、origin_world 直接加入；次要角色关联的同类术语在至少 LowTermScore 个次要角色共享时加入。</string>
+    <string name="settings_rebuild_diagnostics_title">诊断提示</string>
+    <string name="settings_rebuild_diagnostics_body">诊断开关只记录捕获、解析和失败响应信息，不改变正式任务数据。失败响应可能包含敏感内容，请按需开启。</string>
+    <string name="settings_style_preview_title">样式核对</string>
+    <string name="settings_style_preview_body">使用内存样例打开真实任务页和管理页，核对各个视觉状态。预览不会写入 Store，也不会发送请求。</string>
+    <string name="settings_style_preview_action">打开样式核对</string>
+    <string name="settings_rebuild_prompt_translation_title">翻译提示词</string>
+    <string name="settings_rebuild_prompt_summary_title">摘要提示词</string>
+    <string name="settings_rebuild_prompt_translation_helper">编辑翻译请求中的自然语言角色、文风和上下文说明。</string>
+    <string name="settings_rebuild_prompt_summary_helper">编辑摘要请求中的自然语言角色、文风和上下文说明。</string>
+    <string name="settings_rebuild_prompt_translation_constraints">• 输入字段、目标语言映射和角色上下文由应用固定提供。\n• 保护标签、运行时参数、重试字段和换行转义必须保持原样。\n• 输出固定为按顺序发送的 NDJSON 翻译事件，不能添加额外字段。</string>
+    <string name="settings_rebuild_prompt_summary_constraints">• 请求 kind、摘要输入和上下文快照语义由应用固定提供。\n• 输出只能是非空的单对象 summary JSON。\n• 不得添加 Markdown、额外字段或不支持的事件。</string>
+</resources>

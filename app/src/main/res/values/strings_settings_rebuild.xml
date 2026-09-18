@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_rebuild_toolbar_title">Settings</string>
+    <string name="settings_rebuild_export_logs">Export runtime logs</string>
+    <string name="settings_rebuild_export_logs_description">Export about the latest 2,000 lines of HET app logs to the text file you choose. Includes HET app logs only and excludes game process logs.</string>
+    <string name="settings_rebuild_export_logs_choose">Choose file</string>
+    <string name="settings_rebuild_export_logs_filename">housamo-het-log.txt</string>
+    <string name="settings_rebuild_export_logs_in_progress">Reading HET logs...</string>
+    <string name="settings_rebuild_export_logs_empty">No HET app logs are available to export.</string>
+    <string name="settings_rebuild_export_logs_success">Exported %1$d HET log lines.</string>
+    <string name="settings_rebuild_export_logs_failed">Log export failed: %1$s</string>
+    <string name="settings_rebuild_config_source_info">View config source</string>
+    <string name="settings_rebuild_config_source_unknown">The config source is currently unavailable.</string>
+    <string name="settings_rebuild_close">OK</string>
+    <string name="settings_rebuild_theme_title">Theme mode</string>
+    <string name="settings_rebuild_theme_hint">Applies immediately to this app; system mode follows the device setting.</string>
+    <string name="settings_rebuild_theme_system">System default</string>
+    <string name="settings_rebuild_theme_light">Light</string>
+    <string name="settings_rebuild_theme_dark">Dark</string>
+    <string name="settings_rebuild_more">More</string>
+    <string name="settings_rebuild_more_title">Settings actions</string>
+    <string name="settings_rebuild_settings_saved">Saved</string>
+    <string name="settings_rebuild_custom_target">Custom target language</string>
+    <string name="settings_rebuild_custom_target_hint">Enter a language name or code, up to 100 characters.</string>
+    <string name="settings_rebuild_error_too_long">The value exceeds the allowed length.</string>
+    <string name="settings_rebuild_model_query_action">Query</string>
+    <string name="settings_rebuild_model_query_retry">Retry</string>
+    <string name="settings_rebuild_model_query_loading">Querying...</string>
+    <string name="settings_rebuild_model_query_idle">Query supported service models; no translation request is sent.</string>
+    <string name="settings_rebuild_base_url_placeholder">https://api.openai.com/v1</string>
+    <string name="settings_rebuild_model_placeholder">gpt-4o-mini</string>
+    <string name="settings_rebuild_model_query_success">Found %1$d models. Choose the model to use.</string>
+    <string name="settings_rebuild_model_query_failure">Model query failed: %1$s</string>
+    <string name="settings_rebuild_model_query_empty">The service returned no usable models.</string>
+    <string name="settings_rebuild_matching_rules_title">Matching rules (tap to expand)</string>
+    <string name="settings_rebuild_matching_rules_body">The high relevance threshold must be at least the medium relevance threshold. The secondary-character mention threshold must be at least the name-only mention threshold. Related characters and terms are added to context according to the configured relation count.</string>
+    <string name="settings_rebuild_matching_rules_heading">Detailed matching rules (tap to expand)</string>
+    <string name="settings_rebuild_matching_rules_hint">Review how character hits, groups, and term context are calculated.</string>
+    <string name="settings_rebuild_matching_rules_detail">Aho–Corasick scans character names, aliases, and game terms together.
+
+1. Variables and hit scores
+speakerTurns: dialogue segments where the character is the current speaker.
+showHits: times the character portrait appears in the current scene.
+textHits: sum of character-name and valid-alias hits; a normal hit scores 1, while a name next to katakana on both sides scores 0.1.
+sceneItemCount: translatable items in the current scene.
+speakerScore = speakerTurns × 10; showScore = showHits × 2; textScore = textHits.
+relevance = 5 × ln(1 + speakerTurns) + 2 × ln(1 + showHits) + ln(1 + textHits).
+density = (speakerScore + showScore + textScore) / sqrt(sceneItemCount).
+
+2. Character groups
+A character gets a primary full profile when any condition holds: speakerTurns ≥ 2; speakerTurns ≥ 1 and showHits ≥ 1; relevance ≥ HighRelevance; or relevance ≥ MidRelevance and density ≥ DensityHigh.
+If not primary, textScore ≥ TextLowScore, or textScore &gt; TextMentionedScore and RelatedNum(name, highSet) ≥ RelatedNum, gives a secondary full profile. Otherwise textScore ≥ TextMentionedScore enters mentioned with only the name and translation.
+
+3. Aliases and special names
+Attach only aliases that actually hit. Alias total score must be ≥ TextMentionedScore. A called restriction must be empty or match the current speaker. An mc conditional nickname also requires dialogue, portrait, or text evidence for the restricted role.
+
+4. Game terms
+A direct hit scores ≥ TextMentionedScore. A primary character\'s guild, school, and origin_world terms are direct context. Related terms for secondary characters are included when at least LowTermScore secondary characters share them.</string>
+    <string name="settings_rebuild_diagnostics_title">Diagnostics</string>
+    <string name="settings_rebuild_diagnostics_body">Diagnostic switches record capture, parsing, and failed-response details only; they do not change formal task data. Failed responses may contain sensitive content, so enable them only when needed.</string>
+    <string name="settings_style_preview_title">Style check</string>
+    <string name="settings_style_preview_body">Open the real task and management pages with in-memory samples to review their visual states. The preview does not write stores or send requests.</string>
+    <string name="settings_style_preview_action">Open style check</string>
+    <string name="settings_rebuild_prompt_translation_title">Translation prompt</string>
+    <string name="settings_rebuild_prompt_summary_title">Summary prompt</string>
+    <string name="settings_rebuild_prompt_translation_helper">Edit the natural-language role, style, and context notes in translation requests.</string>
+    <string name="settings_rebuild_prompt_summary_helper">Edit the natural-language role, style, and context notes in summary requests.</string>
+    <string name="settings_rebuild_prompt_translation_constraints">• Input fields, target-language mapping, and character context are supplied by the app.\n• Protected tags, runtime parameters, retry fields, and newline escaping must remain unchanged.\n• Output is ordered NDJSON translation events and cannot contain extra fields.</string>
+    <string name="settings_rebuild_prompt_summary_constraints">• Request kind, summary input, and context snapshot semantics are supplied by the app.\n• Output must be one non-empty summary JSON object.\n• Do not add Markdown, extra fields, or unsupported events.</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_category_eyebrow">设置分类</string>
+    <string name="settings_category_scope_title">生效范围</string>
+    <string name="settings_prompt_eyebrow">提示词草稿 · 本地保存</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_category_eyebrow">Settings category</string>
+    <string name="settings_category_scope_title">Effective scope</string>
+    <string name="settings_prompt_eyebrow">Prompt drafts · local</string>
+</resources>
