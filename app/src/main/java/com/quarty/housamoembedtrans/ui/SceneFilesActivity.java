@@ -253,7 +253,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         refreshScenesAsync();
         managementBatchController = ManagementBatchController.attach(
             this,
-            findViewById(R.id.root_scene_files),
+            findViewById(R.id.scroll_scene_files),
             new SceneBatchDataSource(),
             savedInstanceState
         );
@@ -885,7 +885,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         if (batchRows == null) {
             return;
         }
-        int scrollY = findViewById(R.id.root_scene_files).getScrollY();
+        int scrollY = findViewById(R.id.scroll_scene_files).getScrollY();
         batchRows.removeAllViews();
         if (!batchMode) {
             batchRows.setVisibility(View.GONE);
@@ -962,8 +962,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
             empty.setText(R.string.scene_files_empty);
             batchRows.addView(empty);
         }
-        findViewById(R.id.root_scene_files).post(() ->
-            findViewById(R.id.root_scene_files).scrollTo(0, scrollY)
+        findViewById(R.id.scroll_scene_files).post(() ->
+            findViewById(R.id.scroll_scene_files).scrollTo(0, scrollY)
         );
     }
 

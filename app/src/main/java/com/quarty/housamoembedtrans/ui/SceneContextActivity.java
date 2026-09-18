@@ -35,7 +35,6 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ScrollView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AlertDialog;
@@ -176,6 +175,9 @@ public final class SceneContextActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (redirectManagementEditorIfRequested()) {
+            return;
+        }
         Object retained = getLastCustomNonConfigurationInstance();
         if (retained instanceof ManagementEditorSession) {
             pendingManagementEditorSession =
@@ -240,7 +242,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         refreshAsync();
         managementBatchController = ManagementBatchController.attach(
             this,
-            findViewById(R.id.root_scene_context),
+            findViewById(R.id.scroll_scene_context),
             new ContextBatchDataSource(),
             savedInstanceState
         );
@@ -440,7 +442,7 @@ public final class SceneContextActivity extends AppCompatActivity {
             return;
         }
         if (reviewMode && ContextReviewGate.get().isPending()) {
-            new MaterialAlertDialogBuilder(this)
+            new UiMaterialAlertDialogBuilder(this)
                 .setTitle(R.string.scene_context_review_skip_title)
                 .setMessage(R.string.scene_context_review_skip_message)
                 .setNegativeButton(R.string.cancel_action, null)
@@ -735,7 +737,7 @@ public final class SceneContextActivity extends AppCompatActivity {
             ),
             conflict.label
         );
-        MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder dialog = new UiMaterialAlertDialogBuilder(this)
             .setTitle(title)
             .setMessage(R.string.scene_context_import_conflict_message)
             .setNegativeButton(
@@ -1512,6 +1514,50 @@ public final class SceneContextActivity extends AppCompatActivity {
         );
     }
 
+    /** Management detail links use the full-page editor; review mode keeps its review surface. */
+    private boolean redirectManagementEditorIfRequested() {
+        Intent intent = getIntent();
+        if (intent == null
+            || intent.getBooleanExtra(EXTRA_REVIEW_MODE, false)
+            || ContextReviewGate.get().isPending()) {
+            return false;
+        }
+        String createKind = intent.getStringExtra(EXTRA_MANAGEMENT_CREATE_KIND);
+        String contextId = intent.getStringExtra(EXTRA_MANAGEMENT_CONTEXT_ID);
+        String groupId = intent.getStringExtra(EXTRA_MANAGEMENT_GROUP_ID);
+        if (!"context".equals(createKind)
+            && !"group".equals(createKind)
+            && contextId == null
+            && groupId == null) {
+            return false;
+        }
+        Intent editor = new Intent(this, ContextGroupEditorActivity.class);
+        if ("context".equals(createKind) || contextId != null) {
+            editor.putExtra(ContextGroupEditorActivity.EXTRA_KIND, "context");
+            if ("context".equals(createKind)) {
+                editor.putExtra(
+                    ContextGroupEditorActivity.EXTRA_CREATE_KIND,
+                    "context"
+                );
+            } else {
+                editor.putExtra(ContextGroupEditorActivity.EXTRA_ID, contextId);
+            }
+        } else {
+            editor.putExtra(ContextGroupEditorActivity.EXTRA_KIND, "group");
+            if ("group".equals(createKind)) {
+                editor.putExtra(
+                    ContextGroupEditorActivity.EXTRA_CREATE_KIND,
+                    "group"
+                );
+            } else {
+                editor.putExtra(ContextGroupEditorActivity.EXTRA_ID, groupId);
+            }
+        }
+        startActivity(editor);
+        finish();
+        return true;
+    }
+
     private static void restoreEditorRows(
         Map<String, ManualEditorRow> rowMap,
         List<ManagementEditorRowState> savedRows
@@ -2269,7 +2315,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         EditText languageInput,
         ContextClosureControls controls
     ) {
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_context_manual_closure_end_title)
             .setMessage(R.string.scene_context_manual_closure_end_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -2334,7 +2380,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         EditText languageInput,
         ContextClosureControls controls
     ) {
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_context_manual_closure_retry_title)
             .setMessage(R.string.scene_context_manual_closure_retry_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -2399,7 +2445,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         String contextId,
         ContextClosureControls controls
     ) {
-        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+        AlertDialog dialog = new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_context_manual_closure_reopen_title)
             .setMessage(R.string.scene_context_manual_closure_reopen_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -2442,7 +2488,7 @@ public final class SceneContextActivity extends AppCompatActivity {
             R.string.scene_context_manual_closure_blocked,
             result.activeSummaryRequestIds.size()
         );
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_context_manual_closure_blocked_title)
             .setMessage(detail)
             .setNegativeButton(R.string.cancel_action, null)
@@ -2677,7 +2723,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         String targetLang,
         GroupClosureControls controls
     ) {
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_group_manual_closure_end_title)
             .setMessage(R.string.scene_group_manual_closure_end_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -2821,7 +2867,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         String targetLang,
         GroupClosureControls controls
     ) {
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_group_manual_closure_latest_facts_title)
             .setMessage(
                 R.string.scene_group_manual_closure_latest_facts_message
@@ -2843,7 +2889,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         String groupId,
         GroupClosureControls controls
     ) {
-        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+        AlertDialog dialog = new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_group_manual_closure_reopen_title)
             .setMessage(R.string.scene_group_manual_closure_reopen_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -2882,7 +2928,7 @@ public final class SceneContextActivity extends AppCompatActivity {
             R.string.scene_group_manual_closure_blocked,
             result.activeSummaryRequestIds.size()
         );
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_group_manual_closure_blocked_title)
             .setMessage(detail)
             .setNegativeButton(R.string.cancel_action, null)
@@ -2902,7 +2948,7 @@ public final class SceneContextActivity extends AppCompatActivity {
             names
         );
         showResult(message);
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_group_manual_closure_missing_title)
             .setMessage(message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -2924,7 +2970,7 @@ public final class SceneContextActivity extends AppCompatActivity {
                 R.string.scene_group_manual_closure_failed,
                 result.closureFailure
             );
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_group_manual_closure_failed_title)
             .setMessage(detail)
             .setNegativeButton(R.string.cancel_action, null)
@@ -3367,10 +3413,12 @@ public final class SceneContextActivity extends AppCompatActivity {
             activeManagementEditorInitialImmediateSummaryLanguages =
                 new LinkedHashMap<>(originalRequests);
         }
-        ScrollView scroll = new ScrollView(this);
+        DraggableScrollbarNestedScrollView scroll =
+            new DraggableScrollbarNestedScrollView(this);
         scroll.setFillViewport(true);
+        scroll.setPaddingRelative(0, 0, dp(14), 0);
         scroll.addView(body);
-        AlertDialog editor = new MaterialAlertDialogBuilder(this)
+        AlertDialog editor = new UiMaterialAlertDialogBuilder(this)
             .setTitle(title).setView(scroll)
             .setNegativeButton(R.string.cancel_action, null)
             .setPositiveButton(R.string.scene_context_save, null).create();
@@ -3394,7 +3442,7 @@ public final class SceneContextActivity extends AppCompatActivity {
                 discard.run();
                 return;
             }
-            new MaterialAlertDialogBuilder(this)
+            new UiMaterialAlertDialogBuilder(this)
                 .setTitle(R.string.context_editor_discard_title)
                 .setMessage(R.string.context_editor_discard_message)
                 .setNegativeButton(R.string.keep_editing, null)
@@ -4200,7 +4248,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         int positive = unsent > 0
             ? R.string.scene_batch_edit_discard_summary_continue
             : R.string.scene_batch_edit_continue_running_summary;
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_batch_edit_manual_summary_title)
             .setMessage(getString(
                 R.string.scene_batch_edit_manual_summary_message,
@@ -4227,7 +4275,7 @@ public final class SceneContextActivity extends AppCompatActivity {
             saveReviewConfirmed(save, risk);
             return;
         }
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_context_inflight_title)
             .setMessage(getString(
                 R.string.scene_context_inflight_message,
@@ -4901,7 +4949,7 @@ public final class SceneContextActivity extends AppCompatActivity {
         @Override
         public void onBatchModeChanged(boolean enabled) {
             batchMode = enabled;
-            View root = findViewById(R.id.root_scene_context);
+            View root = findViewById(R.id.scroll_scene_context);
             int scrollY = root == null ? 0 : root.getScrollY();
             findViewById(R.id.btn_add_context).setEnabled(!enabled && !busy);
             findViewById(R.id.btn_add_group).setEnabled(!enabled && !busy);
@@ -4920,7 +4968,7 @@ public final class SceneContextActivity extends AppCompatActivity {
 
         @Override
         public void onBatchSelectionChanged() {
-            View root = findViewById(R.id.root_scene_context);
+            View root = findViewById(R.id.scroll_scene_context);
             int scrollY = root == null ? 0 : root.getScrollY();
             renderContextRows();
             renderGroupRows();

@@ -511,7 +511,7 @@ public final class SceneBatchEditActivity extends AppCompatActivity {
         int positive = unsent > 0
             ? R.string.scene_batch_edit_discard_summary_continue
             : R.string.scene_batch_edit_continue_running_summary;
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_batch_edit_manual_summary_title)
             .setMessage(getString(
                 R.string.scene_batch_edit_manual_summary_message,
@@ -534,7 +534,7 @@ public final class SceneBatchEditActivity extends AppCompatActivity {
         SceneBatchPlanner.CommitPlan commit,
         ContextReviewCoordinator.EditRisk risk
     ) {
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.scene_batch_edit_commit_confirm_title)
             .setMessage(getString(
                 R.string.scene_batch_edit_commit_confirm_message,

@@ -1,90 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/root_scene_context"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:clipToPadding="false"
-    android:fillViewport="true">
+    android:background="@color/het_surface"
+    android:orientation="vertical">
+
+    <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
+        style="@style/Widget.HET.ScrollView"
+        android:id="@+id/scroll_scene_context"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingBottom="20dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar_scene_context"
+            style="@style/Widget.HET.StaticDetail.Toolbar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="?attr/actionBarSize"
+            android:layout_height="56dp"
+            android:minHeight="56dp"
             app:navigationContentDescription="@string/back_action"
             app:navigationIcon="?attr/homeAsUpIndicator"
             app:title="@string/scene_context_title" />
 
         <TextView
+            style="@style/TextAppearance.HET.StaticDetail.Body"
             android:id="@+id/tv_scene_context_intro"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginTop="15dp"
+            android:layout_marginEnd="14dp"
             android:text="@string/scene_context_intro"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="?android:attr/textColorSecondary" />
+            />
 
         <TextView
+            style="@style/TextAppearance.HET.StaticDetail.SectionTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginEnd="14dp"
             android:text="@string/scene_context_active_title"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-            android:textStyle="bold" />
+            />
 
         <TextView
-            style="@style/Widget.HET.FieldLabel"
+            style="@style/Widget.HET.StaticDetail.FieldLabel"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
             android:text="@string/scene_context_active_context" />
 
         <Spinner
             android:id="@+id/spinner_active_context"
-            style="@style/Widget.HET.Spinner" />
+            style="@style/Widget.HET.StaticDetail.Spinner"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp" />
 
         <TextView
-            style="@style/Widget.HET.FieldLabel"
+            style="@style/Widget.HET.StaticDetail.FieldLabel"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
             android:text="@string/scene_context_active_group" />
 
         <Spinner
             android:id="@+id/spinner_active_group"
-            style="@style/Widget.HET.Spinner" />
+            style="@style/Widget.HET.StaticDetail.Spinner"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_edit_all_scenes"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
+            style="@style/Widget.HET.StaticDetail.Button.Secondary"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginStart="14dp"
             android:layout_marginTop="12dp"
+            android:layout_marginEnd="14dp"
             android:text="@string/scene_batch_edit_manage_entry" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
+            android:gravity="end"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_import_context_group"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
+                style="@style/Widget.HET.StaticDetail.Button.Secondary"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="6dp"
-                android:layout_weight="1"
                 android:text="@string/scene_context_import" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_export_context_group"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
+                style="@style/Widget.HET.StaticDetail.Button.Secondary"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
-                android:layout_weight="1"
                 android:text="@string/scene_context_export" />
         </LinearLayout>
 
@@ -92,87 +118,122 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
+            android:gravity="end"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_context"
-                android:layout_width="0dp"
+                style="@style/Widget.HET.StaticDetail.Button.Primary"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="6dp"
-                android:layout_weight="1"
                 android:text="@string/scene_context_add_context" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_group"
-                android:layout_width="0dp"
+                style="@style/Widget.HET.StaticDetail.Button.Primary"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
-                android:layout_weight="1"
                 android:text="@string/scene_context_add_group" />
         </LinearLayout>
 
         <TextView
+            style="@style/TextAppearance.HET.StaticDetail.SectionTitle"
             android:id="@+id/tv_context_list_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginEnd="14dp"
             android:text="@string/scene_context_list_title"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-            android:textStyle="bold" />
+            />
 
         <LinearLayout
             android:id="@+id/container_contexts"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
             android:orientation="vertical" />
 
         <TextView
+            style="@style/TextAppearance.HET.StaticDetail.SectionTitle"
             android:id="@+id/tv_group_list_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginEnd="14dp"
             android:text="@string/scene_context_group_list_title"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-            android:textStyle="bold" />
+            />
 
         <LinearLayout
             android:id="@+id/container_groups"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
             android:orientation="vertical" />
-
-        <LinearLayout
-            android:id="@+id/review_buttons"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:orientation="horizontal"
-            android:visibility="gone">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_review_skip"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:text="@string/scene_context_review_skip" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_review_save"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:text="@string/scene_context_review_save" />
-        </LinearLayout>
 
         <TextView
             android:id="@+id/tv_scene_context_result"
+            style="@style/TextAppearance.HET.StaticDetail.Caption"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-            android:textColor="?android:attr/textColorSecondary" />
+            android:layout_marginStart="14dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="14dp" />
     </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+    </com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView>
+
+    <LinearLayout
+        android:id="@+id/review_buttons"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/het_bottom_bar_height"
+        android:background="@drawable/bg_primary_navigation"
+        android:baselineAligned="false"
+        android:gravity="end|center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:visibility="gone">
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:gravity="end|center_vertical"
+            android:overScrollMode="ifContentScrolls"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:baselineAligned="false"
+                android:gravity="end|center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_review_skip"
+                    style="@style/Widget.HET.StaticDetail.Button.Secondary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginEnd="6dp"
+                    android:text="@string/scene_context_review_skip" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_review_save"
+                    style="@style/Widget.HET.StaticDetail.Button.Primary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/scene_context_review_save" />
+            </LinearLayout>
+        </HorizontalScrollView>
+    </LinearLayout>
+</LinearLayout>

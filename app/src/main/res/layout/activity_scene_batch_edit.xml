@@ -1,55 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@color/het_surface"
     android:id="@+id/root_scene_batch_edit"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:clipToPadding="false"
-    android:fillViewport="true">
+    android:orientation="vertical">
+
+    <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
+        style="@style/Widget.HET.ScrollView"
+        android:id="@+id/scroll_scene_batch_edit"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingBottom="20dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar_scene_batch_edit"
+            style="@style/Widget.HET.StaticDetail.Toolbar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="?attr/actionBarSize"
+            android:layout_height="56dp"
+            android:minHeight="56dp"
             app:navigationContentDescription="@string/back_action"
             app:navigationIcon="?attr/homeAsUpIndicator"
             app:title="@string/scene_batch_edit_title" />
 
         <TextView
+            style="@style/TextAppearance.HET.StaticDetail.Body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="15dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
             android:text="@string/scene_batch_edit_intro"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="?android:attr/textColorSecondary" />
+            />
 
         <LinearLayout
             android:id="@+id/container_scene_batch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
             android:orientation="vertical" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_scene_batch_commit"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/scene_batch_edit_commit" />
 
         <TextView
             android:id="@+id/tv_scene_batch_result"
+            style="@style/TextAppearance.HET.StaticDetail.Caption"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-            android:textColor="?android:attr/textColorSecondary" />
+            android:layout_marginTop="12dp"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp" />
     </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+</com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView>
+
+    <LinearLayout
+        android:id="@+id/page_actions"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/het_bottom_bar_height"
+        android:background="@drawable/bg_primary_navigation"
+        android:baselineAligned="false"
+        android:gravity="end|center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_scene_batch_commit"
+            style="@style/Widget.HET.StaticDetail.Button.Primary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/scene_batch_edit_commit" />
+    </LinearLayout>
+</LinearLayout>
