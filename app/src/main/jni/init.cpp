@@ -345,6 +345,11 @@ static void InitThread(RuntimeConfig config) {
         return;
     }
 
+    if (!StartQuestWriter(il2cpp_base, config)) {
+        LOGE("Initialization failed: Could not start quest writer");
+        return;
+    }
+
     if (!install_hook(il2cpp_base, config)) {
         LOGE("Initialization failed: Could not install hook");
         return;

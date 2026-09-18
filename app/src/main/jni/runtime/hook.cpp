@@ -8,16 +8,25 @@
 
 using RawFuncPtr = void (*)(void* self, void* pageData, void* method);
 using RawFindScenarioDataPtr = void* (*)(void* self, void* label, void* method);
+using PageTextChangeFn = void (*)(void* self, void* adv_page, void* method);
+using SelectionInitFn = void (*)(void* self, void* data, void* button_clicked_event, void* method);
+using SelectionClearAllFn = void (*)(void* self, void* method);
 
 // 原函数指针
 static RawFuncPtr RawInitBase = nullptr; // 所有内容
 static RawFuncPtr RawInitText = nullptr; // Text专用
 static RawFindScenarioDataPtr RawFindScenarioData = nullptr;
+static PageTextChangeFn RawPageTextChange = nullptr;
+static SelectionInitFn RawSelectionInit = nullptr;
+static SelectionClearAllFn RawSelectionClearAll = nullptr;
 
 // ShadowHook stub 指针（用于 unhook）
 static void* StubInitBase = nullptr;
 static void* StubInitText = nullptr;
 static void* StubFindScenarioData = nullptr;
+static void* StubPageTextChange = nullptr;
+static void* StubSelectionInit = nullptr;
+static void* StubSelectionClearAll = nullptr;
 
 static void* HookFindScenarioData(void* self, void* label, void* method) {
     // Sample once at the capture admission boundary.  Every downstream
@@ -52,37 +61,14 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
     const std::string scene_name = read_il2cpp_string(
         read_ptr(scenario_data, scenario_layout.name));
     if (!het::translation::scene_identity::IsValid(scene_name)) {
-        // SceneName is sourced from AdvScenarioData.Name.  Do not use the
-        // FindScenarioData entry label as a policy identity or report value.
         LOGW(
             "[FindScenarioData] invalid scenario scene name entry=%s",
             entry_label.c_str());
         return scenario_data;
     }
 
-    // Existing complete/pending files are still sent to the API as before.
-    // The production lease only gates a genuinely new capture path.
-    switch (GetSceneFileStatus(scene_name)) {
-        case SceneFileStatus::complete:
-        //     if (!SubmitToQuestRewriter(entry_label)) {
-        //         LOGE("[FindScenarioData] failed to rewrite scene to quest entry=%s", entry_label.c_str());
-        //     }
-            LOGI("[FindScenarioData] scene file already complete, skipping scene=%s", scene_name.c_str());
-            return scenario_data;
-        case SceneFileStatus::pending:
-            if (!SubmitExistingScene(scene_name, captured_epoch)) {
-                LOGE("[FindScenarioData] failed to post existing scene to api scene=%s", scene_name.c_str());
-            }
-            return scenario_data;
-        case SceneFileStatus::not_found:
-            break;
-    }
-
     auto production_lease = EnterSceneProduction(scene_name);
     if (!production_lease.allowed()) {
-        // ReportSceneProductionRejected owns the complete reportable-reason
-        // policy.  Callers pass the typed reason without maintaining a
-        // second filter that can drift when RejectReason evolves.
         ReportSceneProductionRejected(scene_name, production_lease.reason());
         LOGI(
             "[FindScenarioData] Scene production rejected scene=%s reason=%d",
@@ -135,6 +121,40 @@ static void HookInitText(void* self, void* pageData, void* method) {
     return;
 }
 
+static void ObservePageTextChange(void* self, void* adv_page, void* method) {
+    if (adv_page == nullptr) {
+        LOGE("[PageTextChange] adv_page is nullptr!"); 
+    };
+    if (RawPageTextChange) {
+        // 调用原函数
+        RawPageTextChange(self, adv_page, method);  
+    }
+    SubmitPageTextChangeFn(adv_page);
+    return;
+}
+
+static void ObserveSelectionClearAll(void* self, void* method) {
+    ClearSelectionItems();
+    if (RawSelectionClearAll) {
+        // 调用原函数
+        RawSelectionClearAll(self, method);  
+    }
+    LOGI("[SelectionClearAll] Cleared all selection items");
+    return;
+}
+
+static void ObserveSelectionChange(void* self, void* data, void* button_clicked_event, void* method) {
+    if (data == nullptr) {
+        LOGE("[SelectionInit] data is nullptr!"); 
+    };
+    if (RawSelectionInit) {
+        // 调用原函数
+        RawSelectionInit(self, data, button_clicked_event, method);  
+    }
+    SubmitSelectionItem(self);
+    return;
+}
+
 bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config) {
     // 主链路：FindScenarioData 返回完整 AdvScenarioData 后做静态解析。
     void* targetFindScenarioData = reinterpret_cast<void*>(
@@ -151,6 +171,51 @@ bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config) {
         return false;
     }
     LOGI("shadowhook FindScenarioData success stub=%p", StubFindScenarioData);
+
+    void* targetPageTextChange = reinterpret_cast<void*>(
+        il2cpp_base + config.rva.page_text_change
+    );
+
+    StubPageTextChange = shadowhook_hook_func_addr(
+        targetPageTextChange,
+        reinterpret_cast<void*>(ObservePageTextChange),
+        reinterpret_cast<void**>(&RawPageTextChange)
+    );
+
+    if (StubPageTextChange == nullptr) {
+        int err = shadowhook_get_errno();
+        LOGE("shadowhook PageTextChange failed: %d %s", err, shadowhook_to_errmsg(err));
+        return false;
+    }
+
+    LOGI("shadowhook PageTextChange success stub=%p", StubPageTextChange);
+
+    StubSelectionClearAll = shadowhook_hook_func_addr(
+        reinterpret_cast<void*>(il2cpp_base + config.rva.ugui_selection_clear_all),
+        reinterpret_cast<void*>(ObserveSelectionClearAll),
+        reinterpret_cast<void**>(&RawSelectionClearAll)
+    );
+    
+    if (StubSelectionClearAll == nullptr) {
+        int err = shadowhook_get_errno();
+        LOGE("shadowhook SelectionClearAll failed: %d %s", err, shadowhook_to_errmsg(err));
+        return false;
+    }
+
+    LOGI("shadowhook SelectionClearAll success stub=%p", StubSelectionClearAll);
+
+    StubSelectionInit = shadowhook_hook_func_addr(
+        reinterpret_cast<void*>(il2cpp_base + config.rva.ugui_selection_init),
+        reinterpret_cast<void*>(ObserveSelectionChange),
+        reinterpret_cast<void**>(&RawSelectionInit)
+    );
+
+    if (StubSelectionInit == nullptr) {
+        int err = shadowhook_get_errno();
+        LOGE("shadowhook SelectionInit failed: %d %s", err, shadowhook_to_errmsg(err));
+        return false;
+    }
+    LOGI("shadowhook SelectionInit success stub=%p", StubSelectionInit);
 
     if (!config.enable_page_rec_debug) {
         LOGI("[PageRec] debug hook disabled");

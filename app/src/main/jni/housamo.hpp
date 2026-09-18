@@ -433,19 +433,45 @@ struct Scene {
     std::vector<SceneItem> scene_items;
 };
 
+using QuestPtrSet = std::unordered_map<OrderKey, void*, OrderKeyHash>;
+
+struct QuestTargetSet {
+    void* scenario_data_ptr = nullptr;
+    QuestPtrSet target_map;
+};
+
+struct QuestWriteItem {
+    OrderKey order;
+    std::string replacement_text;
+};
+
+struct QuestWriteBlock {
+    std::string scene_name;
+    std::string target_lang;
+    std::vector<QuestWriteItem> items;
+};
+
+// extern std::unordered_map<std::string, QuestTargetSet> g_quest_target_sets;
+
 // 启动类
 bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config);
 void StartJsonManager(std::string chardict_json, std::string gameterms_json);
 void StartAcInit(ACInit ac_init);
 void StartSceneBuilder();
+bool StartQuestWriter(uintptr_t il2cpp_base, const RuntimeConfig& config);
+bool InitQuestWriterRuntime(uintptr_t il2cpp_base, const RuntimeConfig& config);
+void ClearSelectionItems();
 
 // submit 类
-// bool SubmitToQuestRewriter(const std::string& entry_label);
 void SubmitScenarioParseResult(
     ScenarioParseResult result,
     het::scene_sync::SceneProductionLease production_lease,
     std::uint64_t captured_epoch);
-
+bool SubmitQuestTargetSet(const std::string& scene_name, const QuestTargetSet& target_set);
+bool SubmitPatchToWriter(QuestWriteBlock block);
+void SubmitPageTextChangeFn(void* adv_page);
+void SubmitSelectionItem(void* self);
+bool SubmitQuestPatchToWriter(const std::string& request_id, const std::string& patch);
 // 检验类
 bool IsJsonManagerReady();
 void NotifyPageRecStopChanged();

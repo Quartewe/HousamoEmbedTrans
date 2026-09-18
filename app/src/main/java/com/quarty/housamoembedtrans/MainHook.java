@@ -2092,13 +2092,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         String requestId,
         byte[] patchJson
     ) {
-        // Quest patches are intentionally best-effort and ignored by the
-        // terminal-result delivery path.  Reading the PFD still happens in
-        // TranslationServiceClient so the Binder transport is drained, but
-        // no native or Scene write is performed here.
-        XposedBridge.log(
-            "[HousamoTrans] Ignoring Quest patch requestId=" + requestId
-        );
+        nativeApplyQuestPatch(requestId, patchJson);
     }
 
     private static boolean handleSceneResult(

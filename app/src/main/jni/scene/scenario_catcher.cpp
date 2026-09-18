@@ -1,5 +1,6 @@
 #include "housamo.hpp"
 #include "translation/native_translation_pipeline.hpp"
+#include "block_queue.hpp"
 
 #include <algorithm>
 #include <mutex>
@@ -63,6 +64,7 @@ enum class ScenarioParseStatus {
 struct ScenarioParseOutput {
     ScenarioParseStatus status = ScenarioParseStatus::failed;
     ScenarioParseResult result;
+    QuestPtrSet target_map;
 };
 
 struct ListView {
@@ -140,50 +142,6 @@ static void ForgetCaughtScenario(
         caught_scenarios.erase(found);
     }
 }
-
-template <typename T>
-class BlockingQueue {
-public:
-    bool Push(T value) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (closed_) return false;
-            queue_.push_back(std::move(value));
-        }
-        cv_.notify_one();
-        return true;
-    }
-
-    bool Pop(T* out) {
-        std::unique_lock<std::mutex> lock(mutex_);
-
-        cv_.wait(lock, [this] {
-            return closed_ || !queue_.empty();
-        });
-
-        if (queue_.empty()) {
-            return false;
-        }
-
-        *out = std::move(queue_.front());
-        queue_.pop_front();
-        return true;
-    }
-
-    void Close() {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            closed_ = true;
-        }
-        cv_.notify_all();
-    }
-
-private:
-    std::mutex mutex_;
-    std::condition_variable cv_;
-    std::deque<T> queue_;
-    bool closed_ = false;
-};
 
 static void AddItemScore(std::vector<ItemScore>& item, const std::string& name, float score) {
     if (name.empty() || name == "mc") {
@@ -373,88 +331,6 @@ static std::string ReadSelectionJumpLabel(void* cmd_item) {
     return read_il2cpp_string(label_ptr);
 }
 
-enum class TextStatus {
-    ok,
-    empty,
-    official_translation,
-};
-
-static TextStatus ReadTranslatableText(
-    void* cmd_item,
-    PageParseResult& result,
-    OrderKey order,
-    int& protect_index,
-    const std::string& current_speaker,
-    std::string* out) {
-    if (out == nullptr) {
-        return TextStatus::empty;
-    }
-    const auto& columns = g_runtime_config.layout.text_columns;
-    int target_lang = 0;
-
-    if (g_runtime_config.target_lang == "en") {
-        target_lang = columns.en;
-    } else if (g_runtime_config.target_lang == "zh-tw") {
-        target_lang = columns.zh_tw;
-    } else if (g_runtime_config.target_lang == "zh-cn") {
-        target_lang = columns.zh_cn;
-    } else {
-        LOGW("[ScenarioCatcher] target lang [%s] has no official translation", g_runtime_config.target_lang.c_str());
-    }
-
-    if (target_lang != 0) {
-        std::string target_lang_text = ReadRowStringColumn(cmd_item, target_lang);
-        if (!target_lang_text.empty()) {
-            LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
-            return TextStatus::official_translation;
-        }
-    }
-
-
-    std::string raw_text = ReadRowStringColumn(cmd_item, columns.raw);
-    if (raw_text.empty()) {
-        return TextStatus::empty;
-    }
-
-    // 读当前显示角色
-    for (const AcHit& ac_hit : AcScan(ReadRowStringColumn(cmd_item, 1))) {
-        if (ac_hit.kind == MatchKind::character) {
-            AddItemScore(result.show_character, ac_hit.canonical, ac_hit.score);
-        } else if (ac_hit.kind == MatchKind::term) {
-            AddItemScore(result.game_terms, ac_hit.canonical, ac_hit.score);
-        }
-    }
-
-    for (const AcHit& ac_hit : AcScan(raw_text)) {
-        bool valid_alias = ac_hit.called.empty() || ac_hit.called == current_speaker;
-
-        if (ac_hit.kind == MatchKind::term) {
-            AddItemScore(result.game_terms, ac_hit.canonical, ac_hit.score);
-            continue;
-        } else if (ac_hit.kind == MatchKind::character) {
-            if (ac_hit.source == AcHitSource::alias) {
-                if (valid_alias) {
-                    AddAlias(result.aliases, ac_hit.matched_text, ac_hit.canonical, ac_hit.called, ac_hit.score);
-                    AddItemScore(result.text_character, ac_hit.canonical, ac_hit.score);
-                }
-                continue;
-            }
-            AddItemScore(result.text_character, ac_hit.canonical, ac_hit.score);
-        }
-    }
-
-    *out = CatchTextLabel(
-        raw_text,
-        true,
-        order,
-        result.protect,
-        protect_index);
-    if (out->empty()) {
-        return TextStatus::empty;
-    }
-    return TextStatus::ok;
-}
-
 static void FlushChoiceBlock(ChoiceBlock& choice, PageParseResult& result) {
     if (choice.branches.empty()) {
         return;
@@ -599,155 +475,6 @@ static void BuildLabelOrder(RuntimeScenario* scenario) {
     }
 
     scenario->result.label_order = scenario->label_order;
-}
-
-static PageParseResult ParsePageJob(const PageParseJob& job) {
-    PageParseResult result;
-    result.label_index = job.label_index;
-    result.page_index = job.page_index;
-    result.page_no = job.page_no;
-
-    void* page_data = job.page_data;
-    int protect_index = 0;
-
-    if (!valid_ptr(page_data)) {
-        return result;
-    }
-
-    const auto& layout = g_runtime_config.layout;
-    const auto& page = layout.adv_scenario_page_data;
-    const auto& cmd = layout.adv_command;
-
-    int page_no = read_int(page_data, page.page_no);
-    ListView commands = ReadList(read_ptr(page_data, page.command_list), 4096);
-    if (!commands.ok) {
-        return result;
-    }
-
-    ++result.stats.pages;
-    std::string current_speaker;
-    ChoiceBlock pending_choice;
-
-    for (int i = 0; i < commands.size; ++i) {
-        void* cmd_item = ListElement(commands, i);
-        if (!valid_ptr(cmd_item)) {
-            continue;
-        }
-
-        std::string type = read_il2cpp_string(read_ptr(cmd_item, cmd.type));
-
-        if (type != "Selection") {
-            FlushChoiceBlock(pending_choice, result);
-        }
-
-        if (type == "Character") {
-            current_speaker = ReadCharacterName(cmd_item);
-            AddItemScore(result.show_character, current_speaker, 2.0f);
-            continue;
-        }
-
-        if (type == "CharacterOff") {
-            current_speaker.clear();
-            continue;
-        }
-
-        if (type == "Text") {
-            std::string text;
-            OrderKey order = {result.label_index, page_no, i, 0};
-
-            TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text);
-            if (status == TextStatus::official_translation) {
-                result.official_translation = true;
-                return result;
-            }
-            if (status != TextStatus::ok) {
-                continue;
-            }
-
-            TextItem item;
-            item.order = order;
-            item.speaker = current_speaker;
-            AddItemScore(result.speaker_character, current_speaker, 10.0f);
-            item.text = std::move(text);
-            
-            result.scene_items.emplace_back(std::move(item));
-            ++result.stats.text;
-            continue;
-        }
-
-        if (type == "Selection") {
-            std::string text;
-            OrderKey order = {result.label_index, page_no, i, static_cast<int>(ChoiceOptionCount(pending_choice))};
-
-            TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text);
-            if (status == TextStatus::official_translation) {
-                result.official_translation = true;
-                return result;
-            }
-            if (status != TextStatus::ok) {
-                continue;
-            }
-
-            if (pending_choice.branches.empty()) {
-                pending_choice.order = {result.label_index, page_no, i, 0};
-            }
-
-            TextItem option;
-            option.order = std::move(order);
-            option.speaker = "mc";
-            option.text = std::move(text);
-
-            std::string target_label = ReadSelectionJumpLabel(cmd_item);
-            auto branch_it = std::find_if(
-                pending_choice.branches.begin(),
-                pending_choice.branches.end(),
-                [&](const ChoiceBranch& branch) {
-                    return branch.target_label == target_label;
-                });
-
-            if (branch_it == pending_choice.branches.end()) {
-                ChoiceBranch branch;
-                branch.target_label = std::move(target_label);
-                branch.options.emplace_back(std::move(option));
-                pending_choice.branches.emplace_back(std::move(branch));
-            } else {
-                branch_it->options.emplace_back(std::move(option));
-            }
-
-            ++result.stats.selection;
-            continue;
-        }
-
-        if (type == "Jump" || type == "JumpRandom" || type == "JumpSubroutine") {
-            std::string target = ReadJumpLabel(cmd_item);
-            if (!target.empty()) {
-                OrderedJump jump;
-                jump.page_index = result.page_index;
-                jump.order = {result.label_index, page_no, i, 0};
-                jump.command_type = type;
-                jump.target_label = target;
-                jump.condition = ReadRowStringColumn(cmd_item, g_runtime_config.layout.adv_command_jump.condition_column);
-
-                if (jump.command_type == "Jump" && !jump.condition.empty()) {
-                    IfBlock if_block;
-                    if_block.order = jump.order;
-                    if_block.condition = jump.condition;
-                    if_block.target_label = jump.target_label;
-                    result.scene_items.emplace_back(std::move(if_block));
-                }
-
-                result.jumps.emplace_back(std::move(jump));
-
-                ++result.stats.jump;
-            }
-            continue;
-        }
-    }
-
-    FlushChoiceBlock(pending_choice, result);
-
-    result.ok = true;
-    return result;
 }
 
 struct LabelBlock {
@@ -1485,14 +1212,14 @@ public:
             LOGI("[ScenarioCatcher] skipped official translation scene=%s entry=%s",
                  scenario_.result.scene.c_str(),
                  scenario_.result.entry_label.c_str());
-            return {ScenarioParseStatus::skipped_official_translation, {}};
+            return {ScenarioParseStatus::skipped_official_translation, {}, {}};
         }
 
         if (Reason() != AbortReason::none) {
             LOGE("[ScenarioCatcher] parse aborted scene=%s reason=%d",
                  scenario_.result.scene.c_str(),
                  static_cast<int>(Reason()));
-            return {ScenarioParseStatus::failed, {}};
+            return {ScenarioParseStatus::failed, {}, {}};
         }
 
         LOGI("[ScenarioCatcher] parsed scene=%s labels=%d/%zu pages=%d text=%d selection=%d jump=%d items=%zu",
@@ -1505,7 +1232,7 @@ public:
              total_stats_.jump,
              result_.scene_items.size());
 
-        return {ScenarioParseStatus::ok, std::move(result_)};
+        return {ScenarioParseStatus::ok, std::move(result_), std::move(target_map_)};
     }
 
 private:
@@ -1517,12 +1244,14 @@ private:
         branch_assembly_failed = 4,
     };
 
-    int WorkerCount() const {
-        return g_runtime_config.scene_worker_count;
-    }
+    enum class TextStatus {
+        ok,
+        empty,
+        official_translation,
+    };
 
     void StartWorkers() {
-        int count = WorkerCount();
+        int count = g_runtime_config.scene_worker_count;
         workers_.reserve(count);
 
         for (int i = 0; i < count; ++i) {
@@ -1750,6 +1479,256 @@ private:
         }
     }
 
+    bool SubmitQuestPtrSet(OrderKey order, void* page_data) {
+        if (!valid_ptr(page_data)) {
+            return false;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(target_map_mutex_);
+            auto it = target_map_.find(order);
+            if (it != target_map_.end()) {
+                return false;
+            }
+            target_map_[order] = page_data;
+        }
+        return true;
+    }
+
+    TextStatus ReadTranslatableText(
+        void* cmd_item,
+        PageParseResult& result,
+        OrderKey order,
+        int& protect_index,
+        const std::string& current_speaker,
+        std::string* out,
+        void* page_data    
+        ) {
+        if (out == nullptr) {
+            return TextStatus::empty;
+        }
+        const auto& columns = g_runtime_config.layout.text_columns;
+        int target_lang = 0;
+
+        if (g_runtime_config.target_lang == "en") {
+            target_lang = columns.en;
+        } else if (g_runtime_config.target_lang == "zh-tw") {
+            target_lang = columns.zh_tw;
+        } else if (g_runtime_config.target_lang == "zh-cn") {
+            target_lang = columns.zh_cn;
+        } else {
+            LOGW("[ScenarioCatcher] target lang [%s] has no official translation", g_runtime_config.target_lang.c_str());
+        }
+
+        if (target_lang != 0) {
+            std::string target_lang_text = ReadRowStringColumn(cmd_item, target_lang);
+            if (!target_lang_text.empty()) {
+                LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
+                return TextStatus::official_translation;
+            }
+        }
+
+        std::string raw_text = ReadRowStringColumn(cmd_item, columns.raw);
+        if (raw_text.empty()) {
+            return TextStatus::empty;
+        }
+
+        // 读当前显示角色
+        for (const AcHit& ac_hit : AcScan(ReadRowStringColumn(cmd_item, 1))) {
+            if (ac_hit.kind == MatchKind::character) {
+                AddItemScore(result.show_character, ac_hit.canonical, ac_hit.score);
+            } else if (ac_hit.kind == MatchKind::term) {
+                AddItemScore(result.game_terms, ac_hit.canonical, ac_hit.score);
+            }
+        }
+
+        for (const AcHit& ac_hit : AcScan(raw_text)) {
+            bool valid_alias = ac_hit.called.empty() || ac_hit.called == current_speaker;
+
+            if (ac_hit.kind == MatchKind::term) {
+                AddItemScore(result.game_terms, ac_hit.canonical, ac_hit.score);
+                continue;
+            } else if (ac_hit.kind == MatchKind::character) {
+                if (ac_hit.source == AcHitSource::alias) {
+                    if (valid_alias) {
+                        AddAlias(result.aliases, ac_hit.matched_text, ac_hit.canonical, ac_hit.called, ac_hit.score);
+                        AddItemScore(result.text_character, ac_hit.canonical, ac_hit.score);
+                    }
+                    continue;
+                }
+                AddItemScore(result.text_character, ac_hit.canonical, ac_hit.score);
+            }
+        }
+        
+        if (!SubmitQuestPtrSet(order, page_data)) {
+            LOGW("[ScenarioCatcher] SubmitQuestPtrSet failed for order: label_index=%d page_no=%d cmd_index=%d sub_index=%d",
+                order.label_index, order.page_no, order.cmd_index, order.sub_index);
+            return TextStatus::empty;
+        }
+
+        *out = CatchTextLabel(
+            raw_text,
+            true,
+            order,
+            result.protect,
+            protect_index);
+        if (out->empty()) {
+            return TextStatus::empty;
+        }
+        return TextStatus::ok;
+    }
+
+    
+    PageParseResult ParsePageJob(const PageParseJob& job) {
+        PageParseResult result;
+        result.label_index = job.label_index;
+        result.page_index = job.page_index;
+        result.page_no = job.page_no;
+
+        void* page_data = job.page_data;
+        int protect_index = 0;
+
+        if (!valid_ptr(page_data)) {
+            return result;
+        }
+
+        const auto& layout = g_runtime_config.layout;
+        const auto& page = layout.adv_scenario_page_data;
+        const auto& cmd = layout.adv_command;
+
+        int page_no = read_int(page_data, page.page_no);
+        ListView commands = ReadList(read_ptr(page_data, page.command_list), 4096);
+        if (!commands.ok) {
+            return result;
+        }
+
+        ++result.stats.pages;
+        std::string current_speaker;
+        ChoiceBlock pending_choice;
+
+        for (int i = 0; i < commands.size; ++i) {
+            void* cmd_item = ListElement(commands, i);
+            if (!valid_ptr(cmd_item)) {
+                continue;
+            }
+
+            std::string type = read_il2cpp_string(read_ptr(cmd_item, cmd.type));
+
+            if (type != "Selection") {
+                FlushChoiceBlock(pending_choice, result);
+            }
+
+            if (type == "Character") {
+                current_speaker = ReadCharacterName(cmd_item);
+                AddItemScore(result.show_character, current_speaker, 2.0f);
+                continue;
+            }
+
+            if (type == "CharacterOff") {
+                current_speaker.clear();
+                continue;
+            }
+
+            if (type == "Text") {
+                std::string text;
+                OrderKey order = {result.label_index, page_no, i, 0};
+
+                TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text, page_data);
+                if (status == TextStatus::official_translation) {
+                    result.official_translation = true;
+                    return result;
+                }
+                if (status != TextStatus::ok) {
+                    continue;
+                }
+
+                TextItem item;
+                item.order = order;
+                item.speaker = current_speaker;
+                AddItemScore(result.speaker_character, current_speaker, 10.0f);
+                item.text = std::move(text);
+                
+                result.scene_items.emplace_back(std::move(item));
+                ++result.stats.text;
+                continue;
+            }
+
+            if (type == "Selection") {
+                std::string text;
+                OrderKey order = {result.label_index, page_no, i, static_cast<int>(ChoiceOptionCount(pending_choice))};
+
+                TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text, page_data);
+                if (status == TextStatus::official_translation) {
+                    result.official_translation = true;
+                    return result;
+                }
+                if (status != TextStatus::ok) {
+                    continue;
+                }
+
+                if (pending_choice.branches.empty()) {
+                    pending_choice.order = {result.label_index, page_no, i, 0};
+                }
+
+                TextItem option;
+                option.order = std::move(order);
+                option.speaker = "mc";
+                option.text = std::move(text);
+
+                std::string target_label = ReadSelectionJumpLabel(cmd_item);
+                auto branch_it = std::find_if(
+                    pending_choice.branches.begin(),
+                    pending_choice.branches.end(),
+                    [&](const ChoiceBranch& branch) {
+                        return branch.target_label == target_label;
+                    });
+
+                if (branch_it == pending_choice.branches.end()) {
+                    ChoiceBranch branch;
+                    branch.target_label = std::move(target_label);
+                    branch.options.emplace_back(std::move(option));
+                    pending_choice.branches.emplace_back(std::move(branch));
+                } else {
+                    branch_it->options.emplace_back(std::move(option));
+                }
+
+                ++result.stats.selection;
+                continue;
+            }
+
+            if (type == "Jump" || type == "JumpRandom" || type == "JumpSubroutine") {
+                std::string target = ReadJumpLabel(cmd_item);
+                if (!target.empty()) {
+                    OrderedJump jump;
+                    jump.page_index = result.page_index;
+                    jump.order = {result.label_index, page_no, i, 0};
+                    jump.command_type = type;
+                    jump.target_label = target;
+                    jump.condition = ReadRowStringColumn(cmd_item, g_runtime_config.layout.adv_command_jump.condition_column);
+
+                    if (jump.command_type == "Jump" && !jump.condition.empty()) {
+                        IfBlock if_block;
+                        if_block.order = jump.order;
+                        if_block.condition = jump.condition;
+                        if_block.target_label = jump.target_label;
+                        result.scene_items.emplace_back(std::move(if_block));
+                    }
+
+                    result.jumps.emplace_back(std::move(jump));
+
+                    ++result.stats.jump;
+                }
+                continue;
+            }
+        }
+
+        FlushChoiceBlock(pending_choice, result);
+
+        result.ok = true;
+        return result;
+    }
+
+
 private:
     const RuntimeScenario& scenario_;
 
@@ -1761,6 +1740,8 @@ private:
     BlockingQueue<PageParseResult> result_queue_;
     std::vector<std::thread> workers_;
 
+    QuestPtrSet target_map_;
+    std::mutex target_map_mutex_;
     ScenarioParseResult result_;
     ParseStats total_stats_;
 };
@@ -1779,27 +1760,8 @@ bool CatchScenario(
     std::uint64_t captured_epoch) {
     uintptr_t scenario_key = reinterpret_cast<uintptr_t>(scenario_data);
 
-    {
-        std::lock_guard<std::mutex> transition_lock(capture_transition_mutex);
-        std::lock_guard<std::mutex> lock(caught_mutex);
-        // Check the captured generation before installing the de-duplication
-        // marker.  A worker from E may finish after pause has cleared the
-        // markers and resume has opened E+1; allowing it to insert here would
-        // poison the new generation even though the old work is discarded
-        // below.
-        if (stop_reason.load(std::memory_order_acquire)
-                == StopReason::user_pause
-            || capture_pause_epoch.load(std::memory_order_acquire)
-                != captured_epoch) {
-            return true;
-        }
-        if (!caught_scenarios.emplace(scenario_key, captured_epoch).second) {
-            LOGD("[ScenarioCatcher] scenario already caught entry=%s data=%p",
-                 entry_label.c_str(),
-                 scenario_data);
-            return true;
-        }
-    }
+    QuestTargetSet target_set;
+    target_set.scenario_data_ptr = scenario_data;
 
     RuntimeScenario scenario;
     if (!ParseScenarioLabels(scenario_data, entry_label, &scenario)) {
@@ -1818,6 +1780,31 @@ bool CatchScenario(
          scenario.label_order.size());
 
     ScenarioParseOutput output = ParseScenarioToResult(scenario);
+    target_set.target_map = std::move(output.target_map);
+    
+    std::string scene_name = scenario.result.scene;
+
+    if (!SubmitQuestTargetSet(scene_name, target_set)) {
+        return false;
+    }
+
+    {
+        std::lock_guard<std::mutex> transition_lock(capture_transition_mutex);
+        std::lock_guard<std::mutex> lock(caught_mutex);
+        if (stop_reason.load(std::memory_order_acquire)
+                == StopReason::user_pause
+            || capture_pause_epoch.load(std::memory_order_acquire)
+                != captured_epoch) {
+            return true;
+        }
+        if (!caught_scenarios.emplace(scenario_key, captured_epoch).second) {
+            LOGW("[ScenarioCatcher] scenario already caught entry=%s data=%p",
+                 entry_label.c_str(),
+                 scenario_data);
+            return true;
+        }
+    }
+
     if (output.status == ScenarioParseStatus::skipped_official_translation) {
         LOGI("[ScenarioCatcher] scenario skipped because official translation exists entry=%s",
              entry_label.c_str());
@@ -1840,9 +1827,39 @@ bool CatchScenario(
         }
     }
     StartSceneBuilder();
-    SubmitScenarioParseResult(
-        std::move(output.result),
-        std::move(production_lease),
-        captured_epoch);
+
+    switch (GetSceneFileStatus(scene_name)) {
+        case SceneFileStatus::complete: {
+            if (!production_lease.allowed()) {
+                ReportSceneProductionRejected(
+                    scene_name,
+                    production_lease.reason());
+                LOGI(
+                    "[FindScenarioData] complete Scene write-back rejected scene=%s reason=%d",
+                    scene_name.c_str(),
+                    static_cast<int>(production_lease.reason()));
+                return false;
+            }
+            if (!SubmitSceneToWriter(scene_name, g_runtime_config.target_lang)) {
+                LOGE("[FindScenarioData] failed to rewrite scene to quest entry=%s", entry_label.c_str());
+                return false;
+            }
+            LOGI("[FindScenarioData] scene file already complete, skipping scene=%s", scene_name.c_str());
+            return true;
+        }
+        case SceneFileStatus::pending:
+            if (!SubmitExistingScene(scene_name, captured_epoch)) {
+                LOGE("[FindScenarioData] failed to post existing scene to api scene=%s", scene_name.c_str());
+                return false;
+            }
+            return true;
+        case SceneFileStatus::not_found:
+            SubmitScenarioParseResult(
+                std::move(output.result),
+                std::move(production_lease),
+                captured_epoch);
+            return true;
+    }
+
     return true;
 }

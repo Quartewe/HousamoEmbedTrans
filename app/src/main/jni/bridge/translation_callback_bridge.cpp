@@ -121,14 +121,26 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeAcknowledgeTranslationTerminal(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_quarty_housamoembedtrans_MainHook_nativeApplyQuestPatch(JNIEnv* env, jclass, jstring request_id, jbyteArray) {
-    static std::atomic<bool> ignored_logged{false};
+Java_com_quarty_housamoembedtrans_MainHook_nativeApplyQuestPatch(
+    JNIEnv* env,
+    jclass,
+    jstring request_id,
+    jbyteArray patch_json) {
+
     std::string request;
     if (!ReadString(env, request_id, kMaxRequestIdBytes, &request)) {
-        LOGE("[TranslationCallback] ignored Quest patch with invalid requestId");
+        LOGE("[TranslationCallback] failed to read patch requestId");
         return;
     }
-    if (!ignored_logged.exchange(true, std::memory_order_acq_rel)) {
-        LOGI("[TranslationCallback] Quest patch callback is ignored; only final Scene result is persisted requestId=%s", request.c_str());
+
+    std::string patch;
+    if (!ReadByteArray(env, patch_json, &patch)) {
+        LOGE("[TranslationCallback] failed to read patch payload");
+        return;
+    }
+
+    if (!SubmitQuestPatchToWriter(request, patch)) {
+        LOGW("[TranslationCallback] failed to submit Quest patch requestId=%s",
+             request.c_str());
     }
 }

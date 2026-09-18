@@ -15,6 +15,7 @@ enum class SceneFileStatus {
 };
 
 SceneFileStatus GetSceneFileStatus(const std::string& scene_name);
+bool SubmitSceneToWriter(const std::string& scene_name, const std::string& target_lang);
 bool SubmitExistingScene(
     const std::string& scene_name,
     std::uint64_t captured_epoch);
