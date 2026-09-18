@@ -3,5 +3,5 @@
     <item
         android:color="@color/het_on_primary_container"
         android:state_selected="true" />
-    <item android:color="@color/het_primary" />
+    <item android:color="@color/het_on_surface_muted" />
 </selector>

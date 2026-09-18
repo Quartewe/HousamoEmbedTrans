@@ -3,7 +3,9 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.content.Intent;
+import android.os.Bundle;
 import android.view.View;
 
 /** Connects the three top-level Android destinations. */
@@ -62,6 +64,8 @@ public final class PrimaryNavigation {
         if (destination == current) {
             return;
         }
+        boolean movingForward = navigationIndex(destination)
+            > navigationIndex(current);
         Class<?> target;
         switch (destination) {
             case TASKS:
@@ -75,12 +79,32 @@ public final class PrimaryNavigation {
                 target = SettingsActivity.class;
                 break;
         }
-        activity.startActivity(
-            new Intent(activity, target)
-                .addFlags(
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                )
-        );
+        Intent intent = new Intent(activity, target)
+            .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        // Reorder the existing shell activity so each top-level destination
+        // keeps its own tab, search, and scroll state. Notifications use
+        // their own explicit deep-link flags and are not affected here.
+        Bundle animation = ActivityOptions.makeCustomAnimation(
+            activity,
+            movingForward
+                ? R.anim.het_slide_in_right
+                : R.anim.het_slide_in_left,
+            movingForward
+                ? R.anim.het_slide_out_left
+                : R.anim.het_slide_out_right
+        ).toBundle();
+        activity.startActivity(intent, animation);
+    }
+
+    private static int navigationIndex(Destination destination) {
+        switch (destination) {
+            case TASKS:
+                return 0;
+            case MANAGEMENT:
+                return 1;
+            case SETTINGS:
+            default:
+                return 2;
+        }
     }
 }
