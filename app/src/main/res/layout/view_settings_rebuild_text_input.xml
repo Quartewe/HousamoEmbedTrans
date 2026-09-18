@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.textfield.TextInputLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/settings_rebuild_text_input_layout"
+    style="@style/Widget.HET.SettingsRebuild.TextInputLayout"
+    android:layout_width="match_parent"
+    android:layout_height="56dp"
+    android:minHeight="56dp"
+    app:boxBackgroundMode="outline"
+    app:boxBackgroundColor="@color/het_surface_container"
+    app:boxStrokeColor="@color/het_settings_rebuild_text_input_stroke"
+    app:boxStrokeWidth="1dp"
+    app:boxStrokeWidthFocused="2dp"
+    app:expandedHintEnabled="false"
+    app:hintEnabled="true">
+
+    <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/settings_rebuild_text_input"
+        style="@style/Widget.HET.SettingsRebuild.TextInputEditText"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:minHeight="56dp"
+        android:maxLines="1" />
+</com.google.android.material.textfield.TextInputLayout>
