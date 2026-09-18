@@ -31,6 +31,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
@@ -61,11 +62,17 @@ public final class GameTermsActivity extends AppCompatActivity {
         "management_link_consumed";
     private static final String STATE_MANAGEMENT_LINK_FAILURE_NOTIFIED =
         "management_link_failure_notified";
+    private static final String STATE_EDITOR_DRAFT =
+        "dictionary_editor.term.draft";
+    private static final String STATE_EDITOR_KEY =
+        "dictionary_editor.term.key";
+    private static final String STATE_EDITOR_DIRTY =
+        "dictionary_editor.term.dirty";
 
     private static final String[] TERM_FIELD_ORDER = {
-        "en",
-        "zh-tw",
         "zh-cn",
+        "zh-tw",
+        "en",
         "description"
     };
 
@@ -94,9 +101,33 @@ public final class GameTermsActivity extends AppCompatActivity {
     private GameTermAdapter adapter;
     private boolean batchMode;
 
+    /** The management entry opens this Activity as a full-page draft editor. */
+    private boolean editorMode;
+    private String editorOriginalKey;
+    private boolean editorDirty;
+    private boolean editorBusy;
+    private boolean stylePreview;
+    private JSONObject editorSourceRecord;
+    private EditText editorKeyInput;
+    private TextInputLayout editorKeyLayout;
+    private EditText editorNameDisplay;
+    private TextView editorStatusView;
+    private MaterialButton editorSaveButton;
+    private MaterialButton editorDiscardButton;
+    private MaterialButton editorMoveButton;
+    private TextView editorMoveHint;
+    private List<TermFieldEditor> editorFieldEditors = Collections.emptyList();
+    private boolean refreshListAfterEditor;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        stylePreview = StylePreview.isEnabled(getIntent());
+        editorMode = hasEditorIntent(getIntent());
+        if (editorMode) {
+            setupEditorPage(savedInstanceState);
+            return;
+        }
         managementLinkConsumed = savedInstanceState != null
             && savedInstanceState.getBoolean(
                 STATE_MANAGEMENT_LINK_CONSUMED,
@@ -227,6 +258,323 @@ public final class GameTermsActivity extends AppCompatActivity {
         );
     }
 
+    private boolean hasEditorIntent(Intent intent) {
+        return intent != null
+            && (intent.hasExtra(EXTRA_TERM_NAME)
+                || intent.getBooleanExtra(EXTRA_CREATE_TERM, false));
+    }
+
+    private void setupEditorPage(Bundle savedInstanceState) {
+        setContentView(R.layout.activity_game_term_editor);
+        SystemBarInsets.apply(findViewById(R.id.root_game_term_editor));
+
+        MaterialToolbar toolbar = findViewById(R.id.toolbar_game_term_editor);
+        toolbar.setNavigationOnClickListener(
+            view -> getOnBackPressedDispatcher().onBackPressed()
+        );
+        editorKeyInput = findViewById(R.id.et_game_term_editor_key);
+        editorKeyLayout = findViewById(R.id.til_game_term_editor_key);
+        editorNameDisplay = findViewById(R.id.et_game_term_editor_name);
+        editorStatusView = findViewById(R.id.tv_game_term_editor_status);
+        editorSaveButton = findViewById(R.id.btn_save_game_term_editor);
+        editorDiscardButton = findViewById(R.id.btn_discard_game_term_editor);
+        editorMoveButton = findViewById(R.id.btn_move_game_term_pending_editor);
+        editorMoveHint = findViewById(R.id.tv_move_game_term_pending_editor_hint);
+
+        Intent intent = getIntent();
+        editorOriginalKey = intent == null
+            ? null
+            : intent.getStringExtra(EXTRA_TERM_NAME);
+        if (editorOriginalKey != null && editorOriginalKey.trim().isEmpty()) {
+            editorOriginalKey = null;
+        }
+        toolbar.setTitle(
+            editorOriginalKey == null
+                ? R.string.add_game_term
+                : R.string.edit_game_term
+        );
+        TextView editorHeading = findViewById(R.id.tv_game_term_editor_heading);
+        editorHeading.setText(toolbar.getTitle());
+
+        if (!stylePreview) {
+            configStore = new ConfigStore(this);
+            pendingProcessMoveController = new PendingProcessMoveController(this);
+        }
+        editorSaveButton.setOnClickListener(view -> saveEditorPage());
+        editorDiscardButton.setOnClickListener(view -> handleEditorBackPressed());
+        editorMoveButton.setOnClickListener(view -> moveEditorRecordToPending());
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleEditorBackPressed();
+            }
+        });
+        setReadOnly(editorNameDisplay);
+        loadEditorPage(savedInstanceState);
+    }
+
+    private void loadEditorPage(Bundle savedInstanceState) {
+        try {
+            JSONObject source;
+            if (stylePreview) {
+                source = StylePreview.payloadOf(getIntent());
+                if (source == null) {
+                    source = StylePreview.sample(StylePreview.KIND_TERM_EDITOR);
+                }
+                dictionary = new JSONObject();
+                dictionary.put(
+                    editorOriginalKey == null
+                        ? StylePreview.SAMPLE_TERM_NAME
+                        : editorOriginalKey,
+                    new JSONObject(source.toString())
+                );
+                userOverride = false;
+                invalidUserOverride = false;
+            } else {
+                ConfigStore.JsonLoadResult loaded = configStore.loadJson(
+                    ConfigStore.GAMETERMS_FILE_NAME
+                );
+                dictionary = loaded.json;
+                userOverride = loaded.userOverride;
+                invalidUserOverride = loaded.invalidUserOverride;
+                if (editorOriginalKey == null) {
+                    source = newTermRecord();
+                } else {
+                    source = dictionary.optJSONObject(editorOriginalKey);
+                    if (source == null) {
+                        throw new IllegalStateException(
+                            getString(R.string.dictionary_editor_term_missing)
+                        );
+                    }
+                }
+            }
+            editorSourceRecord = new JSONObject(source.toString());
+            String draftJson = savedInstanceState == null
+                ? null
+                : savedInstanceState.getString(STATE_EDITOR_DRAFT);
+            if (draftJson != null && !draftJson.trim().isEmpty()) {
+                source = new JSONObject(draftJson);
+            }
+            String restoredKey = savedInstanceState == null
+                ? (editorOriginalKey == null ? "" : editorOriginalKey)
+                : savedInstanceState.getString(
+                    STATE_EDITOR_KEY,
+                    editorOriginalKey == null ? "" : editorOriginalKey
+                );
+            editorKeyInput.setText(restoredKey);
+            editorNameDisplay.setText(restoredKey);
+            if (editorOriginalKey != null) {
+                setReadOnly(editorKeyInput);
+                editorKeyLayout.setHelperText(
+                    getString(R.string.game_term_key_read_only)
+                );
+            } else {
+                editorKeyLayout.setHelperText(
+                    getString(R.string.game_term_key_new_hint)
+                );
+            }
+            LinearLayout fields = findViewById(
+                R.id.container_game_term_editor_fields
+            );
+            editorFieldEditors = createFieldEditors(
+                new JSONObject(source.toString()),
+                fields
+            );
+            attachDraftChangeWatchers(editorFieldEditors, () -> {
+                editorDirty = true;
+                updateEditorActions();
+            });
+            editorKeyInput.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    editorNameDisplay.setText(s == null ? "" : s.toString());
+                    editorDirty = true;
+                    updateEditorActions();
+                }
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                }
+            });
+            editorDirty = savedInstanceState != null
+                && savedInstanceState.getBoolean(STATE_EDITOR_DIRTY, false);
+            editorBusy = false;
+            editorStatusView.setVisibility(View.GONE);
+            boolean canMove = !stylePreview && editorOriginalKey != null;
+            editorMoveButton.setVisibility(canMove ? View.VISIBLE : View.GONE);
+            editorMoveHint.setVisibility(canMove ? View.VISIBLE : View.GONE);
+            updateEditorActions();
+        } catch (Exception error) {
+            editorStatusView.setVisibility(View.VISIBLE);
+            editorStatusView.setText(getString(
+                R.string.gameterms_load_failed,
+                safeMessage(error)
+            ));
+            editorSaveButton.setEnabled(false);
+            editorMoveButton.setEnabled(false);
+        }
+    }
+
+    private void updateEditorActions() {
+        if (!editorMode || editorSaveButton == null) {
+            return;
+        }
+        boolean enabled = !stylePreview && !editorBusy && dictionary != null;
+        editorKeyInput.setEnabled(enabled && editorOriginalKey == null);
+        editorSaveButton.setEnabled(enabled);
+        editorDiscardButton.setEnabled(!editorBusy);
+        if (editorMoveButton != null) {
+            editorMoveButton.setEnabled(
+                enabled && editorOriginalKey != null && !editorDirty
+            );
+        }
+        if (editorMoveHint != null) {
+            editorMoveHint.setText(
+                editorDirty
+                    ? R.string.dictionary_editor_move_pending_dirty_hint
+                    : R.string.dictionary_editor_move_pending_hint
+            );
+        }
+    }
+
+    private void saveEditorPage() {
+        if (stylePreview || !editorMode || editorBusy || dictionary == null) {
+            return;
+        }
+        String key = editorOriginalKey == null
+            ? textOf(editorKeyInput)
+            : editorOriginalKey;
+        if (key.isEmpty()) {
+            editorKeyInput.setError(getString(R.string.error_required));
+            editorKeyInput.requestFocus();
+            return;
+        }
+        if (editorOriginalKey == null && dictionary.has(key)) {
+            editorKeyInput.setError(getString(R.string.game_term_already_exists));
+            editorKeyInput.requestFocus();
+            return;
+        }
+
+        JSONObject updatedRecord;
+        try {
+            updatedRecord = editorSourceRecord == null
+                ? new JSONObject()
+                : new JSONObject(editorSourceRecord.toString());
+        } catch (Exception error) {
+            updatedRecord = new JSONObject();
+        }
+        for (TermFieldEditor fieldEditor : editorFieldEditors) {
+            fieldEditor.layout.setError(null);
+            if (fieldEditor.originalValue != null
+                && formatValue(fieldEditor.originalValue).equals(
+                    rawTextOf(fieldEditor.input)
+                )) {
+                try {
+                    updatedRecord.put(fieldEditor.key, fieldEditor.originalValue);
+                } catch (Exception error) {
+                    showRecordValidationError(editorFieldEditors, error);
+                    return;
+                }
+                continue;
+            }
+            try {
+                updatedRecord.put(
+                    fieldEditor.key,
+                    parseValue(fieldEditor.originalValue, fieldEditor.input)
+                );
+            } catch (Exception error) {
+                fieldEditor.layout.setError(getString(
+                    R.string.gameterms_record_invalid,
+                    safeMessage(error)
+                ));
+                fieldEditor.input.requestFocus();
+                return;
+            }
+        }
+
+        try {
+            ConfigStore.validateGameTermRecord(key, updatedRecord);
+            JSONObject updatedDictionary = new JSONObject(dictionary.toString());
+            updatedDictionary.put(key, updatedRecord);
+            ConfigStore.validateGameTermDictionary(updatedDictionary);
+            configStore.saveJson(
+                ConfigStore.GAMETERMS_FILE_NAME,
+                updatedDictionary
+            );
+            dictionary = updatedDictionary;
+            dirty = false;
+            editorDirty = false;
+            userOverride = true;
+            invalidUserOverride = false;
+            setResult(RESULT_OK);
+            Toast.makeText(
+                this,
+                R.string.dictionary_editor_save_success,
+                Toast.LENGTH_SHORT
+            ).show();
+            finish();
+        } catch (Exception error) {
+            showRecordValidationError(editorFieldEditors, error);
+        }
+    }
+
+    private void moveEditorRecordToPending() {
+        if (stylePreview || !editorMode || editorBusy || dictionary == null
+            || editorOriginalKey == null || editorDirty
+            || pendingProcessMoveController == null) {
+            return;
+        }
+        editorBusy = true;
+        updateEditorActions();
+        pendingProcessMoveController.confirmMove(
+            "term",
+            editorOriginalKey,
+            editorOriginalKey,
+            () -> {
+                Intent result = new Intent();
+                result.putExtra(
+                    DictionaryManagementDetailActivity.EXTRA_EDITOR_MOVED_PENDING,
+                    true
+                );
+                setResult(RESULT_OK, result);
+                finish();
+            },
+            () -> {
+                editorBusy = false;
+                updateEditorActions();
+            }
+        );
+    }
+
+    private void handleEditorBackPressed() {
+        if (!editorMode) {
+            return;
+        }
+        if (!editorDirty) {
+            finish();
+            return;
+        }
+        new UiMaterialAlertDialogBuilder(this)
+            .setTitle(R.string.unsaved_gameterms_title)
+            .setMessage(R.string.unsaved_gameterms_message)
+            .setNegativeButton(R.string.keep_editing, null)
+            .setPositiveButton(R.string.discard_changes, (dialog, which) -> finish())
+            .show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!editorMode && refreshListAfterEditor && !isFinishing()) {
+            refreshListAfterEditor = false;
+            loadDictionary();
+        }
+    }
+
     private void toggleManagementBatch() {
         if (managementBatchController == null) {
             return;
@@ -259,6 +607,15 @@ public final class GameTermsActivity extends AppCompatActivity {
         if (managementBatchController != null) {
             managementBatchController.saveState(outState);
         }
+        if (editorMode) {
+            outState.putBoolean(STATE_EDITOR_DIRTY, editorDirty);
+            outState.putString(STATE_EDITOR_KEY, rawTextOf(editorKeyInput));
+            try {
+                outState.putString(STATE_EDITOR_DRAFT, editorDraftJson().toString());
+            } catch (Exception ignored) {
+                // The visible inputs remain available to the normal view state.
+            }
+        }
         outState.putBoolean(
             STATE_MANAGEMENT_LINK_CONSUMED,
             managementLinkConsumed
@@ -268,6 +625,14 @@ public final class GameTermsActivity extends AppCompatActivity {
             managementLinkFailureNotified
         );
         super.onSaveInstanceState(outState);
+    }
+
+    private JSONObject editorDraftJson() throws Exception {
+        JSONObject draft = new JSONObject();
+        for (TermFieldEditor fieldEditor : editorFieldEditors) {
+            draft.put(fieldEditor.key, rawTextOf(fieldEditor.input));
+        }
+        return draft;
     }
 
     private void loadDictionary() {
@@ -394,101 +759,42 @@ public final class GameTermsActivity extends AppCompatActivity {
     }
 
     private void editTerm(String originalKey) {
-        if (dictionary == null) {
+        if (dictionary == null || editorMode) {
             return;
         }
+        refreshListAfterEditor = true;
+        Intent intent = new Intent(this, GameTermsActivity.class);
+        if (originalKey == null) {
+            intent.putExtra(EXTRA_CREATE_TERM, true);
+        } else {
+            intent.putExtra(EXTRA_TERM_NAME, originalKey);
+        }
+        startActivity(intent);
+    }
 
-        View editorView = getLayoutInflater().inflate(
-            R.layout.dialog_game_term_editor,
-            null,
-            false
-        );
-        EditText keyInput = editorView.findViewById(R.id.et_game_term_key);
-        TextInputLayout keyLayout = editorView.findViewById(
-            R.id.til_game_term_key
-        );
-        LinearLayout fieldsContainer = editorView.findViewById(
-            R.id.container_game_term_fields
-        );
-        boolean existing = originalKey != null;
-        JSONObject originalRecord;
-        List<TermFieldEditor> fieldEditors;
-
-        try {
-            if (existing) {
-                keyInput.setText(originalKey);
-                setReadOnly(keyInput);
-                keyLayout.setHelperText(getString(R.string.game_term_key_read_only));
-                originalRecord = dictionary.getJSONObject(originalKey);
-            } else {
-                keyLayout.setHelperText(getString(R.string.game_term_key_new_hint));
-                originalRecord = newTermRecord();
-            }
-            fieldEditors = createFieldEditors(originalRecord, fieldsContainer);
-        } catch (Exception e) {
-            Toast.makeText(
-                this,
-                getString(R.string.gameterms_record_invalid, safeMessage(e)),
-                Toast.LENGTH_LONG
-            ).show();
+    private void attachDraftChangeWatchers(
+        List<TermFieldEditor> editors,
+        Runnable onChanged
+    ) {
+        if (editors == null || onChanged == null) {
             return;
         }
+        for (TermFieldEditor editor : editors) {
+            editor.input.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
 
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
-            .setTitle(existing ? R.string.edit_game_term : R.string.add_game_term)
-            .setView(editorView)
-            .setNegativeButton(R.string.cancel_action, null)
-            .setPositiveButton(R.string.save_game_term, null);
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    onChanged.run();
+                }
 
-        if (existing) {
-            builder.setNeutralButton(R.string.pending_process_move, null);
-        }
-
-        AlertDialog dialog = builder.create();
-        final String initialKey = rawTextOf(keyInput);
-        Runnable dismissDraft = () -> {
-            boolean changed = !initialKey.equals(rawTextOf(keyInput));
-            for (TermFieldEditor field : fieldEditors) {
-                changed |= !formatValue(field.originalValue).equals(rawTextOf(field.input));
-            }
-            if (!changed) {
-                dialog.dismiss();
-                return;
-            }
-            new MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.unsaved_gameterms_title)
-                .setMessage(R.string.unsaved_gameterms_message)
-                .setNegativeButton(R.string.keep_editing, null)
-                .setPositiveButton(R.string.discard_changes,
-                    (confirmation, which) -> dialog.dismiss())
-                .show();
-        };
-        dialog.setCanceledOnTouchOutside(false);
-        dialog.setOnKeyListener((ignored, keyCode, event) -> {
-            if (keyCode != android.view.KeyEvent.KEYCODE_BACK) return false;
-            if (event.getAction() == android.view.KeyEvent.ACTION_UP) dismissDraft.run();
-            return true;
-        });
-        dialog.setOnShowListener(ignored -> {
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-                .setOnClickListener(view -> dismissDraft.run());
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
-                saveTermFromDialog(
-                    dialog,
-                    originalKey,
-                    originalRecord,
-                    keyInput,
-                    fieldEditors
-                );
+                @Override
+                public void afterTextChanged(Editable s) {
+                }
             });
-
-            if (existing) {
-                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(
-                    view -> moveTermToPending(dialog, originalKey)
-                );
-            }
-        });
-        dialog.show();
+        }
     }
 
     private List<TermFieldEditor> createFieldEditors(
@@ -513,8 +819,13 @@ public final class GameTermsActivity extends AppCompatActivity {
             TextInputEditText input = fieldView.findViewById(
                 R.id.et_character_field_value
             );
+            TextView label = fieldView.findViewById(
+                R.id.tv_character_field_label
+            );
 
-            layout.setHint(displayFieldName(key));
+            label.setText(displayFieldName(key));
+            layout.setHintEnabled(false);
+            layout.setHint(null);
             configureInput(key, input);
             input.setText(formatValue(value));
             container.addView(fieldView);
@@ -775,7 +1086,7 @@ public final class GameTermsActivity extends AppCompatActivity {
         Set<String> expected = conflicts == null
             ? Collections.emptySet()
             : new LinkedHashSet<>(conflicts);
-        MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder dialog = new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.management_transfer_import_title)
             .setMessage(getString(
                 conflicts == null || conflicts.isEmpty()
@@ -938,7 +1249,7 @@ public final class GameTermsActivity extends AppCompatActivity {
     }
 
     private void confirmRestore() {
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.restore_gameterms_title)
             .setMessage(R.string.restore_gameterms_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -1019,7 +1330,7 @@ public final class GameTermsActivity extends AppCompatActivity {
             return;
         }
 
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.unsaved_gameterms_title)
             .setMessage(R.string.unsaved_gameterms_message)
             .setNegativeButton(R.string.keep_editing, null)
@@ -1033,10 +1344,10 @@ public final class GameTermsActivity extends AppCompatActivity {
 
     private String displayFieldName(String key) {
         switch (key) {
-            case "en": return getString(R.string.field_en);
-            case "zh-tw": return getString(R.string.field_zh_tw);
-            case "zh-cn": return getString(R.string.field_zh_cn);
-            case "description": return getString(R.string.field_description);
+            case "en": return getString(R.string.dictionary_editor_label_english);
+            case "zh-tw": return getString(R.string.dictionary_editor_label_traditional_chinese);
+            case "zh-cn": return getString(R.string.dictionary_editor_label_simplified_chinese);
+            case "description": return getString(R.string.dictionary_editor_label_description);
             default: return key;
         }
     }
