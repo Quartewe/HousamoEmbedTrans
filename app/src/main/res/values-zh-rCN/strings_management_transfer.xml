@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="management_transfer_export_result">已导出 %1$d 个文件，失败 %2$d 个。各文件已独立写入。</string>
+    <string name="management_transfer_export_preview_toolbar_title">数据操作</string>
+    <string name="management_transfer_export_eyebrow">文件导出</string>
     <string name="management_transfer_export_preview_title">导出预览</string>
+    <string name="management_transfer_export_description">每个选中对象都会以独立 JSON 文件展示。可以单独下载文件，也可以选择目录导出完整集合。</string>
+    <string name="management_transfer_export_file_summary">%1$d 个独立文件；不包含等待处理和无关对象。</string>
+    <string name="management_transfer_export_download">下载 JSON</string>
+    <string name="management_transfer_export_downloaded">已导出 %1$s。</string>
+    <string name="management_transfer_export_download_failed">无法导出 %1$s：%2$s</string>
+    <string name="management_transfer_export_empty">没有可导出的文件。</string>
     <string name="management_transfer_export_preview_continue">选择目标目录</string>
     <string name="management_transfer_export_preview_cancel">取消导出</string>
     <string name="management_transfer_import_characters">导入角色</string>

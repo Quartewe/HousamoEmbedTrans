@@ -11,13 +11,18 @@ import com.quarty.housamoembedtrans.translation.TranslationService;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.AtomicFile;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -36,6 +41,7 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -81,23 +87,34 @@ public final class ManagementBatchController implements AutoCloseable {
     private final ExecutorService executor =
         Executors.newSingleThreadExecutor();
     private final PendingProcessControlClient pendingClient;
+    private final boolean previewMode;
+    private final ManagementBatchSelection.Session selection;
     private final Set<String> ownedKinds;
     private final ActivityResultLauncher<Intent> exportLauncher;
+    private final ActivityResultLauncher<Intent> exportFileLauncher;
     private final OnBackPressedCallback backCallback;
     private View panel;
-    private TextView summaryView;
-    private MaterialButton selectAllButton;
-    private MaterialButton invertButton;
-    private MaterialButton clearButton;
+    private View hostContent;
+    private View exportPreviewPage;
+    private ViewGroup exportPreviewHost;
+    private View exportPreviousFocus;
+    private final LinkedHashMap<View, Integer> exportCoveredAccessibility =
+        new LinkedHashMap<>();
+    private TextView summarySelectedView;
+    private TextView summaryVisibleView;
     private MaterialButton exportButton;
     private MaterialButton moveButton;
     private MaterialButton exitButton;
+    private MaterialButton moreButton;
     private String activeKind;
     private volatile boolean active;
     private volatile boolean lifecycleStarted;
     private boolean busy;
     private String pendingExportToken;
     private boolean exportPickerStarted;
+    private String pendingSingleExportToken;
+    private int pendingSingleExportIndex = -1;
+    private volatile int selectableCount;
 
     /** Immutable adapter row consumed by the shared batch surface. */
     public static final class Item {
@@ -182,10 +199,52 @@ public final class ManagementBatchController implements AutoCloseable {
         BatchDataSource dataSource,
         Bundle savedState
     ) {
+        return attach(activity, root, dataSource, savedState, false);
+    }
+
+    /**
+     * Attaches the same batch surface to a read-only in-memory preview.
+     * Preview mode never binds TranslationService or writes export
+     * transactions; it only exercises selection and the export preview UI.
+     */
+    public static ManagementBatchController attach(
+        AppCompatActivity activity,
+        View root,
+        BatchDataSource dataSource,
+        Bundle savedState,
+        boolean previewMode
+    ) {
+        return attach(
+            activity,
+            root,
+            dataSource,
+            savedState,
+            previewMode,
+            previewMode
+                ? ManagementBatchSelection.newSession()
+                : ManagementBatchSelection.globalSession()
+        );
+    }
+
+    /**
+     * Attaches the batch surface to an explicit selection container.  Real
+     * pages pass the process-wide store; previews pass an isolated session.
+     */
+    public static ManagementBatchController attach(
+        AppCompatActivity activity,
+        View root,
+        BatchDataSource dataSource,
+        Bundle savedState,
+        boolean previewMode,
+        ManagementBatchSelection.Session selection
+    ) {
         if (activity == null || root == null || dataSource == null) {
             throw new IllegalArgumentException(
                 "activity, root and dataSource are required"
             );
+        }
+        if (selection == null) {
+            throw new IllegalArgumentException("selection is required");
         }
         if (!(root instanceof ViewGroup)) {
             throw new IllegalArgumentException("batch root must be a ViewGroup");
@@ -200,7 +259,9 @@ public final class ManagementBatchController implements AutoCloseable {
             activity,
             content,
             dataSource,
-            savedState
+            savedState,
+            previewMode,
+            selection
         );
     }
 
@@ -208,11 +269,14 @@ public final class ManagementBatchController implements AutoCloseable {
         AppCompatActivity activity,
         ViewGroup content,
         BatchDataSource dataSource,
-        Bundle savedState
+        Bundle savedState,
+        boolean previewMode,
+        ManagementBatchSelection.Session selection
     ) {
         this.activity = activity;
         this.content = content;
         this.dataSource = dataSource;
+        this.selection = selection;
         activeKind = normalizeKind(dataSource.initialKind());
         ownedKinds = normalizeOwnedKinds(dataSource.ownedKinds());
         if (!ownedKinds.contains(activeKind)) {
@@ -220,10 +284,17 @@ public final class ManagementBatchController implements AutoCloseable {
                 "initial kind must be declared as owned"
             );
         }
-        pendingClient = new PendingProcessControlClient(activity);
+        this.previewMode = previewMode;
+        pendingClient = previewMode
+            ? null
+            : new PendingProcessControlClient(activity);
         backCallback = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackPressed() {
+                if (exportPreviewPage != null && pendingExportToken != null) {
+                    cancelExportPreview(pendingExportToken);
+                    return;
+                }
                 exit();
             }
         };
@@ -234,6 +305,13 @@ public final class ManagementBatchController implements AutoCloseable {
         exportLauncher = activity.registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> onExportResult(result.getResultCode(), result.getData())
+        );
+        exportFileLauncher = activity.registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> onSingleExportResult(
+                result.getResultCode(),
+                result.getData()
+            )
         );
         if (savedState != null) {
             restoreState(savedState);
@@ -247,6 +325,12 @@ public final class ManagementBatchController implements AutoCloseable {
 
     public void onStart() {
         lifecycleStarted = true;
+        if (previewMode) {
+            if (active && isUiActive()) {
+                updateActions();
+            }
+            return;
+        }
         pendingClient.setConnectionListener(
             this::onPendingConnectionChanged
         );
@@ -271,6 +355,9 @@ public final class ManagementBatchController implements AutoCloseable {
 
     public void onStop() {
         lifecycleStarted = false;
+        if (previewMode) {
+            return;
+        }
         pendingClient.setConnectionListener(null);
         pendingClient.unbind();
     }
@@ -312,6 +399,21 @@ public final class ManagementBatchController implements AutoCloseable {
         return active;
     }
 
+    /** Keeps the compact banner's label aligned with the host's current tab. */
+    public void setActiveKind(String kind) {
+        String normalized = normalizeKind(kind);
+        if (!ownedKinds.contains(normalized)) {
+            return;
+        }
+        if (normalized.equals(activeKind)) {
+            return;
+        }
+        activeKind = normalized;
+        if (active && isUiActive()) {
+            refreshSummary();
+        }
+    }
+
     public void saveState(Bundle outState) {
         if (outState == null) {
             return;
@@ -320,7 +422,7 @@ public final class ManagementBatchController implements AutoCloseable {
         outState.putString(STATE_KIND, activeKind);
         outState.putStringArrayList(
             STATE_SELECTED,
-            new ArrayList<>(ManagementBatchSelection.snapshot())
+            new ArrayList<>(selection.snapshot())
         );
         // A token prepared before the picker is launched cannot receive a
         // result after recreation.  Only the picker-owned phase is restored;
@@ -340,9 +442,14 @@ public final class ManagementBatchController implements AutoCloseable {
             return;
         }
         active = true;
+        selectableCount = 0;
         backCallback.setEnabled(true);
         panel = buildPanel();
-        content.addView(panel, panelInsertIndex());
+        int insertIndex = panelInsertIndex();
+        if (insertIndex < content.getChildCount()) {
+            hostContent = content.getChildAt(insertIndex);
+        }
+        content.addView(panel, insertIndex);
         dataSource.onBatchModeChanged(true);
         refreshCatalog();
         refreshSummary();
@@ -362,105 +469,269 @@ public final class ManagementBatchController implements AutoCloseable {
         if (!active) {
             return;
         }
+        closeExportPreview(true);
         active = false;
         backCallback.setEnabled(false);
         busy = false;
+        selectableCount = 0;
         if (panel != null) {
             content.removeView(panel);
             panel = null;
         }
+        // Batch mode owns the process-local selection.  Exiting from the
+        // compact banner must leave no stale cross-tab selection behind.
+        selection.clear();
         dataSource.onBatchModeChanged(false);
+        dataSource.onBatchSelectionChanged();
     }
 
     private View buildPanel() {
         LinearLayout root = new LinearLayout(activity);
-        root.setOrientation(LinearLayout.VERTICAL);
-        int padding = Math.round(
-            16 * activity.getResources().getDisplayMetrics().density
+        root.setOrientation(LinearLayout.HORIZONTAL);
+        root.setGravity(Gravity.CENTER_VERTICAL);
+        root.setPadding(exportDp(10), exportDp(9), exportDp(10), exportDp(9));
+        LinearLayout.LayoutParams rootParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        root.setPadding(padding, padding, padding, padding);
+        rootParams.leftMargin = exportDp(14);
+        rootParams.rightMargin = exportDp(14);
+        rootParams.bottomMargin = exportDp(9);
+        root.setLayoutParams(rootParams);
 
-        LinearLayout heading = new LinearLayout(activity);
-        heading.setOrientation(LinearLayout.HORIZONTAL);
-        TextView title = new TextView(activity);
-        title.setText(R.string.management_batch_title);
-        title.setTextAppearance(
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(ContextCompat.getColor(
             activity,
-            com.google.android.material.R.style.TextAppearance_MaterialComponents_Headline6
-        );
-        heading.addView(title, new LinearLayout.LayoutParams(
-            0,
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            1
+            R.color.het_surface_container_high
         ));
-        exitButton = new MaterialButton(activity);
-        exitButton.setText(R.string.back_action);
-        exitButton.setOnClickListener(view -> exit());
-        heading.addView(exitButton);
-        root.addView(heading);
+        background.setCornerRadius(
+            14 * activity.getResources().getDisplayMetrics().density
+        );
+        root.setBackground(background);
 
-        TextView hint = new TextView(activity);
-        hint.setText(R.string.management_batch_hint);
-        root.addView(hint);
-
-        summaryView = new TextView(activity);
-        root.addView(summaryView);
+        LinearLayout summary = new LinearLayout(activity);
+        summary.setOrientation(LinearLayout.VERTICAL);
+        summary.setGravity(Gravity.CENTER_VERTICAL);
+        summarySelectedView = new TextView(activity);
+        summarySelectedView.setTextSize(14);
+        summarySelectedView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        summarySelectedView.setIncludeFontPadding(false);
+        summarySelectedView.setMaxLines(1);
+        summarySelectedView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        summarySelectedView.setTextColor(ContextCompat.getColor(
+            activity,
+            R.color.het_on_surface
+        ));
+        summaryVisibleView = new TextView(activity);
+        summaryVisibleView.setTextSize(12);
+        summaryVisibleView.setIncludeFontPadding(false);
+        summaryVisibleView.setMaxLines(1);
+        summaryVisibleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        summaryVisibleView.setTextColor(ContextCompat.getColor(
+            activity,
+            R.color.het_on_surface_muted
+        ));
+        summary.addView(summarySelectedView, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        summary.addView(summaryVisibleView, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(
+            0,
+            exportDp(34),
+            1f
+        );
+        summaryParams.rightMargin = exportDp(8);
+        root.addView(summary, summaryParams);
 
         LinearLayout actions = new LinearLayout(activity);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        selectAllButton = actionButton(
-            R.string.management_batch_select_all,
-            view -> selectVisible(true)
-        );
-        invertButton = actionButton(
-            R.string.management_batch_invert,
-            view -> invertVisible()
-        );
-        clearButton = actionButton(
-            R.string.management_batch_clear,
-            view -> {
-                if (!busy) {
-                    ManagementBatchSelection.clear();
-                    dataSource.onBatchSelectionChanged();
-                    refreshSummary();
-                }
-            }
-        );
-        actions.addView(selectAllButton);
-        actions.addView(invertButton);
-        actions.addView(clearButton);
-        root.addView(actions);
+        actions.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
 
-        LinearLayout transfers = new LinearLayout(activity);
-        transfers.setOrientation(LinearLayout.HORIZONTAL);
-        exportButton = actionButton(
-            R.string.management_batch_export,
+        exportButton = compactActionButton(
+            R.string.management_rebuild_batch_export_short,
             view -> beginExport()
         );
-        moveButton = actionButton(
-            R.string.pending_process_move,
+        moveButton = compactActionButton(
+            R.string.management_rebuild_batch_move_short,
             view -> beginMove()
         );
-        transfers.addView(exportButton, new LinearLayout.LayoutParams(
-            0,
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            1
+        exitButton = compactActionButton(
+            R.string.management_rebuild_batch_exit_short,
+            view -> exit()
+        );
+        moreButton = compactActionButton(
+            R.string.management_rebuild_batch_more,
+            view -> showBatchMenu(moreButton)
+        );
+        moreButton.setIconResource(R.drawable.ic_task_more);
+        moreButton.setText("");
+        moreButton.setIconSize(exportDp(20));
+        moreButton.setIconPadding(0);
+        moreButton.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
+        moreButton.setBackgroundTintList(
+            android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.TRANSPARENT
+            )
+        );
+        moreButton.setIconTint(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(activity, R.color.het_primary)
         ));
-        transfers.addView(moveButton, new LinearLayout.LayoutParams(
-            0,
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            1
+        moreButton.setContentDescription(
+            activity.getString(R.string.management_rebuild_batch_more)
+        );
+        styleActionButton(
+            exportButton,
+            R.color.het_primary_container,
+            R.color.het_on_primary_container
+        );
+        styleActionButton(
+            moveButton,
+            R.color.het_error,
+            R.color.het_on_error
+        );
+        styleActionButton(
+            exitButton,
+            R.color.het_primary_container,
+            R.color.het_on_primary_container
+        );
+        setActionLayout(
+            exportButton,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            exportDp(34),
+            0
+        );
+        setActionLayout(
+            moveButton,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            exportDp(34),
+            4
+        );
+        setActionLayout(
+            exitButton,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            exportDp(34),
+            4
+        );
+        setActionLayout(moreButton, exportDp(32), exportDp(32), 4);
+        actions.addView(exportButton);
+        actions.addView(moveButton);
+        actions.addView(exitButton);
+        actions.addView(moreButton);
+        root.addView(actions, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
         ));
-        root.addView(transfers);
         return root;
     }
 
-    private MaterialButton actionButton(int textId, View.OnClickListener listener) {
+    private void setActionLayout(
+        MaterialButton button,
+        int width,
+        int height,
+        int leftMargin
+    ) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(width, height);
+        params.leftMargin = exportDp(leftMargin);
+        button.setLayoutParams(params);
+    }
+
+    private MaterialButton compactActionButton(
+        int textId,
+        View.OnClickListener listener
+    ) {
         MaterialButton button = new MaterialButton(activity);
         button.setText(textId);
         button.setAllCaps(false);
+        button.setTextSize(13);
+        button.setSingleLine(true);
+        button.setIncludeFontPadding(false);
+        button.setMaxLines(1);
+        button.setMinHeight(Math.round(
+            34 * activity.getResources().getDisplayMetrics().density
+        ));
+        button.setMinWidth(0);
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setPadding(
+            exportDp(12),
+            0,
+            exportDp(12),
+            0
+        );
+        button.setCornerRadius(Math.round(
+            999 * activity.getResources().getDisplayMetrics().density
+        ));
+        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(activity, R.color.het_surface_container_high)
+        ));
+        button.setTextColor(ContextCompat.getColor(
+            activity,
+            R.color.het_on_surface
+        ));
         button.setOnClickListener(listener);
+        button.setLayoutParams(new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
         return button;
+    }
+
+    private void styleActionButton(
+        MaterialButton button,
+        int backgroundColor,
+        int textColor
+    ) {
+        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(activity, backgroundColor)
+        ));
+        button.setTextColor(ContextCompat.getColor(activity, textColor));
+    }
+
+    private void showBatchMenu(View anchor) {
+        if (!active || busy || anchor == null) {
+            return;
+        }
+        StyledPopupMenu popup = new StyledPopupMenu(activity, anchor, Gravity.END);
+        popup.setTitle(activity.getString(
+            R.string.management_rebuild_batch_menu_title
+        ));
+        MenuItem selectAll = popup.getMenu().add(
+            MenuItem.SHOW_AS_ACTION_NEVER,
+            1,
+            0,
+            activity.getString(R.string.management_batch_select_all)
+        );
+        MenuItem invert = popup.getMenu().add(
+            MenuItem.SHOW_AS_ACTION_NEVER,
+            2,
+            1,
+            activity.getString(R.string.management_batch_invert)
+        );
+        MenuItem clear = popup.getMenu().add(
+            MenuItem.SHOW_AS_ACTION_NEVER,
+            3,
+            2,
+            activity.getString(R.string.management_batch_clear)
+        );
+        selectAll.setOnMenuItemClickListener(item -> {
+            selectVisible(true);
+            return true;
+        });
+        invert.setOnMenuItemClickListener(item -> {
+            invertVisible();
+            return true;
+        });
+        clear.setOnMenuItemClickListener(item -> {
+            selection.clear();
+            dataSource.onBatchSelectionChanged();
+            refreshSummary();
+            return true;
+        });
+        popup.show();
     }
 
     /** Refresh only the immutable payload catalog; host rows remain untouched. */
@@ -472,19 +743,20 @@ public final class ManagementBatchController implements AutoCloseable {
         executor.execute(() -> {
             try {
                 List<Item> loaded = dataSource.snapshotItems();
-                PendingProcessStore.ReferenceSnapshot pending =
-                    new PendingProcessStore(activity).snapshotReferences();
+                PendingProcessStore.ReferenceSnapshot pending = previewMode
+                    ? null
+                    : new PendingProcessStore(activity).snapshotReferences();
                 ArrayList<String> live = new ArrayList<>();
                 if (loaded != null) {
                     validateItems(loaded);
                     for (Item item : loaded) {
-                        if (pending.isPending(
+                        if (pending != null && pending.isPending(
                             item.kind,
                             item.canonicalId
                         )) {
                             continue;
                         }
-                        ManagementBatchSelection.register(
+                        selection.register(
                             item.kind,
                             item.canonicalId,
                             item.label,
@@ -493,12 +765,13 @@ public final class ManagementBatchController implements AutoCloseable {
                         live.add(item.key());
                     }
                 }
+                selectableCount = live.size();
                 activity.runOnUiThread(() -> {
                     if (!active || !isUiActive()) {
                         return;
                     }
                     for (String kind : ownedKinds) {
-                        ManagementBatchSelection.retainKindAll(kind, live);
+                        selection.retainKindAll(kind, live);
                     }
                     setBusy(false);
                     refreshSummary();
@@ -528,7 +801,7 @@ public final class ManagementBatchController implements AutoCloseable {
         }
         validateItems(visible);
         for (Item item : visible) {
-            ManagementBatchSelection.register(
+            selection.register(
                 item.kind,
                 item.canonicalId,
                 item.label,
@@ -566,9 +839,9 @@ public final class ManagementBatchController implements AutoCloseable {
                 }
             }
             if (selected) {
-                ManagementBatchSelection.selectAll(keys);
+                selection.selectAll(keys);
             } else {
-                ManagementBatchSelection.removeAll(keys);
+                selection.removeAll(keys);
             }
             dataSource.onBatchSelectionChanged();
             refreshSummary();
@@ -584,9 +857,9 @@ public final class ManagementBatchController implements AutoCloseable {
         try {
             for (Item item : visibleItems()) {
                 if (item != null) {
-                    ManagementBatchSelection.set(
+                    selection.set(
                         item.key(),
-                        !ManagementBatchSelection.contains(item.key())
+                        !selection.contains(item.key())
                     );
                 }
             }
@@ -600,7 +873,7 @@ public final class ManagementBatchController implements AutoCloseable {
     private List<Item> selectedItems() {
         List<Item> output = new ArrayList<>();
         for (ManagementBatchSelection.Entry entry
-            : ManagementBatchSelection.selectedEntries()) {
+            : selection.selectedEntries()) {
             output.add(new Item(
                 entry.kind,
                 entry.canonicalId,
@@ -612,7 +885,7 @@ public final class ManagementBatchController implements AutoCloseable {
     }
 
     private int selectedKeyCount() {
-        return ManagementBatchSelection.snapshot().size();
+        return selection.snapshot().size();
     }
 
     private int visibleCount() {
@@ -624,16 +897,19 @@ public final class ManagementBatchController implements AutoCloseable {
     }
 
     private void refreshSummary() {
-        if (summaryView == null) {
+        if (summarySelectedView == null || summaryVisibleView == null) {
             return;
         }
         int selected = selectedKeyCount();
         int visible = visibleCount();
-        summaryView.setText(activity.getString(
-            R.string.management_batch_summary,
-            activeKind,
-            visible,
-            selected
+        summarySelectedView.setText(activity.getString(
+            R.string.management_rebuild_batch_selected,
+            selected,
+            selectableCount
+        ));
+        summaryVisibleView.setText(activity.getString(
+            R.string.management_rebuild_batch_visible,
+            visible
         ));
         updateActions(selected, visible);
     }
@@ -643,26 +919,44 @@ public final class ManagementBatchController implements AutoCloseable {
     }
 
     private void updateActions(int selected, int visible) {
-        if (selectAllButton == null) {
+        if (moreButton == null) {
             return;
         }
         boolean enabled = !busy;
-        selectAllButton.setEnabled(enabled && visible > 0);
-        invertButton.setEnabled(enabled && visible > 0);
-        clearButton.setEnabled(enabled && selected > 0);
         boolean exportable = false;
         for (Item item : selectedItems()) {
             exportable |= isExportable(item.kind);
         }
         exportButton.setEnabled(enabled && exportable);
         moveButton.setEnabled(
-            enabled && selected > 0 && pendingClient.isConnected()
+            !previewMode
+                && enabled
+                && selected > 0
+                && pendingClient != null
+                && pendingClient.isConnected()
         );
         exitButton.setEnabled(enabled);
+        moreButton.setEnabled(enabled && (visible > 0 || selected > 0));
+    }
+
+    private String kindLabel(String kind) {
+        if (KIND_CONTEXT.equals(kind)) {
+            return activity.getString(R.string.management_batch_tab_context);
+        }
+        if (KIND_GROUP.equals(kind)) {
+            return activity.getString(R.string.management_batch_tab_group);
+        }
+        if (KIND_CHARACTER.equals(kind)) {
+            return activity.getString(R.string.management_batch_tab_character);
+        }
+        if (KIND_TERM.equals(kind)) {
+            return activity.getString(R.string.management_batch_tab_term);
+        }
+        return activity.getString(R.string.management_batch_tab_scene);
     }
 
     private void beginMove() {
-        if (busy) {
+        if (previewMode || busy) {
             return;
         }
         List<Item> selected = selectedItems();
@@ -680,14 +974,14 @@ public final class ManagementBatchController implements AutoCloseable {
         for (Item item : selected) {
             if (KIND_CHARACTER.equals(item.kind)
                 && "mc".equals(item.canonicalId)) {
-                new MaterialAlertDialogBuilder(activity)
+                new UiMaterialAlertDialogBuilder(activity)
                     .setMessage(R.string.management_batch_main_character_rejected)
                     .setPositiveButton(android.R.string.ok, null)
                     .show();
                 return;
             }
         }
-        if (!pendingClient.isConnected()) {
+        if (pendingClient == null || !pendingClient.isConnected()) {
             showFailure("TranslationService is not connected");
             return;
         }
@@ -759,7 +1053,7 @@ public final class ManagementBatchController implements AutoCloseable {
                 previewFailures.size()
             ));
         }
-        new MaterialAlertDialogBuilder(activity)
+        new UiMaterialAlertDialogBuilder(activity)
             .setTitle(R.string.management_batch_move_title)
             .setMessage(activity.getString(
                 R.string.management_batch_move_message,
@@ -798,7 +1092,7 @@ public final class ManagementBatchController implements AutoCloseable {
                 if (!active || !isUiActive()) {
                     return;
                 }
-                ManagementBatchSelection.removeAll(moved);
+                selection.removeAll(moved);
                 setBusy(false);
                 dataSource.onBatchItemsMoved(moved);
                 refreshCatalog();
@@ -824,7 +1118,7 @@ public final class ManagementBatchController implements AutoCloseable {
             return;
         }
         List<ManagementBatchSelection.Entry> selected =
-            ManagementBatchSelection.selectedEntries();
+            selection.selectedEntries();
         if (selected.isEmpty()) {
             showFailure(selectedKeyCount() == 0
                 ? "cannot export an empty selection snapshot"
@@ -851,7 +1145,9 @@ public final class ManagementBatchController implements AutoCloseable {
         executor.execute(() -> {
             try {
                 JSONObject frozen = buildExportManifest(selected);
-                writeExportTransaction(token, frozen);
+                if (!previewMode) {
+                    writeExportTransaction(token, frozen);
+                }
                 List<ManagementTransfer.FileSpec> files =
                     buildExportFiles(frozen);
                 activity.runOnUiThread(() ->
@@ -871,7 +1167,7 @@ public final class ManagementBatchController implements AutoCloseable {
         });
     }
 
-    /** Shows every independent JSON file before the user chooses a SAF tree. */
+    /** Shows every independent JSON file before a directory or file is chosen. */
     private void showExportPreview(
         String token,
         List<ManagementTransfer.FileSpec> files
@@ -880,49 +1176,424 @@ public final class ManagementBatchController implements AutoCloseable {
             deleteExportTransaction(token);
             return;
         }
-        StringBuilder preview = new StringBuilder();
-        for (ManagementTransfer.FileSpec file : files) {
-            if (preview.length() > 0) {
-                preview.append("\n\n");
-            }
-            preview.append("===== ")
-                .append(exportDisplayPath(file))
-                .append(" =====\n")
-                .append(file.label)
-                .append('\n')
-                .append(new String(file.bytes, StandardCharsets.UTF_8));
+        View page = LayoutInflater.from(activity).inflate(
+            R.layout.view_management_export_preview,
+            null,
+            false
+        );
+        ViewGroup windowContent = activity.findViewById(android.R.id.content);
+        if (windowContent == null) {
+            deleteExportTransaction(token);
+            pendingExportToken = null;
+            exportPickerStarted = false;
+            setBusy(false);
+            showFailure("export preview host is unavailable");
+            return;
         }
-        TextView body = new TextView(activity);
-        body.setText(preview.toString());
-        body.setTextIsSelectable(true);
-        int padding = (int) (activity.getResources().getDisplayMetrics().density * 16);
-        body.setPadding(padding, padding, padding, padding);
-        ScrollView scroll = new ScrollView(activity);
-        scroll.addView(body);
-        new MaterialAlertDialogBuilder(activity)
-            .setTitle(R.string.management_transfer_export_preview_title)
-            .setView(scroll)
-            .setNegativeButton(
-                R.string.management_transfer_export_preview_cancel,
-                (dialog, which) -> {
-                    deleteExportTransaction(token);
-                    pendingExportToken = null;
-                    setBusy(false);
+        SystemBarInsets.apply(page.findViewById(R.id.root_management_export_preview));
+        MaterialToolbar pageToolbar = page.findViewById(
+            R.id.toolbar_management_export_preview
+        );
+        pageToolbar.setNavigationOnClickListener(
+            view -> cancelExportPreview(token)
+        );
+        TextView summary = page.findViewById(
+            R.id.tv_management_export_summary
+        );
+        LinearLayout fileContainer = page.findViewById(
+            R.id.container_management_export_files
+        );
+        MaterialButton cancelButton = page.findViewById(
+            R.id.btn_management_export_cancel
+        );
+        MaterialButton continueButton = page.findViewById(
+            R.id.btn_management_export_continue
+        );
+        int count = files == null ? 0 : files.size();
+        summary.setText(activity.getString(
+            R.string.management_transfer_export_file_summary,
+            count
+        ));
+        if (files == null || files.isEmpty()) {
+            TextView empty = new TextView(activity);
+            empty.setTextAppearance(
+                activity,
+                R.style.TextAppearance_HET_ManagementImport_Body
+            );
+            empty.setText(R.string.management_transfer_export_empty);
+            empty.setPadding(
+                exportDp(12),
+                exportDp(12),
+                exportDp(12),
+                exportDp(12)
+            );
+            fileContainer.addView(empty);
+        } else {
+            for (int index = 0; index < files.size(); index++) {
+                addExportFileCard(fileContainer, token, index, files.get(index));
+            }
+        }
+        cancelButton.setOnClickListener(view -> cancelExportPreview(token));
+        if (previewMode) {
+            continueButton.setVisibility(View.GONE);
+            cancelButton.setText(R.string.cancel_action);
+        } else {
+            continueButton.setOnClickListener(view -> {
+                closeExportPreview(false);
+                launchExportPicker(token);
+            });
+        }
+        if (hostContent != null) {
+            hostContent.setVisibility(View.GONE);
+        }
+        if (panel != null) {
+            panel.setVisibility(View.GONE);
+        }
+        exportPreviousFocus = activity.getCurrentFocus();
+        exportCoveredAccessibility.clear();
+        for (int index = 0; index < windowContent.getChildCount(); index++) {
+            View covered = windowContent.getChildAt(index);
+            exportCoveredAccessibility.put(
+                covered,
+                covered.getImportantForAccessibility()
+            );
+            covered.setImportantForAccessibility(
+                View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            );
+        }
+        exportPreviewPage = page;
+        exportPreviewHost = windowContent;
+        page.setImportantForAccessibility(
+            View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        );
+        page.setFocusableInTouchMode(true);
+        FrameLayout.LayoutParams pageParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        );
+        exportPreviewHost.addView(page, pageParams);
+        page.requestFocus();
+    }
+
+    private void addExportFileCard(
+        LinearLayout parent,
+        String token,
+        int index,
+        ManagementTransfer.FileSpec file
+    ) {
+        LinearLayout fileCard = new LinearLayout(activity);
+        fileCard.setOrientation(LinearLayout.VERTICAL);
+        fileCard.setPadding(
+            exportDp(12),
+            exportDp(10),
+            exportDp(12),
+            exportDp(10)
+        );
+        GradientDrawable cardBackground = new GradientDrawable();
+        cardBackground.setColor(ContextCompat.getColor(
+            activity,
+            R.color.het_surface_container
+        ));
+        cardBackground.setCornerRadius(exportDp(14));
+        cardBackground.setStroke(
+            exportDp(1),
+            ContextCompat.getColor(activity, R.color.het_outline_soft)
+        );
+        fileCard.setBackground(cardBackground);
+
+        LinearLayout heading = new LinearLayout(activity);
+        heading.setGravity(Gravity.CENTER_VERTICAL);
+        TextView path = new TextView(activity);
+        path.setText(exportDisplayPath(file));
+        path.setTextColor(ContextCompat.getColor(
+            activity,
+            R.color.het_on_surface
+        ));
+        path.setTextSize(14);
+        path.setTypeface(null, android.graphics.Typeface.BOLD);
+        path.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+        path.setSingleLine(true);
+        heading.addView(path, new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        ));
+        MaterialButton download = exportPageButton(
+            R.string.management_transfer_export_download,
+            view -> launchSingleFilePicker(
+                token,
+                index,
+                file == null ? "document.json" : file.requestedName
+            )
+        );
+        if (previewMode) {
+            download.setVisibility(View.GONE);
+        }
+        heading.addView(download);
+        fileCard.addView(heading);
+
+        TextView label = new TextView(activity);
+        label.setText(file == null || file.label == null ? "" : file.label);
+        label.setTextColor(ContextCompat.getColor(
+            activity,
+            R.color.het_on_surface_muted
+        ));
+        label.setTextSize(11);
+        label.setIncludeFontPadding(false);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        labelParams.topMargin = exportDp(3);
+        fileCard.addView(label, labelParams);
+
+        DraggableScrollbarNestedScrollView codeScroll =
+            new DraggableScrollbarNestedScrollView(activity);
+        codeScroll.setFillViewport(false);
+        codeScroll.setNestedScrollingEnabled(true);
+        codeScroll.setPaddingRelative(0, 0, exportDp(14), 0);
+        GradientDrawable codeBackground = new GradientDrawable();
+        codeBackground.setColor(ContextCompat.getColor(
+            activity,
+            R.color.het_surface_container_high
+        ));
+        codeBackground.setCornerRadius(exportDp(10));
+        codeScroll.setBackground(codeBackground);
+        TextView code = new TextView(activity);
+        code.setText(new String(
+            file == null || file.bytes == null ? new byte[0] : file.bytes,
+            StandardCharsets.UTF_8
+        ));
+        code.setTextColor(ContextCompat.getColor(
+            activity,
+            R.color.het_on_surface
+        ));
+        code.setTextSize(12);
+        code.setTypeface(android.graphics.Typeface.MONOSPACE);
+        code.setTextIsSelectable(true);
+        code.setIncludeFontPadding(false);
+        code.setPadding(
+            exportDp(10),
+            exportDp(9),
+            exportDp(10),
+            exportDp(9)
+        );
+        codeScroll.addView(code, new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        LinearLayout.LayoutParams codeParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            exportDp(220)
+        );
+        codeParams.topMargin = exportDp(7);
+        fileCard.addView(codeScroll, codeParams);
+
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        cardParams.bottomMargin = exportDp(10);
+        parent.addView(fileCard, cardParams);
+    }
+
+    private MaterialButton exportPageButton(
+        int textId,
+        View.OnClickListener listener
+    ) {
+        MaterialButton button = new MaterialButton(activity);
+        button.setText(textId);
+        button.setAllCaps(false);
+        button.setTextSize(12);
+        button.setMinWidth(0);
+        button.setMinHeight(exportDp(32));
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setPadding(exportDp(8), 0, exportDp(8), 0);
+        button.setCornerRadius(exportDp(9));
+        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(activity, R.color.het_surface_container_high)
+        ));
+        button.setTextColor(ContextCompat.getColor(
+            activity,
+            R.color.het_on_surface
+        ));
+        button.setStrokeWidth(exportDp(1));
+        button.setStrokeColor(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(activity, R.color.het_outline_soft)
+        ));
+        button.setOnClickListener(listener);
+        return button;
+    }
+
+    private void cancelExportPreview(String token) {
+        if (token == null || !token.equals(pendingExportToken)) {
+            return;
+        }
+        deleteExportTransaction(token);
+        pendingExportToken = null;
+        exportPickerStarted = false;
+        closeExportPreview(false);
+        setBusy(false);
+    }
+
+    private void closeExportPreview(boolean deleteTransaction) {
+        if (deleteTransaction) {
+            deleteExportTransaction(pendingExportToken);
+            pendingExportToken = null;
+            exportPickerStarted = false;
+        }
+        pendingSingleExportToken = null;
+        pendingSingleExportIndex = -1;
+        if (exportPreviewPage != null) {
+            if (exportPreviewHost != null) {
+                exportPreviewHost.removeView(exportPreviewPage);
+            } else {
+                content.removeView(exportPreviewPage);
+            }
+            exportPreviewPage = null;
+        }
+        exportPreviewHost = null;
+        for (Map.Entry<View, Integer> entry : exportCoveredAccessibility.entrySet()) {
+            View covered = entry.getKey();
+            if (covered != null) {
+                covered.setImportantForAccessibility(entry.getValue());
+            }
+        }
+        exportCoveredAccessibility.clear();
+        View previousFocus = exportPreviousFocus;
+        exportPreviousFocus = null;
+        if (previousFocus != null && previousFocus.getWindowToken() != null) {
+            previousFocus.requestFocus();
+        }
+        if (hostContent != null) {
+            hostContent.setVisibility(View.VISIBLE);
+        }
+        if (panel != null) {
+            panel.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void launchSingleFilePicker(
+        String token,
+        int index,
+        String requestedName
+    ) {
+        if (previewMode || !active || !isUiActive()
+            || !token.equals(pendingExportToken)
+            || exportPreviewPage == null) {
+            return;
+        }
+        pendingSingleExportToken = token;
+        pendingSingleExportIndex = index;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+            .setType("application/json")
+            .putExtra(Intent.EXTRA_TITLE, requestedName)
+            .addCategory(Intent.CATEGORY_OPENABLE)
+            .addFlags(
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+            );
+        try {
+            exportFileLauncher.launch(intent);
+        } catch (RuntimeException error) {
+            pendingSingleExportToken = null;
+            pendingSingleExportIndex = -1;
+            showFailure(safeMessage(error));
+        }
+    }
+
+    private void onSingleExportResult(int resultCode, Intent data) {
+        final String token = pendingSingleExportToken;
+        final int index = pendingSingleExportIndex;
+        pendingSingleExportToken = null;
+        pendingSingleExportIndex = -1;
+        if (previewMode) {
+            return;
+        }
+        if (resultCode != Activity.RESULT_OK || data == null
+            || data.getData() == null || token == null) {
+            return;
+        }
+        Uri destination = data.getData();
+        try {
+            activity.getContentResolver().takePersistableUriPermission(
+                destination,
+                data.getFlags()
+                    & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        | Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            );
+        } catch (SecurityException ignored) {
+            // A provider may grant only transient permission for this write.
+        }
+        executor.execute(() -> {
+            try {
+                JSONObject frozen = readExportTransaction(token);
+                List<ManagementTransfer.FileSpec> files = buildExportFiles(frozen);
+                if (index < 0 || index >= files.size()) {
+                    throw new IOException("export file selection is invalid");
                 }
-            )
-            .setPositiveButton(
-                R.string.management_transfer_export_preview_continue,
-                (dialog, which) -> launchExportPicker(token)
-            )
-            .setOnCancelListener(dialog -> {
-                deleteExportTransaction(token);
-                pendingExportToken = null;
-                setBusy(false);
-            })
-            .show();
+                ManagementTransfer.FileSpec file = files.get(index);
+                writeSingleExportFile(destination, file);
+                activity.runOnUiThread(() -> {
+                    if (!active || !isUiActive()) return;
+                    android.widget.Toast.makeText(
+                        activity,
+                        activity.getString(
+                            R.string.management_transfer_export_downloaded,
+                            exportDisplayPath(file)
+                        ),
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show();
+                });
+            } catch (Exception error) {
+                activity.runOnUiThread(() -> {
+                    if (active && isUiActive()) {
+                        showFailure(activity.getString(
+                            R.string.management_transfer_export_download_failed,
+                            "JSON",
+                            safeMessage(error)
+                        ));
+                    }
+                });
+            }
+        });
+    }
+
+    private void writeSingleExportFile(
+        Uri destination,
+        ManagementTransfer.FileSpec file
+    ) throws IOException {
+        if (previewMode) {
+            throw new IOException("style preview export is read-only");
+        }
+        if (destination == null || file == null) {
+            throw new IOException("export file destination is unavailable");
+        }
+        if (file.bytes.length > MAX_EXPORT_BYTES) {
+            throw new IOException("export document exceeds size limit");
+        }
+        try (OutputStream output = activity.getContentResolver()
+            .openOutputStream(destination, "w")) {
+            if (output == null) {
+                throw new IOException("document provider returned no output");
+            }
+            output.write(file.bytes);
+            output.flush();
+        }
+    }
+
+    private int exportDp(float value) {
+        return Math.round(
+            value * activity.getResources().getDisplayMetrics().density
+        );
     }
 
     private void launchExportPicker(String token) {
+        if (previewMode) {
+            return;
+        }
         if (!active || !isUiActive() || !token.equals(pendingExportToken)) {
             deleteExportTransaction(token);
             return;
@@ -946,6 +1617,12 @@ public final class ManagementBatchController implements AutoCloseable {
     }
 
     private void onExportResult(int resultCode, Intent data) {
+        if (previewMode) {
+            pendingExportToken = null;
+            exportPickerStarted = false;
+            setBusy(false);
+            return;
+        }
         if (resultCode != Activity.RESULT_OK || data == null
             || data.getData() == null) {
             deleteExportTransaction(pendingExportToken);
@@ -1037,13 +1714,8 @@ public final class ManagementBatchController implements AutoCloseable {
             ? activity.getApplicationContext()
             : activity;
         JSONArray items;
-        synchronized (PendingProcessManager.POLICY_PUBLICATION_LOCK) {
-            PendingProcessStore.ReferenceSnapshot pending =
-                new PendingProcessStore(snapshotContext).snapshotReferences();
-            List<Item> current = ManagementHomeBatchDataSource.snapshotItems(
-                snapshotContext,
-                pending
-            );
+        if (previewMode) {
+            List<Item> current = dataSource.snapshotItems();
             Map<String, Item> currentByKey = new LinkedHashMap<>();
             for (Item item : current) {
                 if (item != null) {
@@ -1059,14 +1731,6 @@ public final class ManagementBatchController implements AutoCloseable {
                     );
                 }
                 String key = selectedItem.key();
-                if (pending.isPending(
-                    selectedItem.kind,
-                    selectedItem.canonicalId
-                )) {
-                    throw new IOException(
-                        "selected export item is pending: " + key
-                    );
-                }
                 Item currentItem = currentByKey.get(key);
                 if (currentItem == null) {
                     throw new IOException(
@@ -1076,13 +1740,62 @@ public final class ManagementBatchController implements AutoCloseable {
                 JSONObject payload = exportPayload(
                     currentItem,
                     currentByKey,
-                    pending
+                    null
                 );
                 items.put(new JSONObject()
                     .put("kind", currentItem.kind)
                     .put("canonicalId", currentItem.canonicalId)
                     .put("label", currentItem.label)
                     .put("payload", payload));
+            }
+        } else {
+            synchronized (PendingProcessManager.POLICY_PUBLICATION_LOCK) {
+                PendingProcessStore.ReferenceSnapshot pending =
+                    new PendingProcessStore(snapshotContext).snapshotReferences();
+                List<Item> current = ManagementHomeBatchDataSource.snapshotItems(
+                    snapshotContext,
+                    pending
+                );
+                Map<String, Item> currentByKey = new LinkedHashMap<>();
+                for (Item item : current) {
+                    if (item != null) {
+                        currentByKey.put(item.key(), item);
+                    }
+                }
+                items = new JSONArray();
+                for (ManagementBatchSelection.Entry selectedItem : selected) {
+                    if (selectedItem == null
+                        || !isExportable(selectedItem.kind)) {
+                        throw new IllegalArgumentException(
+                            "selection contains a non-exportable item"
+                        );
+                    }
+                    String key = selectedItem.key();
+                    if (pending.isPending(
+                        selectedItem.kind,
+                        selectedItem.canonicalId
+                    )) {
+                        throw new IOException(
+                            "selected export item is pending: " + key
+                        );
+                    }
+                    Item currentItem = currentByKey.get(key);
+                    if (currentItem == null) {
+                        throw new IOException(
+                            "selected export item is no longer available: " + key
+                        );
+                    }
+                    JSONObject payload = exportPayload(
+                        currentItem,
+                        currentByKey,
+                        pending
+                    );
+                    items.put(new JSONObject()
+                        .put("kind", currentItem.kind)
+                        .put("canonicalId", currentItem.canonicalId)
+                        .put("label", currentItem.label)
+                        .put("payload", payload));
+                }
             }
         }
         if (items.length() == 0) {
@@ -1108,6 +1821,9 @@ public final class ManagementBatchController implements AutoCloseable {
         PendingProcessStore.ReferenceSnapshot pending
     ) throws Exception {
         JSONObject payload = new JSONObject(current.payload.toString());
+        if (previewMode) {
+            return payload;
+        }
         if (KIND_SCENE.equals(current.kind)) {
             return SceneStore.filterPendingLanguagesForManagementExport(
                 current.canonicalId,
@@ -1328,7 +2044,7 @@ public final class ManagementBatchController implements AutoCloseable {
         }
         ArrayList<String> selected = state.getStringArrayList(STATE_SELECTED);
         if (selected != null) {
-            ManagementBatchSelection.selectAll(selected);
+            selection.selectAll(selected);
         }
         exportPickerStarted = state.getBoolean(
             STATE_EXPORT_PICKER_STARTED,
@@ -1336,7 +2052,9 @@ public final class ManagementBatchController implements AutoCloseable {
         );
         pendingExportToken = state.getString(STATE_EXPORT_TOKEN);
         if (!exportPickerStarted) {
-            deleteExportTransaction(pendingExportToken);
+            if (!previewMode) {
+                deleteExportTransaction(pendingExportToken);
+            }
             pendingExportToken = null;
         }
     }
@@ -1356,6 +2074,9 @@ public final class ManagementBatchController implements AutoCloseable {
 
     private void writeExportTransaction(String token, JSONObject frozen)
         throws Exception {
+        if (previewMode) {
+            throw new IOException("style preview export is read-only");
+        }
         if (frozen == null || frozen.optJSONArray("items") == null
             || frozen.optJSONArray("items").length() == 0) {
             throw new IOException("export transaction snapshot is empty");
@@ -1381,6 +2102,9 @@ public final class ManagementBatchController implements AutoCloseable {
     }
 
     private JSONObject readExportTransaction(String token) throws Exception {
+        if (previewMode) {
+            throw new IOException("style preview export is read-only");
+        }
         AtomicFile file = new AtomicFile(exportTransactionFile(token));
         byte[] bytes;
         try (java.io.InputStream input = file.openRead()) {
@@ -1429,6 +2153,12 @@ public final class ManagementBatchController implements AutoCloseable {
     }
 
     private void deleteExportTransaction(String token) {
+        // Style previews build the export manifest entirely in memory.  Keep
+        // every cleanup path inert there as well, including worker failures
+        // and Activity teardown while the preview page is open.
+        if (previewMode) {
+            return;
+        }
         try {
             File file = exportTransactionFile(token);
             if (file.exists() && !file.delete() && file.exists()) {
@@ -1511,9 +2241,13 @@ public final class ManagementBatchController implements AutoCloseable {
     @Override
     public void close() {
         lifecycleStarted = false;
-        pendingClient.setConnectionListener(null);
+        if (pendingClient != null) {
+            pendingClient.setConnectionListener(null);
+        }
         backCallback.remove();
-        pendingClient.close();
+        if (pendingClient != null) {
+            pendingClient.close();
+        }
         executor.shutdownNow();
         exit();
     }
