@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Widget.HET.StaticTask.Toolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="android:layout_height">56dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:background">@drawable/bg_settings_toolbar</item>
+        <item name="android:elevation">0dp</item>
+        <item name="titleTextColor">@color/het_on_surface</item>
+        <item name="titleTextAppearance">@style/TextAppearance.HET.StaticTask.ToolbarTitle</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticTask.ToolbarTitle" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.StaticTask.Card" parent="Widget.MaterialComponents.CardView">
+        <item name="android:minHeight">64dp</item>
+        <item name="cardBackgroundColor">@color/het_surface_container</item>
+        <item name="cardCornerRadius">14dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticTask.StatusCard" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/het_surface_container_high</item>
+        <item name="cardCornerRadius">12dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticTask.Button.Primary" parent="Widget.HET.Button.Primary">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticTask.Button.Secondary" parent="Widget.HET.Button.Secondary">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticTask.Button.Danger" parent="Widget.HET.Button.Danger">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticTask.Button.Text" parent="Widget.HET.Button.Text">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticTask.SectionTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticTask.Body" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticTask.Meta" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticTask.Title" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticTask.Status" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/het_primary_strong</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- Detail typography follows the Scene detail hierarchy without
+         changing the task list's shared text helper. -->
+    <style name="TextAppearance.HET.StaticTask.DetailHeading"
+        parent="TextAppearance.HET.DetailPrototype.Heading" />
+
+    <style name="TextAppearance.HET.StaticTask.DetailKind"
+        parent="TextAppearance.HET.DetailPrototype.Kind" />
+
+    <style name="TextAppearance.HET.StaticTask.DetailMetaLabel"
+        parent="TextAppearance.HET.DetailPrototype.MetaLabel" />
+
+    <style name="TextAppearance.HET.StaticTask.DetailMetaValue"
+        parent="TextAppearance.HET.DetailPrototype.MetaValue" />
+
+    <style name="TextAppearance.HET.StaticTask.DetailCardTitle"
+        parent="TextAppearance.HET.DetailPrototype.CardTitle" />
+
+    <style name="TextAppearance.HET.StaticTask.DetailMetadata"
+        parent="TextAppearance.HET.DetailPrototype.Metadata" />
+
+    <style name="TextAppearance.HET.StaticTask.DetailOriginal"
+        parent="TextAppearance.HET.DetailPrototype.Original" />
+
+    <style name="TextAppearance.HET.StaticTask.DetailStatus"
+        parent="TextAppearance.HET.StaticDetail.Status">
+        <item name="android:textStyle">bold</item>
+    </style>
+
+</resources>

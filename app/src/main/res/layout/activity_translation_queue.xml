@@ -5,18 +5,84 @@
     android:id="@+id/root_translation_queue"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/het_surface"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar_translation_queue"
+        style="@style/Widget.HET.StaticTask.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="?attr/actionBarSize"
+        android:layout_height="56dp"
+        app:contentInsetStartWithNavigation="4dp"
         app:navigationContentDescription="@string/back_action"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="@string/translation_queue_title" />
+        app:title="@string/task_page_title">
 
-    <androidx.core.widget.NestedScrollView
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_capture_control"
+            style="@style/Widget.HET.StaticTask.Button.Text"
+            android:layout_height="wrap_content"
+            android:layout_gravity="start|center_vertical"
+            android:layout_width="32dp"
+            android:minWidth="0dp"
+            android:minHeight="40dp"
+            android:paddingStart="0dp"
+            android:paddingEnd="0dp"
+            android:contentDescription="@string/capture_control_pause"
+            app:icon="@drawable/ic_task_pause"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="20dp"
+            android:text=""
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/task_toolbar_actions"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_task_sort"
+                style="@style/Widget.HET.StaticTask.Button.Text"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:contentDescription="@string/task_sort_button"
+                app:icon="@drawable/ic_task_sort"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                android:text="" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_task_more"
+                style="@style/Widget.HET.StaticTask.Button.Text"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:contentDescription="@string/task_more_action"
+                app:icon="@drawable/ic_task_more"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                android:text="" />
+        </LinearLayout>
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
+        style="@style/Widget.HET.ScrollView"
+        android:id="@+id/task_list_content"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -24,69 +90,221 @@
         android:fillViewport="true">
 
         <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_capture_control"
-                style="@style/Widget.HET.Button.Text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:minWidth="0dp"
-                android:minHeight="48dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:text="@string/capture_control_pause" />
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingTop="15dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="20dp">
 
             <TextView
                 android:id="@+id/tv_translation_queue_intro"
+                style="@style/TextAppearance.HET.StaticTask.Meta"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/translation_queue_intro"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                android:textColor="?android:attr/textColorSecondary" />
+                android:layout_marginTop="2dp"
+                android:text="@string/task_page_intro"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/task_search_bar"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="0dp"
+                android:background="@drawable/bg_static_task_search"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="10dp"
+                android:paddingEnd="2dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@string/task_search_icon_description"
+                    android:src="@drawable/ic_task_search"
+                    android:tint="@color/het_on_surface_muted" />
+
+                <EditText
+                    android:id="@+id/task_search_input"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:autofillHints="none"
+                    android:background="@android:color/transparent"
+                    android:gravity="center_vertical"
+                    android:hint="@string/task_search_tasks_hint"
+                    android:imeOptions="actionDone"
+                    android:includeFontPadding="false"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:paddingStart="8dp"
+                    android:paddingTop="0dp"
+                    android:paddingEnd="4dp"
+                    android:paddingBottom="0dp"
+                    android:textColor="@color/het_on_surface"
+                    android:textColorHint="@color/het_on_surface_muted"
+                    android:textSize="13sp" />
+
+                <ImageButton
+                    android:id="@+id/btn_task_search_clear"
+                    android:layout_width="40dp"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/task_search_clear"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_task_clear"
+                    android:tint="@color/het_on_surface_muted"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/task_tabs"
+                android:layout_width="match_parent"
+                android:layout_height="39dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_static_task_segmented"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="3dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_task_tab_all"
+                    style="@style/Widget.HET.StaticTask.Button.Text"
+                    android:layout_width="0dp"
+                    android:layout_height="31dp"
+                    android:layout_weight="1"
+                    android:text="@string/task_tab_all" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_task_tab_translation"
+                    style="@style/Widget.HET.StaticTask.Button.Text"
+                    android:layout_width="0dp"
+                    android:layout_height="31dp"
+                    android:layout_weight="1"
+                    android:text="@string/task_tab_translation" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_task_tab_summary"
+                    style="@style/Widget.HET.StaticTask.Button.Text"
+                    android:layout_width="0dp"
+                    android:layout_height="31dp"
+                    android:layout_weight="1"
+                    android:text="@string/task_tab_summary" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_task_tab_waiting"
+                    style="@style/Widget.HET.StaticTask.Button.Text"
+                    android:layout_width="0dp"
+                    android:layout_height="31dp"
+                    android:layout_weight="1"
+                    android:text="@string/task_tab_waiting" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_task_scope_summary"
+                style="@style/TextAppearance.HET.StaticTask.Meta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/task_sections_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical" />
+
+            <LinearLayout
+                android:id="@+id/waiting_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/waiting_header"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="1dp"
+                    android:layout_marginTop="7dp"
+                    android:layout_marginEnd="1dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_waiting_title"
+                        style="@style/TextAppearance.HET.StaticTask.SectionTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/task_waiting_title" />
+
+                    <TextView
+                        android:id="@+id/tv_waiting_count"
+                        style="@style/TextAppearance.HET.StaticTask.Meta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/task_waiting_count_zero" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_waiting_empty"
+                    style="@style/Widget.HET.CompactEmptyState"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/task_waiting_empty"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/waiting_records"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="vertical" />
+            </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_open_pending_management"
-                style="@style/Widget.HET.Button.Secondary"
-                android:layout_width="match_parent"
+                style="@style/Widget.HET.StaticTask.Button.Secondary"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_gravity="end"
+                android:layout_marginTop="11dp"
                 android:text="@string/translation_queue_open_pending_management" />
 
             <LinearLayout
                 android:id="@+id/translation_active_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_static_task_section"
                 android:orientation="vertical"
+                android:padding="10dp"
                 android:visibility="gone">
 
                 <TextView
+                    style="@style/TextAppearance.HET.StaticTask.SectionTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/translation_stop_section_title"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textStyle="bold" />
+                    android:text="@string/translation_stop_section_title" />
 
                 <TextView
                     android:id="@+id/tv_translation_active_summary"
+                    style="@style/TextAppearance.HET.StaticTask.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_config_status"
-                    android:padding="12dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_static_task_status"
+                    android:padding="10dp" />
 
                 <LinearLayout
                     android:id="@+id/translation_active_items"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:orientation="vertical" />
             </LinearLayout>
 
@@ -94,64 +312,65 @@
                 android:id="@+id/pending_process_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_static_task_section"
                 android:orientation="vertical"
+                android:padding="10dp"
                 android:visibility="gone">
 
                 <TextView
+                    style="@style/TextAppearance.HET.StaticTask.SectionTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/pending_process_title"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textStyle="bold" />
+                    android:text="@string/pending_process_title" />
 
                 <TextView
                     android:id="@+id/tv_pending_process_summary"
+                    style="@style/TextAppearance.HET.StaticTask.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_config_status"
-                    android:padding="12dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_static_task_status"
+                    android:padding="10dp" />
 
                 <TextView
                     android:id="@+id/tv_pending_process_empty"
                     style="@style/Widget.HET.CompactEmptyState"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:text="@string/pending_process_loading"
+                    android:textSize="12sp"
                     android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/pending_process_items"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:orientation="vertical" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="6dp"
                     android:gravity="end"
                     android:orientation="horizontal">
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_refresh_pending_processes"
-                        style="@style/Widget.HET.Button.Text"
+                        style="@style/Widget.HET.StaticTask.Button.Text"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/pending_process_refresh" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_move_pending_process"
-                        style="@style/Widget.HET.Button.Secondary"
+                        style="@style/Widget.HET.StaticTask.Button.Secondary"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="6dp"
                         android:text="@string/pending_process_move" />
-
                 </LinearLayout>
             </LinearLayout>
 
@@ -159,48 +378,49 @@
                 android:id="@+id/rejected_api_results_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_static_task_section"
                 android:orientation="vertical"
+                android:padding="10dp"
                 android:visibility="gone">
 
                 <TextView
+                    style="@style/TextAppearance.HET.StaticTask.SectionTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/rejected_api_results_title"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textStyle="bold" />
+                    android:text="@string/rejected_api_results_title" />
 
                 <TextView
+                    style="@style/TextAppearance.HET.StaticTask.Meta"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/rejected_api_results_intro"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                    android:textColor="?android:attr/textColorSecondary" />
+                    android:layout_marginTop="3dp"
+                    android:text="@string/rejected_api_results_intro" />
 
                 <TextView
                     android:id="@+id/tv_rejected_api_results_summary"
+                    style="@style/TextAppearance.HET.StaticTask.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_config_status"
-                    android:padding="12dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_static_task_status"
+                    android:padding="10dp" />
 
                 <TextView
                     android:id="@+id/tv_rejected_api_results_empty"
                     style="@style/Widget.HET.CompactEmptyState"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:text="@string/rejected_api_results_empty"
+                    android:textSize="12sp"
                     android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/rejected_api_results_items"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:orientation="vertical" />
             </LinearLayout>
 
@@ -208,39 +428,41 @@
                 android:id="@+id/user_action_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_static_task_section"
+                android:orientation="vertical"
+                android:padding="10dp">
 
                 <TextView
+                    style="@style/TextAppearance.HET.StaticTask.SectionTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/user_action_required_title"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textStyle="bold" />
+                    android:text="@string/user_action_required_title" />
 
                 <TextView
                     android:id="@+id/tv_user_action_summary"
+                    style="@style/TextAppearance.HET.StaticTask.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_config_status"
-                    android:padding="12dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_static_task_status"
+                    android:padding="10dp" />
 
                 <TextView
                     android:id="@+id/tv_user_action_empty"
                     style="@style/Widget.HET.CompactEmptyState"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:text="@string/user_action_required_empty"
+                    android:textSize="12sp"
                     android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/user_action_items"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:orientation="vertical" />
             </LinearLayout>
 
@@ -248,150 +470,190 @@
                 android:id="@+id/summary_recovery_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_static_task_section"
+                android:orientation="vertical"
+                android:padding="10dp">
 
                 <TextView
+                    style="@style/TextAppearance.HET.StaticTask.SectionTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:text="@string/summary_recovery_title"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textStyle="bold" />
+                    android:text="@string/summary_recovery_title" />
 
                 <TextView
                     android:id="@+id/tv_summary_recovery_summary"
+                    style="@style/TextAppearance.HET.StaticTask.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_config_status"
-                    android:padding="12dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_static_task_status"
+                    android:padding="10dp" />
 
                 <TextView
                     android:id="@+id/tv_summary_recovery_empty"
                     style="@style/Widget.HET.CompactEmptyState"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:text="@string/summary_recovery_empty"
+                    android:textSize="12sp"
                     android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/summary_recovery_items"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:orientation="vertical" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_submit_summary_recovery"
-                    style="@style/Widget.HET.Button.Primary"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/summary_recovery_submit" />
             </LinearLayout>
 
             <TextView
                 android:id="@+id/tv_translation_queue_summary"
+                style="@style/TextAppearance.HET.StaticTask.Body"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/bg_config_status"
-                android:padding="12dp"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_static_task_status"
+                android:padding="10dp" />
 
             <TextView
                 android:id="@+id/tv_translation_queue_empty"
                 style="@style/Widget.HET.CompactEmptyState"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:text="@string/translation_queue_empty"
+                android:textSize="12sp"
                 android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/translation_queue_items"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="8dp"
                 android:orientation="vertical" />
 
             <TextView
                 android:id="@+id/tv_translation_failed_summary"
+                style="@style/TextAppearance.HET.StaticTask.Body"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
-                android:background="@drawable/bg_config_status"
-                android:padding="12dp"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_static_task_status"
+                android:padding="10dp" />
 
             <TextView
                 android:id="@+id/tv_translation_failed_empty"
                 style="@style/Widget.HET.CompactEmptyState"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:text="@string/translation_job_failed_empty"
+                android:textSize="12sp"
                 android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/translation_failed_items"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="8dp"
                 android:orientation="vertical" />
 
             <LinearLayout
                 android:id="@+id/summary_failed_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_static_task_section"
+                android:orientation="vertical"
+                android:padding="10dp">
 
                 <TextView
+                    style="@style/TextAppearance.HET.StaticTask.SectionTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="22dp"
-                    android:text="@string/summary_failed_title"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textStyle="bold" />
+                    android:text="@string/summary_failed_title" />
 
                 <TextView
                     android:id="@+id/tv_summary_failed_summary"
+                    style="@style/TextAppearance.HET.StaticTask.Body"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_config_status"
-                    android:padding="12dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_static_task_status"
+                    android:padding="10dp" />
 
                 <TextView
                     android:id="@+id/tv_summary_failed_empty"
                     style="@style/Widget.HET.CompactEmptyState"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:text="@string/summary_failed_empty"
+                    android:textSize="12sp"
                     android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/summary_failed_items"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:orientation="vertical" />
             </LinearLayout>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_submit_translation_queue"
-                style="@style/Widget.HET.Button.Primary"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="@string/translation_queue_submit" />
-
         </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+    </com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView>
+
+    <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
+        style="@style/Widget.HET.ScrollView"
+        android:id="@+id/task_detail_content"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/task_detail_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingTop="15dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="24dp" />
+    </com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView>
+
+    <LinearLayout
+        android:id="@+id/page_actions"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/het_bottom_bar_height"
+        android:background="@drawable/bg_primary_navigation"
+        android:gravity="center_vertical|end"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:visibility="gone"
+        android:baselineAligned="false">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_submit_summary_recovery"
+            style="@style/Widget.HET.StaticTask.Button.Primary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/summary_recovery_submit"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_submit_translation_queue"
+            style="@style/Widget.HET.StaticTask.Button.Primary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/translation_queue_submit" />
+    </LinearLayout>
 
     <include layout="@layout/view_primary_navigation" />
 </LinearLayout>
