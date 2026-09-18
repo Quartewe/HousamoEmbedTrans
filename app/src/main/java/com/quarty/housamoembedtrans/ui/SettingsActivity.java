@@ -39,6 +39,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -202,7 +205,8 @@ public final class SettingsActivity extends AppCompatActivity {
             .setType("text/plain")
             .putExtra(
                 Intent.EXTRA_TITLE,
-                getString(R.string.settings_rebuild_export_logs_filename)
+                "het_" + new SimpleDateFormat("yy_MM_dd_HH_mm_ss", Locale.ROOT)
+                    .format(new Date()) + ".log"
             )
             .addCategory(Intent.CATEGORY_OPENABLE)
             .addFlags(

@@ -4,7 +4,6 @@
     <string name="settings_rebuild_export_logs">Export runtime logs</string>
     <string name="settings_rebuild_export_logs_description">Export about the latest 2,000 lines of HET app logs to the text file you choose. Includes HET app logs only and excludes game process logs.</string>
     <string name="settings_rebuild_export_logs_choose">Choose file</string>
-    <string name="settings_rebuild_export_logs_filename">housamo-het-log.txt</string>
     <string name="settings_rebuild_export_logs_in_progress">Reading HET logs...</string>
     <string name="settings_rebuild_export_logs_empty">No HET app logs are available to export.</string>
     <string name="settings_rebuild_export_logs_success">Exported %1$d HET log lines.</string>
