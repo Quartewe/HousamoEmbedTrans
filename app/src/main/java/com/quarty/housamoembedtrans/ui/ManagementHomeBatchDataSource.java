@@ -8,6 +8,7 @@ import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
 import android.content.Context;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
@@ -36,6 +37,7 @@ final class ManagementHomeBatchDataSource
     private static final String KIND_TERM = ManagementBatchController.KIND_TERM;
 
     private final ManagementHomeActivity activity;
+    private final List<ManagementBatchController.Item> previewItems;
     private final Object lock = new Object();
     private final LinkedHashMap<String, ManagementBatchController.Item> catalog =
         new LinkedHashMap<>();
@@ -43,10 +45,21 @@ final class ManagementHomeBatchDataSource
     private boolean catalogReady;
 
     ManagementHomeBatchDataSource(ManagementHomeActivity activity) {
+        this(activity, null);
+    }
+
+    /** Creates a read-only catalog from a style-preview payload. */
+    ManagementHomeBatchDataSource(
+        ManagementHomeActivity activity,
+        JSONObject previewPayload
+    ) {
         if (activity == null) {
             throw new IllegalArgumentException("activity is required");
         }
         this.activity = activity;
+        this.previewItems = previewPayload == null
+            ? null
+            : previewItems(activity, previewPayload);
     }
 
     void setDisplaySnapshot(ManagementHomeData.Snapshot snapshot) {
@@ -124,6 +137,21 @@ final class ManagementHomeBatchDataSource
     @Override
     public List<ManagementBatchController.Item> snapshotItems()
         throws Exception {
+        if (previewItems != null) {
+            LinkedHashMap<String, ManagementBatchController.Item> nextCatalog =
+                new LinkedHashMap<>();
+            for (ManagementBatchController.Item item : previewItems) {
+                if (item != null) {
+                    nextCatalog.put(item.key(), item);
+                }
+            }
+            synchronized (lock) {
+                catalog.clear();
+                catalog.putAll(nextCatalog);
+                catalogReady = true;
+            }
+            return new ArrayList<>(previewItems);
+        }
         invalidateCatalog();
         Context context = activity.getApplicationContext() != null
             ? activity.getApplicationContext()
@@ -227,6 +255,99 @@ final class ManagementHomeBatchDataSource
             safeContext
         );
         return loaded;
+    }
+
+    private static List<ManagementBatchController.Item> previewItems(
+        Context context,
+        JSONObject payload
+    ) {
+        List<ManagementBatchController.Item> output = new ArrayList<>();
+        addPreviewRows(
+            output,
+            payload == null ? null : payload.optJSONArray("scenes"),
+            KIND_SCENE,
+            R.string.management_batch_scene_label,
+            context
+        );
+        addPreviewRows(
+            output,
+            payload == null ? null : payload.optJSONArray("contexts"),
+            KIND_CONTEXT,
+            R.string.management_batch_context_label,
+            context
+        );
+        addPreviewRows(
+            output,
+            payload == null ? null : payload.optJSONArray("groups"),
+            KIND_GROUP,
+            R.string.management_batch_group_label,
+            context
+        );
+        addPreviewRows(
+            output,
+            payload == null ? null : payload.optJSONArray("characters"),
+            KIND_CHARACTER,
+            R.string.management_batch_character_label,
+            context
+        );
+        addPreviewRows(
+            output,
+            payload == null ? null : payload.optJSONArray("terms"),
+            KIND_TERM,
+            R.string.management_batch_term_label,
+            context
+        );
+        return output;
+    }
+
+    private static void addPreviewRows(
+        List<ManagementBatchController.Item> output,
+        JSONArray rows,
+        String kind,
+        int labelResource,
+        Context context
+    ) {
+        if (rows == null) {
+            return;
+        }
+        for (int index = 0; index < rows.length(); index++) {
+            JSONObject row = rows.optJSONObject(index);
+            if (row == null) {
+                continue;
+            }
+            String id = row.optString("id", "").trim();
+            if (id.isEmpty()) {
+                id = row.optString("key", "").trim();
+            }
+            if (id.isEmpty()) {
+                id = row.optString("name", "").trim();
+            }
+            if (id.isEmpty()) {
+                continue;
+            }
+            String displayName = row.optString("display_name", "").trim();
+            if (displayName.isEmpty()) {
+                displayName = row.optString("name", "").trim();
+            }
+            if (displayName.isEmpty()) {
+                displayName = id;
+            }
+            if (KIND_CHARACTER.equals(kind) && "mc".equals(id)) {
+                displayName = context.getString(
+                    R.string.management_batch_main_character_label
+                );
+            }
+            try {
+                output.add(new ManagementBatchController.Item(
+                    kind,
+                    id,
+                    context.getString(labelResource, displayName),
+                    new JSONObject(row.toString())
+                ));
+            } catch (Exception ignored) {
+                // A malformed preview row is omitted from the read-only sample.
+            }
+        }
     }
 
     /**
