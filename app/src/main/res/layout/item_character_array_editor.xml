@@ -4,7 +4,7 @@
     style="@style/Widget.HET.SectionCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="8dp">
+    android:layout_marginBottom="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -19,55 +19,48 @@
             android:clickable="true"
             android:focusable="true"
             android:gravity="center_vertical"
-            android:minHeight="56dp"
+            android:minHeight="42dp"
             android:orientation="horizontal"
-            android:paddingStart="16dp"
+            android:paddingStart="12dp"
             android:paddingEnd="8dp">
 
-            <TextView
-                android:id="@+id/tv_character_array_title"
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                android:textColor="@color/het_on_surface"
-                android:textStyle="bold" />
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tv_character_array_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-                android:textColor="@color/het_on_surface_muted" />
+                <TextView
+                    android:id="@+id/tv_character_array_title"
+                    style="@style/TextAppearance.HET.StaticDictionary.ArrayTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_add_character_array_item"
-                style="@style/Widget.HET.Button.Text"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minWidth="0dp"
-                android:text="＋"
-                android:textSize="22sp" />
+                <TextView
+                    android:id="@+id/tv_character_array_count"
+                    style="@style/TextAppearance.HET.StaticDetail.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tv_character_array_indicator"
-                android:layout_width="32dp"
+                style="@style/TextAppearance.HET.StaticDetail.Caption"
+                android:layout_width="22dp"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="@string/array_indicator_collapsed"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                android:textColor="?android:attr/textColorSecondary" />
+                android:includeFontPadding="false"
+                android:textSize="16sp"
+                android:text="@string/array_indicator_collapsed" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/tv_character_array_error"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
             android:paddingBottom="8dp"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
             android:textColor="@color/het_error"
@@ -80,11 +73,12 @@
             android:orientation="vertical"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
-            android:paddingBottom="12dp"
+            android:paddingBottom="10dp"
             android:visibility="gone">
 
             <TextView
                 android:id="@+id/tv_character_array_empty"
+                style="@style/TextAppearance.HET.StaticDetail.Empty"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
@@ -92,15 +86,29 @@
                 android:paddingTop="6dp"
                 android:paddingEnd="8dp"
                 android:paddingBottom="6dp"
-                android:text="@string/array_empty"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                android:textColor="@color/het_on_surface_muted" />
+                android:text="@string/dictionary_editor_array_empty" />
 
             <LinearLayout
                 android:id="@+id/container_character_array_items"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_add_character_array_item"
+                style="@style/Widget.HET.StaticDictionary.ArrayAdd"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:layout_gravity="start"
+                android:layout_marginTop="4dp"
+                android:minWidth="0dp"
+                android:minHeight="34dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:textSize="13sp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/dictionary_editor_array_add" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

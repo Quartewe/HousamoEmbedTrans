@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dictionary_editor_character_missing">所选角色已不可用。</string>
+    <string name="dictionary_editor_term_missing">所选术语已不可用。</string>
+    <string name="dictionary_editor_save_success">已保存。</string>
+    <string name="character_editor_draft_hint">编辑词典使用的字段；需要时可展开可选数组。</string>
+    <string name="game_term_editor_draft_hint">编辑词典使用的翻译和描述。</string>
+    <string name="dictionary_editor_move_pending_hint">该记录会保留在等待列表中，直到恢复。</string>
+    <string name="dictionary_editor_move_pending_dirty_hint">请先保存修改，或放弃草稿后重新打开此记录，再将其移入等待处理。</string>
+    <string name="dictionary_editor_move_pending">移入等待处理</string>
+    <string name="dictionary_editor_label_original_name">原始名称</string>
+    <string name="dictionary_editor_label_simplified_chinese">简体中文</string>
+    <string name="dictionary_editor_label_traditional_chinese">繁体中文</string>
+    <string name="dictionary_editor_label_english">English</string>
+    <string name="dictionary_editor_label_speech_style">说话风格</string>
+    <string name="dictionary_editor_label_description">手动描述</string>
+    <string name="dictionary_editor_label_alias">别名</string>
+    <string name="dictionary_editor_label_school">学校</string>
+    <string name="dictionary_editor_label_guild">公会</string>
+    <string name="dictionary_editor_label_origin_world">来源世界</string>
+    <string name="dictionary_editor_label_relationships">关系</string>
+    <string name="dictionary_editor_label_info">官方资料</string>
+    <string name="dictionary_editor_info_empty">暂无官方资料。</string>
+    <string name="dictionary_editor_label_called">关联称呼</string>
+    <string name="dictionary_editor_label_target">目标角色</string>
+    <string name="dictionary_editor_label_relation_type">关系类型</string>
+    <string name="dictionary_editor_label_term_key">内部标识</string>
+    <string name="dictionary_editor_label_term_name">原始名称</string>
+    <string name="dictionary_editor_array_add">添加</string>
+    <string name="dictionary_editor_array_empty">暂无记录。</string>
+</resources>

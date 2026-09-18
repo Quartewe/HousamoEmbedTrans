@@ -41,6 +41,7 @@ import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import java.text.Collator;
 import java.util.ArrayList;
@@ -65,19 +66,32 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         "management_link_consumed";
     private static final String STATE_MANAGEMENT_LINK_FAILURE_NOTIFIED =
         "management_link_failure_notified";
+    private static final String STATE_EDITOR_RAW_DRAFT =
+        "dictionary_editor.character.raw_draft";
+    private static final String STATE_EDITOR_NAME =
+        "dictionary_editor.character.name";
+    private static final String STATE_EDITOR_DIRTY =
+        "dictionary_editor.character.dirty";
+    private static final String DRAFT_FIELD_PREFIX = "field.";
+    private static final String DRAFT_ARRAY_PREFIX = "array.";
+    private static final String DRAFT_ARRAY_COUNT = "count";
+    private static final String DRAFT_ARRAY_EXPANDED = "expanded";
+    private static final String DRAFT_ELEMENT_PREFIX = "element.";
+    private static final String DRAFT_ELEMENT_SEED = "seed";
+    private static final String DRAFT_ELEMENT_KEYS = "keys";
+    private static final String DRAFT_ELEMENT_VALUES = "values";
 
     private static final String[] CHARACTER_FIELD_ORDER = {
-        "alias",
-        "en",
-        "zh-tw",
         "zh-cn",
+        "zh-tw",
+        "en",
+        "speech_style",
+        "description",
+        "alias",
         "school",
         "guild",
         "origin_world",
         "relationships",
-        "info",
-        "description",
-        "speech_style"
     };
 
     private static final String[] ALIAS_FIELD_ORDER = {
@@ -118,9 +132,33 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     private CharacterAdapter adapter;
     private boolean batchMode;
 
+    /** The management entry opens this Activity as a full-page draft editor. */
+    private boolean editorMode;
+    private String editorOriginalName;
+    private boolean editorEditingMc;
+    private boolean editorDirty;
+    private boolean editorBusy;
+    private boolean stylePreview;
+    private JSONObject editorSourceRecord;
+    private EditText editorNameInput;
+    private TextInputLayout editorNameLayout;
+    private TextView editorStatusView;
+    private MaterialButton editorSaveButton;
+    private MaterialButton editorDiscardButton;
+    private MaterialButton editorMoveButton;
+    private TextView editorMoveHint;
+    private List<CharacterFieldEditor> editorFieldEditors = Collections.emptyList();
+    private boolean refreshListAfterEditor;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        stylePreview = StylePreview.isEnabled(getIntent());
+        editorMode = hasEditorIntent(getIntent());
+        if (editorMode) {
+            setupEditorPage(savedInstanceState);
+            return;
+        }
         managementLinkConsumed = savedInstanceState != null
             && savedInstanceState.getBoolean(
                 STATE_MANAGEMENT_LINK_CONSUMED,
@@ -238,6 +276,324 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         );
     }
 
+    private boolean hasEditorIntent(Intent intent) {
+        return intent != null
+            && (intent.hasExtra(EXTRA_CHARACTER_NAME)
+                || intent.getBooleanExtra(EXTRA_CREATE_CHARACTER, false));
+    }
+
+    private void setupEditorPage(Bundle savedInstanceState) {
+        setContentView(R.layout.activity_character_editor);
+        SystemBarInsets.apply(findViewById(R.id.root_character_editor));
+
+        MaterialToolbar toolbar = findViewById(R.id.toolbar_character_editor);
+        toolbar.setNavigationOnClickListener(
+            view -> getOnBackPressedDispatcher().onBackPressed()
+        );
+        editorNameInput = findViewById(R.id.et_character_editor_name);
+        editorNameLayout = findViewById(R.id.til_character_editor_name);
+        editorStatusView = findViewById(R.id.tv_character_editor_status);
+        editorSaveButton = findViewById(R.id.btn_save_character_editor);
+        editorDiscardButton = findViewById(R.id.btn_discard_character_editor);
+        editorMoveButton = findViewById(R.id.btn_move_character_pending_editor);
+        editorMoveHint = findViewById(R.id.tv_move_character_pending_editor_hint);
+
+        Intent intent = getIntent();
+        editorOriginalName = intent == null
+            ? null
+            : intent.getStringExtra(EXTRA_CHARACTER_NAME);
+        if (editorOriginalName != null && editorOriginalName.trim().isEmpty()) {
+            editorOriginalName = null;
+        }
+        editorEditingMc = "mc".equals(editorOriginalName);
+        toolbar.setTitle(editorEditingMc
+            ? R.string.edit_mc
+            : editorOriginalName == null
+                ? R.string.add_character
+                : R.string.edit_character);
+        TextView editorHeading = findViewById(R.id.tv_character_editor_heading);
+        editorHeading.setText(toolbar.getTitle());
+        if (editorEditingMc) {
+            findViewById(R.id.character_editor_name_field)
+                .setVisibility(View.GONE);
+            editorNameLayout.setVisibility(View.GONE);
+        }
+
+        if (!stylePreview) {
+            configStore = new ConfigStore(this);
+            pendingProcessMoveController = new PendingProcessMoveController(this);
+        }
+        editorSaveButton.setOnClickListener(view -> saveEditorPage());
+        editorDiscardButton.setOnClickListener(view -> handleEditorBackPressed());
+        editorMoveButton.setOnClickListener(view -> moveEditorRecordToPending());
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleEditorBackPressed();
+            }
+        });
+        loadEditorPage(savedInstanceState);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!editorMode && refreshListAfterEditor && !isFinishing()) {
+            refreshListAfterEditor = false;
+            loadDictionary();
+        }
+    }
+
+    private void loadEditorPage(Bundle savedInstanceState) {
+        try {
+            JSONObject source;
+            if (stylePreview) {
+                source = StylePreview.payloadOf(getIntent());
+                if (source == null) {
+                    source = StylePreview.sample(StylePreview.KIND_CHARACTER_EDITOR);
+                }
+                dictionary = new JSONObject();
+                dictionary.put(
+                    editorOriginalName == null
+                        ? StylePreview.SAMPLE_CHARACTER_NAME
+                        : editorOriginalName,
+                    new JSONObject(source.toString())
+                );
+                userOverride = false;
+                invalidUserOverride = false;
+            } else {
+                ConfigStore.JsonLoadResult loaded = configStore.loadJson(
+                    ConfigStore.CHARDICT_FILE_NAME
+                );
+                dictionary = loaded.json;
+                userOverride = loaded.userOverride;
+                invalidUserOverride = loaded.invalidUserOverride;
+                if (editorOriginalName == null) {
+                    source = newCharacterRecord();
+                } else {
+                    source = dictionary.optJSONObject(editorOriginalName);
+                    if (source == null) {
+                        throw new IllegalStateException(
+                            getString(R.string.dictionary_editor_character_missing)
+                        );
+                    }
+                }
+            }
+            editorSourceRecord = new JSONObject(source.toString());
+            Bundle draftState = savedInstanceState == null
+                ? null
+                : savedInstanceState.getBundle(STATE_EDITOR_RAW_DRAFT);
+            editorNameInput.setText(
+                savedInstanceState == null
+                    ? (editorOriginalName == null ? "" : editorOriginalName)
+                    : savedInstanceState.getString(
+                        STATE_EDITOR_NAME,
+                        editorOriginalName == null ? "" : editorOriginalName
+                    )
+            );
+            if (editorOriginalName != null) {
+                setReadOnly(editorNameInput);
+                editorNameLayout.setHelperText(
+                    getString(R.string.character_key_read_only)
+                );
+            } else {
+                editorNameLayout.setHelperText(
+                    getString(R.string.character_key_new_hint)
+                );
+            }
+            LinearLayout fields = findViewById(
+                R.id.container_character_editor_fields
+            );
+            editorFieldEditors = createFieldEditors(
+                new JSONObject(source.toString()),
+                fields
+            );
+            restoreEditorDraftState(draftState);
+            TextView infoValue = findViewById(R.id.tv_character_editor_info_value);
+            String info = editorSourceRecord == null
+                ? source.optString("info", "")
+                : editorSourceRecord.optString("info", "");
+            infoValue.setText(TextUtils.isEmpty(info.trim())
+                ? getString(R.string.dictionary_editor_info_empty)
+                : info);
+            attachDraftChangeWatchers(editorFieldEditors, () -> {
+                editorDirty = true;
+                updateEditorActions();
+            });
+            editorNameInput.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    editorDirty = true;
+                    updateEditorActions();
+                }
+
+                @Override
+                public void afterTextChanged(Editable s) {
+                }
+            });
+            editorDirty = savedInstanceState != null
+                && savedInstanceState.getBoolean(STATE_EDITOR_DIRTY, false);
+            editorBusy = false;
+            editorStatusView.setVisibility(View.GONE);
+            boolean canMove = !stylePreview
+                && editorOriginalName != null
+                && !editorEditingMc;
+            editorMoveButton.setVisibility(canMove ? View.VISIBLE : View.GONE);
+            editorMoveHint.setVisibility(canMove ? View.VISIBLE : View.GONE);
+            updateEditorActions();
+        } catch (Exception error) {
+            editorStatusView.setVisibility(View.VISIBLE);
+            editorStatusView.setText(getString(
+                R.string.chardict_load_failed,
+                safeMessage(error)
+            ));
+            editorSaveButton.setEnabled(false);
+            editorMoveButton.setEnabled(false);
+        }
+    }
+
+    private void updateEditorActions() {
+        if (!editorMode || editorSaveButton == null) {
+            return;
+        }
+        boolean enabled = !stylePreview && !editorBusy && dictionary != null;
+        editorNameInput.setEnabled(enabled && editorOriginalName == null);
+        editorSaveButton.setEnabled(enabled);
+        editorDiscardButton.setEnabled(!editorBusy);
+        if (editorMoveButton != null) {
+            editorMoveButton.setEnabled(
+                enabled
+                    && editorOriginalName != null
+                    && !editorEditingMc
+                    && !editorDirty
+            );
+        }
+        if (editorMoveHint != null) {
+            editorMoveHint.setText(
+                editorDirty
+                    ? R.string.dictionary_editor_move_pending_dirty_hint
+                    : R.string.dictionary_editor_move_pending_hint
+            );
+        }
+    }
+
+    private void saveEditorPage() {
+        if (stylePreview || !editorMode || editorBusy || dictionary == null) {
+            return;
+        }
+        String name = editorOriginalName == null
+            ? textOf(editorNameInput)
+            : editorOriginalName;
+        if (name.isEmpty()) {
+            editorNameInput.setError(getString(R.string.error_required));
+            editorNameInput.requestFocus();
+            return;
+        }
+        if (editorOriginalName == null && dictionary.has(name)) {
+            editorNameInput.setError(getString(R.string.character_already_exists));
+            editorNameInput.requestFocus();
+            return;
+        }
+
+        JSONObject updatedRecord;
+        try {
+            updatedRecord = editorSourceRecord == null
+                ? new JSONObject()
+                : new JSONObject(editorSourceRecord.toString());
+        } catch (Exception error) {
+            updatedRecord = new JSONObject();
+        }
+        for (CharacterFieldEditor fieldEditor : editorFieldEditors) {
+            clearFieldError(fieldEditor);
+            try {
+                updatedRecord.put(
+                    fieldEditor.key,
+                    parseFieldValue(fieldEditor)
+                );
+            } catch (Exception error) {
+                showFieldError(fieldEditor, getString(
+                    R.string.character_field_invalid,
+                    displayFieldName(fieldEditor.key),
+                    safeMessage(error)
+                ));
+                return;
+            }
+        }
+
+        try {
+            ConfigStore.validateCharacterRecord(name, updatedRecord);
+            JSONObject updatedDictionary = new JSONObject(dictionary.toString());
+            updatedDictionary.put(name, updatedRecord);
+            ConfigStore.validateCharacterDictionary(updatedDictionary);
+            configStore.saveJson(
+                ConfigStore.CHARDICT_FILE_NAME,
+                updatedDictionary
+            );
+            dictionary = updatedDictionary;
+            dirty = false;
+            editorDirty = false;
+            userOverride = true;
+            invalidUserOverride = false;
+            setResult(RESULT_OK);
+            Toast.makeText(
+                this,
+                R.string.dictionary_editor_save_success,
+                Toast.LENGTH_SHORT
+            ).show();
+            finish();
+        } catch (Exception error) {
+            showRecordValidationError(editorFieldEditors, error);
+        }
+    }
+
+    private void moveEditorRecordToPending() {
+        if (stylePreview || !editorMode || editorBusy || dictionary == null
+            || editorOriginalName == null || editorEditingMc || editorDirty
+            || pendingProcessMoveController == null) {
+            return;
+        }
+        editorBusy = true;
+        updateEditorActions();
+        pendingProcessMoveController.confirmMove(
+            "character",
+            editorOriginalName,
+            editorOriginalName,
+            () -> {
+                Intent result = new Intent();
+                result.putExtra(
+                    DictionaryManagementDetailActivity.EXTRA_EDITOR_MOVED_PENDING,
+                    true
+                );
+                setResult(RESULT_OK, result);
+                finish();
+            },
+            () -> {
+                editorBusy = false;
+                updateEditorActions();
+            }
+        );
+    }
+
+    private void handleEditorBackPressed() {
+        if (!editorMode) {
+            return;
+        }
+        if (!editorDirty) {
+            finish();
+            return;
+        }
+        new UiMaterialAlertDialogBuilder(this)
+            .setTitle(R.string.unsaved_character_draft_title)
+            .setMessage(R.string.unsaved_character_draft_message)
+            .setNegativeButton(R.string.keep_editing, null)
+            .setPositiveButton(R.string.discard_changes, (dialog, which) -> finish())
+            .show();
+    }
+
     private void toggleManagementBatch() {
         if (managementBatchController == null) {
             return;
@@ -270,6 +626,11 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         if (managementBatchController != null) {
             managementBatchController.saveState(outState);
         }
+        if (editorMode) {
+            outState.putBoolean(STATE_EDITOR_DIRTY, editorDirty);
+            outState.putString(STATE_EDITOR_NAME, rawTextOf(editorNameInput));
+            outState.putBundle(STATE_EDITOR_RAW_DRAFT, editorDraftState());
+        }
         outState.putBoolean(
             STATE_MANAGEMENT_LINK_CONSUMED,
             managementLinkConsumed
@@ -279,6 +640,45 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             managementLinkFailureNotified
         );
         super.onSaveInstanceState(outState);
+    }
+
+    private Bundle editorDraftState() {
+        Bundle draft = new Bundle();
+        for (CharacterFieldEditor fieldEditor : editorFieldEditors) {
+            if (fieldEditor.arrayEditor != null) {
+                draft.putBundle(
+                    DRAFT_ARRAY_PREFIX + fieldEditor.key,
+                    fieldEditor.arrayEditor.draftState()
+                );
+            } else if (fieldEditor.input != null) {
+                draft.putString(
+                    DRAFT_FIELD_PREFIX + fieldEditor.key,
+                    rawTextOf(fieldEditor.input)
+                );
+            }
+        }
+        return draft;
+    }
+
+    private void restoreEditorDraftState(Bundle draft) {
+        if (draft == null) {
+            return;
+        }
+        for (CharacterFieldEditor fieldEditor : editorFieldEditors) {
+            if (fieldEditor.arrayEditor != null) {
+                Bundle arrayState = draft.getBundle(
+                    DRAFT_ARRAY_PREFIX + fieldEditor.key
+                );
+                if (arrayState != null) {
+                    fieldEditor.arrayEditor.restoreDraftState(arrayState);
+                }
+            } else if (fieldEditor.input != null) {
+                String key = DRAFT_FIELD_PREFIX + fieldEditor.key;
+                if (draft.containsKey(key)) {
+                    fieldEditor.input.setText(draft.getString(key, ""));
+                }
+            }
+        }
     }
 
     private void loadDictionary() {
@@ -435,93 +835,17 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     }
 
     private void editCharacter(String originalName) {
-        if (dictionary == null) {
+        if (dictionary == null || editorMode) {
             return;
         }
-
-        View editorView = getLayoutInflater().inflate(
-            R.layout.dialog_character_editor,
-            null,
-            false
-        );
-        EditText nameInput = editorView.findViewById(R.id.et_character_name);
-        TextInputLayout nameLayout = editorView.findViewById(R.id.til_character_name);
-        LinearLayout fieldsContainer = editorView.findViewById(
-            R.id.character_fields_container
-        );
-        boolean existing = originalName != null;
-        boolean editingMc = "mc".equals(originalName);
-        List<CharacterFieldEditor> fieldEditors;
-
-        try {
-            JSONObject record;
-            if (existing) {
-                nameInput.setText(originalName);
-                setReadOnly(nameInput);
-                nameLayout.setHelperText(getString(R.string.character_key_read_only));
-                record = dictionary.getJSONObject(originalName);
-            } else {
-                nameLayout.setHelperText(getString(R.string.character_key_new_hint));
-                record = newCharacterRecord();
-            }
-            fieldEditors = createFieldEditors(record, fieldsContainer);
-        } catch (Exception e) {
-            Toast.makeText(
-                this,
-                getString(R.string.chardict_record_invalid, safeMessage(e)),
-                Toast.LENGTH_LONG
-            ).show();
-            return;
+        refreshListAfterEditor = true;
+        Intent intent = new Intent(this, CharacterDictionaryActivity.class);
+        if (originalName == null) {
+            intent.putExtra(EXTRA_CREATE_CHARACTER, true);
+        } else {
+            intent.putExtra(EXTRA_CHARACTER_NAME, originalName);
         }
-
-        final boolean[] draftDirty = {false};
-        attachDraftChangeWatchers(fieldEditors, () -> draftDirty[0] = true);
-
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
-            .setTitle(
-                editingMc
-                    ? R.string.edit_mc
-                    : (existing ? R.string.edit_character : R.string.add_character)
-            )
-            .setView(editorView)
-            .setNegativeButton(R.string.cancel_action, null)
-            .setPositiveButton(R.string.save_character, null);
-
-        if (existing && !editingMc) {
-            builder.setNeutralButton(R.string.pending_process_move, null);
-        }
-
-        AlertDialog dialog = builder.create();
-        dialog.setCanceledOnTouchOutside(false);
-        dialog.setOnKeyListener((ignored, keyCode, event) -> {
-            if (keyCode != KeyEvent.KEYCODE_BACK) {
-                return false;
-            }
-            if (event.getAction() == KeyEvent.ACTION_UP) {
-                handleCharacterDraftBack(dialog, draftDirty[0]);
-            }
-            return true;
-        });
-        dialog.setOnShowListener(ignored -> {
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(
-                view -> handleCharacterDraftBack(dialog, draftDirty[0])
-            );
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
-                saveCharacterFromDialog(
-                    dialog,
-                    originalName,
-                    nameInput,
-                    fieldEditors
-                );
-            });
-
-            if (existing && !editingMc) {
-                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
-                    moveCharacterToPending(dialog, originalName);
-                });
-            }
-        });
-        dialog.show();
+        startActivity(intent);
     }
 
     private void saveCharacterFromDialog(
@@ -580,7 +904,9 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     ) throws Exception {
         List<CharacterFieldEditor> editors = new ArrayList<>();
         for (String key : orderedFieldKeys(record)) {
-            Object value = record.get(key);
+            Object value = record.has(key)
+                ? record.get(key)
+                : defaultCharacterFieldValue(key);
             if (value instanceof JSONArray) {
                 ArrayFieldEditor arrayEditor = createArrayFieldEditor(
                     key,
@@ -602,11 +928,17 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             TextInputEditText input = fieldView.findViewById(
                 R.id.et_character_field_value
             );
+            TextView label = fieldView.findViewById(
+                R.id.tv_character_field_label
+            );
             boolean readOnly = "info".equals(key);
 
-            layout.setHint(displayFieldName(key));
+            label.setText(displayFieldName(key));
+            layout.setHintEnabled(false);
+            layout.setHint(null);
             configureFieldInput(key, value, layout, input, readOnly);
             input.setText(formatFieldValue(value));
+            disableAutomaticViewState(fieldView);
             container.addView(fieldView);
             editors.add(new CharacterFieldEditor(
                 key,
@@ -630,29 +962,58 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             false
         );
         ArrayFieldEditor editor = new ArrayFieldEditor(key, fieldView);
+        disableAutomaticViewState(fieldView);
         container.addView(fieldView);
 
         for (int index = 0; index < value.length(); index++) {
             editor.addElement(value.get(index), false);
         }
         editor.updateSummary();
-        editor.setExpanded(false);
+        editor.setExpanded("alias".equals(key));
         return editor;
     }
 
     private List<String> orderedFieldKeys(JSONObject record) {
         Set<String> keys = new LinkedHashSet<>();
         for (String preferred : CHARACTER_FIELD_ORDER) {
-            if (record.has(preferred)) {
-                keys.add(preferred);
+            if (editorMode && editorEditingMc
+                && ("zh-cn".equals(preferred)
+                    || "zh-tw".equals(preferred)
+                    || "en".equals(preferred))) {
+                continue;
             }
+            // Keep the editor schema visible even when an optional field is
+            // absent from a user-owned record.  Saving the page then writes a
+            // complete record while preserving any unknown extension keys.
+            keys.add(preferred);
         }
 
         Iterator<String> remaining = record.keys();
         while (remaining.hasNext()) {
-            keys.add(remaining.next());
+            String key = remaining.next();
+            if (editorMode && "info".equals(key)) {
+                continue;
+            }
+            if (editorMode && editorEditingMc
+                && ("zh-cn".equals(key)
+                    || "zh-tw".equals(key)
+                    || "en".equals(key))) {
+                continue;
+            }
+            keys.add(key);
         }
         return new ArrayList<>(keys);
+    }
+
+    private Object defaultCharacterFieldValue(String key) {
+        if ("alias".equals(key)
+            || "school".equals(key)
+            || "guild".equals(key)
+            || "origin_world".equals(key)
+            || "relationships".equals(key)) {
+            return new JSONArray();
+        }
+        return "";
     }
 
     private void configureFieldInput(
@@ -665,8 +1026,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         boolean structured = value instanceof JSONArray || value instanceof JSONObject;
         boolean longText = structured
             || "info".equals(key)
-            || "description".equals(key)
-            || "speech_style".equals(key);
+            || "description".equals(key);
 
         if (longText) {
             input.setSingleLine(false);
@@ -712,6 +1072,9 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
 
         if (original instanceof JSONObject) {
             return new JSONObject(trimmed);
+        }
+        if (original instanceof JSONArray) {
+            return new JSONArray(trimmed);
         }
         if (original instanceof Boolean) {
             if ("true".equalsIgnoreCase(trimmed)) return true;
@@ -787,21 +1150,21 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     private String displayFieldName(String key) {
         int resourceId;
         switch (key) {
-            case "alias": resourceId = R.string.field_alias; break;
-            case "name": resourceId = R.string.field_name; break;
-            case "en": resourceId = R.string.field_en; break;
-            case "zh-tw": resourceId = R.string.field_zh_tw; break;
-            case "zh-cn": resourceId = R.string.field_zh_cn; break;
-            case "called": resourceId = R.string.field_called; break;
-            case "school": resourceId = R.string.field_school; break;
-            case "guild": resourceId = R.string.field_guild; break;
-            case "origin_world": resourceId = R.string.field_origin_world; break;
-            case "relationships": resourceId = R.string.field_relationships; break;
-            case "target": resourceId = R.string.field_target; break;
-            case "type": resourceId = R.string.field_type; break;
-            case "info": resourceId = R.string.field_info; break;
-            case "description": resourceId = R.string.field_description; break;
-            case "speech_style": resourceId = R.string.field_speech_style; break;
+            case "alias": resourceId = R.string.dictionary_editor_label_alias; break;
+            case "name": resourceId = R.string.dictionary_editor_label_original_name; break;
+            case "en": resourceId = R.string.dictionary_editor_label_english; break;
+            case "zh-tw": resourceId = R.string.dictionary_editor_label_traditional_chinese; break;
+            case "zh-cn": resourceId = R.string.dictionary_editor_label_simplified_chinese; break;
+            case "called": resourceId = R.string.dictionary_editor_label_called; break;
+            case "school": resourceId = R.string.dictionary_editor_label_school; break;
+            case "guild": resourceId = R.string.dictionary_editor_label_guild; break;
+            case "origin_world": resourceId = R.string.dictionary_editor_label_origin_world; break;
+            case "relationships": resourceId = R.string.dictionary_editor_label_relationships; break;
+            case "target": resourceId = R.string.dictionary_editor_label_target; break;
+            case "type": resourceId = R.string.dictionary_editor_label_relation_type; break;
+            case "info": resourceId = R.string.dictionary_editor_label_info; break;
+            case "description": resourceId = R.string.dictionary_editor_label_description; break;
+            case "speech_style": resourceId = R.string.dictionary_editor_label_speech_style; break;
             default: return key;
         }
         return getString(resourceId);
@@ -837,12 +1200,6 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         LinearLayout container,
         boolean omitWhenEmpty
     ) throws Exception {
-        if (value instanceof JSONArray || value instanceof JSONObject) {
-            throw new IllegalArgumentException(
-                "nested arrays or objects are not supported in " + key
-            );
-        }
-
         View fieldView = getLayoutInflater().inflate(
             R.layout.item_character_field_editor,
             container,
@@ -854,9 +1211,15 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         TextInputEditText input = fieldView.findViewById(
             R.id.et_character_field_value
         );
-        layout.setHint(hint);
+        TextView label = fieldView.findViewById(
+            R.id.tv_character_field_label
+        );
+        label.setText(hint);
+        layout.setHintEnabled(false);
+        layout.setHint(null);
         configureFieldInput(key, value, layout, input, false);
         input.setText(formatFieldValue(value));
+        disableAutomaticViewState(fieldView);
         container.addView(fieldView);
         return new ElementValueEditor(
             key,
@@ -868,6 +1231,8 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     }
 
     private Object emptyValueFor(Object value) {
+        if (value instanceof JSONArray) return new JSONArray();
+        if (value instanceof JSONObject) return new JSONObject();
         if (value instanceof Boolean) return false;
         if (value instanceof Integer) return 0;
         if (value instanceof Long) return 0L;
@@ -887,6 +1252,29 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             return ((JSONArray) value).toString(2);
         }
         return String.valueOf(value);
+    }
+
+    private static String jsonSeedValue(Object value) {
+        if (value == null || value == JSONObject.NULL) {
+            return "null";
+        }
+        if (value instanceof JSONObject || value instanceof JSONArray) {
+            return value.toString();
+        }
+        if (value instanceof String || value instanceof Character) {
+            return JSONObject.quote(String.valueOf(value));
+        }
+        if (value instanceof Boolean) {
+            return String.valueOf(value);
+        }
+        if (value instanceof Number) {
+            try {
+                return JSONObject.numberToString((Number) value);
+            } catch (Exception ignored) {
+                return "null";
+            }
+        }
+        return JSONObject.quote(String.valueOf(value));
     }
 
     private static void setReadOnly(EditText field) {
@@ -1012,7 +1400,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         Set<String> expected = conflicts == null
             ? Collections.emptySet()
             : new LinkedHashSet<>(conflicts);
-        MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder dialog = new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.management_transfer_import_title)
             .setMessage(getString(
                 conflicts == null || conflicts.isEmpty()
@@ -1105,7 +1493,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             dialog.dismiss();
             return;
         }
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.unsaved_character_draft_title)
             .setMessage(R.string.unsaved_character_draft_message)
             .setNegativeButton(R.string.keep_editing, null)
@@ -1236,7 +1624,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     }
 
     private void confirmRestore() {
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.restore_chardict_title)
             .setMessage(R.string.restore_chardict_message)
             .setNegativeButton(R.string.cancel_action, null)
@@ -1349,7 +1737,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             return;
         }
 
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.unsaved_chardict_title)
             .setMessage(R.string.unsaved_chardict_message)
             .setNegativeButton(R.string.keep_editing, null)
@@ -1367,6 +1755,22 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
 
     private static String rawTextOf(EditText field) {
         return field.getText() == null ? "" : field.getText().toString();
+    }
+
+    /**
+     * Dynamic editor rows reuse XML ids, so Android's automatic view-state
+     * restore can otherwise copy one row's text into every matching row.
+     * Draft state is captured explicitly in the editor Bundle instead.
+     */
+    private static void disableAutomaticViewState(View view) {
+        view.setSaveEnabled(false);
+        view.setSaveFromParentEnabled(false);
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                disableAutomaticViewState(group.getChildAt(index));
+            }
+        }
     }
 
     private static String safeMessage(Throwable throwable) {
@@ -1525,6 +1929,10 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             );
             String displayName = displayFieldName(key);
             titleView.setText(displayName);
+            addButton.setText(getString(
+                R.string.add_array_item,
+                displayName
+            ));
             addButton.setContentDescription(getString(
                 R.string.add_array_item,
                 displayName
@@ -1578,6 +1986,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                 value,
                 elementView
             );
+            disableAutomaticViewState(elementView);
             elements.add(element);
             itemsContainer.addView(elementView);
             element.deleteButton.setOnClickListener(view -> removeElement(element));
@@ -1614,6 +2023,133 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                 elements.get(index).setPosition(index + 1);
                 elements.get(index).updateSummary();
             }
+        }
+
+        Bundle draftState() {
+            Bundle state = new Bundle();
+            state.putInt(DRAFT_ARRAY_COUNT, elements.size());
+            state.putBoolean(DRAFT_ARRAY_EXPANDED, expanded);
+            for (int index = 0; index < elements.size(); index++) {
+                ArrayElementEditor element = elements.get(index);
+                Bundle elementState = new Bundle();
+                ArrayList<String> keys = new ArrayList<>();
+                ArrayList<String> values = new ArrayList<>();
+                elementState.putBoolean(DRAFT_ARRAY_EXPANDED, element.expanded);
+                for (ElementValueEditor valueEditor : element.valueEditors) {
+                    keys.add(valueEditor.key);
+                    values.add(rawTextOf(valueEditor.input));
+                }
+                elementState.putString(
+                    DRAFT_ELEMENT_SEED,
+                    element.draftSeed()
+                );
+                elementState.putStringArrayList(DRAFT_ELEMENT_KEYS, keys);
+                elementState.putStringArrayList(DRAFT_ELEMENT_VALUES, values);
+                state.putBundle(
+                    DRAFT_ELEMENT_PREFIX + index,
+                    elementState
+                );
+            }
+            return state;
+        }
+
+        void restoreDraftState(Bundle state) {
+            int targetCount = Math.max(
+                0,
+                state.getInt(DRAFT_ARRAY_COUNT, elements.size())
+            );
+            List<Object> seeds = draftSeeds(state, targetCount);
+            if (seeds != null) {
+                while (!elements.isEmpty()) {
+                    removeElement(elements.get(elements.size() - 1));
+                }
+                for (Object seed : seeds) {
+                    try {
+                        addElement(seed, false);
+                    } catch (Exception ignored) {
+                        // Seeds are produced from the already parsed JSON
+                        // model.  Keep a usable editor if an older Bundle
+                        // contains a value this version cannot render.
+                        try {
+                            addElement(newElementValue(), false);
+                        } catch (Exception ignoredAgain) {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                while (elements.size() > targetCount) {
+                    removeElement(elements.get(elements.size() - 1));
+                }
+                while (elements.size() < targetCount) {
+                    try {
+                        addElement(newElementValue(), false);
+                    } catch (Exception ignored) {
+                        break;
+                    }
+                }
+            }
+            for (int index = 0; index < elements.size(); index++) {
+                Bundle elementState = state.getBundle(
+                    DRAFT_ELEMENT_PREFIX + index
+                );
+                if (elementState == null) {
+                    continue;
+                }
+                ArrayList<String> keys = elementState.getStringArrayList(
+                    DRAFT_ELEMENT_KEYS
+                );
+                ArrayList<String> values = elementState.getStringArrayList(
+                    DRAFT_ELEMENT_VALUES
+                );
+                if (values != null) {
+                    ArrayElementEditor element = elements.get(index);
+                    for (int valueIndex = 0;
+                        valueIndex < element.valueEditors.size();
+                        valueIndex++) {
+                        ElementValueEditor valueEditor =
+                            element.valueEditors.get(valueIndex);
+                        int savedIndex = valueIndex;
+                        if (keys != null) {
+                            savedIndex = keys.indexOf(valueEditor.key);
+                        }
+                        if (savedIndex >= 0 && savedIndex < values.size()) {
+                            valueEditor.input.setText(values.get(savedIndex));
+                        }
+                    }
+                }
+                elements.get(index).setExpanded(
+                    elementState.getBoolean(DRAFT_ARRAY_EXPANDED, false)
+                );
+            }
+            setExpanded(state.getBoolean(DRAFT_ARRAY_EXPANDED, expanded));
+            updateSummary();
+        }
+
+        private List<Object> draftSeeds(Bundle state, int targetCount) {
+            List<Object> seeds = new ArrayList<>();
+            for (int index = 0; index < targetCount; index++) {
+                Bundle elementState = state.getBundle(
+                    DRAFT_ELEMENT_PREFIX + index
+                );
+                if (elementState == null
+                    || !elementState.containsKey(DRAFT_ELEMENT_SEED)) {
+                    return null;
+                }
+                String seedText = elementState.getString(
+                    DRAFT_ELEMENT_SEED
+                );
+                if (TextUtils.isEmpty(seedText)) {
+                    return null;
+                }
+                try {
+                    Object seed = new JSONTokener(seedText).nextValue();
+                    seeds.add(seed == null ? JSONObject.NULL : seed);
+                } catch (Exception ignored) {
+                    return null;
+                }
+            }
+            return seeds;
         }
 
         void setExpanded(boolean expanded) {
@@ -1722,12 +2258,6 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             );
 
             header.setOnClickListener(view -> setExpanded(!expanded));
-
-            if (value instanceof JSONArray) {
-                throw new IllegalArgumentException(
-                    "nested arrays are not supported in " + owner.key
-                );
-            }
 
             objectElement = value instanceof JSONObject;
             if (objectElement) {
@@ -1941,6 +2471,27 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                 title,
                 summary
             ));
+        }
+
+        String draftSeed() {
+            if (!objectElement) {
+                return jsonSeedValue(
+                    valueEditors.get(0).originalValue
+                );
+            }
+            JSONObject seed = new JSONObject();
+            for (ElementValueEditor editor : valueEditors) {
+                if (editor.omitWhenEmpty) {
+                    continue;
+                }
+                try {
+                    seed.put(editor.key, editor.originalValue);
+                } catch (Exception ignored) {
+                    // Parsed JSON values are supported by JSONObject.  Keep
+                    // raw draft text independent of this structural seed.
+                }
+            }
+            return seed.toString();
         }
 
         void clearErrors() {

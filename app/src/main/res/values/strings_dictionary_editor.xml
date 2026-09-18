@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dictionary_editor_character_missing">The selected character is no longer available.</string>
+    <string name="dictionary_editor_term_missing">The selected term is no longer available.</string>
+    <string name="dictionary_editor_save_success">Saved.</string>
+    <string name="character_editor_draft_hint">Edit the fields used by the dictionary. Optional arrays can be expanded when needed.</string>
+    <string name="game_term_editor_draft_hint">Edit the translations and description used by the dictionary.</string>
+    <string name="dictionary_editor_move_pending_hint">This record will be kept in the waiting list until it is restored.</string>
+    <string name="dictionary_editor_move_pending_dirty_hint">Save your changes, or discard the draft and reopen this record, before moving it to pending.</string>
+    <string name="dictionary_editor_move_pending">Move to waiting</string>
+    <string name="dictionary_editor_label_original_name">Original name</string>
+    <string name="dictionary_editor_label_simplified_chinese">Simplified Chinese</string>
+    <string name="dictionary_editor_label_traditional_chinese">Traditional Chinese</string>
+    <string name="dictionary_editor_label_english">English</string>
+    <string name="dictionary_editor_label_speech_style">Speech style</string>
+    <string name="dictionary_editor_label_description">Description</string>
+    <string name="dictionary_editor_label_alias">Aliases</string>
+    <string name="dictionary_editor_label_school">School</string>
+    <string name="dictionary_editor_label_guild">Guild</string>
+    <string name="dictionary_editor_label_origin_world">Origin world</string>
+    <string name="dictionary_editor_label_relationships">Relationships</string>
+    <string name="dictionary_editor_label_info">Official information</string>
+    <string name="dictionary_editor_info_empty">No official information.</string>
+    <string name="dictionary_editor_label_called">Related caller</string>
+    <string name="dictionary_editor_label_target">Target character</string>
+    <string name="dictionary_editor_label_relation_type">Relationship type</string>
+    <string name="dictionary_editor_label_term_key">Internal identifier</string>
+    <string name="dictionary_editor_label_term_name">Original name</string>
+    <string name="dictionary_editor_array_add">Add</string>
+    <string name="dictionary_editor_array_empty">No entries yet.</string>
+</resources>
