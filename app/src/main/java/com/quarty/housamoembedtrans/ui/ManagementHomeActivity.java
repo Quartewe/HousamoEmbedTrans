@@ -4,20 +4,20 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
 
 import android.content.Intent;
-import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.text.format.DateUtils;
 import android.view.Gravity;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.CheckBox;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AlertDialog;
@@ -27,9 +27,11 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.tabs.TabLayout;
 
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -50,32 +52,37 @@ public final class ManagementHomeActivity extends AppCompatActivity {
 
     private static final String STATE_MODE = "management_home.mode";
     private static final String STATE_TAB = "management_home.tab";
+    private static final String STATE_SEARCH = "management_home.search";
     private static final String STATE_QUERIES = "management_home.queries";
     private static final String STATE_TREE_QUERY = "management_home.tree_query";
     private static final String STATE_EXPANDED = "management_home.expanded";
     private static final String STATE_SCROLL = "management_home.scroll";
 
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    /** One query is shared by the list and package/tree tabs, like the prototype. */
     private final String[] tabQueries = new String[TAB_COUNT];
     private final int[] scrollPositions = new int[TAB_COUNT + 1];
     private final Set<String> expandedNodes = new HashSet<>();
 
     private MaterialToolbar toolbar;
-    private MenuItem managementViewMenuItem;
-    private MenuItem managementClearActiveMenuItem;
-    private MenuItem managementMoreMenuItem;
+    private MaterialButton managementViewButton;
+    private MaterialButton managementClearActiveButton;
+    private MaterialButton managementMoreButton;
     private TabLayout tabLayout;
     private EditText searchInput;
     private TextView statusView;
     private LinearLayout content;
     private androidx.core.widget.NestedScrollView scrollView;
+    private FloatingActionButton addFab;
     private ManagementHomeBatchDataSource batchDataSource;
     private ManagementBatchController managementBatchController;
 
     private int mode = MODE_LIST;
     private int selectedTab = TAB_SCENES;
+    private String searchQuery = "";
     private String treeQuery = "";
     private ManagementHomeData.Snapshot snapshot;
+    private String loadErrorMessage = "";
     private long loadGeneration;
     private boolean lifecycleStarted;
     private boolean destroyed;
@@ -83,6 +90,10 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     private boolean updatingNavigation;
     private boolean batchMode;
     private boolean clearingActivePointers;
+    private boolean stylePreview;
+    private String stylePreviewKind = "";
+    private org.json.JSONObject stylePreviewPayload;
+    private ManagementBatchSelection.Session batchSelection;
     private long renderGeneration;
 
     @Override
@@ -91,24 +102,84 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         setContentView(R.layout.activity_management_home);
         SystemBarInsets.apply(findViewById(R.id.root_management_home));
 
+        stylePreview = StylePreview.isEnabled(this);
+        batchSelection = stylePreview
+            ? ManagementBatchSelection.newSession()
+            : ManagementBatchSelection.globalSession();
+        stylePreviewKind = StylePreview.kindOf(getIntent());
+        stylePreviewPayload = StylePreview.payloadOf(getIntent());
+        if (stylePreview && stylePreviewPayload == null) {
+            stylePreviewPayload = StylePreview.sample(
+                stylePreviewKind.isEmpty()
+                    ? StylePreview.KIND_MANAGEMENT_HOME
+                    : stylePreviewKind
+            );
+        }
         restoreState(savedInstanceState);
         setupViews();
         setupTabs();
         setupSearch();
         setupManagementActions();
-        batchDataSource = new ManagementHomeBatchDataSource(this);
+        batchDataSource = stylePreview
+            ? new ManagementHomeBatchDataSource(this, stylePreviewPayload)
+            : new ManagementHomeBatchDataSource(this);
         managementBatchController = ManagementBatchController.attach(
             this,
             findViewById(R.id.container_management_home_batch),
             batchDataSource,
-            savedInstanceState
+            savedInstanceState,
+            stylePreview,
+            batchSelection
         );
+        syncActiveBatchKind();
         PrimaryNavigation.attach(
             this,
             findViewById(R.id.primary_navigation),
             PrimaryNavigation.Destination.MANAGEMENT
         );
+        if (stylePreview) {
+            setupPreviewNavigation();
+            snapshot = ManagementHomeData.fromPreview(stylePreviewPayload);
+            statusView.setVisibility(View.GONE);
+        }
         render();
+        if (stylePreview
+            && StylePreview.KIND_MANAGEMENT_EXPORT.equals(stylePreviewKind)
+            && managementBatchController != null) {
+            managementBatchController.enter();
+        }
+    }
+
+    private void setupPreviewNavigation() {
+        View navigation = findViewById(R.id.primary_navigation);
+        if (navigation == null) {
+            return;
+        }
+        View tasks = navigation.findViewById(R.id.nav_tasks);
+        View management = navigation.findViewById(R.id.nav_management);
+        View settings = navigation.findViewById(R.id.nav_settings);
+        if (tasks != null) {
+            tasks.setOnClickListener(view -> {
+                startActivity(StylePreview.intentFor(
+                    this,
+                    StylePreview.KIND_TASKS
+                ));
+                finish();
+            });
+        }
+        if (management != null) {
+            management.setOnClickListener(view -> {
+                // The current preview page is already the management sample.
+            });
+        }
+        if (settings != null) {
+            settings.setOnClickListener(view -> startActivity(
+                new Intent(this, StylePreviewActivity.class).addFlags(
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
+            ));
+        }
     }
 
     private void setupViews() {
@@ -116,41 +187,42 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         toolbar.setTitle(R.string.management_home_title);
         tabLayout = findViewById(R.id.tabs_management_home);
         searchInput = findViewById(R.id.et_management_home_search);
+        ViewGroup.LayoutParams searchParams = searchInput.getLayoutParams();
+        if (searchParams != null) {
+            searchParams.height = dp(44);
+            searchInput.setLayoutParams(searchParams);
+        }
+        searchInput.setMinHeight(0);
+        searchInput.setMinimumHeight(0);
+        searchInput.setPadding(dp(12), 0, dp(12), 0);
         statusView = findViewById(R.id.tv_management_home_status);
         content = findViewById(R.id.container_management_home_content);
         scrollView = findViewById(R.id.scroll_management_home);
+        addFab = findViewById(R.id.management_rebuild_fab);
+        addFab.setOnClickListener(view -> showManagementAddMenu(view));
+        managementViewButton = findViewById(R.id.btn_management_view);
+        managementClearActiveButton = findViewById(
+            R.id.btn_management_clear_active
+        );
+        managementMoreButton = findViewById(R.id.btn_management_more);
     }
 
     private void setupTabs() {
-        tabLayout.addTab(
-            tabLayout.newTab().setText(R.string.management_home_tab_scenes),
-            false
-        );
-        tabLayout.addTab(
-            tabLayout.newTab().setText(R.string.management_home_tab_contexts),
-            false
-        );
-        tabLayout.addTab(
-            tabLayout.newTab().setText(R.string.management_home_tab_groups),
-            false
-        );
-        tabLayout.addTab(
-            tabLayout.newTab().setText(R.string.management_home_tab_characters),
-            false
-        );
-        tabLayout.addTab(
-            tabLayout.newTab().setText(R.string.management_home_tab_terms),
-            false
-        );
-        tabLayout.getTabAt(selectedTab).select();
+        tabLayout.setTabMode(TabLayout.MODE_SCROLLABLE);
+        tabLayout.setTabGravity(TabLayout.GRAVITY_START);
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
+                if (updatingNavigation) {
+                    selectedTab = tabId(tab);
+                    return;
+                }
                 if (!updatingNavigation) {
                     rememberScrollPosition();
                 }
-                selectedTab = tab.getPosition();
+                selectedTab = tabId(tab);
                 syncSearchFromState();
+                syncActiveBatchKind();
                 render();
             }
 
@@ -163,6 +235,88 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                 rememberScrollPosition();
             }
         });
+        syncTabsForMode();
+    }
+
+    /** Rebuilds the visible tab strip when switching between list/package mode. */
+    private void syncTabsForMode() {
+        if (tabLayout == null) {
+            return;
+        }
+        int selectedPosition = 0;
+        updatingNavigation = true;
+        try {
+            tabLayout.removeAllTabs();
+            if (mode == MODE_TREE) {
+                addTab(
+                    R.string.management_rebuild_tab_structure,
+                    TAB_SCENES
+                );
+                addTab(
+                    R.string.management_home_tab_characters,
+                    TAB_CHARACTERS
+                );
+                addTab(
+                    R.string.management_home_tab_terms,
+                    TAB_TERMS
+                );
+                selectedPosition = selectedTab == TAB_CHARACTERS
+                    ? 1
+                    : selectedTab == TAB_TERMS ? 2 : 0;
+            } else {
+                addTab(R.string.management_home_tab_scenes, TAB_SCENES);
+                addTab(R.string.management_home_tab_contexts, TAB_CONTEXTS);
+                addTab(R.string.management_home_tab_groups, TAB_GROUPS);
+                addTab(
+                    R.string.management_home_tab_characters,
+                    TAB_CHARACTERS
+                );
+                addTab(R.string.management_home_tab_terms, TAB_TERMS);
+                selectedPosition = selectedTab;
+            }
+            styleManagementTabViews();
+            TabLayout.Tab tab = tabLayout.getTabAt(selectedPosition);
+            if (tab != null) {
+                tab.select();
+            }
+        } finally {
+            updatingNavigation = false;
+        }
+    }
+
+    /** Keeps the stateful segment background at the prototype's 31dp height. */
+    private void styleManagementTabViews() {
+        if (tabLayout.getChildCount() == 0
+            || !(tabLayout.getChildAt(0) instanceof ViewGroup)) {
+            return;
+        }
+        ViewGroup indicator = (ViewGroup) tabLayout.getChildAt(0);
+        int minHeight = dp(31);
+        indicator.setPadding(dp(3), dp(4), dp(3), dp(4));
+        for (int index = 0; index < indicator.getChildCount(); index++) {
+            View child = indicator.getChildAt(index);
+            child.setMinimumHeight(minHeight);
+            ViewGroup.LayoutParams params = child.getLayoutParams();
+            if (params != null) {
+                params.height = minHeight;
+                params.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+                child.setLayoutParams(params);
+            }
+        }
+    }
+
+    private void addTab(int labelResource, int tabId) {
+        tabLayout.addTab(
+            tabLayout.newTab()
+                .setText(labelResource)
+                .setTag(tabId),
+            false
+        );
+    }
+
+    private int tabId(TabLayout.Tab tab) {
+        Object tag = tab == null ? null : tab.getTag();
+        return tag instanceof Integer ? (Integer) tag : TAB_SCENES;
     }
 
     private void setupSearch() {
@@ -188,10 +342,10 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                     return;
                 }
                 String query = value == null ? "" : value.toString();
-                if (mode == MODE_TREE) {
-                    treeQuery = query;
-                } else {
-                    tabQueries[selectedTab] = query;
+                searchQuery = query;
+                treeQuery = query;
+                for (int index = 0; index < tabQueries.length; index++) {
+                    tabQueries[index] = query;
                 }
                 rememberScrollPosition();
                 render();
@@ -204,38 +358,26 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private void setupManagementActions() {
-        toolbar.setNavigationIcon(android.R.drawable.ic_menu_upload);
+        toolbar.setNavigationIcon(R.drawable.ic_management_rebuild_io);
         toolbar.setNavigationContentDescription(
             R.string.management_home_io
         );
         toolbar.setNavigationOnClickListener(this::showManagementIoMenu);
-        toolbar.inflateMenu(R.menu.menu_management_home);
-        managementViewMenuItem = toolbar.getMenu().findItem(
-            R.id.action_management_view
-        );
-        managementClearActiveMenuItem = toolbar.getMenu().findItem(
-            R.id.action_management_clear_active
-        );
-        managementMoreMenuItem = toolbar.getMenu().findItem(
-            R.id.action_management_more
-        );
-        managementViewMenuItem.setOnMenuItemClickListener(item -> {
+        managementViewButton.setOnClickListener(view -> {
             toggleViewMode();
-            return true;
         });
-        managementClearActiveMenuItem.setOnMenuItemClickListener(item -> {
+        managementClearActiveButton.setOnClickListener(view -> {
             showClearActivePointersDialog();
-            return true;
         });
-        managementMoreMenuItem.setOnMenuItemClickListener(item -> {
-            showManagementMoreMenu(toolbar);
-            return true;
+        managementMoreButton.setOnClickListener(view -> {
+            showManagementMoreMenu(view);
         });
         updateToolbarActions();
     }
 
     private void showManagementIoMenu(View anchor) {
-        PopupMenu popup = new PopupMenu(this, anchor, Gravity.START);
+        StyledPopupMenu popup = new StyledPopupMenu(this, anchor, Gravity.START);
+        popup.setTitle(getString(R.string.management_home_io_title));
         MenuItem importItem = popup.getMenu().add(
             MenuItem.SHOW_AS_ACTION_NEVER,
             1,
@@ -248,20 +390,42 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             1,
             getString(R.string.management_home_more_export)
         );
+        MenuItem syncItem = popup.getMenu().add(
+            MenuItem.SHOW_AS_ACTION_NEVER,
+            3,
+            2,
+            getString(R.string.management_home_more_sync)
+        );
         importItem.setOnMenuItemClickListener(item -> {
-            startActivity(ManagementImportActivity.newIntent(this, false));
+            if (stylePreview) {
+                startActivity(StylePreview.intentFor(
+                    this,
+                    StylePreview.KIND_MANAGEMENT_IMPORT
+                ));
+            } else {
+                startActivity(ManagementImportActivity.newIntent(this, false));
+            }
             return true;
         });
         exportItem.setOnMenuItemClickListener(item -> {
             enterHomeBatchModeForExport();
             return true;
         });
+        syncItem.setOnMenuItemClickListener(item -> {
+            if (stylePreview) {
+                showPreviewNotice();
+            } else {
+                startActivity(new Intent(this, SceneFilesActivity.class));
+            }
+            return true;
+        });
         popup.show();
     }
 
     private void showManagementMoreMenu(View anchor) {
-        PopupMenu popup = new PopupMenu(this, anchor, Gravity.END);
-        if (mode == MODE_TREE) {
+        StyledPopupMenu popup = new StyledPopupMenu(this, anchor, Gravity.END);
+        popup.setTitle(getString(managementMoreMenuTitle()));
+        if (mode == MODE_TREE && selectedTab == TAB_SCENES) {
             MenuItem expand = popup.getMenu().add(
                 MenuItem.SHOW_AS_ACTION_NEVER,
                 10,
@@ -291,51 +455,117 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             0,
             getString(R.string.management_home_more_batch)
         );
-        MenuItem scene = popup.getMenu().add(
-            MenuItem.SHOW_AS_ACTION_NEVER,
-            1,
-            2,
-            getString(R.string.management_home_more_scene_files)
-        );
-        MenuItem contexts = popup.getMenu().add(
-            MenuItem.SHOW_AS_ACTION_NEVER,
-            2,
-            3,
-            getString(R.string.management_home_more_contexts)
-        );
-        MenuItem characters = popup.getMenu().add(
-            MenuItem.SHOW_AS_ACTION_NEVER,
-            3,
-            4,
-            getString(R.string.management_home_more_characters)
-        );
-        MenuItem terms = popup.getMenu().add(
-            MenuItem.SHOW_AS_ACTION_NEVER,
-            4,
-            5,
-            getString(R.string.management_home_more_terms)
-        );
         batch.setOnMenuItemClickListener(item -> {
             enterHomeBatchMode();
             return true;
         });
-        scene.setOnMenuItemClickListener(item -> {
-            open(SceneFilesActivity.class);
-            return true;
-        });
-        contexts.setOnMenuItemClickListener(item -> {
-            open(SceneContextActivity.class);
-            return true;
-        });
-        characters.setOnMenuItemClickListener(item -> {
-            open(CharacterDictionaryActivity.class);
-            return true;
-        });
-        terms.setOnMenuItemClickListener(item -> {
-            open(GameTermsActivity.class);
-            return true;
-        });
         popup.show();
+    }
+
+    private int managementMoreMenuTitle() {
+        if (mode == MODE_TREE && selectedTab == TAB_SCENES) {
+            return R.string.management_home_tree_menu_title;
+        }
+        switch (selectedTab) {
+            case TAB_CONTEXTS:
+                return R.string.management_home_context_menu_title;
+            case TAB_GROUPS:
+                return R.string.management_home_group_menu_title;
+            case TAB_CHARACTERS:
+                return R.string.management_home_character_menu_title;
+            case TAB_TERMS:
+                return R.string.management_home_term_menu_title;
+            case TAB_SCENES:
+            default:
+                return R.string.management_home_scene_menu_title;
+        }
+    }
+
+    private void showManagementAddMenu(View anchor) {
+        if (batchMode || destroyed || anchor == null) {
+            return;
+        }
+        if (stylePreview) {
+            showPreviewNotice();
+            return;
+        }
+        if (mode == MODE_TREE && selectedTab == TAB_SCENES) {
+            StyledPopupMenu popup = new StyledPopupMenu(this, anchor, Gravity.END);
+            addCreateMenuItem(
+                popup,
+                20,
+                R.string.scene_context_new_context,
+                "context"
+            );
+            addCreateMenuItem(
+                popup,
+                21,
+                R.string.scene_context_new_group,
+                "group"
+            );
+            popup.show();
+            return;
+        }
+        if (selectedTab == TAB_CONTEXTS) {
+            startActivity(new Intent(this, SceneContextActivity.class)
+                .putExtra(
+                    SceneContextActivity.EXTRA_MANAGEMENT_CREATE_KIND,
+                    "context"
+                ));
+            return;
+        }
+        if (selectedTab == TAB_GROUPS) {
+            startActivity(new Intent(this, SceneContextActivity.class)
+                .putExtra(
+                    SceneContextActivity.EXTRA_MANAGEMENT_CREATE_KIND,
+                    "group"
+                ));
+            return;
+        }
+        if (selectedTab == TAB_CHARACTERS) {
+            openCharacterCreator();
+            return;
+        }
+        if (selectedTab == TAB_TERMS) {
+            startActivity(new Intent(this, GameTermsActivity.class)
+                .putExtra(GameTermsActivity.EXTRA_CREATE_TERM, true));
+            return;
+        } else {
+            Toast.makeText(
+                this,
+                R.string.management_rebuild_scene_add_unavailable,
+                Toast.LENGTH_SHORT
+            ).show();
+        }
+    }
+
+    private void addCreateMenuItem(
+        StyledPopupMenu popup,
+        int id,
+        int labelResource,
+        String kind
+    ) {
+        MenuItem item = popup.getMenu().add(
+            MenuItem.SHOW_AS_ACTION_NEVER,
+            id,
+            popup.getMenu().size(),
+            getString(labelResource)
+        );
+        item.setOnMenuItemClickListener(clicked -> {
+            startActivity(new Intent(this, SceneContextActivity.class)
+                .putExtra(
+                    SceneContextActivity.EXTRA_MANAGEMENT_CREATE_KIND,
+                    kind
+                ));
+            return true;
+        });
+    }
+
+    private void updateFab() {
+        if (addFab == null) {
+            return;
+        }
+        addFab.setVisibility(batchMode ? View.GONE : View.VISIBLE);
     }
 
     private void toggleViewMode() {
@@ -344,12 +574,21 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         }
         rememberScrollPosition();
         mode = mode == MODE_TREE ? MODE_LIST : MODE_TREE;
+        if (mode == MODE_TREE
+            && selectedTab != TAB_SCENES
+            && selectedTab != TAB_CHARACTERS
+            && selectedTab != TAB_TERMS) {
+            selectedTab = TAB_SCENES;
+        }
+        syncTabsForMode();
         syncSearchFromState();
+        syncActiveBatchKind();
         render();
     }
 
     private void expandAllTreeNodes() {
-        if (mode != MODE_TREE || snapshot == null || batchMode) {
+        if (mode != MODE_TREE || selectedTab != TAB_SCENES
+            || snapshot == null || batchMode) {
             return;
         }
         rememberScrollPosition();
@@ -371,7 +610,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private void collapseAllTreeNodes() {
-        if (mode != MODE_TREE || batchMode) {
+        if (mode != MODE_TREE || selectedTab != TAB_SCENES || batchMode) {
             return;
         }
         rememberScrollPosition();
@@ -380,11 +619,11 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private void showClearActivePointersDialog() {
-        if (batchMode || clearingActivePointers || !hasActivePointers()) {
+        if (stylePreview || batchMode || clearingActivePointers || !hasActivePointers()) {
             updateToolbarActions();
             return;
         }
-        new MaterialAlertDialogBuilder(this)
+        new UiMaterialAlertDialogBuilder(this)
             .setTitle(R.string.management_home_clear_active_title)
             .setMessage(R.string.management_home_clear_active_message)
             .setNegativeButton(android.R.string.cancel, null)
@@ -402,12 +641,13 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private void clearActivePointers() {
-        if (batchMode || clearingActivePointers || !hasActivePointers()) {
+        if (stylePreview || batchMode || clearingActivePointers || !hasActivePointers()) {
             updateToolbarActions();
             return;
         }
         clearingActivePointers = true;
         final long request = ++loadGeneration;
+        statusView.setVisibility(View.VISIBLE);
         statusView.setText(R.string.management_home_clearing_active);
         updateToolbarActions();
         ioExecutor.execute(() -> {
@@ -438,30 +678,39 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private void updateToolbarActions() {
-        if (managementViewMenuItem != null) {
-            managementViewMenuItem.setTitle(
+        if (managementViewButton != null) {
+            managementViewButton.setIconResource(
                 mode == MODE_TREE
-                    ? R.string.management_home_mode_list
-                    : R.string.management_home_mode_tree
+                    ? R.drawable.ic_management_rebuild_tree
+                    : R.drawable.ic_management_rebuild_list
             );
-            managementViewMenuItem.setContentDescription(
+            managementViewButton.setContentDescription(
                 getString(mode == MODE_TREE
                     ? R.string.management_home_mode_list
                     : R.string.management_home_mode_tree)
             );
-            managementViewMenuItem.setEnabled(!batchMode && !destroyed);
+            managementViewButton.setEnabled(!batchMode && !destroyed);
         }
-        if (managementClearActiveMenuItem != null) {
-            managementClearActiveMenuItem.setEnabled(
-                !batchMode
+        if (managementClearActiveButton != null) {
+            managementClearActiveButton.setEnabled(
+                !stylePreview
+                    && !batchMode
                     && !clearingActivePointers
                     && !destroyed
                     && hasActivePointers()
             );
         }
-        if (managementMoreMenuItem != null) {
-            managementMoreMenuItem.setEnabled(!batchMode && !destroyed);
+        if (managementMoreButton != null) {
+            managementMoreButton.setEnabled(!batchMode && !destroyed);
         }
+    }
+
+    private void showPreviewNotice() {
+        Toast.makeText(
+            this,
+            R.string.management_home_preview_read_only,
+            Toast.LENGTH_SHORT
+        ).show();
     }
 
     private void enterHomeBatchMode() {
@@ -480,6 +729,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             try {
                 mode = MODE_LIST;
                 selectedTab = TAB_SCENES;
+                syncTabsForMode();
                 TabLayout.Tab sceneTab = tabLayout.getTabAt(TAB_SCENES);
                 if (sceneTab != null
                     && tabLayout.getSelectedTabPosition() != TAB_SCENES) {
@@ -497,8 +747,35 @@ public final class ManagementHomeActivity extends AppCompatActivity {
 
     void setHomeBatchMode(boolean enabled) {
         batchMode = enabled;
+        syncActiveBatchKind();
         updateToolbarActions();
         render();
+    }
+
+    private void syncActiveBatchKind() {
+        if (managementBatchController == null) {
+            return;
+        }
+        String kind;
+        switch (selectedTab) {
+            case TAB_CONTEXTS:
+                kind = ManagementBatchController.KIND_CONTEXT;
+                break;
+            case TAB_GROUPS:
+                kind = ManagementBatchController.KIND_GROUP;
+                break;
+            case TAB_CHARACTERS:
+                kind = ManagementBatchController.KIND_CHARACTER;
+                break;
+            case TAB_TERMS:
+                kind = ManagementBatchController.KIND_TERM;
+                break;
+            case TAB_SCENES:
+            default:
+                kind = ManagementBatchController.KIND_SCENE;
+                break;
+        }
+        managementBatchController.setActiveKind(kind);
     }
 
     void refreshHomeBatchRows() {
@@ -546,6 +823,19 @@ public final class ManagementHomeActivity extends AppCompatActivity {
 
     private void loadSnapshotAsync() {
         final long request = ++loadGeneration;
+        loadErrorMessage = "";
+        if (stylePreview) {
+            snapshot = ManagementHomeData.fromPreview(stylePreviewPayload);
+            batchDataSource.setDisplaySnapshot(snapshot);
+            statusView.setVisibility(View.GONE);
+            render();
+            if (managementBatchController != null
+                && managementBatchController.isActive()) {
+                managementBatchController.refreshHostCatalog();
+            }
+            return;
+        }
+        statusView.setVisibility(View.VISIBLE);
         statusView.setText(R.string.management_home_loading);
         ioExecutor.execute(() -> {
             try {
@@ -559,7 +849,9 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                         rememberScrollPosition();
                     }
                     snapshot = loaded;
+                    loadErrorMessage = "";
                     batchDataSource.setDisplaySnapshot(loaded);
+                    statusView.setVisibility(View.GONE);
                     statusView.setText(getString(
                         R.string.management_home_loaded,
                         loaded.scenes.size(),
@@ -580,7 +872,9 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                         return;
                     }
                     snapshot = null;
+                    loadErrorMessage = safeMessage(error);
                     batchDataSource.setDisplaySnapshot(null);
+                    statusView.setVisibility(View.VISIBLE);
                     statusView.setText(getString(
                         R.string.management_home_load_failed,
                         safeMessage(error)
@@ -603,17 +897,27 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             return;
         }
         renderGeneration++;
-        tabLayout.setVisibility(mode == MODE_TREE ? View.GONE : View.VISIBLE);
+        tabLayout.setVisibility(View.VISIBLE);
+        updateFab();
         updateToolbarActions();
         batchDataSource.beginRender();
         content.removeAllViews();
         if (snapshot == null) {
-            addEmpty(R.string.management_home_waiting_for_data);
+            if (loadErrorMessage.isEmpty()) {
+                addEmpty(R.string.management_home_waiting_for_data);
+            } else {
+                addError(getString(
+                    R.string.management_home_load_failed,
+                    loadErrorMessage
+                ));
+            }
             notifyBatchHostRowsChanged();
             return;
         }
-        if (mode == MODE_TREE) {
+        if (mode == MODE_TREE && selectedTab == TAB_SCENES) {
             renderTree();
+        } else if (mode == MODE_TREE) {
+            renderPackageDictionary();
         } else {
             renderList();
         }
@@ -628,17 +932,15 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private void renderList() {
-        String query = tabQueries[selectedTab];
+        String query = searchQuery;
         switch (selectedTab) {
             case TAB_SCENES:
                 for (ManagementHomeData.SceneItem scene : snapshot.scenes) {
-                    if (matches(query, scene.name, scene.name)) {
+                    if (matches(query, scene.name, sceneSearchText(scene))) {
                         addRow(
                             scene.name,
-                            getString(
-                                R.string.management_home_scene_summary,
-                                scene.languageCount
-                            ),
+                            sceneSubtitle(scene),
+                            sceneRowSide(scene),
                             false,
                             ManagementBatchController.KIND_SCENE,
                             scene.name,
@@ -648,20 +950,16 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                 }
                 break;
             case TAB_CONTEXTS:
-                if (!batchMode) addContextCreateEntry(true);
                 for (ManagementHomeData.ContextItem context : snapshot.contexts) {
                     if (matches(
                         query,
                         context.displayName,
-                        context.displayName
+                        context.searchText
                     )) {
                         addRow(
                             context.displayName,
-                            getString(
-                                R.string.management_home_context_summary,
-                                context.scenes.size(),
-                                context.groupCount
-                            ),
+                            contextSubtitle(context),
+                            formatUpdatedAt(context.updatedAt),
                             context.id.equals(snapshot.activeContextId),
                             ManagementBatchController.KIND_CONTEXT,
                             context.id,
@@ -671,9 +969,8 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                 }
                 break;
             case TAB_GROUPS:
-                if (!batchMode) addContextCreateEntry(false);
                 for (ManagementHomeData.GroupItem group : snapshot.groups) {
-                    if (matches(query, group.displayName, group.displayName)) {
+                    if (matches(query, group.displayName, group.searchText)) {
                         int visibleContexts = 0;
                         for (ManagementHomeData.GroupContextRef reference
                             : group.contexts) {
@@ -683,10 +980,8 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                         }
                         addRow(
                             group.displayName,
-                            getString(
-                                R.string.management_home_group_summary,
-                                visibleContexts
-                            ),
+                            groupSubtitle(group, visibleContexts),
+                            formatUpdatedAt(group.updatedAt),
                             group.id.equals(snapshot.activeGroupId),
                             ManagementBatchController.KIND_GROUP,
                             group.id,
@@ -715,7 +1010,9 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                 break;
         }
         if (content.getChildCount() == 0) {
-            addEmpty(R.string.management_home_empty);
+            addEmpty(searchQuery.trim().isEmpty()
+                ? R.string.management_home_no_records
+                : R.string.management_home_search_empty);
         }
         restoreScrollPosition();
     }
@@ -726,41 +1023,22 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         boolean terms,
         String kind
     ) {
-        if (!batchMode) {
-            if (terms) {
-                MaterialCardView card = createCard(0);
-                MaterialButton button = homeButton(
-                    R.style.Widget_HET_Button_Primary
-                );
-                button.setText(R.string.add_game_term);
-                button.setAllCaps(false);
-                button.setOnClickListener(view -> startActivity(
-                    new Intent(this, GameTermsActivity.class)
-                        .putExtra(GameTermsActivity.EXTRA_CREATE_TERM, true)));
-                card.addView(button, new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT));
-            } else {
-                addCharacterCreateEntry();
-            }
-        }
         for (ManagementHomeData.DictionaryItem entry : entries) {
             String title = dictionaryLabel(entry, terms);
             if (!matches(query, title, entry.searchText)) {
                 continue;
             }
             String subtitle = dictionarySubtitle(entry, terms);
-            if (subtitle.isEmpty()) {
+            if (subtitle.isEmpty() && terms) {
                 subtitle = getString(
-                    terms
-                        ? R.string.management_home_term_record
-                        : R.string.management_home_character_record
+                    R.string.management_home_term_record
                 );
             }
             final String key = entry.key;
             addRow(
                 title,
                 subtitle,
+                dictionarySide(entry, terms),
                 false,
                 kind,
                 key,
@@ -775,17 +1053,31 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         }
     }
 
-    /** Keeps the character tab's create action one tap away from its list. */
-    private void addCharacterCreateEntry() {
-        MaterialCardView card = createCard(0);
-        MaterialButton button = homeButton(R.style.Widget_HET_Button_Primary);
-        button.setText(R.string.management_home_add_character);
-        button.setAllCaps(false);
-        button.setOnClickListener(view -> openCharacterCreator());
-        card.addView(button, new ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+    private void renderPackageDictionary() {
+        if (snapshot == null) {
+            return;
+        }
+        if (selectedTab == TAB_CHARACTERS) {
+            renderDictionary(
+                snapshot.characters,
+                searchQuery,
+                false,
+                ManagementBatchController.KIND_CHARACTER
+            );
+        } else {
+            renderDictionary(
+                snapshot.terms,
+                searchQuery,
+                true,
+                ManagementBatchController.KIND_TERM
+            );
+        }
+        if (content.getChildCount() == 0) {
+            addEmpty(searchQuery.trim().isEmpty()
+                ? R.string.management_home_no_records
+                : R.string.management_home_search_empty);
+        }
+        restoreScrollPosition();
     }
 
     private void openCharacterCreator() {
@@ -793,29 +1085,39 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             .putExtra(CharacterDictionaryActivity.EXTRA_CREATE_CHARACTER, true));
     }
 
-    private void addContextCreateEntry(boolean context) {
-        MaterialCardView card = createCard(0);
-        MaterialButton button = homeButton(R.style.Widget_HET_Button_Primary);
-        button.setText(context ? R.string.scene_context_new_context
-            : R.string.scene_context_new_group);
-        button.setAllCaps(false);
-        button.setOnClickListener(view -> startActivity(
-            new Intent(this, SceneContextActivity.class).putExtra(
-                SceneContextActivity.EXTRA_MANAGEMENT_CREATE_KIND,
-                context ? "context" : "group")));
-        card.addView(button, new ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-    }
-
     private void renderTree() {
-        String query = treeQuery;
+        String query = searchQuery;
         Set<String> visible = new HashSet<>();
         Set<String> searchExpanded = new HashSet<>();
         for (ManagementHomeData.TreeNode root : snapshot.treeRoots) {
             collectTreeMatches(root, query, visible, searchExpanded);
         }
         for (ManagementHomeData.TreeNode root : snapshot.treeRoots) {
-            renderTreeNode(root, 0, visible, searchExpanded);
+            if (!visible.contains(root.key)) {
+                continue;
+            }
+            if (root.kind == ManagementHomeData.NODE_GROUP
+                || root.kind == ManagementHomeData.NODE_UNCATEGORIZED) {
+                MaterialCardView surface = createCard(0);
+                LinearLayout treeBody = new LinearLayout(this);
+                treeBody.setOrientation(LinearLayout.VERTICAL);
+                surface.addView(treeBody);
+                renderTreeNode(
+                    root,
+                    0,
+                    visible,
+                    searchExpanded,
+                    treeBody
+                );
+            } else {
+                renderTreeNode(
+                    root,
+                    0,
+                    visible,
+                    searchExpanded,
+                    content
+                );
+            }
         }
         if (content.getChildCount() == 0) {
             addEmpty(
@@ -884,7 +1186,8 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         ManagementHomeData.TreeNode node,
         int level,
         Set<String> visible,
-        Set<String> searchExpanded
+        Set<String> searchExpanded,
+        ViewGroup parent
     ) {
         if (!visible.contains(node.key)) {
             return;
@@ -897,26 +1200,37 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             || node.kind == ManagementHomeData.NODE_GROUP
                 && node.targetId != null
                 && node.targetId.equals(snapshot.activeGroupId);
-        addTreeRow(node, level, expanded, active);
+        addTreeRow(parent, node, level, expanded, active);
         if (!expanded) {
             return;
         }
         for (ManagementHomeData.TreeNode child : node.children) {
-            renderTreeNode(child, level + 1, visible, searchExpanded);
+            renderTreeNode(
+                child,
+                level + 1,
+                visible,
+                searchExpanded,
+                parent
+            );
         }
     }
 
     private void addTreeRow(
+        ViewGroup parent,
         ManagementHomeData.TreeNode node,
         int level,
         boolean expanded,
         boolean active
     ) {
-        MaterialCardView card = createCard(level);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(12), dp(8), dp(12), dp(8));
+        int rowHeight = node.kind == ManagementHomeData.NODE_GROUP
+            || node.kind == ManagementHomeData.NODE_UNCATEGORIZED
+            ? 60
+            : node.kind == ManagementHomeData.NODE_CONTEXT ? 52 : 40;
+        row.setMinimumHeight(dp(rowHeight));
+        row.setPadding(dp(8 + level * 20), dp(3), dp(8), dp(3));
 
         String batchKind = treeBatchKind(node);
         if (batchMode && batchKind != null && node.targetId != null) {
@@ -926,7 +1240,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                 batchKind,
                 node.targetId
             );
-            check.setChecked(ManagementBatchSelection.contains(key));
+            check.setChecked(batchSelection.contains(key));
             check.setEnabled(ready);
             check.setClickable(false);
             check.setFocusable(false);
@@ -938,28 +1252,53 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             batchDataSource.markVisible(batchKind, node.targetId);
         }
 
-        TextView disclosure = new TextView(this);
+        MaterialButton disclosure = new MaterialButton(this);
+        disclosure.setText("");
         disclosure.setGravity(Gravity.CENTER);
-        disclosure.setText(node.children.isEmpty()
-            ? ""
-            : getString(
-                expanded
-                    ? R.string.management_home_collapse_icon
-                    : R.string.management_home_expand_icon
-            ));
+        disclosure.setIconResource(R.drawable.ic_task_chevron);
+        disclosure.setIconTint(android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(this, R.color.het_primary)
+        ));
+        disclosure.setIconSize(dp(16));
+        disclosure.setIconPadding(0);
+        disclosure.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
+        disclosure.setBackgroundTintList(
+            android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.TRANSPARENT
+            )
+        );
+        disclosure.setStrokeWidth(0);
+        disclosure.setInsetTop(0);
+        disclosure.setInsetBottom(0);
+        disclosure.setPadding(0, 0, 0, 0);
+        disclosure.setMinWidth(0);
+        disclosure.setMinHeight(0);
+        disclosure.setStateListAnimator(null);
+        disclosure.setRotation(expanded ? 90f : 0f);
+        disclosure.setVisibility(
+            node.children.isEmpty() ? View.INVISIBLE : View.VISIBLE
+        );
         disclosure.setContentDescription(getString(
             expanded
                 ? R.string.management_home_collapse_node
                 : R.string.management_home_expand_node,
             treeNodeLabel(node)
         ));
-        row.addView(disclosure, new LinearLayout.LayoutParams(dp(32), dp(40)));
+        row.addView(disclosure, new LinearLayout.LayoutParams(dp(40), dp(40)));
 
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
         copy.setGravity(Gravity.CENTER_VERTICAL);
-        copy.addView(textView(treeNodeTitle(node, active), 16, true));
-        TextView subtitle = textView(treeNodeSubtitle(node), 13, false);
+        copy.addView(textView(
+            treeNodeTitle(node, active),
+            treeNodeTitleSize(node),
+            true
+        ));
+        TextView subtitle = textView(
+            treeNodeSubtitle(node),
+            treeNodeSubtitleSize(node),
+            false
+        );
         LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -971,24 +1310,23 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             ViewGroup.LayoutParams.WRAP_CONTENT,
             1
         ));
-        card.addView(row);
 
         if (!node.children.isEmpty()) {
             disclosure.setOnClickListener(view -> toggleNode(node.key));
             if (node.targetId == null) {
-                card.setOnClickListener(view -> toggleNode(node.key));
+                row.setOnClickListener(view -> toggleNode(node.key));
             }
         }
         if (node.targetId != null) {
-            card.setClickable(true);
-            card.setFocusable(true);
+            row.setClickable(true);
+            row.setFocusable(true);
             if (batchMode && batchKind != null) {
-                card.setOnClickListener(view -> toggleBatchSelection(
+                row.setOnClickListener(view -> toggleBatchSelection(
                     batchKind,
                     node.targetId
                 ));
             } else {
-                card.setOnClickListener(view -> openTreeNode(node));
+                row.setOnClickListener(view -> openTreeNode(node));
             }
             TextView title = (TextView) copy.getChildAt(0);
             if (!batchMode) {
@@ -998,8 +1336,14 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             }
         }
         if (active) {
-            applyActiveBackground(card);
+            row.setBackgroundColor(
+                ContextCompat.getColor(this, R.color.het_good_container)
+            );
         }
+        parent.addView(row, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
     }
 
     private void toggleNode(String key) {
@@ -1020,49 +1364,21 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         card.setRadius(dp(14));
         card.setCardElevation(0);
         card.setStrokeWidth(0);
+        card.setMinimumHeight(dp(56));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        params.bottomMargin = dp(8);
+        params.bottomMargin = dp(9);
         params.leftMargin = dp(level * 20);
         content.addView(card, params);
         return card;
     }
 
-    private MaterialButton homeButton(int styleResource) {
-        MaterialButton button = new MaterialButton(this);
-        boolean primary = styleResource == R.style.Widget_HET_Button_Primary;
-        button.setAllCaps(false);
-        button.setMinHeight(dp(40));
-        button.setMinWidth(0);
-        button.setCornerRadius(dp(20));
-        button.setInsetTop(0);
-        button.setInsetBottom(0);
-        button.setBackgroundTintList(ColorStateList.valueOf(
-            ContextCompat.getColor(
-                this,
-                primary
-                    ? R.color.het_primary_container
-                    : R.color.het_surface_container_high
-            )
-        ));
-        button.setTextColor(ContextCompat.getColor(
-            this,
-            primary ? R.color.het_on_primary_container : R.color.het_on_surface
-        ));
-        button.setStrokeWidth(primary ? 0 : dp(1));
-        if (!primary) {
-            button.setStrokeColor(ColorStateList.valueOf(
-                ContextCompat.getColor(this, R.color.het_outline_soft)
-            ));
-        }
-        return button;
-    }
-
     private void addRow(
         String title,
         String subtitle,
+        String side,
         boolean active,
         String kind,
         String canonicalId,
@@ -1074,30 +1390,50 @@ public final class ManagementHomeActivity extends AppCompatActivity {
                 card,
                 title,
                 subtitle,
+                side,
                 active,
                 kind,
                 canonicalId
             );
             return;
         }
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
-        copy.setPadding(dp(12), dp(9), dp(12), dp(9));
+        copy.setGravity(Gravity.CENTER_VERTICAL);
         copy.addView(textView(
             active
                 ? getString(R.string.management_home_active_name, title)
                 : title,
-            16,
+            12,
             true
         ));
-        TextView subtitleView = textView(subtitle, 13, false);
+        TextView subtitleView = textView(subtitle, 10, false);
         LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         );
         subtitleParams.topMargin = dp(2);
         copy.addView(subtitleView, subtitleParams);
-        card.addView(copy);
+        row.addView(copy, new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1
+        ));
+        if (side != null && !side.trim().isEmpty()) {
+            TextView sideView = textView(side, 10, false);
+            sideView.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+            sideView.setMaxLines(2);
+            sideView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.addView(sideView, new LinearLayout.LayoutParams(
+                dp(86),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+        }
+        card.addView(row);
         card.setClickable(true);
         card.setFocusable(true);
         card.setOnClickListener(view -> action.run());
@@ -1110,6 +1446,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         MaterialCardView card,
         String title,
         String subtitle,
+        String side,
         boolean active,
         String kind,
         String canonicalId
@@ -1121,10 +1458,10 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(4), dp(4), dp(12), dp(4));
+        row.setPadding(dp(4), dp(6), dp(12), dp(6));
 
         CheckBox check = new CheckBox(this);
-        check.setChecked(ManagementBatchSelection.contains(key));
+        check.setChecked(batchSelection.contains(key));
         check.setEnabled(ready);
         check.setClickable(false);
         check.setFocusable(false);
@@ -1141,10 +1478,10 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             active
                 ? getString(R.string.management_home_active_name, title)
                 : title,
-            16,
+            12,
             true
         ));
-        TextView subtitleView = textView(subtitle, 13, false);
+        TextView subtitleView = textView(subtitle, 10, false);
         LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -1156,6 +1493,16 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             ViewGroup.LayoutParams.WRAP_CONTENT,
             1
         ));
+        if (side != null && !side.trim().isEmpty()) {
+            TextView sideView = textView(side, 10, false);
+            sideView.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+            sideView.setMaxLines(2);
+            sideView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.addView(sideView, new LinearLayout.LayoutParams(
+                dp(86),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ));
+        }
         card.addView(row);
         card.setClickable(true);
         card.setFocusable(true);
@@ -1175,9 +1522,9 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             return;
         }
         String key = kind + ":" + canonicalId;
-        ManagementBatchSelection.set(
+        batchSelection.set(
             key,
-            !ManagementBatchSelection.contains(key)
+            !batchSelection.contains(key)
         );
         batchDataSource.onBatchSelectionChanged();
     }
@@ -1207,7 +1554,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     private TextView textView(String value, int sizeSp, boolean bold) {
         TextView text = new TextView(this);
         text.setText(value);
-        text.setTextSize(sizeSp);
+        text.setTextSize(sizeSp + 2f);
         text.setTextColor(ContextCompat.getColor(
             this,
             bold ? R.color.het_on_surface : R.color.het_on_surface_muted
@@ -1228,6 +1575,17 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         ));
     }
 
+    private void addError(String message) {
+        TextView error = textView(message, 14, false);
+        error.setTextColor(ContextCompat.getColor(this, R.color.het_error));
+        error.setGravity(Gravity.CENTER_HORIZONTAL);
+        error.setPadding(dp(12), dp(24), dp(12), dp(24));
+        content.addView(error, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+    }
+
     private String treeNodeTitle(
         ManagementHomeData.TreeNode node,
         boolean active
@@ -1238,6 +1596,17 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             : label;
     }
 
+    private int treeNodeTitleSize(ManagementHomeData.TreeNode node) {
+        return node.kind == ManagementHomeData.NODE_GROUP
+            || node.kind == ManagementHomeData.NODE_UNCATEGORIZED
+            ? 12
+            : node.kind == ManagementHomeData.NODE_CONTEXT ? 11 : 10;
+    }
+
+    private int treeNodeSubtitleSize(ManagementHomeData.TreeNode node) {
+        return node.kind == ManagementHomeData.NODE_SCENE ? 9 : 10;
+    }
+
     private String treeNodeLabel(ManagementHomeData.TreeNode node) {
         return node.kind == ManagementHomeData.NODE_UNCATEGORIZED
             ? getString(R.string.management_home_uncategorized)
@@ -1245,6 +1614,16 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private String treeNodeSubtitle(ManagementHomeData.TreeNode node) {
+        String summary = node.summary;
+        String updated = formatUpdatedAt(node.updatedAt);
+        String detail = joinSummary(summary, updated);
+        if (!detail.isEmpty()) {
+            return getString(
+                R.string.management_rebuild_tree_node_detail,
+                treeNodeCountLabel(node),
+                detail
+            );
+        }
         switch (node.kind) {
             case ManagementHomeData.NODE_GROUP:
                 return getString(R.string.management_home_group_summary, node.count);
@@ -1269,7 +1648,152 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private String treeNodeSearchText(ManagementHomeData.TreeNode node) {
-        return treeNodeLabel(node);
+        return node.searchText;
+    }
+
+    private String treeNodeCountLabel(ManagementHomeData.TreeNode node) {
+        switch (node.kind) {
+            case ManagementHomeData.NODE_GROUP:
+                return getString(R.string.management_home_group_summary, node.count);
+            case ManagementHomeData.NODE_CONTEXT:
+                return getString(
+                    R.string.management_home_context_scene_summary,
+                    node.count
+                );
+            case ManagementHomeData.NODE_SCENE:
+                return getString(
+                    R.string.management_home_scene_summary,
+                    node.count
+                );
+            case ManagementHomeData.NODE_UNCATEGORIZED:
+                return getString(
+                    R.string.management_home_uncategorized_summary,
+                    node.count
+                );
+            default:
+                return "";
+        }
+    }
+
+    private String sceneSearchText(ManagementHomeData.SceneItem scene) {
+        StringBuilder text = new StringBuilder(scene.searchText);
+        for (ManagementHomeData.ContextItem context : snapshot.contexts) {
+            for (ManagementHomeData.SceneRef sceneRef : context.scenes) {
+                if (scene.name.equals(sceneRef.sceneName)) {
+                    text.append('\n').append(context.displayName);
+                    text.append('\n').append(context.searchText);
+                }
+            }
+        }
+        for (ManagementHomeData.GroupItem group : snapshot.groups) {
+            for (ManagementHomeData.GroupContextRef reference : group.contexts) {
+                for (ManagementHomeData.ContextItem context : snapshot.contexts) {
+                    if (reference.contextId.equals(context.id)) {
+                        for (ManagementHomeData.SceneRef sceneRef : context.scenes) {
+                            if (scene.name.equals(sceneRef.sceneName)) {
+                                text.append('\n').append(group.displayName);
+                                text.append('\n').append(group.searchText);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return text.toString();
+    }
+
+    private String sceneSubtitle(ManagementHomeData.SceneItem scene) {
+        String contextNames = scene == null ? "" : scene.contextNames;
+        contextNames = contextNames == null ? "" : contextNames.trim();
+        if (contextNames.isEmpty()) {
+            contextNames = getString(R.string.management_home_uncategorized);
+        } else {
+            contextNames = contextNames.replace('\n', '、');
+        }
+        return getString(
+            R.string.management_rebuild_scene_contexts,
+            contextNames
+        ) + "\n" + getString(
+            R.string.management_rebuild_scene_translations,
+            sceneLanguageText(scene == null ? null : scene.languages)
+        );
+    }
+
+    private String sceneRowSide(ManagementHomeData.SceneItem scene) {
+        return formatUpdatedAt(scene == null ? 0L : scene.updatedAt);
+    }
+
+    private String sceneLanguageText(List<String> languages) {
+        if (languages == null || languages.isEmpty()) {
+            return getString(R.string.management_rebuild_no_translated_languages);
+        }
+        List<String> labels = new ArrayList<>();
+        for (String language : languages) {
+            labels.add(languageLabel(language));
+        }
+        return android.text.TextUtils.join("、", labels);
+    }
+
+    private String languageLabel(String language) {
+        if (language == null || language.trim().isEmpty()) return "—";
+        if ("zh-cn".equalsIgnoreCase(language)) return "简体中文";
+        if ("zh-tw".equalsIgnoreCase(language)) return "繁体中文";
+        if ("en".equalsIgnoreCase(language)) return "English";
+        if ("ja".equalsIgnoreCase(language)
+            || "ja-jp".equalsIgnoreCase(language)) return "日本語";
+        if ("ko".equalsIgnoreCase(language)) return "한국어";
+        return language;
+    }
+
+    private String contextSubtitle(ManagementHomeData.ContextItem context) {
+        String base = getString(
+            R.string.management_home_context_summary,
+            context.scenes.size(),
+            context.groupCount
+        );
+        String detail = joinSummary(
+            context.summary,
+            ""
+        );
+        return detail.isEmpty() ? base : base + " · " + detail;
+    }
+
+    private String groupSubtitle(
+        ManagementHomeData.GroupItem group,
+        int visibleContexts
+    ) {
+        String base = getString(
+            R.string.management_home_group_summary,
+            visibleContexts
+        );
+        String detail = joinSummary(
+            group.summary,
+            ""
+        );
+        return detail.isEmpty() ? base : base + " · " + detail;
+    }
+
+    private String formatUpdatedAt(long updatedAt) {
+        if (updatedAt <= 0L) {
+            return "";
+        }
+        return DateUtils.getRelativeTimeSpanString(
+            updatedAt,
+            System.currentTimeMillis(),
+            DateUtils.MINUTE_IN_MILLIS
+        ).toString();
+    }
+
+    private String joinSummary(String first, String second) {
+        String left = first == null ? "" : first.trim();
+        String right = second == null ? "" : second.trim();
+        if (left.isEmpty()) {
+            return right;
+        }
+        if (right.isEmpty()) {
+            return left;
+        }
+        return left + " · " + right;
     }
 
     private String dictionaryLabel(
@@ -1292,6 +1816,22 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         return entry.key.equals(entry.subtitle) || entry.key.isEmpty()
             ? ""
             : entry.key;
+    }
+
+    private String dictionarySide(
+        ManagementHomeData.DictionaryItem entry,
+        boolean terms
+    ) {
+        if (terms || entry == null) {
+            return "";
+        }
+        if (entry.aliasCount == 0) {
+            return getString(R.string.management_rebuild_no_aliases);
+        }
+        return getString(
+            R.string.management_rebuild_alias_count,
+            entry.aliasCount
+        );
     }
 
     private boolean containsContext(String contextId) {
@@ -1326,29 +1866,64 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private void openScene(String sceneName) {
+        if (stylePreview) {
+            startActivity(StylePreview.intentFor(
+                this,
+                StylePreview.KIND_SCENE_DETAIL
+            ));
+            return;
+        }
         startActivity(new Intent(this, SceneManagementDetailActivity.class)
             .putExtra(SceneManagementDetailActivity.EXTRA_SCENE_NAME, sceneName));
     }
 
     private void openContext(String contextId) {
+        if (stylePreview) {
+            startActivity(StylePreview.intentFor(
+                this,
+                StylePreview.KIND_CONTEXT_DETAIL
+            ));
+            return;
+        }
         startActivity(new Intent(this, ContextManagementDetailActivity.class)
             .putExtra(ContextManagementDetailActivity.EXTRA_KIND, "context")
             .putExtra(ContextManagementDetailActivity.EXTRA_ID, contextId));
     }
 
     private void openGroup(String groupId) {
+        if (stylePreview) {
+            startActivity(StylePreview.intentFor(
+                this,
+                StylePreview.KIND_GROUP_DETAIL
+            ));
+            return;
+        }
         startActivity(new Intent(this, ContextManagementDetailActivity.class)
             .putExtra(ContextManagementDetailActivity.EXTRA_KIND, "group")
             .putExtra(ContextManagementDetailActivity.EXTRA_ID, groupId));
     }
 
     private void openCharacter(String name) {
+        if (stylePreview) {
+            startActivity(StylePreview.intentFor(
+                this,
+                StylePreview.KIND_CHARACTER_DETAIL
+            ));
+            return;
+        }
         startActivity(new Intent(this, DictionaryManagementDetailActivity.class)
             .putExtra(DictionaryManagementDetailActivity.EXTRA_KIND, "character")
             .putExtra(DictionaryManagementDetailActivity.EXTRA_KEY, name));
     }
 
     private void openTerm(String name) {
+        if (stylePreview) {
+            startActivity(StylePreview.intentFor(
+                this,
+                StylePreview.KIND_TERM_DETAIL
+            ));
+            return;
+        }
         startActivity(new Intent(this, DictionaryManagementDetailActivity.class)
             .putExtra(DictionaryManagementDetailActivity.EXTRA_KIND, "term")
             .putExtra(DictionaryManagementDetailActivity.EXTRA_KEY, name));
@@ -1362,7 +1937,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         if (searchInput == null) {
             return;
         }
-        String query = mode == MODE_TREE ? treeQuery : tabQueries[selectedTab];
+        String query = searchQuery;
         updatingSearch = true;
         searchInput.setText(query == null ? "" : query);
         if (searchInput.getText() != null) {
@@ -1394,7 +1969,9 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     }
 
     private int scrollIndex() {
-        return mode == MODE_TREE ? TAB_COUNT : selectedTab;
+        return mode == MODE_TREE && selectedTab == TAB_SCENES
+            ? TAB_COUNT
+            : selectedTab;
     }
 
     private void restoreState(Bundle state) {
@@ -1408,6 +1985,13 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             ? MODE_TREE
             : MODE_LIST;
         selectedTab = clampTab(state.getInt(STATE_TAB, TAB_SCENES));
+        if (mode == MODE_TREE
+            && selectedTab != TAB_SCENES
+            && selectedTab != TAB_CHARACTERS
+            && selectedTab != TAB_TERMS) {
+            selectedTab = TAB_SCENES;
+        }
+        String savedSearch = state.getString(STATE_SEARCH, null);
         String[] savedQueries = state.getStringArray(STATE_QUERIES);
         if (savedQueries != null) {
             for (int index = 0; index < tabQueries.length; index++) {
@@ -1417,6 +2001,18 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             }
         }
         treeQuery = state.getString(STATE_TREE_QUERY, "");
+        if (savedSearch != null) {
+            searchQuery = savedSearch;
+        } else if (!treeQuery.trim().isEmpty()) {
+            searchQuery = treeQuery;
+        } else {
+            for (String query : tabQueries) {
+                if (query != null && !query.trim().isEmpty()) {
+                    searchQuery = query;
+                    break;
+                }
+            }
+        }
         java.util.ArrayList<String> savedExpanded = state.getStringArrayList(STATE_EXPANDED);
         if (savedExpanded != null) {
             expandedNodes.addAll(savedExpanded);
@@ -1445,6 +2041,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         }
         outState.putInt(STATE_MODE, mode);
         outState.putInt(STATE_TAB, selectedTab);
+        outState.putString(STATE_SEARCH, searchQuery);
         outState.putStringArray(STATE_QUERIES, tabQueries);
         outState.putString(STATE_TREE_QUERY, treeQuery);
         outState.putStringArrayList(

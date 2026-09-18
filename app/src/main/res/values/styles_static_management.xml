@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Widget.HET.StaticManagement.Toolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="android:layout_height">56dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:background">@drawable/bg_settings_toolbar</item>
+        <item name="android:elevation">0dp</item>
+        <item name="titleTextColor">@color/het_on_surface</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.SearchLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">0dp</item>
+        <item name="boxBackgroundColor">@color/het_surface_container</item>
+        <item name="boxStrokeColor">@color/het_outline_soft</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">2dp</item>
+        <item name="boxCornerRadiusTopStart">14dp</item>
+        <item name="boxCornerRadiusTopEnd">14dp</item>
+        <item name="boxCornerRadiusBottomStart">14dp</item>
+        <item name="boxCornerRadiusBottomEnd">14dp</item>
+        <item name="hintTextColor">@color/het_on_surface_muted</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.Tabs" parent="Widget.MaterialComponents.TabLayout">
+        <item name="android:background">@color/het_surface</item>
+        <item name="tabIndicatorColor">@color/het_primary_strong</item>
+        <item name="tabIndicatorHeight">2dp</item>
+        <item name="tabSelectedTextColor">@color/het_primary_strong</item>
+        <item name="tabTextColor">@color/het_on_surface_muted</item>
+        <item name="tabPaddingStart">10dp</item>
+        <item name="tabPaddingEnd">10dp</item>
+        <item name="tabMinWidth">0dp</item>
+        <item name="tabMode">scrollable</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.Button.Primary" parent="Widget.HET.Button.Primary">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.Button.Secondary" parent="Widget.HET.Button.Secondary">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.Button.Danger" parent="Widget.HET.Button.Danger">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.Button.Text" parent="Widget.HET.Button.Text">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.FileCard" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/het_surface_container_high</item>
+        <item name="cardCornerRadius">10dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.ConflictCard" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/het_surface_container</item>
+        <item name="cardCornerRadius">14dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.StaticManagement.Spinner" parent="Widget.HET.Spinner">
+        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_marginBottom">0dp</item>
+        <item name="android:minWidth">132dp</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticManagement.Title" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticManagement.Body" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.StaticManagement.Meta" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+</resources>

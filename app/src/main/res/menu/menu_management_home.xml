@@ -4,19 +4,19 @@
 
     <item
         android:id="@+id/action_management_view"
-        android:icon="@android:drawable/ic_menu_view"
+        android:icon="@drawable/ic_management_rebuild_view"
         android:title="@string/management_home_mode_tree"
         app:showAsAction="always" />
 
     <item
         android:id="@+id/action_management_clear_active"
-        android:icon="@android:drawable/ic_menu_close_clear_cancel"
+        android:icon="@drawable/ic_management_rebuild_clear"
         android:title="@string/management_home_clear_active"
         app:showAsAction="always" />
 
     <item
         android:id="@+id/action_management_more"
-        android:icon="@android:drawable/ic_menu_more"
+        android:icon="@drawable/ic_management_rebuild_more"
         android:title="@string/management_home_more"
         app:showAsAction="always" />
 </menu>

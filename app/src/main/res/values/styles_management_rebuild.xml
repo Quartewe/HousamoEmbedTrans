@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style
+        name="Widget.HET.ManagementRebuild.Tabs"
+        parent="Widget.MaterialComponents.TabLayout">
+        <item name="android:layout_height">39dp</item>
+        <item name="android:minHeight">39dp</item>
+        <item name="android:background">@drawable/bg_management_rebuild_tabs</item>
+        <item name="android:padding">3dp</item>
+        <item name="tabIndicatorHeight">0dp</item>
+        <item name="tabIndicatorColor">@android:color/transparent</item>
+        <item name="tabTextColor">@color/het_on_surface_muted</item>
+        <item name="tabSelectedTextColor">@color/het_on_primary_container</item>
+        <item name="tabBackground">@drawable/bg_management_rebuild_tab</item>
+        <item name="tabPaddingStart">7dp</item>
+        <item name="tabPaddingEnd">7dp</item>
+        <item name="tabPaddingTop">0dp</item>
+        <item name="tabPaddingBottom">0dp</item>
+        <item name="tabMinWidth">0dp</item>
+        <item name="tabMode">scrollable</item>
+        <item name="tabGravity">start</item>
+        <item name="tabTextAppearance">@style/TextAppearance.HET.ManagementRebuild.Tab</item>
+        <item name="tabRippleColor">@android:color/transparent</item>
+    </style>
+
+    <style
+        name="TextAppearance.HET.ManagementRebuild.ToolbarTitle"
+        parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/het_on_surface</item>
+    </style>
+
+    <style
+        name="Widget.HET.ManagementRebuild.Toolbar"
+        parent="Widget.HET.StaticManagement.Toolbar">
+        <item name="contentInsetStart">8dp</item>
+        <item name="contentInsetStartWithNavigation">8dp</item>
+        <item name="contentInsetEnd">8dp</item>
+        <item name="titleTextAppearance">@style/TextAppearance.HET.ManagementRebuild.ToolbarTitle</item>
+    </style>
+
+    <style
+        name="TextAppearance.HET.ManagementRebuild.Tab"
+        parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style
+        name="Widget.HET.ManagementRebuild.Fab"
+        parent="Widget.MaterialComponents.FloatingActionButton">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.HET.ManagementRebuild.Fab</item>
+        <item name="fabCustomSize">48dp</item>
+        <item name="maxImageSize">20dp</item>
+        <item name="elevation">0dp</item>
+        <item name="pressedTranslationZ">0dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="useCompatPadding">false</item>
+    </style>
+
+    <style
+        name="ShapeAppearance.HET.ManagementRebuild.Fab"
+        parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">15dp</item>
+    </style>
+
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="management_rebuild_fab_background">@color/het_primary</color>
+    <color name="management_rebuild_fab_icon">@color/white</color>
+</resources>

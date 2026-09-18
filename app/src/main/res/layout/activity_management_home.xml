@@ -10,86 +10,186 @@
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar_management_home"
+        style="@style/Widget.HET.ManagementRebuild.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="56dp"
         android:minHeight="56dp"
-        android:title="@string/management_home_title" />
+        app:title="@string/management_home_title">
 
-    <LinearLayout
-        android:id="@+id/container_management_home_batch"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical" />
+        <LinearLayout
+            android:id="@+id/management_toolbar_actions"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="16dp"
-        android:paddingTop="4dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="4dp"
-        android:text="@string/management_home_intro"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-        android:textColor="@color/het_on_surface_muted" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_management_view"
+                style="@style/Widget.HET.StaticTask.Button.Text"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:contentDescription="@string/management_home_mode_tree"
+                app:icon="@drawable/ic_management_rebuild_view"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                android:text="" />
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/management_home_search_layout"
-        style="@style/Widget.HET.TextInputLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:hint="@string/management_home_search_hint"
-        app:endIconMode="clear_text">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_management_clear_active"
+                style="@style/Widget.HET.StaticTask.Button.Text"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:contentDescription="@string/management_home_clear_active"
+                app:icon="@drawable/ic_management_rebuild_clear"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                android:text="" />
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_management_home_search"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:imeOptions="actionDone"
-            android:inputType="text"
-            android:maxLines="1" />
-    </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_management_more"
+                style="@style/Widget.HET.StaticTask.Button.Text"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:contentDescription="@string/management_home_more"
+                app:icon="@drawable/ic_task_more"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                android:text="" />
+        </LinearLayout>
+    </com.google.android.material.appbar.MaterialToolbar>
 
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tabs_management_home"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:contentDescription="@string/management_home_tabs_description"
-        app:tabGravity="fill"
-        app:tabMode="scrollable" />
-
-    <TextView
-        android:id="@+id/tv_management_home_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="16dp"
-        android:paddingTop="4dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="4dp"
-        android:text="@string/management_home_loading"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-        android:textColor="@color/het_on_surface_muted" />
-
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/scroll_management_home"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_weight="1">
+
+      <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
+        style="@style/Widget.HET.ScrollView"
+        android:id="@+id/scroll_management_home"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:clipToPadding="false"
         android:fillViewport="true">
 
         <LinearLayout
-            android:id="@+id/container_management_home_content"
+            android:id="@+id/container_management_home_scroll_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="24dp" />
-    </androidx.core.widget.NestedScrollView>
+            android:paddingBottom="96dp">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/management_home_search_layout"
+                style="@style/Widget.HET.StaticManagement.SearchLayout"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginStart="14dp"
+                android:layout_marginTop="15dp"
+                android:layout_marginEnd="14dp"
+                android:layout_marginBottom="10dp"
+                android:minHeight="44dp"
+                android:padding="0dp"
+                app:boxBackgroundMode="none"
+                app:hintEnabled="false"
+                app:endIconMode="clear_text"
+                app:endIconDrawable="@drawable/ic_task_clear">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_management_home_search"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/bg_management_rebuild_search"
+                    android:includeFontPadding="false"
+                    android:drawableStart="@drawable/ic_task_search"
+                    android:drawableTint="@color/het_on_surface_muted"
+                    android:drawablePadding="8dp"
+                    android:hint="@string/management_home_search_hint"
+                    android:imeOptions="actionDone"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="@color/het_on_surface"
+                    android:textColorHint="@color/het_on_surface_muted"
+                    android:textSize="13sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabs_management_home"
+                style="@style/Widget.HET.ManagementRebuild.Tabs"
+                android:layout_width="match_parent"
+                android:layout_height="39dp"
+                android:minHeight="39dp"
+                android:layout_marginStart="14dp"
+                android:layout_marginTop="0dp"
+                android:layout_marginEnd="14dp"
+                android:layout_marginBottom="10dp"
+                android:contentDescription="@string/management_home_tabs_description"
+                android:padding="0dp"
+                app:tabBackground="@drawable/bg_management_rebuild_tab"
+                app:tabGravity="start"
+                app:tabMode="scrollable" />
+
+            <LinearLayout
+                android:id="@+id/container_management_home_batch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/tv_management_home_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:text="@string/management_home_loading"
+                android:textAppearance="@style/TextAppearance.HET.StaticManagement.Meta" />
+
+            <LinearLayout
+                android:id="@+id/container_management_home_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="14dp"
+                android:paddingTop="0dp"
+                android:paddingEnd="14dp" />
+        </LinearLayout>
+      </com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView>
+
+      <com.google.android.material.floatingactionbutton.FloatingActionButton
+          android:id="@+id/management_rebuild_fab"
+          style="@style/Widget.HET.ManagementRebuild.Fab"
+          android:layout_width="48dp"
+          android:layout_height="48dp"
+          android:layout_gravity="bottom|end"
+          android:layout_marginEnd="14dp"
+          android:layout_marginBottom="14dp"
+          android:contentDescription="@string/management_rebuild_add"
+          android:src="@drawable/ic_management_rebuild_fab_add"
+          app:backgroundTint="@color/management_rebuild_fab_background"
+          app:borderWidth="0dp"
+          app:elevation="0dp"
+          app:pressedTranslationZ="0dp"
+          app:useCompatPadding="false"
+          app:tint="@color/management_rebuild_fab_icon" />
+    </FrameLayout>
 
     <include layout="@layout/view_primary_navigation" />
 </LinearLayout>
