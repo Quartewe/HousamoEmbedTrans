@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Widget.HET.ManagementImport.Toolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="android:layout_height">56dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:background">@drawable/bg_settings_toolbar</item>
+        <item name="android:elevation">0dp</item>
+        <item name="contentInsetStart">4dp</item>
+        <item name="contentInsetStartWithNavigation">4dp</item>
+        <item name="contentInsetEnd">12dp</item>
+        <item name="titleTextAppearance">@style/TextAppearance.HET.ManagementImport.ToolbarTitle</item>
+        <item name="titleTextColor">@color/het_on_surface</item>
+    </style>
+
+    <style name="TextAppearance.HET.ManagementImport.Eyebrow" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:textColor">@color/het_primary_strong</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.HET.ManagementImport.Heading" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">19sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.HET.ManagementImport.Description" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:lineSpacingMultiplier">1.5</item>
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="TextAppearance.HET.ManagementImport.Title" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.HET.ManagementImport.Body" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:lineSpacingMultiplier">1.45</item>
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="TextAppearance.HET.ManagementImport.Meta" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:lineSpacingMultiplier">1.4</item>
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="TextAppearance.HET.ManagementImport.Preview" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:lineSpacingMultiplier">1.4</item>
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="Widget.HET.ManagementImport.Button.Primary" parent="Widget.HET.Button.Primary">
+        <item name="android:elevation">0dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.ManagementImport.Button.Tonal" parent="Widget.HET.Button.Secondary">
+        <item name="android:elevation">0dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.ManagementImport.Button.Danger" parent="Widget.HET.Button.Danger">
+        <item name="android:elevation">0dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textSize">12sp</item>
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="Widget.HET.ManagementImport.Button.Icon" parent="Widget.HET.Button.Text">
+        <item name="android:elevation">0dp</item>
+        <item name="android:minHeight">34dp</item>
+        <item name="android:minWidth">34dp</item>
+        <item name="android:paddingStart">5dp</item>
+        <item name="android:paddingEnd">5dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="iconTint">@color/het_on_surface</item>
+    </style>
+
+    <style name="Widget.HET.ManagementImport.SelectTrigger" parent="Widget.HET.Button.Text">
+        <item name="android:elevation">0dp</item>
+        <item name="android:minHeight">36dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textColor">@color/het_primary_strong</item>
+        <item name="android:textSize">12sp</item>
+        <item name="cornerRadius">8dp</item>
+    </style>
+
+    <style name="Widget.HET.ManagementImport.FileCard" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/het_surface_container_high</item>
+        <item name="cardCornerRadius">10dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.HET.ManagementImport.ConflictCard" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/het_surface_container</item>
+        <item name="cardCornerRadius">14dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/het_outline_soft</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="TextAppearance.HET.ManagementImport.ToolbarTitle" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>
