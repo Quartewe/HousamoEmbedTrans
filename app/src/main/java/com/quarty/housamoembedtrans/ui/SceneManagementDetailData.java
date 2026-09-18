@@ -245,6 +245,78 @@ public final class SceneManagementDetailData {
         );
     }
 
+    /**
+     * Builds the same read-only projection from an in-memory preview Scene.
+     *
+     * <p>The preview payload carries its display fields in the embedded
+     * {@code i18n} objects, so no ConfigStore or SceneStore is needed.  This
+     * entry point exists to keep preview callers from manufacturing a
+     * {@link SceneStore.ValidatedScene} merely to reach the renderer.</p>
+     */
+    public static SceneData readPreview(JSONObject source) {
+        return fromJson(
+            source,
+            null,
+            null,
+            previewLanguages(source)
+        );
+    }
+
+    private static List<String> previewLanguages(JSONObject source) {
+        List<String> result = new ArrayList<>();
+        if (source == null) {
+            return result;
+        }
+        collectPreviewTranslationLanguages(
+            source.optJSONArray("scene_items"),
+            result
+        );
+        return result;
+    }
+
+    private static void collectPreviewTranslationLanguages(
+        JSONArray items,
+        List<String> result
+    ) {
+        if (items == null) {
+            return;
+        }
+        for (int index = 0; index < items.length(); index++) {
+            JSONObject item = items.optJSONObject(index);
+            if (item == null) {
+                continue;
+            }
+            JSONObject translations = item.optJSONObject("translations");
+            if (translations != null) {
+                java.util.Iterator<String> keys = translations.keys();
+                while (keys.hasNext()) {
+                    addLanguage(result, keys.next());
+                }
+            }
+            if ("choice".equals(item.optString("type", ""))) {
+                JSONArray branches = item.optJSONArray("branches");
+                if (branches != null) {
+                    for (int branchIndex = 0; branchIndex < branches.length(); branchIndex++) {
+                        JSONObject branch = branches.optJSONObject(branchIndex);
+                        if (branch != null) {
+                            collectPreviewTranslationLanguages(
+                                branch.optJSONArray("following_text"),
+                                result
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static void addLanguage(List<String> result, String language) {
+        String value = language == null ? "" : language.trim();
+        if (!value.isEmpty() && !result.contains(value)) {
+            result.add(value);
+        }
+    }
+
     private static SceneData fromJson(
         JSONObject source,
         JSONObject characterDictionary,

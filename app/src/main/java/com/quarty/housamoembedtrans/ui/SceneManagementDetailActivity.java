@@ -4,6 +4,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.context.store.SceneContextStore;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
@@ -30,9 +31,13 @@ import com.google.android.material.card.MaterialCardView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -65,11 +70,14 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
     private static final String CHARACTER_SECTION_HIGH = "high_weight";
     private static final String CHARACTER_SECTION_LOW = "low_weight";
     private static final String CHARACTER_SECTION_MENTIONED = "mentioned";
+    /** Display-only fixture time for the in-memory style preview. */
+    private static final long PREVIEW_SCENE_UPDATED_AT = 1_725_000_000_000L;
 
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private final List<View> actionViews = new ArrayList<>();
 
     private LinearLayout content;
+    private LinearLayout pageActions;
     private NestedScrollView scrollView;
     private TextView status;
     private MaterialToolbar toolbar;
@@ -80,6 +88,10 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
     private String targetTermName;
     private SceneManagementDetailData.SceneData sceneData;
     private JSONObject characterDictionary;
+    private List<JSONObject> sceneContexts = new ArrayList<>();
+    private List<JSONObject> sceneGroups = new ArrayList<>();
+    private JSONObject sceneAnnotation = new JSONObject();
+    private long sceneUpdatedAt;
     private boolean deepLinkApplied;
     private boolean restoredPageState;
     private boolean restoredPageStateResolved;
@@ -96,6 +108,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
     private boolean hasResumed;
     private boolean resumed;
     private boolean operationBusy;
+    private boolean stylePreview;
     private boolean reloadAfterPendingMove;
     private int savedScrollY = -1;
     private boolean restoreScrollPending;
@@ -152,6 +165,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         });
         status = findViewById(R.id.tv_scene_management_detail_status);
         content = findViewById(R.id.container_scene_management_detail);
+        pageActions = findViewById(R.id.page_actions);
         scrollView = findViewById(R.id.scroll_scene_management_detail);
         if (savedInstanceState != null) {
             savedScrollY = savedInstanceState.getInt(STATE_SCROLL_Y, -1);
@@ -163,6 +177,23 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         targetCharacterName = intent.getStringExtra(EXTRA_CHARACTER_NAME);
         targetTermName = intent.getStringExtra(EXTRA_TERM_NAME);
         restoredPageState = readSavedPageState(savedInstanceState);
+        stylePreview = isStylePreviewRequest();
+        if (stylePreview) {
+            JSONObject preview = StylePreview.payloadOf(intent);
+            if (preview == null) {
+                preview = StylePreview.sample(StylePreview.KIND_SCENE_DETAIL);
+            }
+            if (preview != null) {
+                String previewName = preview.optString("scene", "").trim();
+                if (!previewName.isEmpty()) {
+                    sceneName = previewName;
+                }
+                loadPreviewData(preview);
+            } else {
+                status.setText(R.string.scene_detail_missing);
+            }
+            return;
+        }
         if (TextUtils.isEmpty(sceneName)) {
             status.setText(R.string.scene_detail_unavailable);
             return;
@@ -195,9 +226,32 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
                         getString(R.string.scene_detail_missing)
                     );
                 }
+                java.io.File sceneFile =
+                    sceneStore.getValidSceneFileByName(sceneName);
+                final long loadedSceneUpdatedAt = sceneFile == null
+                    ? 0L
+                    : sceneFile.lastModified();
                 ConfigStore configStore = new ConfigStore(this);
                 final JSONObject annotations = new com.quarty.housamoembedtrans.scene.store.SceneAnnotationStore(
                     getFilesDir()).read(sceneName);
+                List<JSONObject> loadedContexts = new ArrayList<>();
+                List<JSONObject> loadedGroups = new ArrayList<>();
+                try {
+                    SceneContextStore contextStore = new SceneContextStore(this);
+                    for (JSONObject context : contextStore.listContexts()) {
+                        if (context != null) {
+                            loadedContexts.add(new JSONObject(context.toString()));
+                        }
+                    }
+                    for (JSONObject group : contextStore.listGroups()) {
+                        if (group != null) {
+                            loadedGroups.add(new JSONObject(group.toString()));
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // Scene detail remains readable when optional Context metadata
+                    // is unavailable; the relation line falls back to empty state.
+                }
                 JSONObject characters = configStore.loadJson(
                     ConfigStore.CHARDICT_FILE_NAME
                 ).json;
@@ -217,7 +271,10 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
                     manualSummaries = loadedManualSummaries == null
                         ? new JSONObject()
                         : loadedManualSummaries;
-                    render(data, characters);
+                    sceneAnnotation = annotations;
+                    sceneContexts = loadedContexts;
+                    sceneGroups = loadedGroups;
+                    render(data, characters, loadedSceneUpdatedAt);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -231,6 +288,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
                     refreshCurrentPage = null;
                     refreshHistory.clear();
                     actionViews.clear();
+                    clearPageActions();
                     updateActionState();
                     content.removeAllViews();
                     status.setText(getString(
@@ -242,9 +300,42 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         });
     }
 
+    private void loadPreviewData(JSONObject source) {
+        try {
+            sceneData = SceneManagementDetailData.readPreview(source);
+            characterDictionary = null;
+            sceneContexts = previewObjects(source.optJSONArray("contexts"));
+            sceneGroups = previewObjects(source.optJSONArray("groups"));
+            JSONObject annotation = source.optJSONObject("annotation");
+            sceneAnnotation = annotation == null ? new JSONObject() : annotation;
+            manualSummaries = new JSONObject();
+            sceneUpdatedAt = PREVIEW_SCENE_UPDATED_AT;
+            loadInFlight = false;
+            render(sceneData, null, sceneUpdatedAt);
+        } catch (Exception error) {
+            sceneData = null;
+            status.setText(getString(
+                R.string.scene_detail_load_failed,
+                safeMessage(error)
+            ));
+        }
+    }
+
+    private List<JSONObject> previewObjects(JSONArray values) {
+        List<JSONObject> result = new ArrayList<>();
+        for (int index = 0; values != null && index < values.length(); index++) {
+            JSONObject value = values.optJSONObject(index);
+            if (value != null) {
+                result.add(value);
+            }
+        }
+        return result;
+    }
+
     private void render(
         SceneManagementDetailData.SceneData data,
-        JSONObject characterDictionary
+        JSONObject characterDictionary,
+        long updatedAt
     ) {
         if (isFinishing() || isDestroyed()) {
             return;
@@ -252,6 +343,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         status.setVisibility(View.GONE);
         sceneData = data;
         this.characterDictionary = characterDictionary;
+        sceneUpdatedAt = updatedAt;
         if (refreshCurrentPage != null) {
             restoreRefreshedPageState();
             refreshCurrentPage = null;
@@ -615,6 +707,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
             selectedDetail = null;
         }
         actionViews.clear();
+        clearPageActions();
         content.removeAllViews();
         toolbar.setTitle(
             page == PAGE_SUMMARY
@@ -633,11 +726,11 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         if (page == PAGE_SUMMARY) {
             renderSummaryPage();
         } else if (page == PAGE_SOURCE) {
-            renderSourcePage();
+            renderPrototypeSourcePage();
         } else if (page == PAGE_CHARACTERS) {
-            renderCharactersPage();
+            renderPrototypeCharactersPage();
         } else if (page == PAGE_TERMS) {
-            renderTermsPage();
+            renderPrototypeTermsPage();
         } else if (page == PAGE_CHARACTER_DETAIL) {
             renderCharacterDetailPage(
                 (SceneManagementDetailData.CharacterEntry) selectedDetail
@@ -656,149 +749,1184 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
     }
 
     private void renderSummaryPage() {
-        addMetadata(sceneData);
-        addSummaryCard(
-            getString(R.string.scene_detail_source_title),
-            sceneData.sourceItems.size(),
-            getString(R.string.scene_detail_summary_source_hint),
+        renderPrototypeSummaryPage();
+    }
+
+    /** Compact management-detail surface matching the navigation prototype. */
+    private void renderPrototypeSummaryPage() {
+        addPrototypeHeading(
+            sceneData.sceneName,
+            getString(R.string.detail_proto_scene_kind),
+            getString(R.string.detail_proto_scene_move),
+            this::moveSceneToPending
+        );
+
+        LinearLayout metadata = new LinearLayout(this);
+        metadata.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout firstRow = new LinearLayout(this);
+        firstRow.setOrientation(LinearLayout.HORIZONTAL);
+        firstRow.setGravity(Gravity.TOP);
+        addPrototypeMetaCell(
+            firstRow,
+            getString(R.string.detail_proto_scene_contexts),
+            orderedSceneContextNames(),
+            true
+        );
+        addPrototypeMetaCell(
+            firstRow,
+            getString(R.string.detail_proto_scene_groups),
+            orderedSceneGroupNames(),
+            false
+        );
+        metadata.addView(firstRow, fullWidthParams(8));
+        addPrototypeMetaCell(
+            metadata,
+            getString(R.string.detail_proto_languages),
+            sceneLanguageText(sceneLanguages())
+        );
+        String sceneTime = formatSceneTime(sceneUpdatedAt);
+        if (!TextUtils.isEmpty(sceneTime)) {
+            addPrototypeMetaCell(
+                metadata,
+                getString(R.string.detail_proto_updated_at),
+                sceneTime
+            );
+        }
+        content.addView(metadata, fullWidthParams(0));
+
+        addPrototypeLanguageActions();
+        addPrototypeSummaryCard(
+            getString(R.string.detail_proto_source) + " · " + sceneData.sourceItems.size() + " 条",
+            sourcePreview(),
             () -> openPage(PAGE_SOURCE, null)
         );
-        addSummaryCard(
-            getString(R.string.scene_detail_mc_count),
-            sceneData.mainCharacter == null ? 0 : 1,
-            getString(R.string.scene_detail_summary_character_hint),
+        addPrototypeSummaryCard(
+            getString(R.string.detail_proto_main_character) + " · "
+                + (sceneData.mainCharacter == null ? 0 : 1) + " 人",
+            sceneCharacterPreview(singletonOrEmpty(sceneData.mainCharacter)),
             () -> openPage(PAGE_CHARACTERS, CHARACTER_SECTION_MC)
         );
-        addSummaryCard(
-            getString(R.string.scene_detail_high_count),
-            sceneData.highWeightCharacters.size(),
-            getString(R.string.scene_detail_summary_character_hint),
+        addPrototypeSummaryCard(
+            getString(R.string.detail_proto_primary_characters) + " · "
+                + sceneData.highWeightCharacters.size() + " 人",
+            sceneCharacterPreview(sceneData.highWeightCharacters),
             () -> openPage(PAGE_CHARACTERS, CHARACTER_SECTION_HIGH)
         );
-        addSummaryCard(
-            getString(R.string.scene_detail_low_count),
-            sceneData.lowWeightCharacters.size(),
-            getString(R.string.scene_detail_summary_character_hint),
+        addPrototypeSummaryCard(
+            getString(R.string.detail_proto_secondary_characters) + " · "
+                + sceneData.lowWeightCharacters.size() + " 人",
+            sceneCharacterPreview(sceneData.lowWeightCharacters),
             () -> openPage(PAGE_CHARACTERS, CHARACTER_SECTION_LOW)
         );
-        addSummaryCard(
-            getString(R.string.scene_detail_mentioned_count),
-            sceneData.mentionedCharacters.size(),
-            getString(R.string.scene_detail_summary_character_hint),
+        addPrototypeSummaryCard(
+            getString(R.string.detail_proto_mentioned_characters) + " · "
+                + sceneData.mentionedCharacters.size() + " 人",
+            mentionedCharacterPreview(sceneData.mentionedCharacters),
             () -> openPage(PAGE_CHARACTERS, CHARACTER_SECTION_MENTIONED)
         );
-        addSummaryCard(
-            getString(R.string.scene_detail_terms_title),
-            sceneData.terms.size(),
-            getString(R.string.scene_detail_summary_term_hint),
+        addPrototypeSummaryCard(
+            getString(R.string.detail_proto_terms) + " · " + sceneData.terms.size() + " 个",
+            termPreview(),
             () -> openPage(PAGE_TERMS, null)
         );
+
         if (manualSummaries.length() > 0) {
-            MaterialCardView annotations = cardColumn();
-            addText(
-                annotations,
+            MaterialCardView summaryCard = prototypeCard(8);
+            LinearLayout summaryBody = prototypeCardBody(summaryCard);
+            addPrototypeText(
+                summaryBody,
                 getString(R.string.scene_annotation_summaries),
-                16,
-                true,
-                false
+                R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+                0,
+                2
             );
             java.util.Iterator<String> languages = manualSummaries.keys();
             while (languages.hasNext()) {
                 String language = languages.next();
-                addText(
-                    annotations,
-                    languageName(language),
-                    14,
-                    true,
-                    false
-                );
                 JSONObject record = manualSummaries.optJSONObject(language);
-                addText(
-                    annotations,
-                    record == null ? "" : record.optString("text", ""),
-                    14, false, false);
+                String text = record == null ? "" : record.optString("text", "");
+                addPrototypeText(
+                    summaryBody,
+                    languageName(language) + "：" + trimPreview(text),
+                    R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                    0,
+                    2
+                );
             }
-            content.addView(annotations);
+            content.addView(summaryCard);
         }
-        renderSceneActions();
-        addText(content, getString(
-            R.string.scene_detail_protect_applied,
-            sceneData.protectedTokens.size()
-        ), 12, false, true);
-    }
 
-    private void renderSceneActions() {
-        MaterialCardView card = cardColumn();
-        LinearLayout column = (LinearLayout) card.getTag();
-        MaterialButton edit = new MaterialButton(this);
-        edit.setText(R.string.scene_annotation_edit);
-        edit.setAllCaps(false);
-        edit.setOnClickListener(view -> {
-            if (!canStartPendingMove()) return;
-            startActivity(new Intent(this, SceneContextActivity.class)
-            .putExtra(SceneContextActivity.EXTRA_MANAGEMENT_SCENE, sceneName));
-        });
-        registerAction(edit);
-        addText(
-            card,
-            getString(R.string.scene_detail_actions_title),
-            16,
-            true,
+        MaterialButton edit = prototypeButton(
+            R.string.detail_proto_edit,
             false
         );
-        column.addView(edit);
-        addText(
-            card,
-            getString(
-                R.string.scene_detail_language_count,
-                sceneData.languages.size()
-            ),
-            12,
-            false,
-            true
+        edit.setOnClickListener(view -> {
+            if (stylePreview) {
+                startActivity(StylePreview.intentFor(
+                    this,
+                    StylePreview.KIND_SCENE_EDITOR
+                ));
+                return;
+            }
+            if (!canStartPendingMove()) {
+                return;
+            }
+            startActivity(new Intent(this, SceneManagementEditorActivity.class)
+                .putExtra(SceneManagementEditorActivity.EXTRA_SCENE_NAME, sceneName));
+        });
+        registerAction(edit);
+        addPageAction(edit, wrapButtonParams(0));
+    }
+
+    private void addPrototypeHeading(
+        String title,
+        String kindLabel,
+        String actionLabel,
+        Runnable action
+    ) {
+        LinearLayout heading = new LinearLayout(this);
+        heading.setOrientation(LinearLayout.HORIZONTAL);
+        heading.setGravity(Gravity.TOP);
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView titleView = prototypeTextView(
+            title,
+            R.style.TextAppearance_HET_DetailPrototype_Heading
         );
-        if (sceneData.languages.isEmpty()) {
-            addText(
-                card,
-                getString(R.string.scene_detail_no_languages),
-                13,
-                false,
-                true
-            );
-        } else {
-            for (String language : sceneData.languages) {
-                MaterialButton button = new MaterialButton(this);
-                button.setAllCaps(false);
-                button.setText(getString(
+        TextView kindView = prototypeTextView(
+            kindLabel,
+            R.style.TextAppearance_HET_DetailPrototype_Kind
+        );
+        copy.addView(titleView);
+        copy.addView(kindView, fullWidthParams(2));
+        heading.addView(copy, new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        ));
+        if (action != null && actionLabel != null && !stylePreview) {
+            MaterialButton actionButton = prototypeButton(actionLabel, true);
+            actionButton.setOnClickListener(view -> action.run());
+            registerAction(actionButton);
+            addPageAction(actionButton, wrapButtonParams(0));
+        }
+        content.addView(heading, fullWidthParams(10));
+    }
+
+    private void addPrototypeMetaCell(
+        LinearLayout row,
+        String label,
+        String value,
+        boolean first
+    ) {
+        MaterialCardView card = prototypeCard(0);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeText(
+            body,
+            label,
+            R.style.TextAppearance_HET_DetailPrototype_MetaLabel,
+            0,
+            2
+        );
+        addPrototypeText(
+            body,
+            emptyFallback(value),
+            R.style.TextAppearance_HET_DetailPrototype_MetaValue,
+            0,
+            0
+        );
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        );
+        if (!first) {
+            params.leftMargin = dp(8);
+        }
+        row.addView(card, params);
+    }
+
+    private void addPrototypeMetaCell(
+        LinearLayout parent,
+        String label,
+        String value
+    ) {
+        MaterialCardView card = prototypeCard(0);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeText(
+            body,
+            label,
+            R.style.TextAppearance_HET_DetailPrototype_MetaLabel,
+            0,
+            2
+        );
+        addPrototypeText(
+            body,
+            emptyFallback(value),
+            R.style.TextAppearance_HET_DetailPrototype_MetaValue,
+            0,
+            0
+        );
+        parent.addView(card, fullWidthParams(8));
+    }
+
+    private void addPrototypeLanguageActions() {
+        List<String> languages = sceneLanguages();
+        MaterialCardView card = prototypeCard(8);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeText(
+            body,
+            getString(R.string.detail_proto_language_actions),
+            R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+            0,
+            4
+        );
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.setPadding(0, 0, 0, 0);
+        boolean hasAction = false;
+        for (String language : languages) {
+            if (stylePreview) {
+                break;
+            }
+            MaterialButton button = prototypeButton(
+                getString(
                     R.string.scene_detail_move_language_pending,
                     languageName(language)
-                ));
-                applyDangerButton(button);
-                button.setOnClickListener(
-                    view -> moveLanguageToPending(language)
-                );
-                registerAction(button);
-                column.addView(button, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
+                ),
+                true
+            );
+            button.setOnClickListener(view -> moveLanguageToPending(language));
+            registerAction(button);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dp(34)
+            );
+            params.rightMargin = dp(6);
+            actions.addView(button, params);
+            hasAction = true;
+        }
+        if (!hasAction) {
+            addPrototypeText(
+                body,
+                getString(R.string.detail_proto_no_language_action),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                0,
+                0
+            );
+        } else {
+            body.addView(actions, fullWidthParams(0));
+        }
+        content.addView(card);
+    }
+
+    private void addPrototypeSummaryCard(
+        String title,
+        String preview,
+        Runnable action
+    ) {
+        MaterialCardView card = prototypeCard(8);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(view -> action.run());
+        LinearLayout body = prototypeCardBody(card);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView titleView = prototypeTextView(
+            title,
+            R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+            false
+        );
+        titleView.setSingleLine(true);
+        titleView.setMaxLines(1);
+        titleView.setEllipsize(TextUtils.TruncateAt.END);
+        titleView.setTextSize(12);
+        titleView.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
+        copy.addView(titleView, fullWidthParams(3));
+        TextView previewView = prototypeTextView(
+            emptyFallback(trimPreview(preview)),
+            R.style.TextAppearance_HET_DetailPrototype_CardPreview,
+            false
+        );
+        previewView.setSingleLine(true);
+        previewView.setMaxLines(1);
+        previewView.setEllipsize(TextUtils.TruncateAt.END);
+        previewView.setTextSize(13);
+        previewView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        copy.addView(previewView, fullWidthParams(0));
+        row.addView(copy, new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        ));
+        TextView arrow = prototypeTextView(
+            "›",
+            R.style.TextAppearance_HET_DetailPrototype_MetaLabel,
+            false
+        );
+        arrow.setTextSize(24);
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LinearLayout.LayoutParams(dp(20), dp(28)));
+        body.addView(row, fullWidthParams(0));
+        content.addView(card);
+    }
+
+    private void renderPrototypeSourcePage() {
+        String language = currentTranslationLanguage(sceneLanguages());
+        addPrototypeHeading(
+            sceneData.sceneName + " · "
+                + getString(R.string.detail_proto_scene_source_heading),
+            getString(
+                R.string.detail_proto_scene_source_description,
+                language == null
+                    ? getString(R.string.detail_proto_no_language)
+                    : languageName(language)
+            ),
+            null,
+            null
+        );
+        JSONObject source = sceneData == null ? null : sceneData.source;
+        JSONArray sceneItems = source == null
+            ? null
+            : source.optJSONArray("scene_items");
+        if (sceneItems == null || sceneItems.length() == 0) {
+            addPrototypeText(
+                content,
+                getString(R.string.detail_proto_scene_no_source),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                0,
+                0
+            );
+            return;
+        }
+        addPrototypeSceneItems(content, sceneItems, language, new int[] {0});
+    }
+
+    private void addPrototypeSceneItems(
+        LinearLayout parent,
+        JSONArray items,
+        String language,
+        int[] fallbackCounter
+    ) {
+        for (int index = 0; items != null && index < items.length(); index++) {
+            JSONObject item = items.optJSONObject(index);
+            if (item == null) {
+                continue;
+            }
+            addPrototypeSceneItem(parent, item, language, fallbackCounter);
+        }
+    }
+
+    private void addPrototypeSceneItem(
+        LinearLayout parent,
+        JSONObject item,
+        String language,
+        int[] fallbackCounter
+    ) {
+        String orderLabel = SceneManagementDetailData.orderLabel(
+            item,
+            fallbackCounter[0]++,
+            sceneData.sequenceByOrder
+        );
+        String type = item.optString("type", "text").trim();
+        if ("choice".equals(type)) {
+            addPrototypeChoiceItem(parent, item, language, orderLabel, fallbackCounter);
+        } else if ("if".equals(type)) {
+            addPrototypeIfItem(parent, item, language, orderLabel, fallbackCounter);
+        } else {
+            addPrototypeTextItem(parent, item, language, orderLabel);
+        }
+    }
+
+    private void addPrototypeTextItem(
+        LinearLayout parent,
+        JSONObject item,
+        String language,
+        String orderLabel
+    ) {
+        MaterialCardView card = prototypeCard(8);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeSceneMetadata(
+            body,
+            "#" + orderLabel,
+            displaySpeaker(item.optString("speaker", ""))
+        );
+
+        String translation = SceneManagementDetailData.restoreProtectedText(
+            sceneItemTranslation(item, language),
+            sceneData.protectedTokens
+        );
+        addPrototypeText(
+            body,
+            translation.isEmpty()
+                ? getString(R.string.detail_proto_scene_no_translation)
+                : translation,
+            R.style.TextAppearance_HET_DetailPrototype_Translation,
+            0,
+            0
+        );
+        String original = SceneManagementDetailData.restoreProtectedText(
+            item.optString("text", ""),
+            sceneData.protectedTokens
+        );
+        if (!original.isEmpty()) {
+            addPrototypeText(
+                body,
+                original,
+                R.style.TextAppearance_HET_DetailPrototype_Original,
+                3,
+                0
+            );
+        }
+        parent.addView(card);
+    }
+
+    private void addPrototypeChoiceItem(
+        LinearLayout parent,
+        JSONObject item,
+        String language,
+        String orderLabel,
+        int[] fallbackCounter
+    ) {
+        MaterialCardView card = prototypeCard(8);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeSceneMetadata(
+            body,
+            "#" + orderLabel,
+            getString(R.string.detail_proto_scene_choice)
+        );
+
+        JSONArray directOptions = item.optJSONArray("options");
+        if (directOptions != null && directOptions.length() > 0) {
+            LinearLayout optionsContainer = prototypeNestedContainer();
+            addPrototypeOptionItems(optionsContainer, directOptions, language);
+            if (optionsContainer.getChildCount() > 0) {
+                body.addView(optionsContainer, fullWidthParams(0));
             }
         }
-        MaterialButton sceneButton = new MaterialButton(this);
-        sceneButton.setAllCaps(false);
-        sceneButton.setText(R.string.scene_detail_move_scene_pending);
-        applyDangerButton(sceneButton);
-        sceneButton.setOnClickListener(view -> moveSceneToPending());
-        registerAction(sceneButton);
-        column.addView(sceneButton, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
+
+        JSONArray branches = item.optJSONArray("branches");
+        for (int branchIndex = 0;
+             branches != null && branchIndex < branches.length();
+             branchIndex++) {
+            JSONObject branch = branches.optJSONObject(branchIndex);
+            if (branch == null) {
+                continue;
+            }
+            LinearLayout branchContainer = prototypeBranchContainer();
+            addPrototypeText(
+                branchContainer,
+                getString(R.string.detail_proto_scene_branch, branchIndex + 1),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                0,
+                0
+            );
+            String target = branch.optString("target_label", "").trim();
+            if (!target.isEmpty()) {
+                addPrototypeText(
+                    branchContainer,
+                    getString(R.string.detail_proto_scene_jump_target, target),
+                    R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                    3,
+                    0
+                );
+            }
+            addPrototypeOptionItems(
+                branchContainer,
+                branch.optJSONArray("options"),
+                language
+            );
+            addPrototypeSceneItems(
+                branchContainer,
+                branch.optJSONArray("following_text"),
+                language,
+                fallbackCounter
+            );
+            LinearLayout.LayoutParams branchParams = fullWidthParams(0);
+            if (branchIndex > 0) {
+                branchParams.topMargin = dp(6);
+            }
+            body.addView(branchContainer, branchParams);
+        }
+        String mergeLabel = item.optString("merge_label", "").trim();
+        if (!mergeLabel.isEmpty()) {
+            addPrototypeText(
+                body,
+                getString(R.string.detail_proto_scene_merge_label, mergeLabel),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                3,
+                0
+            );
+        }
+        parent.addView(card);
+    }
+
+    private void addPrototypeIfItem(
+        LinearLayout parent,
+        JSONObject item,
+        String language,
+        String orderLabel,
+        int[] fallbackCounter
+    ) {
+        MaterialCardView card = prototypeCard(8);
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeSceneMetadata(
+            body,
+            "#" + orderLabel,
+            getString(R.string.detail_proto_scene_if)
+        );
+
+        String condition = SceneManagementDetailData.restoreProtectedText(
+            item.optString("condition", ""),
+            sceneData.protectedTokens
+        ).trim();
+        if (!condition.isEmpty()) {
+            addPrototypeText(
+                body,
+                getString(R.string.detail_proto_scene_condition, condition),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                3,
+                0
+            );
+        }
+        String target = item.optString("target_label", "").trim();
+        if (!target.isEmpty()) {
+            addPrototypeText(
+                body,
+                getString(R.string.detail_proto_scene_jump_target, target),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                3,
+                0
+            );
+        }
+        LinearLayout followingContainer = prototypeNestedContainer();
+        addPrototypeSceneItems(
+            followingContainer,
+            item.optJSONArray("following_text"),
+            language,
+            fallbackCounter
+        );
+        if (followingContainer.getChildCount() > 0) {
+            body.addView(followingContainer, fullWidthParams(0));
+        }
+        String mergeLabel = item.optString("merge_label", "").trim();
+        if (!mergeLabel.isEmpty()) {
+            addPrototypeText(
+                body,
+                getString(R.string.detail_proto_scene_merge_label, mergeLabel),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                3,
+                0
+            );
+        }
+        parent.addView(card);
+    }
+
+    private void addPrototypeOptionItems(
+        LinearLayout parent,
+        JSONArray options,
+        String language
+    ) {
+        for (int index = 0; options != null && index < options.length(); index++) {
+            JSONObject option = options.optJSONObject(index);
+            if (option == null) {
+                continue;
+            }
+            String optionText = SceneManagementDetailData.restoreProtectedText(
+                option.optString("text", ""),
+                sceneData.protectedTokens
+            );
+            String translation = SceneManagementDetailData.restoreProtectedText(
+                sceneItemTranslation(option, language),
+                sceneData.protectedTokens
+            );
+            if (optionText.isEmpty() && translation.isEmpty()) {
+                continue;
+            }
+            String target = option.optString("target_label", "").trim();
+            LinearLayout optionContainer = new LinearLayout(this);
+            optionContainer.setOrientation(LinearLayout.VERTICAL);
+            optionContainer.setPadding(0, dp(3), 0, dp(2));
+            if (!optionText.isEmpty()) {
+                addPrototypeText(
+                    optionContainer,
+                    "• " + optionText,
+                    R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                    0,
+                    0
+                );
+            }
+            if (!translation.isEmpty()) {
+                addPrototypeText(
+                    optionContainer,
+                    "↳ " + translation,
+                    R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                    2,
+                    0
+                );
+            }
+            if (!target.isEmpty()) {
+                addPrototypeText(
+                    optionContainer,
+                    getString(R.string.detail_proto_scene_jump_target, target),
+                    R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                    2,
+                    0
+                );
+            }
+            parent.addView(optionContainer, fullWidthParams(0));
+        }
+    }
+
+    private void addPrototypeSceneMetadata(
+        LinearLayout body,
+        String orderLabel,
+        String label
+    ) {
+        LinearLayout metadata = new LinearLayout(this);
+        metadata.setOrientation(LinearLayout.HORIZONTAL);
+        TextView order = prototypeTextView(
+            orderLabel,
+            R.style.TextAppearance_HET_DetailPrototype_Metadata
+        );
+        metadata.addView(order, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ));
+        TextView type = prototypeTextView(
+            label,
+            R.style.TextAppearance_HET_DetailPrototype_Metadata
+        );
+        LinearLayout.LayoutParams typeParams = new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        );
+        typeParams.leftMargin = dp(7);
+        metadata.addView(type, typeParams);
+        body.addView(metadata, fullWidthParams(4));
+    }
+
+    private LinearLayout prototypeNestedContainer() {
+        LinearLayout nested = new LinearLayout(this);
+        nested.setOrientation(LinearLayout.VERTICAL);
+        nested.setPadding(dp(8), dp(4), 0, 0);
+        return nested;
+    }
+
+    private LinearLayout prototypeBranchContainer() {
+        LinearLayout branch = new LinearLayout(this);
+        branch.setOrientation(LinearLayout.VERTICAL);
+        branch.setPadding(dp(8), dp(7), 0, dp(2));
+        return branch;
+    }
+
+    private void renderPrototypeCharactersPage() {
+        addPrototypeHeading(
+            sceneData.sceneName + " · "
+                + getString(R.string.detail_proto_characters),
+            getString(R.string.detail_proto_scene_characters_description),
+            null,
+            null
+        );
+        addPrototypeCharacterSection(
+            getString(R.string.detail_proto_main_character),
+            singletonOrEmpty(sceneData.mainCharacter),
+            CHARACTER_SECTION_MC
+        );
+        addPrototypeCharacterSection(
+            getString(R.string.detail_proto_primary_characters),
+            sceneData.highWeightCharacters,
+            CHARACTER_SECTION_HIGH
+        );
+        addPrototypeCharacterSection(
+            getString(R.string.detail_proto_secondary_characters),
+            sceneData.lowWeightCharacters,
+            CHARACTER_SECTION_LOW
+        );
+        addPrototypeMentionedSection();
+    }
+
+    private void addPrototypeCharacterSection(
+        String label,
+        List<SceneManagementDetailData.CharacterEntry> entries,
+        String section
+    ) {
+        addPrototypeText(
+            content,
+            getString(R.string.detail_proto_scene_character_group_count, label, entries.size()),
+            R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+            2,
+            4
+        );
+        if (entries.isEmpty()) {
+            addPrototypeText(
+                content,
+                getString(R.string.detail_proto_no_preview),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                0,
+                6
+            );
+            return;
+        }
+        for (SceneManagementDetailData.CharacterEntry entry : entries) {
+            addPrototypeEntityCard(
+                displayCharacterName(entry),
+                entry.temporary
+                    ? getString(R.string.scene_detail_temporary_character, entry.name)
+                    : getString(R.string.scene_detail_dictionary_character, entry.name),
+                () -> openPage(PAGE_CHARACTER_DETAIL, entry)
+            );
+        }
+    }
+
+    private void addPrototypeMentionedSection() {
+        String label = getString(R.string.detail_proto_mentioned_characters);
+        addPrototypeText(
+            content,
+            getString(
+                R.string.detail_proto_scene_character_group_count,
+                label,
+                sceneData.mentionedCharacters.size()
+            ),
+            R.style.TextAppearance_HET_DetailPrototype_CardTitle,
+            2,
+            4
+        );
+        if (sceneData.mentionedCharacters.isEmpty()) {
+            addPrototypeText(
+                content,
+                getString(R.string.detail_proto_no_preview),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                0,
+                6
+            );
+            return;
+        }
+        for (SceneManagementDetailData.MentionedCharacterEntry entry
+            : sceneData.mentionedCharacters) {
+            addPrototypeEntityCard(
+                displayMentionedName(entry),
+                entry.temporary
+                    ? getString(R.string.scene_detail_temporary_character, entry.name)
+                    : getString(R.string.scene_detail_dictionary_character, entry.name),
+                () -> openPage(PAGE_MENTIONED_CHARACTER_DETAIL, entry)
+            );
+        }
+    }
+
+    private void addPrototypeEntityCard(
+        String title,
+        String subtitle,
+        Runnable action
+    ) {
+        MaterialCardView card = prototypeCard(6);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(view -> action.run());
+        LinearLayout body = prototypeCardBody(card);
+        addPrototypeText(
+            body,
+            title,
+            R.style.TextAppearance_HET_DetailPrototype_MetaValue,
+            0,
+            2,
+            false
+        );
+        addPrototypeText(
+            body,
+            subtitle,
+            R.style.TextAppearance_HET_DetailPrototype_Metadata,
+            0,
+            0,
+            false
+        );
         content.addView(card);
+    }
+
+    private void renderPrototypeTermsPage() {
+        addPrototypeHeading(
+            sceneData.sceneName + " · "
+                + getString(R.string.detail_proto_terms),
+            getString(R.string.detail_proto_scene_terms_description),
+            null,
+            null
+        );
+        if (sceneData.terms.isEmpty()) {
+            addPrototypeText(
+                content,
+                getString(R.string.detail_proto_no_preview),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                0,
+                0
+            );
+            return;
+        }
+        for (SceneManagementDetailData.TermEntry entry : sceneData.terms) {
+            addPrototypeEntityCard(
+                displayTermName(entry),
+                entry.temporary
+                    ? getString(R.string.scene_detail_temporary_term, entry.term)
+                    : getString(R.string.scene_detail_dictionary_term, entry.term),
+                () -> openPage(PAGE_TERM_DETAIL, entry)
+            );
+        }
+    }
+
+    private MaterialCardView prototypeCard(int bottomMargin) {
+        MaterialCardView card = new MaterialCardView(
+            new ContextThemeWrapper(this, R.style.Widget_HET_DetailCard)
+        );
+        card.setCardElevation(0);
+        card.setRadius(dp(14));
+        card.setCardBackgroundColor(ContextCompat.getColor(
+            this,
+            R.color.het_surface_container
+        ));
+        card.setStrokeWidth(0);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(11), dp(10), dp(11), dp(10));
+        card.addView(body);
+        card.setTag(body);
+        card.setLayoutParams(fullWidthParams(bottomMargin));
+        return card;
+    }
+
+    private LinearLayout prototypeCardBody(MaterialCardView card) {
+        return (LinearLayout) card.getTag();
+    }
+
+    private TextView prototypeTextView(String value, int style) {
+        return prototypeTextView(value, style, true);
+    }
+
+    private TextView prototypeTextView(
+        String value,
+        int style,
+        boolean selectable
+    ) {
+        TextView text = new TextView(this);
+        text.setTextAppearance(this, style);
+        text.setText(value == null ? "" : value);
+        text.setTextIsSelectable(selectable);
+        return text;
+    }
+
+    private void addPrototypeText(
+        View parent,
+        String value,
+        int style,
+        int topMargin,
+        int bottomMargin
+    ) {
+        addPrototypeText(
+            parent,
+            value,
+            style,
+            topMargin,
+            bottomMargin,
+            true
+        );
+    }
+
+    private void addPrototypeText(
+        View parent,
+        String value,
+        int style,
+        int topMargin,
+        int bottomMargin,
+        boolean selectable
+    ) {
+        LinearLayout column = parent instanceof MaterialCardView
+            ? prototypeCardBody((MaterialCardView) parent)
+            : (LinearLayout) parent;
+        TextView text = prototypeTextView(value, style, selectable);
+        LinearLayout.LayoutParams params = fullWidthParams(bottomMargin);
+        params.topMargin = dp(topMargin);
+        column.addView(text, params);
+    }
+
+    private MaterialButton prototypeButton(String value, boolean danger) {
+        MaterialButton button = new MaterialButton(
+            new ContextThemeWrapper(
+                this,
+                danger
+                    ? R.style.Widget_HET_DetailPrototype_Button_Danger
+                    : R.style.Widget_HET_DetailPrototype_Button
+            )
+        );
+        button.setText(value);
+        button.setAllCaps(false);
+        button.setTextSize(13);
+        button.setMinWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setPadding(dp(12), 0, dp(12), 0);
+        button.setCornerRadius(dp(17));
+        if (danger) {
+            button.setBackgroundTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.het_error)
+            ));
+            button.setTextColor(ContextCompat.getColor(
+                this,
+                R.color.het_on_error
+            ));
+            button.setStrokeWidth(0);
+        } else {
+            button.setBackgroundTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(
+                    this,
+                    R.color.het_surface_container_high
+                )
+            ));
+            button.setTextColor(ContextCompat.getColor(
+                this,
+                R.color.het_on_surface
+            ));
+            button.setStrokeWidth(dp(1));
+            button.setStrokeColor(ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.het_outline_soft)
+            ));
+        }
+        return button;
+    }
+
+    private MaterialButton prototypeButton(int labelResource, boolean danger) {
+        return prototypeButton(getString(labelResource), danger);
+    }
+
+    private LinearLayout.LayoutParams fullWidthParams(int bottomMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.bottomMargin = dp(bottomMargin);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams wrapButtonParams(int bottomMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            dp(34)
+        );
+        params.gravity = Gravity.END;
+        params.bottomMargin = dp(bottomMargin);
+        return params;
+    }
+
+    private List<SceneManagementDetailData.CharacterEntry> singletonOrEmpty(
+        SceneManagementDetailData.CharacterEntry entry
+    ) {
+        List<SceneManagementDetailData.CharacterEntry> result = new ArrayList<>();
+        if (entry != null) {
+            result.add(entry);
+        }
+        return result;
+    }
+
+    private String sourcePreview() {
+        for (SceneManagementDetailData.SourceItem item : sceneData.sourceItems) {
+            String value = SceneManagementDetailData.restoreProtectedText(
+                item.source.optString("text", ""),
+                sceneData.protectedTokens
+            ).trim();
+            if (!value.isEmpty()) {
+                return value;
+            }
+        }
+        return getString(R.string.detail_proto_no_preview);
+    }
+
+    private String sceneCharacterPreview(
+        List<SceneManagementDetailData.CharacterEntry> entries
+    ) {
+        List<String> names = new ArrayList<>();
+        for (SceneManagementDetailData.CharacterEntry entry : entries) {
+            String name = displayCharacterName(entry);
+            if (!name.isEmpty()) {
+                names.add(name);
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_no_preview)
+            : TextUtils.join("、", names);
+    }
+
+    private String mentionedCharacterPreview(
+        List<SceneManagementDetailData.MentionedCharacterEntry> entries
+    ) {
+        List<String> names = new ArrayList<>();
+        for (SceneManagementDetailData.MentionedCharacterEntry entry : entries) {
+            String name = displayMentionedName(entry);
+            if (!name.isEmpty()) {
+                names.add(name);
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_no_preview)
+            : TextUtils.join("、", names);
+    }
+
+    private String termPreview() {
+        List<String> names = new ArrayList<>();
+        for (SceneManagementDetailData.TermEntry entry : sceneData.terms) {
+            String name = displayTermName(entry);
+            if (!name.isEmpty()) {
+                names.add(name);
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_no_preview)
+            : TextUtils.join("、", names);
+    }
+
+    private String trimPreview(String value) {
+        String text = value == null ? "" : value.trim().replace('\n', ' ');
+        if (text.length() <= 120) {
+            return text;
+        }
+        return text.substring(0, 117) + "…";
+    }
+
+    private List<String> sceneLanguages() {
+        Set<String> languages = new LinkedHashSet<>();
+        if (sceneData != null && sceneData.languages != null) {
+            languages.addAll(sceneData.languages);
+        }
+        JSONObject source = sceneData == null ? null : sceneData.source;
+        addLanguageKeys(source == null ? null : source.optJSONObject("translated"), languages, true);
+        addLanguageKeys(source == null ? null : source.optJSONObject("provider"), languages, false);
+        addLanguageKeys(source == null ? null : source.optJSONObject("model"), languages, false);
+        for (SceneManagementDetailData.SourceItem item
+            : sceneData == null ? new ArrayList<SceneManagementDetailData.SourceItem>()
+                : sceneData.sourceItems) {
+            addLanguageKeys(item.source.optJSONObject("translations"), languages, true);
+            addLanguageKeys(item.source.optJSONObject("translated"), languages, true);
+        }
+        return new ArrayList<>(languages);
+    }
+
+    private void addLanguageKeys(
+        JSONObject values,
+        Set<String> output,
+        boolean requireValue
+    ) {
+        if (values == null) {
+            return;
+        }
+        java.util.Iterator<String> keys = values.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            if (!requireValue || translationValueText(values.opt(key)) != null
+                || values.optBoolean(key, false)) {
+                output.add(key);
+            }
+        }
+    }
+
+    private String sceneLanguageText(List<String> languages) {
+        if (languages == null || languages.isEmpty()) {
+            return getString(R.string.detail_proto_no_language);
+        }
+        List<String> labels = new ArrayList<>();
+        for (String language : languages) {
+            labels.add(languageName(language));
+        }
+        return TextUtils.join("、", labels);
+    }
+
+    private String currentTranslationLanguage(List<String> languages) {
+        if (languages == null || languages.isEmpty()) {
+            return null;
+        }
+        String[] priority = new String[] {"zh-cn", "en", "ja", "ko"};
+        for (String preferred : priority) {
+            if (languages.contains(preferred)) {
+                return preferred;
+            }
+        }
+        return languages.get(0);
+    }
+
+    private String sceneItemTranslation(JSONObject item, String language) {
+        if (item == null || language == null || language.isEmpty()) {
+            return "";
+        }
+        String value = translationValueText(
+            item.optJSONObject("translations") == null
+                ? null
+                : item.optJSONObject("translations").opt(language)
+        );
+        if (value == null) {
+            value = translationValueText(
+                item.optJSONObject("translated") == null
+                    ? null
+                    : item.optJSONObject("translated").opt(language)
+            );
+        }
+        if (value == null && sceneData != null && sceneData.source != null) {
+            JSONObject languages = sceneData.source.optJSONObject("translated");
+            JSONObject record = languages == null ? null : languages.optJSONObject(language);
+            JSONObject items = record == null ? null : record.optJSONObject("items");
+            if (items == null) {
+                items = record;
+            }
+            String itemId = item.optString("id", "");
+            if (items != null && !itemId.isEmpty()) {
+                value = translationValueText(items.opt(itemId));
+            }
+        }
+        return value == null ? "" : value;
+    }
+
+    private String translationValueText(Object value) {
+        if (value == null || value == JSONObject.NULL) {
+            return null;
+        }
+        if (value instanceof String) {
+            String text = ((String) value).trim();
+            return text.isEmpty() ? null : text;
+        }
+        if (!(value instanceof JSONObject)) {
+            return null;
+        }
+        JSONObject record = (JSONObject) value;
+        String[] fields = new String[] {
+            "text", "current", "final", "manual", "translation",
+            "translatedText", "currentTranslation", "finalTranslation"
+        };
+        for (String field : fields) {
+            String text = translationValueText(record.opt(field));
+            if (text != null) {
+                return text;
+            }
+        }
+        return null;
     }
 
     private void registerAction(View action) {
         actionViews.add(action);
+    }
+
+    private void addPageAction(View action, LinearLayout.LayoutParams params) {
+        params.gravity = Gravity.CENTER_VERTICAL;
+        if (pageActions.getChildCount() > 0) {
+            params.leftMargin = dp(6);
+        }
+        pageActions.addView(action, params);
+        pageActions.setVisibility(View.VISIBLE);
+    }
+
+    private void clearPageActions() {
+        pageActions.removeAllViews();
+        pageActions.setVisibility(View.GONE);
     }
 
     private void updateActionState() {
@@ -921,93 +2049,94 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         renderPage();
     }
 
-    private void addSummaryCard(
-        String title,
-        int count,
-        String hint,
-        Runnable action
-    ) {
-        MaterialCardView card = cardColumn();
-        LinearLayout column = (LinearLayout) card.getTag();
-        addText(column, title + " · " + count, 15, true, false);
-        addText(column, hint, 12, false, true);
-        card.setClickable(true);
-        card.setFocusable(true);
-        card.setContentDescription(title + " · " + count);
-        card.setOnClickListener(view -> action.run());
-        content.addView(card);
-    }
-
-    private void addMetadata(SceneManagementDetailData.SceneData data) {
-        MaterialCardView card = cardColumn();
-        addText(card, data.sceneName, 20, true, false);
-        addText(card, getString(
-            R.string.scene_detail_metadata,
-            emptyFallback(data.gameVersion),
-            languageLabel(data.rawLanguage),
-            languageLabel(data.targetLanguage)
-        ), 12, false, true);
-        content.addView(card);
-    }
-
-    private void renderCharactersPage() {
-        String expandedSection = selectedDetail instanceof String
-            ? (String) selectedDetail
-            : "";
-        addText(content, getString(
-            R.string.scene_detail_characters_description
-        ), 13, false, true);
-        addDisclosure(
-            getString(R.string.scene_detail_mc_count),
-            sceneData.mainCharacter == null ? 0 : 1,
-            sceneData.mainCharacter == null
-                ? new ArrayList<>()
-                : singletonCharacterRows(sceneData.mainCharacter, characterDictionary),
-            CHARACTER_SECTION_MC.equals(expandedSection)
-        );
-        addDisclosure(
-            getString(R.string.scene_detail_high_count),
-            sceneData.highWeightCharacters.size(),
-            characterRows(sceneData.highWeightCharacters, characterDictionary),
-            CHARACTER_SECTION_HIGH.equals(expandedSection)
-        );
-        addDisclosure(
-            getString(R.string.scene_detail_low_count),
-            sceneData.lowWeightCharacters.size(),
-            characterRows(sceneData.lowWeightCharacters, characterDictionary),
-            CHARACTER_SECTION_LOW.equals(expandedSection)
-        );
-        List<View> mentionedRows = new ArrayList<>();
-        for (SceneManagementDetailData.MentionedCharacterEntry entry
-            : sceneData.mentionedCharacters) {
-            mentionedRows.add(characterRow(entry));
+    private String orderedSceneContextNames() {
+        List<JSONObject> associated = new ArrayList<>();
+        java.util.LinkedHashSet<String> remaining = new java.util.LinkedHashSet<>();
+        for (JSONObject context : sceneContexts) {
+            String id = context == null ? "" : context.optString("id", "");
+            if (!id.isEmpty() && containsScene(context, sceneName)) {
+                remaining.add(id);
+            }
         }
-        addDisclosure(
-            getString(R.string.scene_detail_mentioned_count),
-            sceneData.mentionedCharacters.size(),
-            mentionedRows,
-            CHARACTER_SECTION_MENTIONED.equals(expandedSection)
-        );
+        JSONArray order = sceneAnnotation == null
+            ? null
+            : sceneAnnotation.optJSONArray("context_order");
+        for (int index = 0; order != null && index < order.length(); index++) {
+            String id = order.optString(index, "");
+            if (remaining.remove(id)) {
+                JSONObject context = findContext(id);
+                if (context != null) associated.add(context);
+            }
+        }
+        for (String id : remaining) {
+            JSONObject context = findContext(id);
+            if (context != null) associated.add(context);
+        }
+        if (associated.isEmpty()) {
+            return getString(R.string.scene_detail_no_contexts);
+        }
+        List<String> names = new ArrayList<>();
+        for (JSONObject context : associated) {
+            names.add(context.optString("display_name", context.optString("id", "")));
+        }
+        return TextUtils.join("、", names);
     }
 
-    private void renderSourcePage() {
-        addText(content, getString(
-            R.string.scene_detail_source_description,
-            sceneData.sourceItems.size()
-        ), 13, false, true);
-        for (SceneManagementDetailData.SourceItem item : sceneData.sourceItems) {
-            content.addView(sourceRow(item, sceneData));
+    private String orderedSceneGroupNames() {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        Set<String> contextIds = new LinkedHashSet<>();
+        for (JSONObject context : sceneContexts) {
+            String id = context == null ? "" : context.optString("id", "");
+            if (!id.isEmpty() && containsScene(context, sceneName)) {
+                contextIds.add(id);
+            }
         }
+        for (JSONObject group : sceneGroups) {
+            if (group == null) {
+                continue;
+            }
+            JSONArray members = group.optJSONArray("contexts");
+            boolean associated = false;
+            for (int index = 0;
+                 members != null && index < members.length();
+                 index++) {
+                JSONObject member = members.optJSONObject(index);
+                if (member != null && contextIds.contains(
+                    member.optString("context_id", "")
+                )) {
+                    associated = true;
+                    break;
+                }
+            }
+            if (associated) {
+                String label = group.optString("display_name", "").trim();
+                if (label.isEmpty()) {
+                    label = group.optString("id", "").trim();
+                }
+                if (!label.isEmpty()) {
+                    names.add(label);
+                }
+            }
+        }
+        return names.isEmpty()
+            ? getString(R.string.detail_proto_no_context)
+            : TextUtils.join("、", names);
     }
 
-    private void renderTermsPage() {
-        addText(content, getString(
-            R.string.scene_detail_terms_description,
-            sceneData.terms.size()
-        ), 13, false, true);
-        for (SceneManagementDetailData.TermEntry entry : sceneData.terms) {
-            content.addView(termRow(entry));
+    private JSONObject findContext(String id) {
+        for (JSONObject context : sceneContexts) {
+            if (context != null && id.equals(context.optString("id", ""))) return context;
         }
+        return null;
+    }
+
+    private static boolean containsScene(JSONObject context, String scene) {
+        JSONArray scenes = context == null ? null : context.optJSONArray("scenes");
+        for (int index = 0; scenes != null && index < scenes.length(); index++) {
+            JSONObject entry = scenes.optJSONObject(index);
+            if (entry != null && scene.equals(entry.optString("scene", ""))) return true;
+        }
+        return false;
     }
 
     private void renderCharacterDetailPage(
@@ -1033,53 +2162,6 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
             return;
         }
         content.addView(termDetailRow(entry));
-    }
-
-    private List<View> singletonCharacterRows(
-        SceneManagementDetailData.CharacterEntry entry,
-        JSONObject characterDictionary
-    ) {
-        List<SceneManagementDetailData.CharacterEntry> entries =
-            new ArrayList<>();
-        entries.add(entry);
-        return characterRows(entries, characterDictionary);
-    }
-
-    private List<View> characterRows(
-        List<SceneManagementDetailData.CharacterEntry> entries,
-        JSONObject characterDictionary
-    ) {
-        List<View> rows = new ArrayList<>();
-        for (SceneManagementDetailData.CharacterEntry entry : entries) {
-            rows.add(characterRow(entry, characterDictionary));
-        }
-        return rows;
-    }
-
-    private View characterRow(
-        SceneManagementDetailData.CharacterEntry entry,
-        JSONObject characterDictionary
-    ) {
-        MaterialCardView card = cardColumn();
-        addText(
-            card,
-            displayCharacterName(entry),
-            16,
-            true,
-            false
-        );
-        addText(card, getString(
-            entry.temporary
-                ? R.string.scene_detail_temporary_character
-                : R.string.scene_detail_dictionary_character,
-            entry.name
-        ), 12, false, true);
-        addField(card, R.string.scene_detail_original_name, entry.name);
-        card.setOnClickListener(view -> openPage(
-            PAGE_CHARACTER_DETAIL,
-            entry
-        ));
-        return card;
     }
 
     private View characterDetailRow(
@@ -1150,34 +2232,6 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         return card;
     }
 
-    private View characterRow(
-        SceneManagementDetailData.MentionedCharacterEntry entry
-    ) {
-        MaterialCardView card = cardColumn();
-        addText(
-            card,
-            displayMentionedName(entry),
-            16,
-            true,
-            false
-        );
-        addText(card, getString(
-            entry.temporary
-                ? R.string.scene_detail_temporary_character
-                : R.string.scene_detail_dictionary_character,
-            entry.name
-        ), 12, false, true);
-        addField(card, R.string.scene_detail_original_name, entry.name);
-        addField(card, R.string.scene_detail_field_simplified_chinese, entry.zhCn);
-        addField(card, R.string.scene_detail_field_traditional_chinese, entry.zhTw);
-        addField(card, R.string.scene_detail_field_english, entry.en);
-        card.setOnClickListener(view -> openPage(
-            PAGE_MENTIONED_CHARACTER_DETAIL,
-            entry
-        ));
-        return card;
-    }
-
     private View mentionedCharacterDetailRow(
         SceneManagementDetailData.MentionedCharacterEntry entry
     ) {
@@ -1199,29 +2253,6 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         addField(card, R.string.scene_detail_field_simplified_chinese, entry.zhCn);
         addField(card, R.string.scene_detail_field_traditional_chinese, entry.zhTw);
         addField(card, R.string.scene_detail_field_english, entry.en);
-        return card;
-    }
-
-    private View termRow(SceneManagementDetailData.TermEntry entry) {
-        MaterialCardView card = cardColumn();
-        addText(
-            card,
-            displayTermName(entry),
-            16,
-            true,
-            false
-        );
-        addText(card, getString(
-            entry.temporary
-                ? R.string.scene_detail_temporary_term
-                : R.string.scene_detail_dictionary_term,
-            entry.term
-        ), 12, false, true);
-        addField(card, R.string.scene_detail_original_name, entry.term);
-        card.setOnClickListener(view -> openPage(
-            PAGE_TERM_DETAIL,
-            entry
-        ));
         return card;
     }
 
@@ -1248,102 +2279,11 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         return card;
     }
 
-    private View sourceRow(
-        SceneManagementDetailData.SourceItem sourceItem,
-        SceneManagementDetailData.SceneData data
-    ) {
-        JSONObject item = sourceItem.source;
-        MaterialCardView card = cardColumn();
-        String type = item.optString("type", "text");
-        addText(card, "#" + sourceItem.orderLabel + " · " + type, 14, true, false);
-        addField(
-            card,
-            R.string.scene_detail_speaker,
-            displaySpeaker(item.optString("speaker", ""))
-        );
-        if ("text".equals(type)) {
-            addField(
-                card,
-                R.string.scene_detail_original_text,
-                SceneManagementDetailData.restoreProtectedText(
-                    item.optString("text", ""),
-                    data.protectedTokens
-                )
-            );
-            addField(
-                card,
-                R.string.scene_detail_translation,
-                SceneManagementDetailData.translationFor(
-                    item,
-                    data.targetLanguage
-                )
-            );
-        } else if ("choice".equals(type)) {
-            addField(card, R.string.scene_detail_merge_label, item.optString("merge_label", ""));
-            JSONArray branches = item.optJSONArray("branches");
-            if (branches != null) {
-                for (int branchIndex = 0; branchIndex < branches.length(); branchIndex++) {
-                    JSONObject branch = branches.optJSONObject(branchIndex);
-                    if (branch == null) {
-                        continue;
-                    }
-                    addField(
-                        card,
-                        R.string.scene_detail_branch,
-                        branch.optString("target_label", "")
-                    );
-                    JSONArray options = branch.optJSONArray("options");
-                    if (options != null) {
-                        for (int optionIndex = 0; optionIndex < options.length(); optionIndex++) {
-                            JSONObject option = options.optJSONObject(optionIndex);
-                            if (option == null) {
-                                continue;
-                            }
-                            String optionOrder = SceneManagementDetailData.orderLabel(
-                                option,
-                                optionIndex,
-                                data.sequenceByOrder
-                            );
-                            addField(
-                                card,
-                                "  " + getString(R.string.scene_detail_option)
-                                    + " #" + optionOrder,
-                                SceneManagementDetailData.restoreProtectedText(
-                                    option.optString("text", ""),
-                                    data.protectedTokens
-                                )
-                            );
-                        }
-                    }
-                }
-            }
-        } else if ("if".equals(type)) {
-            addField(
-                card,
-                R.string.scene_detail_condition,
-                SceneManagementDetailData.restoreProtectedText(
-                    item.optString("condition", ""),
-                    data.protectedTokens
-                )
-            );
-            addField(card, R.string.scene_detail_branch, item.optString("target_label", ""));
-            JSONArray following = item.optJSONArray("following_text");
-            if (following != null) {
-                addField(
-                    card,
-                    R.string.scene_detail_following_count,
-                    String.valueOf(following.length())
-                );
-            }
-        }
-        return card;
-    }
-
     @Override
     protected void onResume() {
         super.onResume();
         resumed = true;
-        if (hasResumed && !operationBusy && !loadInFlight) {
+        if (!stylePreview && hasResumed && !operationBusy && !loadInFlight) {
             loadAsync();
         }
         hasResumed = true;
@@ -1389,87 +2329,6 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         }
         outState.putParcelableArray(STATE_HISTORY, savedHistory);
         super.onSaveInstanceState(outState);
-    }
-
-    private void addDisclosure(String title, int count, List<View> rows) {
-        addDisclosure(title, count, rows, false);
-    }
-
-    private void addDisclosure(
-        String title,
-        int count,
-        List<View> rows,
-        boolean defaultExpanded
-    ) {
-        MaterialCardView card = cardColumn();
-        LinearLayout column = (LinearLayout) card.getTag();
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setMinimumHeight(dp(48));
-        TextView titleView = new TextView(this);
-        titleView.setTextAppearance(this, R.style.Widget_HET_SectionTitle);
-        titleView.setText(getString(
-            R.string.scene_detail_section_count,
-            title,
-            count
-        ));
-        header.addView(titleView, new LinearLayout.LayoutParams(
-            0,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            1f
-        ));
-        TextView arrow = new TextView(this);
-        arrow.setTextAppearance(this, R.style.Widget_HET_SectionArrow);
-        header.addView(arrow, new LinearLayout.LayoutParams(
-            dp(32),
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        header.setContentDescription(getString(
-            R.string.scene_detail_expand_section,
-            title
-        ));
-
-        LinearLayout body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(12), 0, dp(12), dp(8));
-        body.setVisibility(defaultExpanded ? View.VISIBLE : View.GONE);
-        for (View row : rows) {
-            body.addView(row);
-        }
-        column.setPadding(0, 0, 0, 0);
-        column.addView(header, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        column.addView(body, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        arrow.setText(defaultExpanded
-            ? R.string.array_indicator_expanded
-            : R.string.array_indicator_collapsed);
-        header.setContentDescription(getString(
-            defaultExpanded
-                ? R.string.scene_detail_collapse_section
-                : R.string.scene_detail_expand_section,
-            title
-        ));
-
-        header.setOnClickListener(view -> {
-            boolean expanded = body.getVisibility() == View.VISIBLE;
-            body.setVisibility(expanded ? View.GONE : View.VISIBLE);
-            arrow.setText(expanded
-                ? R.string.array_indicator_collapsed
-                : R.string.array_indicator_expanded);
-            header.setContentDescription(getString(
-                expanded
-                    ? R.string.scene_detail_expand_section
-                    : R.string.scene_detail_collapse_section,
-                title
-            ));
-        });
-        content.addView(card);
     }
 
     private MaterialCardView cardColumn() {
@@ -1525,12 +2384,6 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
             : name;
     }
 
-    private String languageLabel(String value) {
-        return value == null || value.trim().isEmpty()
-            ? emptyFallback(value)
-            : languageName(value);
-    }
-
     private void addField(View parent, String label, String value) {
         if (value == null || value.trim().isEmpty()) {
             return;
@@ -1550,20 +2403,13 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
             : (LinearLayout) parent;
         TextView text = new TextView(this);
         text.setText(value == null ? "" : value);
-        text.setTextSize(size);
+        text.setTextSize(size + 2);
         text.setAlpha(secondary ? 0.72f : 1.0f);
         if (bold) {
             text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         }
         text.setPadding(0, dp(3), 0, dp(3));
         column.addView(text);
-    }
-
-    private void applyDangerButton(MaterialButton button) {
-        button.setBackgroundTintList(ColorStateList.valueOf(
-            ContextCompat.getColor(this, R.color.het_error_container)
-        ));
-        button.setTextColor(ContextCompat.getColor(this, R.color.het_error));
     }
 
     private void rememberScroll() {
@@ -1715,6 +2561,24 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
             .getConfiguration()
             .getLocales();
         return locales.isEmpty() ? Locale.getDefault() : locales.get(0);
+    }
+
+    private String formatSceneTime(long timestamp) {
+        if (timestamp <= 0L) {
+            return "";
+        }
+        return DateFormat.getDateTimeInstance(
+            DateFormat.SHORT,
+            DateFormat.SHORT,
+            interfaceLocale()
+        ).format(new Date(timestamp));
+    }
+
+    private boolean isStylePreviewRequest() {
+        return StylePreview.isEnabled(this)
+            && StylePreview.KIND_SCENE_DETAIL.equals(
+                StylePreview.kindOf(getIntent())
+            );
     }
 
     private static String emptyFallback(String value) {

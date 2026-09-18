@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Widget.HET.DetailPrototype.Toolbar" parent="Widget.HET.StaticDetail.Toolbar">
+        <item name="contentInsetStart">8dp</item>
+        <item name="contentInsetStartWithNavigation">8dp</item>
+        <item name="contentInsetEnd">8dp</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.Heading" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">19sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.Kind" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.MetaLabel" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.MetaValue" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.CardTitle" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.CardPreview" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.Metadata" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:lineSpacingMultiplier">1.35</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.Translation" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="android:textColor">@color/het_on_surface</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:lineSpacingMultiplier">1.45</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.HET.DetailPrototype.Original" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/het_on_surface_muted</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineSpacingMultiplier">1.45</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.HET.DetailPrototype.Button" parent="Widget.HET.Button.Secondary">
+        <item name="android:minHeight">0dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="cornerRadius">17dp</item>
+    </style>
+
+    <style name="Widget.HET.DetailPrototype.Button.Danger" parent="Widget.HET.Button.Danger">
+        <item name="android:minHeight">0dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="cornerRadius">17dp</item>
+    </style>
+</resources>
