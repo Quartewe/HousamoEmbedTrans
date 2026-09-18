@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="style_preview_toolbar_title">样式核对</string>
+    <string name="style_preview_eyebrow">调试 / 样式核对</string>
+    <string name="style_preview_title">选择要预览的页面</string>
+    <string name="style_preview_description">使用少量内存样例打开真实 HET 页面，用于视觉核对；不会触碰已保存数据。</string>
+    <string name="style_preview_read_only_title">内存只读预览</string>
+    <string name="style_preview_read_only_body">样例通过 Activity Intent 传入。预览期间不会写入 Store、删除数据、请求翻译，也不会提交导入或导出。</string>
+    <string name="style_preview_tasks">任务页</string>
+    <string name="style_preview_management_home">管理首页</string>
+    <string name="style_preview_management_export">管理导出区域</string>
+    <string name="style_preview_scene_detail">Scene 详情</string>
+    <string name="style_preview_scene_editor">Scene 编辑</string>
+    <string name="style_preview_context_detail">Context 详情</string>
+    <string name="style_preview_group_detail">Group 详情</string>
+    <string name="style_preview_context_editor">Context 编辑</string>
+    <string name="style_preview_group_editor">Group 编辑</string>
+    <string name="style_preview_character_detail">角色详情</string>
+    <string name="style_preview_term_detail">游戏术语详情</string>
+    <string name="style_preview_character_editor">角色编辑</string>
+    <string name="style_preview_term_editor">游戏术语编辑</string>
+    <string name="style_preview_management_import">管理导入</string>
+    <string name="style_preview_unknown">预览页面</string>
+    <string name="style_preview_tasks_description">查看排队、进行中、失败、完成和等待处理等任务状态。</string>
+    <string name="style_preview_waiting_body">当前包含等待处理样例，用于视觉核对；预览中的操作均已禁用。</string>
+    <string name="style_preview_management_home_description">查看数量、分区、筛选和管理入口。</string>
+    <string name="style_preview_management_export_description">查看管理导出控件和只读预览状态。</string>
+    <string name="style_preview_scene_detail_description">查看 Scene 元数据、角色、术语、原文行和译文。</string>
+    <string name="style_preview_scene_editor_description">查看 Scene 标识、语言、摘要、关联和原文区域。</string>
+    <string name="style_preview_context_detail_description">查看 Context 摘要、剧情、描述、关联 Group 和状态。</string>
+    <string name="style_preview_group_detail_description">查看 Group 成员、剧情汇总、摘要和状态。</string>
+    <string name="style_preview_context_editor_description">查看 Context 名称、描述、剧情成员、Group 和摘要。</string>
+    <string name="style_preview_group_editor_description">查看 Group 名称、Context 成员和摘要字段。</string>
+    <string name="style_preview_character_detail_description">查看角色译名、别名、关系和元数据。</string>
+    <string name="style_preview_term_detail_description">查看游戏术语译名和描述字段。</string>
+    <string name="style_preview_character_editor_description">查看角色字段、别名、关系和编辑操作区域。</string>
+    <string name="style_preview_term_editor_description">查看游戏术语译名和编辑操作区域。</string>
+    <string name="style_preview_management_import_description">查看文件列表、冲突预检和导入预览区域。</string>
+    <string name="style_preview_unknown_description">使用内存样例打开选中的真实页面。</string>
+</resources>

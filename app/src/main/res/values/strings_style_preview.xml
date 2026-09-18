@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="style_preview_toolbar_title">Style check</string>
+    <string name="style_preview_eyebrow">Debug / style check</string>
+    <string name="style_preview_title">Choose a page to preview</string>
+    <string name="style_preview_description">Open the actual HET page with a small in-memory sample. This page is for visual review and does not touch saved data.</string>
+    <string name="style_preview_read_only_title">In-memory read-only preview</string>
+    <string name="style_preview_read_only_body">The sample is passed through the Activity intent. Store writes, deletion, translation requests, and import or export commits are disabled.</string>
+    <string name="style_preview_tasks">Task page</string>
+    <string name="style_preview_management_home">Management home</string>
+    <string name="style_preview_management_export">Management export surface</string>
+    <string name="style_preview_scene_detail">Scene detail</string>
+    <string name="style_preview_scene_editor">Scene editor</string>
+    <string name="style_preview_context_detail">Context detail</string>
+    <string name="style_preview_group_detail">Group detail</string>
+    <string name="style_preview_context_editor">Context editor</string>
+    <string name="style_preview_group_editor">Group editor</string>
+    <string name="style_preview_character_detail">Character detail</string>
+    <string name="style_preview_term_detail">Game term detail</string>
+    <string name="style_preview_character_editor">Character editor</string>
+    <string name="style_preview_term_editor">Game term editor</string>
+    <string name="style_preview_management_import">Management import</string>
+    <string name="style_preview_unknown">Preview page</string>
+    <string name="style_preview_tasks_description">Queued, active, failed, completed, and waiting task states.</string>
+    <string name="style_preview_waiting_body">A sample waiting record is present for visual review. Actions are disabled in this preview.</string>
+    <string name="style_preview_management_home_description">Counts, sections, filters, and management entry points.</string>
+    <string name="style_preview_management_export_description">The management export controls and read-only preview state.</string>
+    <string name="style_preview_scene_detail_description">Scene metadata, characters, terms, source rows, and translations.</string>
+    <string name="style_preview_scene_editor_description">Scene identity, language, summaries, relations, and source sections.</string>
+    <string name="style_preview_context_detail_description">Context summary, scenes, descriptions, related groups, and status.</string>
+    <string name="style_preview_group_detail_description">Group membership, scene aggregation, summaries, and status.</string>
+    <string name="style_preview_context_editor_description">Context name, descriptions, scene members, groups, and summaries.</string>
+    <string name="style_preview_group_editor_description">Group name, context members, and summary fields.</string>
+    <string name="style_preview_character_detail_description">Character translations, aliases, relations, and metadata.</string>
+    <string name="style_preview_term_detail_description">Game term translations and description fields.</string>
+    <string name="style_preview_character_editor_description">Character fields, aliases, relationships, and editor actions.</string>
+    <string name="style_preview_term_editor_description">Game term translations and editor actions.</string>
+    <string name="style_preview_management_import_description">File list, preflight conflicts, and import preview states.</string>
+    <string name="style_preview_unknown_description">Open the selected real page with an in-memory sample.</string>
+</resources>
