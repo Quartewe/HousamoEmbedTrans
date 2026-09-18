@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="management_import_title">导入数据</string>
+    <string name="management_import_eyebrow">文件检查 · 数据导入</string>
+    <string name="management_import_preflight_eyebrow">导入预检</string>
+    <string name="management_import_preview_eyebrow">导入预览</string>
+    <string name="management_import_pending_eyebrow">导入恢复</string>
+    <string name="management_import_source_title">选择导入文件</string>
+    <string name="management_import_source_description">请选择一个或多个 HET JSON 文件，并在继续前核对每个文件。</string>
+    <string name="management_import_preflight_description">检查发现的冲突和活动翻译任务，然后选择导入的处理方式。</string>
+    <string name="management_import_preview_description">按源文件查看计划操作，确认后再交给共享存储协调器。</string>
+    <string name="management_import_pending_title">导入提交待处理</string>
+    <string name="management_import_pending_description">服务确认结果前会保留原导入会话。请重试同一会话以安全完成提交。</string>
     <string name="management_import_add">+</string>
     <string name="management_import_add_description">追加文件</string>
     <string name="management_import_remove_mode">−</string>
@@ -19,11 +29,17 @@
     <string name="management_import_snapshot_ready">管理快照已就绪。</string>
     <string name="management_import_files_summary">共 %1$d 个文件</string>
     <string name="management_import_preflight_title">导入预检</string>
+    <string name="management_import_conflicts_heading">对象冲突</string>
     <string name="management_import_conflicts_title">对象冲突（%1$d）</string>
     <string name="management_import_default_action">冲突默认动作</string>
     <string name="management_import_default_action_hint">仅作用于未单独选择的冲突项。</string>
+    <string name="management_import_bulk_overwrite">全部覆盖</string>
+    <string name="management_import_bulk_copy">全部副本</string>
+    <string name="management_import_bulk_skip">全部跳过</string>
     <string name="management_import_no_conflicts">没有对象冲突。</string>
     <string name="management_import_tasks_title">活动翻译任务</string>
+    <string name="management_import_tasks_summary">本次导入的冲突关联了 %1$d 个活动任务。</string>
+    <string name="management_import_tasks_request_ids">请求 ID：%1$s</string>
     <string name="management_import_tasks_keep">保留活动任务（%1$d）</string>
     <string name="management_import_tasks_cancel">确认取消活动任务（%1$d）</string>
     <string name="management_import_preview_title">导入预览</string>
@@ -45,4 +61,7 @@
     <string name="management_import_type_character">角色</string>
     <string name="management_import_type_term">游戏术语</string>
     <string name="management_import_type_unknown">未知数据</string>
+    <string name="management_import_preview_file_meta">%1$s · %2$d 个计划操作</string>
+    <string name="management_import_preview_summary">%1$d 个文件 · %2$d 个计划操作 · %3$d 个冲突</string>
+    <string name="management_import_conflict_existing">现有对象：%1$s</string>
 </resources>

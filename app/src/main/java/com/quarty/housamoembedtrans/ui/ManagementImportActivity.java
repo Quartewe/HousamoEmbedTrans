@@ -3,6 +3,9 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.bridge.TranslationJobControlClient;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
+import com.quarty.housamoembedtrans.storage.json.JsonSchemaValidator;
+import com.quarty.housamoembedtrans.util.IoUtils;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -12,11 +15,8 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,9 +30,11 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -42,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.nio.charset.StandardCharsets;
 
 /**
  * SAF-first management import flow shared by the Scene, Context, Group and
@@ -54,6 +57,8 @@ import java.util.concurrent.Executors;
  * durable commit.</p>
  */
 public final class ManagementImportActivity extends AppCompatActivity {
+    private static final int MAX_SCENE_SCHEMA_BYTES = 256 * 1024;
+
     public static final String EXTRA_EXISTING_SNAPSHOT_JSON =
         "management_import.existing_snapshot_json";
     public static final String EXTRA_AUTO_CANCEL_TASKS =
@@ -100,26 +105,32 @@ public final class ManagementImportActivity extends AppCompatActivity {
     private final LinkedHashMap<String, FileRow> rows = new LinkedHashMap<>();
     private final LinkedHashMap<String, ManagementImportModel.ConflictAction>
         conflictActions = new LinkedHashMap<>();
-    private final LinkedHashMap<String, Spinner> conflictSpinners =
+    private final LinkedHashMap<String, MaterialButton> conflictSelectors =
         new LinkedHashMap<>();
 
     private ActivityResultLauncher<String[]> fileLauncher;
     private MaterialToolbar toolbar;
+    private LinearLayout fileActions;
+    private LinearLayout sourceCard;
+    private TextView pageEyebrow;
+    private TextView pageHeading;
+    private TextView pageDescription;
     private TextView statusView;
     private LinearLayout fileContainer;
     private LinearLayout preflightContainer;
     private TextView previewView;
-    private ScrollView fileScroll;
-    private ScrollView preflightScroll;
-    private ScrollView previewScroll;
+    private LinearLayout previewFilesContainer;
+    private DraggableScrollbarNestedScrollView fileScroll;
+    private DraggableScrollbarNestedScrollView preflightScroll;
+    private DraggableScrollbarNestedScrollView previewScroll;
     private LinearLayout previewActions;
+    private View confirmContainer;
     private MaterialButton addButton;
     private MaterialButton removeModeButton;
     private MaterialButton removeCancelButton;
     private MaterialButton confirmFilesButton;
     private MaterialButton generatePreviewButton;
     private MaterialButton applyButton;
-    private Spinner conflictDefaultSpinner;
     private MaterialButton taskActionButton;
 
     private final Set<String> selectedForRemoval = new LinkedHashSet<>();
@@ -129,6 +140,8 @@ public final class ManagementImportActivity extends AppCompatActivity {
     private boolean snapshotReady;
     private boolean snapshotLoading;
     private boolean submissionUnknown;
+    /** A rejection or stale-snapshot notice that must survive a preflight redraw. */
+    private String preflightNotice;
     private long sessionGeneration;
     private ManagementImportModel.Batch batch;
     private ManagementImportModel.ExistingSnapshot existingSnapshot;
@@ -141,8 +154,10 @@ public final class ManagementImportActivity extends AppCompatActivity {
     private String pendingSnapshotFingerprint;
     private boolean pendingSubmissionRestored;
     private boolean pendingRecoveryUnavailable;
+    private boolean stylePreview;
     private boolean destroyed;
     private TranslationJobControlClient managementClient;
+    private JsonSchemaValidator sceneSchemaValidator;
 
     /** Loads the real snapshot through the Service Binder pipe. */
     public static Intent newIntent(Activity caller, boolean autoCancelTasks) {
@@ -179,7 +194,14 @@ public final class ManagementImportActivity extends AppCompatActivity {
         setContentView(R.layout.activity_management_import);
         SystemBarInsets.apply(findViewById(R.id.root_management_import));
         bindViews();
-        readSnapshot();
+        stylePreview = StylePreview.isEnabled(this);
+        sceneSchemaValidator = stylePreview ? null : loadSceneSchemaValidator();
+        if (!stylePreview) {
+            readSnapshot();
+        } else {
+            existingSnapshot = ManagementImportModel.ExistingSnapshot.empty();
+            snapshotReady = true;
+        }
         fileLauncher = registerForActivityResult(
             new ActivityResultContracts.OpenMultipleDocuments(),
             this::appendDocuments
@@ -212,6 +234,10 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 }
             }
         );
+        if (stylePreview) {
+            loadStylePreview();
+            return;
+        }
         renderFiles();
         restorePendingSubmission();
         if (!snapshotReady && !pendingSubmissionRestored
@@ -220,23 +246,109 @@ public final class ManagementImportActivity extends AppCompatActivity {
         }
     }
 
+    /** Builds the import model entirely from the Intent payload. */
+    private void loadStylePreview() {
+        try {
+            JSONObject payload = StylePreview.payloadOf(getIntent());
+            if (payload == null) {
+                throw new IllegalStateException("preview payload is unavailable");
+            }
+            JSONArray documents = payload.optJSONArray("documents");
+            JSONObject entry = documents == null || documents.length() == 0
+                ? null
+                : documents.optJSONObject(0);
+            JSONObject root = entry == null ? null : entry.optJSONObject("root");
+            if (root == null) {
+                throw new IllegalStateException("preview import document is unavailable");
+            }
+            String sourceName = entry.optString(
+                "source_name",
+                "style-preview-management.json"
+            );
+            ManagementImportModel.Document document =
+                ManagementImportModel.parseDocument(
+                    sourceName,
+                    root.toString().getBytes(StandardCharsets.UTF_8)
+                );
+            List<ManagementImportModel.Document> input = new ArrayList<>();
+            input.add(document);
+            batch = ManagementImportModel.combineImportDocuments(input);
+            JSONObject snapshot = payload.optJSONObject("snapshot");
+            existingSnapshot = snapshot == null
+                ? ManagementImportModel.ExistingSnapshot.empty()
+                : ManagementImportModel.ExistingSnapshot.fromJson(snapshot);
+            snapshotReady = true;
+            prepared = ManagementImportModel.prepareImport(
+                batch,
+                existingSnapshot,
+                new LinkedHashMap<>(),
+                defaultConflictAction,
+                taskAction
+            );
+            phase = Phase.PREFLIGHT;
+            busy = false;
+            preflightNotice = null;
+            renderPreflight();
+            applyButton.setVisibility(View.GONE);
+            statusView.setVisibility(View.VISIBLE);
+            statusView.setText(R.string.style_preview_read_only_body);
+            for (MaterialButton selector : conflictSelectors.values()) {
+                selector.setEnabled(false);
+            }
+            if (taskActionButton != null) taskActionButton.setEnabled(false);
+        } catch (Exception error) {
+            statusView.setVisibility(View.VISIBLE);
+            statusView.setText(getString(
+                R.string.management_import_failed,
+                safeMessage(error)
+            ));
+        }
+    }
+
+    /** Loads the existing Scene schema for import-time feedback. */
+    private JsonSchemaValidator loadSceneSchemaValidator() {
+        try (InputStream input = getAssets().open(SceneStore.SCHEMA_ASSET_PATH)) {
+            return new JsonSchemaValidator(new JSONObject(new String(
+                IoUtils.readAllBytesLimited(input, MAX_SCENE_SCHEMA_BYTES),
+                StandardCharsets.UTF_8
+            )));
+        } catch (Exception ignored) {
+            // Scene documents fail closed in ManagementImportModel when the
+            // validator is unavailable; other import kinds keep their parser.
+            return null;
+        }
+    }
+
     private void bindViews() {
         toolbar = findViewById(R.id.toolbar_management_import);
         toolbar.setNavigationOnClickListener(view ->
             getOnBackPressedDispatcher().onBackPressed()
         );
+        fileActions = findViewById(
+            R.id.container_management_import_file_actions
+        );
+        sourceCard = findViewById(
+            R.id.container_management_import_source_card
+        );
+        pageEyebrow = findViewById(R.id.tv_management_import_eyebrow);
+        pageHeading = findViewById(R.id.tv_management_import_heading);
+        pageDescription = findViewById(R.id.tv_management_import_description);
         statusView = findViewById(R.id.tv_management_import_status);
         fileContainer = findViewById(R.id.container_management_import_files);
         preflightContainer = findViewById(
             R.id.container_management_import_preflight
         );
         previewView = findViewById(R.id.tv_management_import_preview);
+        previewFilesContainer = findViewById(
+            R.id.container_management_import_preview_files
+        );
         fileScroll = findViewById(R.id.scroll_management_import_files);
         preflightScroll = findViewById(R.id.scroll_management_import_preflight);
         previewScroll = findViewById(R.id.scroll_management_import_preview);
         previewActions = findViewById(
             R.id.container_management_import_preview_actions
         );
+        confirmContainer = findViewById(R.id.container_management_import_confirm);
         addButton = findViewById(R.id.btn_management_import_add);
         removeModeButton = findViewById(
             R.id.btn_management_import_remove_mode
@@ -367,12 +479,19 @@ public final class ManagementImportActivity extends AppCompatActivity {
             } catch (Exception error) {
                 postUiIfAlive(() -> {
                     snapshotLoading = false;
-                    statusView.setText(getString(
+                    String failureMessage = getString(
                         R.string.management_import_failed,
                         safeMessage(error)
-                    ));
-                    if (!pendingSubmissionRestored) {
+                    );
+                    if (!pendingSubmissionRestored
+                        && phase == Phase.PREFLIGHT
+                        && batch != null) {
+                        preflightNotice = failureMessage;
+                        renderPreflight();
+                    } else if (!pendingSubmissionRestored) {
+                        phase = Phase.FILES;
                         renderFiles();
+                        statusView.setText(failureMessage);
                     }
                 });
             }
@@ -380,6 +499,9 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void ensureManagementClient() throws Exception {
+        if (stylePreview) {
+            throw new IllegalStateException("management service is disabled in preview");
+        }
         if (managementClient != null) {
             return;
         }
@@ -393,7 +515,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void launchPicker() {
-        if (busy || phase != Phase.FILES) return;
+        if (stylePreview || busy || phase != Phase.FILES) return;
         removeMode = false;
         selectedForRemoval.clear();
         try {
@@ -409,14 +531,13 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void appendDocuments(List<Uri> values) {
-        if (values == null || values.isEmpty()) return;
+        if (stylePreview || values == null || values.isEmpty()) return;
         phase = Phase.FILES;
         batch = null;
         prepared = null;
         defaultConflictAction = ManagementImportModel.ConflictAction.OVERWRITE;
         conflictActions.clear();
-        conflictSpinners.clear();
-        conflictDefaultSpinner = null;
+        conflictSelectors.clear();
         taskActionButton = null;
         removeMode = false;
         selectedForRemoval.clear();
@@ -447,12 +568,13 @@ public final class ManagementImportActivity extends AppCompatActivity {
         busy = true;
         ioExecutor.execute(() -> {
             try {
-                ManagementImportModel.Document document =
-                    ManagementTransfer.readDocument(
-                        getContentResolver(),
-                        row.uri,
-                        row.name
-                    );
+                    ManagementImportModel.Document document =
+                        ManagementTransfer.readDocument(
+                            getContentResolver(),
+                            row.uri,
+                            row.name,
+                            sceneSchemaValidator
+                        );
                 postUiIfAlive(() -> {
                     if (generation != sessionGeneration || !rows.containsKey(row.token)) {
                         return;
@@ -486,6 +608,24 @@ public final class ManagementImportActivity extends AppCompatActivity {
 
     private void renderFiles() {
         if (fileContainer == null) return;
+        preflightNotice = null;
+        setPageHeader(
+            R.string.management_import_eyebrow,
+            R.string.management_import_source_title,
+            R.string.management_import_source_description
+        );
+        pageDescription.setVisibility(View.GONE);
+        sourceCard.setVisibility(View.VISIBLE);
+        fileActions.setVisibility(View.VISIBLE);
+        fileScroll.setVisibility(View.VISIBLE);
+        statusView.setVisibility(View.VISIBLE);
+        confirmContainer.setVisibility(View.VISIBLE);
+        preflightScroll.setVisibility(View.GONE);
+        previewActions.setVisibility(View.GONE);
+        previewScroll.setVisibility(View.GONE);
+        if (preflightContainer != null) {
+            preflightContainer.removeAllViews();
+        }
         fileContainer.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         for (FileRow row : rows.values()) {
@@ -494,6 +634,13 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 fileContainer,
                 false
             );
+            MaterialCardView fileCard = (MaterialCardView) view;
+            fileCard.setCardBackgroundColor(ContextCompat.getColor(
+                this,
+                row.state == FileState.ERROR
+                    ? R.color.het_error_container
+                    : R.color.het_surface_container_high
+            ));
             CheckBox check = view.findViewById(
                 R.id.check_management_import_file
             );
@@ -576,9 +723,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 )
             );
         } else {
-            removeModeButton.setText(
-                R.string.management_import_remove_mode
-            );
+            removeModeButton.setText("");
         }
         if (removeMode && selectedForRemoval.size() > 0) {
             removeModeButton.setVisibility(View.VISIBLE);
@@ -595,6 +740,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void confirmFiles() {
+        if (stylePreview) return;
         if (busy || !snapshotReady || !allReady()) {
             statusView.setText(R.string.management_import_wait_all);
             return;
@@ -620,6 +766,11 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 postUiIfAlive(() -> {
                     if (generation != sessionGeneration) return;
                     setBusy(false);
+                    statusView.setVisibility(View.VISIBLE);
+                    statusView.setText(getString(
+                        R.string.management_import_failed,
+                        safeMessage(error)
+                    ));
                     showError(error);
                 });
             }
@@ -627,18 +778,31 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void renderPreflight() {
+        setPageHeader(
+            R.string.management_import_preflight_eyebrow,
+            R.string.management_import_preflight_title,
+            R.string.management_import_preflight_description
+        );
+        pageDescription.setVisibility(View.GONE);
+        sourceCard.setVisibility(View.GONE);
+        fileActions.setVisibility(View.GONE);
         fileScroll.setVisibility(View.GONE);
-        confirmFilesButton.setVisibility(View.GONE);
+        if (preflightNotice == null || preflightNotice.trim().isEmpty()) {
+            statusView.setVisibility(View.GONE);
+        } else {
+            statusView.setVisibility(View.VISIBLE);
+            statusView.setText(preflightNotice);
+        }
+        confirmContainer.setVisibility(View.GONE);
         preflightScroll.setVisibility(View.VISIBLE);
         previewActions.setVisibility(View.VISIBLE);
         generatePreviewButton.setVisibility(View.VISIBLE);
-        applyButton.setVisibility(View.VISIBLE);
+        applyButton.setVisibility(View.GONE);
         previewScroll.setVisibility(View.GONE);
         preflightContainer.removeAllViews();
-        conflictSpinners.clear();
-        conflictDefaultSpinner = null;
+        addPreflightNotice();
+        conflictSelectors.clear();
         taskActionButton = null;
-        addHeading(R.string.management_import_preflight_title);
         addSummary();
         List<ManagementImportModel.Conflict> conflicts = new ArrayList<>();
         try {
@@ -653,17 +817,26 @@ public final class ManagementImportActivity extends AppCompatActivity {
             prepared = first;
             conflicts.addAll(first.conflicts);
         } catch (Exception error) {
+            preflightNotice = getString(
+                R.string.management_import_failed,
+                safeMessage(error)
+            );
+            addPreflightNotice();
             showError(error);
             return;
         }
+        MaterialCardView conflictCard = importCard();
+        LinearLayout conflictBody = new LinearLayout(this);
+        conflictBody.setOrientation(LinearLayout.VERTICAL);
+        conflictBody.setPadding(dp(12), dp(11), dp(12), dp(11));
+        conflictCard.addView(conflictBody);
+        preflightContainer.addView(conflictCard);
+
         TextView conflictHeading = new TextView(this);
-        conflictHeading.setText(getString(
-            R.string.management_import_conflicts_title,
-            conflicts.size()
-        ));
+        conflictHeading.setText(R.string.management_import_conflicts_heading);
         conflictHeading.setTextAppearance(
             this,
-            com.google.android.material.R.style.TextAppearance_MaterialComponents_Headline6
+            R.style.TextAppearance_HET_ManagementImport_Title
         );
         conflictHeading.setTextColor(
             ContextCompat.getColor(this, R.color.het_on_surface)
@@ -673,24 +846,28 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             );
-        conflictHeadingParams.topMargin = dp(12);
         conflictHeadingParams.bottomMargin = dp(4);
-        conflictHeading.setLayoutParams(conflictHeadingParams);
-        preflightContainer.addView(conflictHeading);
+        conflictBody.addView(conflictHeading, conflictHeadingParams);
         if (!conflicts.isEmpty()) {
-            addConflictDefaultControl();
+            addConflictDefaultControl(conflictBody);
         }
         if (conflicts.isEmpty()) {
-            preflightContainer.addView(cardText(
-                getString(R.string.management_import_no_conflicts),
-                com.google.android.material.R.style.TextAppearance_MaterialComponents_Body2
-            ));
+            TextView empty = new TextView(this);
+            empty.setTextAppearance(
+                this,
+                R.style.TextAppearance_HET_ManagementImport_Body
+            );
+            empty.setTextColor(
+                ContextCompat.getColor(this, R.color.het_on_surface_muted)
+            );
+            empty.setText(R.string.management_import_no_conflicts);
+            conflictBody.addView(empty);
         } else {
             LayoutInflater inflater = LayoutInflater.from(this);
             for (ManagementImportModel.Conflict conflict : conflicts) {
                 View row = inflater.inflate(
                     R.layout.item_management_import_conflict,
-                    preflightContainer,
+                    conflictBody,
                     false
                 );
                 TextView title = row.findViewById(
@@ -699,116 +876,90 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 title.setText(
                     typeLabel(conflict.incoming.kind) + " · "
                         + conflict.incoming.canonicalId
-                        + " · " + conflict.incoming.sourceName
                 );
-                Spinner spinner = row.findViewById(
-                    R.id.spinner_management_import_conflict_action
+                TextView detail = row.findViewById(
+                    R.id.tv_management_import_conflict_detail
                 );
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    this,
-                    android.R.layout.simple_spinner_item,
-                    new String[] {
-                        getString(
-                            R.string.management_import_action_default,
-                            conflictActionLabel(defaultConflictAction)
-                        ),
-                        getString(R.string.management_import_action_overwrite),
-                        getString(R.string.management_import_action_copy),
-                        getString(R.string.management_import_action_skip)
-                    }
+                String existing = conflict.existing == null
+                    ? getString(R.string.management_import_unknown)
+                    : pretty(conflict.existing);
+                detail.setText(getString(
+                    R.string.management_import_conflict_existing,
+                    conflict.incoming.sourceName + " · " + existing
+                ));
+                MaterialButton selector = row.findViewById(
+                    R.id.btn_management_import_conflict_action
                 );
-                adapter.setDropDownViewResource(
-                    android.R.layout.simple_spinner_dropdown_item
-                );
-                spinner.setAdapter(adapter);
                 ManagementImportModel.ConflictAction explicitAction =
                     conflictActions.get(conflict.key);
-                spinner.setSelection(
-                    explicitAction == null
-                        ? 0
-                        : actionIndex(explicitAction) + 1
+                selector.setText(explicitAction == null
+                    ? getString(
+                        R.string.management_import_action_default,
+                        conflictActionLabel(defaultConflictAction)
+                    )
+                    : conflictActionLabel(explicitAction));
+                conflictSelectors.put(conflict.key, selector);
+                selector.setOnClickListener(view ->
+                    showConflictMenu(conflict, selector)
                 );
-                conflictSpinners.put(conflict.key, spinner);
-                spinner.setOnItemSelectedListener(
-                    new android.widget.AdapterView.OnItemSelectedListener() {
-                        @Override
-                        public void onItemSelected(
-                            android.widget.AdapterView<?> parent,
-                            View view,
-                            int position,
-                            long id
-                        ) {
-                            if (busy) return;
-                            if (conflictSpinners.get(conflict.key) != spinner) {
-                                return;
-                            }
-                            ManagementImportModel.ConflictAction previous =
-                                conflictActions.get(conflict.key);
-                            if (position == 0) {
-                                if (previous == null) return;
-                                conflictActions.remove(conflict.key);
-                            } else {
-                                ManagementImportModel.ConflictAction next =
-                                    actionAt(position - 1);
-                                if (next == previous) return;
-                                conflictActions.put(conflict.key, next);
-                            }
-                            ++sessionGeneration;
-                            prepared = null;
-                            phase = Phase.PREFLIGHT;
-                            applyButton.setEnabled(false);
-                            previewScroll.setVisibility(View.GONE);
-                            generatePreviewButton.setEnabled(true);
-                        }
-
-                        @Override
-                        public void onNothingSelected(
-                            android.widget.AdapterView<?> parent
-                        ) {
-                        }
-                    }
-                );
-                spinner.setEnabled(!busy);
-                preflightContainer.addView(row);
+                selector.setEnabled(!busy);
+                conflictBody.addView(row);
             }
         }
         addTaskActionControl(conflicts);
-        generatePreviewButton.setEnabled(!busy);
+        generatePreviewButton.setEnabled(
+            !busy && snapshotReady && !snapshotLoading
+        );
         applyButton.setEnabled(false);
+        if (stylePreview) {
+            statusView.setVisibility(View.VISIBLE);
+            statusView.setText(R.string.style_preview_read_only_body);
+        }
+    }
+
+    private void addPreflightNotice() {
+        if (preflightContainer == null
+            || preflightNotice == null
+            || preflightNotice.trim().isEmpty()) {
+            return;
+        }
+        TextView notice = new TextView(this);
+        notice.setTextAppearance(
+            this,
+            R.style.TextAppearance_HET_ManagementImport_Body
+        );
+        notice.setTextColor(
+            ContextCompat.getColor(this, R.color.het_on_surface)
+        );
+        notice.setText(preflightNotice);
+        notice.setBackgroundResource(R.drawable.bg_management_import_file_error);
+        notice.setPadding(dp(12), dp(10), dp(12), dp(10));
+        preflightContainer.addView(notice, 0, cardParams());
     }
 
     /** Shows a compact retry entry without rebuilding the large preview model. */
     private void renderPendingSubmission() {
         phase = Phase.PREVIEW;
+        setPageHeader(
+            R.string.management_import_pending_eyebrow,
+            R.string.management_import_pending_title,
+            R.string.management_import_pending_description
+        );
+        pageDescription.setVisibility(View.GONE);
+        sourceCard.setVisibility(View.GONE);
+        fileActions.setVisibility(View.GONE);
         fileScroll.setVisibility(View.GONE);
-        confirmFilesButton.setVisibility(View.GONE);
+        statusView.setVisibility(View.VISIBLE);
+        confirmContainer.setVisibility(View.GONE);
         preflightScroll.setVisibility(View.GONE);
         previewActions.setVisibility(View.VISIBLE);
         generatePreviewButton.setVisibility(View.GONE);
         applyButton.setVisibility(View.VISIBLE);
         previewScroll.setVisibility(View.VISIBLE);
+        previewFilesContainer.removeAllViews();
         previewView.setText(R.string.management_import_pending_submission);
         statusView.setText(R.string.management_import_pending_submission);
         applyButton.setEnabled(!busy);
-    }
-
-    private void addHeading(int textId) {
-        TextView heading = new TextView(this);
-        heading.setText(textId);
-        heading.setTextAppearance(
-            this,
-            com.google.android.material.R.style.TextAppearance_MaterialComponents_Headline6
-        );
-        heading.setTextColor(
-            ContextCompat.getColor(this, R.color.het_on_surface)
-        );
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        params.bottomMargin = dp(4);
-        heading.setLayoutParams(params);
-        preflightContainer.addView(heading);
     }
 
     private void addSummary() {
@@ -827,20 +978,19 @@ public final class ManagementImportActivity extends AppCompatActivity {
         }
         preflightContainer.addView(cardText(
             summary.toString(),
-            com.google.android.material.R.style.TextAppearance_MaterialComponents_Body2
+            R.style.TextAppearance_HET_ManagementImport_Body
         ));
     }
 
-    private void addConflictDefaultControl() {
-        MaterialCardView card = importCard();
+    private void addConflictDefaultControl(LinearLayout parent) {
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(12), dp(12), dp(12), dp(8));
+        body.setPadding(0, dp(6), 0, 0);
         TextView heading = new TextView(this);
         heading.setText(R.string.management_import_default_action);
         heading.setTextAppearance(
             this,
-            com.google.android.material.R.style.TextAppearance_MaterialComponents_Subtitle1
+            R.style.TextAppearance_HET_ManagementImport_Title
         );
         heading.setTextColor(
             ContextCompat.getColor(this, R.color.het_on_surface)
@@ -850,7 +1000,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
         hint.setText(R.string.management_import_default_action_hint);
         hint.setTextAppearance(
             this,
-            com.google.android.material.R.style.TextAppearance_MaterialComponents_Body2
+            R.style.TextAppearance_HET_ManagementImport_Meta
         );
         hint.setTextColor(
             ContextCompat.getColor(this, R.color.het_on_surface)
@@ -859,58 +1009,71 @@ public final class ManagementImportActivity extends AppCompatActivity {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ));
-        Spinner spinner = new Spinner(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-            this,
-            android.R.layout.simple_spinner_item,
-            new String[] {
-                getString(R.string.management_import_action_overwrite),
-                getString(R.string.management_import_action_copy),
-                getString(R.string.management_import_action_skip)
-            }
-        );
-        adapter.setDropDownViewResource(
-            android.R.layout.simple_spinner_dropdown_item
-        );
-        spinner.setAdapter(adapter);
-        spinner.setSelection(actionIndex(defaultConflictAction));
-        conflictDefaultSpinner = spinner;
-        spinner.setOnItemSelectedListener(
-            new android.widget.AdapterView.OnItemSelectedListener() {
-                @Override
-                public void onItemSelected(
-                    android.widget.AdapterView<?> parent,
-                    View view,
-                    int position,
-                    long id
-                ) {
-                    if (busy) return;
-                    if (conflictDefaultSpinner != spinner) return;
-                    ManagementImportModel.ConflictAction next = actionAt(position);
-                    if (next == defaultConflictAction) return;
-                    defaultConflictAction = next;
-                    ++sessionGeneration;
-                    prepared = null;
-                    phase = Phase.PREFLIGHT;
-                    applyButton.setEnabled(false);
-                    previewScroll.setVisibility(View.GONE);
-                    renderPreflight();
-                }
-
-                @Override
-                public void onNothingSelected(
-                    android.widget.AdapterView<?> parent
-                ) {
-                }
-            }
-        );
-        spinner.setEnabled(!busy);
-        body.addView(spinner, new LinearLayout.LayoutParams(
+        LinearLayout actions = new LinearLayout(this);
+        actions.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        card.addView(body);
-        preflightContainer.addView(card);
+        );
+        actionsParams.topMargin = dp(7);
+        body.addView(actions, actionsParams);
+        addDefaultActionButton(
+            actions,
+            R.string.management_import_bulk_overwrite,
+            ManagementImportModel.ConflictAction.OVERWRITE,
+            0
+        );
+        addDefaultActionButton(
+            actions,
+            R.string.management_import_bulk_copy,
+            ManagementImportModel.ConflictAction.COPY,
+            dp(6)
+        );
+        addDefaultActionButton(
+            actions,
+            R.string.management_import_bulk_skip,
+            ManagementImportModel.ConflictAction.SKIP,
+            dp(6)
+        );
+        parent.addView(body);
+    }
+
+    private void addDefaultActionButton(
+        LinearLayout parent,
+        int textId,
+        ManagementImportModel.ConflictAction action,
+        int marginStart
+    ) {
+        MaterialButton button = styledButton(
+            action == defaultConflictAction
+                ? R.style.Widget_HET_Button_Primary
+                : R.style.Widget_HET_Button_Secondary
+        );
+        button.setText(textId);
+        button.setTextSize(12);
+        button.setOnClickListener(view -> chooseDefaultConflictAction(action));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f
+        );
+        params.leftMargin = marginStart;
+        parent.addView(button, params);
+    }
+
+    private void chooseDefaultConflictAction(
+        ManagementImportModel.ConflictAction action
+    ) {
+        if (busy || action == defaultConflictAction) return;
+        defaultConflictAction = action;
+        preflightNotice = null;
+        ++sessionGeneration;
+        prepared = null;
+        phase = Phase.PREFLIGHT;
+        applyButton.setEnabled(false);
+        previewScroll.setVisibility(View.GONE);
+        renderPreflight();
     }
 
     private void addTaskActionControl(
@@ -928,12 +1091,41 @@ public final class ManagementImportActivity extends AppCompatActivity {
         heading.setText(R.string.management_import_tasks_title);
         heading.setTextAppearance(
             this,
-            com.google.android.material.R.style.TextAppearance_MaterialComponents_Subtitle1
+            R.style.TextAppearance_HET_ManagementImport_Title
         );
         heading.setTextColor(
             ContextCompat.getColor(this, R.color.het_on_surface)
         );
         body.addView(heading);
+        List<String> requestIds = new ArrayList<>();
+        for (ManagementImportModel.Conflict conflict : conflicts) {
+            requestIds.addAll(conflict.activeRequestIds);
+        }
+        TextView taskSummary = new TextView(this);
+        taskSummary.setTextAppearance(
+            this,
+            R.style.TextAppearance_HET_ManagementImport_Meta
+        );
+        if (requestIds.isEmpty()) {
+            taskSummary.setText(getString(
+                R.string.management_import_tasks_summary,
+                0
+            ));
+        } else {
+            taskSummary.setText(getString(
+                R.string.management_import_tasks_request_ids,
+                android.text.TextUtils.join("\n", requestIds)
+            ));
+        }
+        body.addView(taskSummary, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        if (taskCount == 0) {
+            card.addView(body);
+            preflightContainer.addView(card);
+            return;
+        }
         MaterialButton taskButton = styledButton(
             R.style.Widget_HET_Button_Secondary
         );
@@ -944,6 +1136,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
             taskAction = taskAction == ManagementImportModel.TaskAction.KEEP
                 ? ManagementImportModel.TaskAction.CANCEL
                 : ManagementImportModel.TaskAction.KEEP;
+            preflightNotice = null;
             updateTaskButton(taskButton, displayedTaskCount);
             ++sessionGeneration;
             prepared = null;
@@ -1035,7 +1228,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        params.bottomMargin = dp(12);
+        params.bottomMargin = dp(10);
         return params;
     }
 
@@ -1064,7 +1257,8 @@ public final class ManagementImportActivity extends AppCompatActivity {
 
     private void generatePreview() {
         if (pendingSubmissionRestored || pendingRecoveryUnavailable
-            || busy || batch == null || phase != Phase.PREFLIGHT) return;
+            || busy || !snapshotReady || snapshotLoading
+            || batch == null || phase != Phase.PREFLIGHT) return;
         final long generation = sessionGeneration;
         final ManagementImportModel.Batch selectedBatch = batch;
         final ManagementImportModel.ExistingSnapshot selectedSnapshot =
@@ -1085,7 +1279,6 @@ public final class ManagementImportActivity extends AppCompatActivity {
                         selectedDefault,
                         selectedTaskAction
                     );
-                String previewText = pretty(result.toJson());
                 postUiIfAlive(() -> {
                     if (generation != sessionGeneration) {
                         setBusy(false);
@@ -1094,9 +1287,22 @@ public final class ManagementImportActivity extends AppCompatActivity {
                     prepared = result;
                     phase = Phase.PREVIEW;
                     setBusy(false);
-                    previewView.setText(previewText);
+                    setPageHeader(
+                        R.string.management_import_preview_eyebrow,
+                        R.string.management_import_preview_title,
+                        R.string.management_import_preview_description
+                    );
+                    pageDescription.setVisibility(View.GONE);
+                    preflightScroll.setVisibility(View.GONE);
+                    generatePreviewButton.setVisibility(View.GONE);
+                    applyButton.setVisibility(stylePreview ? View.GONE : View.VISIBLE);
+                    renderImportPreview(result);
                     previewScroll.setVisibility(View.VISIBLE);
-                    applyButton.setEnabled(true);
+                    applyButton.setEnabled(!stylePreview);
+                    if (stylePreview) {
+                        statusView.setVisibility(View.VISIBLE);
+                        statusView.setText(R.string.style_preview_read_only_body);
+                    }
                 });
             } catch (Exception error) {
                 postUiIfAlive(() -> {
@@ -1105,14 +1311,132 @@ public final class ManagementImportActivity extends AppCompatActivity {
                         return;
                     }
                     setBusy(false);
+                    preflightNotice = getString(
+                        R.string.management_import_failed,
+                        safeMessage(error)
+                    );
+                    statusView.setVisibility(View.VISIBLE);
+                    statusView.setText(preflightNotice);
                     showError(error);
                 });
             }
         });
     }
 
+    /** Renders each selected source independently while preserving the full plan. */
+    private void renderImportPreview(
+        ManagementImportModel.PreparedImport result
+    ) {
+        previewView.setText(getString(
+            R.string.management_import_preview_summary,
+            result.batch.documents.size(),
+            result.operations.size(),
+            result.conflicts.size()
+        ));
+        previewFilesContainer.removeAllViews();
+        for (ManagementImportModel.Document document : result.batch.documents) {
+            JSONArray operations = new JSONArray();
+            for (ManagementImportModel.Operation operation : result.operations) {
+                if (!document.records.contains(operation.incoming)) {
+                    continue;
+                }
+                try {
+                    operations.put(new JSONObject()
+                        .put("key", operation.incoming.key())
+                        .put("action", operation.action)
+                        .put("target_id", operation.targetId)
+                        .put("content", new JSONObject(
+                            operation.targetDocument.toString()
+                        )));
+                } catch (Exception error) {
+                    try {
+                        JSONObject fallback = new JSONObject();
+                        fallback.put("key", operation.incoming.key());
+                        fallback.put("action", operation.action);
+                        fallback.put("target_id", operation.targetId);
+                        operations.put(fallback);
+                    } catch (Exception ignored) {
+                        // The full operation remains in PreparedImport.toJson;
+                        // this card only loses its compact display entry.
+                    }
+                }
+            }
+            addPreviewFileCard(
+                document.sourceName,
+                typeLabel(document.type),
+                operations.length(),
+                pretty(document.root)
+            );
+        }
+    }
+
+    private void addPreviewFileCard(
+        String sourceName,
+        String type,
+        int operationCount,
+        String value
+    ) {
+        MaterialCardView card = importCard();
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(12), dp(11), dp(12), dp(11));
+
+        TextView title = new TextView(this);
+        title.setTextAppearance(
+            this,
+            R.style.TextAppearance_HET_ManagementImport_Title
+        );
+        title.setText(sourceName);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        title.setMaxLines(2);
+        body.addView(title);
+
+        TextView meta = new TextView(this);
+        meta.setTextAppearance(
+            this,
+            R.style.TextAppearance_HET_ManagementImport_Meta
+        );
+        meta.setText(getString(
+            R.string.management_import_preview_file_meta,
+            type,
+            operationCount
+        ));
+        body.addView(meta, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        DraggableScrollbarNestedScrollView codeScroll =
+            new DraggableScrollbarNestedScrollView(this);
+        codeScroll.setFillViewport(false);
+        codeScroll.setNestedScrollingEnabled(true);
+        codeScroll.setPaddingRelative(0, 0, dp(14), 0);
+        codeScroll.setBackgroundResource(R.drawable.bg_management_import_preview);
+        TextView code = new TextView(this);
+        code.setTextAppearance(
+            this,
+            R.style.TextAppearance_HET_ManagementImport_Preview
+        );
+        code.setText(value);
+        code.setTextIsSelectable(true);
+        code.setPadding(dp(11), dp(10), dp(11), dp(10));
+        codeScroll.addView(code, new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        LinearLayout.LayoutParams codeParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(240)
+        );
+        codeParams.topMargin = dp(7);
+        body.addView(codeScroll, codeParams);
+
+        card.addView(body);
+        previewFilesContainer.addView(card);
+    }
+
     private void confirmApply() {
-        if (busy) return;
+        if (stylePreview || busy) return;
         if (pendingRecoveryUnavailable) {
             showError(new IllegalStateException(
                 getString(R.string.management_import_pending_submission)
@@ -1169,6 +1493,11 @@ public final class ManagementImportActivity extends AppCompatActivity {
                         return;
                     }
                     setBusy(false);
+                    statusView.setVisibility(View.VISIBLE);
+                    statusView.setText(getString(
+                        R.string.management_import_failed,
+                        safeMessage(error)
+                    ));
                     showError(error);
                 });
             }
@@ -1282,8 +1611,11 @@ public final class ManagementImportActivity extends AppCompatActivity {
             prepared = null;
             if ("snapshot_changed".equals(result.optString("error", ""))) {
                 snapshotReady = false;
+                String staleMessage = result.optString("message", "");
+                preflightNotice = staleMessage.trim().isEmpty()
+                    ? getString(R.string.management_import_preview_stale)
+                    : staleMessage;
                 loadSnapshotFromService();
-                statusView.setText(R.string.management_import_preview_stale);
                 if (batch != null) {
                     phase = Phase.PREFLIGHT;
                     renderPreflight();
@@ -1291,6 +1623,14 @@ public final class ManagementImportActivity extends AppCompatActivity {
                     resetToFiles();
                 }
             } else {
+                String rejectionMessage = result.optString(
+                    "message",
+                    "导入未应用"
+                );
+                if (rejectionMessage.trim().isEmpty()) {
+                    rejectionMessage = "导入未应用";
+                }
+                preflightNotice = rejectionMessage;
                 if (batch != null) {
                     phase = Phase.PREFLIGHT;
                     renderPreflight();
@@ -1316,6 +1656,18 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void handleBack() {
+        if (stylePreview) {
+            if (phase == Phase.PREVIEW) {
+                phase = Phase.PREFLIGHT;
+                prepared = null;
+                renderPreflight();
+                statusView.setVisibility(View.VISIBLE);
+                statusView.setText(R.string.style_preview_read_only_body);
+                return;
+            }
+            finish();
+            return;
+        }
         if (busy) return;
         if (removeMode) {
             removeMode = false;
@@ -1330,8 +1682,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 return;
             }
             phase = Phase.PREFLIGHT;
-            previewScroll.setVisibility(View.GONE);
-            applyButton.setEnabled(false);
+            renderPreflight();
             return;
         }
         if (phase == Phase.PREFLIGHT) {
@@ -1339,14 +1690,20 @@ public final class ManagementImportActivity extends AppCompatActivity {
             batch = null;
             prepared = null;
             conflictActions.clear();
-            conflictSpinners.clear();
-            conflictDefaultSpinner = null;
+            conflictSelectors.clear();
             taskActionButton = null;
+            fileActions.setVisibility(View.VISIBLE);
             fileScroll.setVisibility(View.VISIBLE);
-            confirmFilesButton.setVisibility(View.VISIBLE);
+            confirmContainer.setVisibility(View.VISIBLE);
             preflightScroll.setVisibility(View.GONE);
             previewActions.setVisibility(View.GONE);
+            previewScroll.setVisibility(View.GONE);
             renderFiles();
+            if (!snapshotReady && !snapshotLoading
+                && !pendingSubmissionRestored
+                && !pendingRecoveryUnavailable) {
+                loadSnapshotFromService();
+            }
             return;
         }
         finish();
@@ -1357,17 +1714,19 @@ public final class ManagementImportActivity extends AppCompatActivity {
         if (phase == Phase.FILES) {
             updateFileActions();
         }
-        for (Spinner spinner : conflictSpinners.values()) {
-            spinner.setEnabled(!value);
-        }
-        if (conflictDefaultSpinner != null) {
-            conflictDefaultSpinner.setEnabled(!value);
+        for (MaterialButton selector : conflictSelectors.values()) {
+            selector.setEnabled(!value);
         }
         if (taskActionButton != null) {
             taskActionButton.setEnabled(!value);
         }
         if (generatePreviewButton != null) {
-            generatePreviewButton.setEnabled(!value && phase == Phase.PREFLIGHT);
+            generatePreviewButton.setEnabled(
+                !value
+                    && phase == Phase.PREFLIGHT
+                    && snapshotReady
+                    && !snapshotLoading
+            );
             applyButton.setEnabled(
                 !value
                     && phase == Phase.PREVIEW
@@ -1381,11 +1740,11 @@ public final class ManagementImportActivity extends AppCompatActivity {
         batch = null;
         prepared = null;
         conflictActions.clear();
-        conflictSpinners.clear();
-        conflictDefaultSpinner = null;
+        conflictSelectors.clear();
         taskActionButton = null;
+        fileActions.setVisibility(View.VISIBLE);
         fileScroll.setVisibility(View.VISIBLE);
-        confirmFilesButton.setVisibility(View.VISIBLE);
+        confirmContainer.setVisibility(View.VISIBLE);
         preflightScroll.setVisibility(View.GONE);
         previewActions.setVisibility(View.GONE);
         previewScroll.setVisibility(View.GONE);
@@ -1415,16 +1774,90 @@ public final class ManagementImportActivity extends AppCompatActivity {
         return getString(R.string.management_import_action_overwrite);
     }
 
-    private int actionIndex(ManagementImportModel.ConflictAction action) {
-        if (action == ManagementImportModel.ConflictAction.COPY) return 1;
-        if (action == ManagementImportModel.ConflictAction.SKIP) return 2;
-        return 0;
+    private void showConflictMenu(
+        ManagementImportModel.Conflict conflict,
+        MaterialButton selector
+    ) {
+        StyledPopupMenu menu = new StyledPopupMenu(this, selector);
+        menu.getMenu().add(
+            0,
+            0,
+            0,
+            getString(
+                R.string.management_import_action_default,
+                conflictActionLabel(defaultConflictAction)
+            )
+        );
+        menu.getMenu().add(
+            0,
+            1,
+            1,
+            R.string.management_import_action_overwrite
+        );
+        menu.getMenu().add(
+            0,
+            2,
+            2,
+            R.string.management_import_action_copy
+        );
+        menu.getMenu().add(
+            0,
+            3,
+            3,
+            R.string.management_import_action_skip
+        );
+        menu.setOnMenuItemClickListener(item -> {
+            if (busy) return true;
+            ManagementImportModel.ConflictAction previous =
+                conflictActions.get(conflict.key);
+            ManagementImportModel.ConflictAction next = null;
+            if (item.getItemId() != 0) {
+                next = actionAt(item.getItemId() - 1);
+            }
+            if (next == previous) return true;
+            preflightNotice = null;
+            if (next == null) {
+                conflictActions.remove(conflict.key);
+                selector.setText(getString(
+                    R.string.management_import_action_default,
+                    conflictActionLabel(defaultConflictAction)
+                ));
+            } else {
+                conflictActions.put(conflict.key, next);
+                selector.setText(conflictActionLabel(next));
+            }
+            ++sessionGeneration;
+            prepared = null;
+            phase = Phase.PREFLIGHT;
+            applyButton.setEnabled(false);
+            previewScroll.setVisibility(View.GONE);
+            generatePreviewButton.setVisibility(View.VISIBLE);
+            generatePreviewButton.setEnabled(!busy);
+            return true;
+        });
+        menu.show();
     }
 
     private ManagementImportModel.ConflictAction actionAt(int index) {
         if (index == 1) return ManagementImportModel.ConflictAction.COPY;
         if (index == 2) return ManagementImportModel.ConflictAction.SKIP;
         return ManagementImportModel.ConflictAction.OVERWRITE;
+    }
+
+    private void setPageHeader(
+        int eyebrowId,
+        int headingId,
+        int descriptionId
+    ) {
+        if (pageEyebrow != null) {
+            pageEyebrow.setText(eyebrowId);
+        }
+        if (pageHeading != null) {
+            pageHeading.setText(headingId);
+        }
+        if (pageDescription != null) {
+            pageDescription.setText(descriptionId);
+        }
     }
 
     private void showError(Throwable error) {

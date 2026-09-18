@@ -1,5 +1,7 @@
 package com.quarty.housamoembedtrans.ui;
 
+import com.quarty.housamoembedtrans.storage.json.JsonSchemaValidator;
+
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
@@ -96,10 +98,21 @@ public final class ManagementTransfer {
         Uri uri,
         String sourceName
     ) throws IOException {
+        return readDocument(resolver, uri, sourceName, null);
+    }
+
+    /** Reads one document with the caller's existing Scene schema validator. */
+    public static ManagementImportModel.Document readDocument(
+        ContentResolver resolver,
+        Uri uri,
+        String sourceName,
+        JsonSchemaValidator sceneSchemaValidator
+    ) throws IOException {
         try {
             return ManagementImportModel.parseDocument(
                 sourceName,
-                readBytes(resolver, uri)
+                readBytes(resolver, uri),
+                sceneSchemaValidator
             );
         } catch (IllegalArgumentException error) {
             throw new IOException(error.getMessage(), error);

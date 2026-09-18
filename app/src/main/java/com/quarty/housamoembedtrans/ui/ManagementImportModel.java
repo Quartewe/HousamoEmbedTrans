@@ -1,5 +1,7 @@
 package com.quarty.housamoembedtrans.ui;
 
+import com.quarty.housamoembedtrans.storage.json.JsonSchemaValidator;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -434,6 +436,33 @@ public final class ManagementImportModel {
 
     /** Parses one selected file without touching any store or management state. */
     public static Document parseDocument(String sourceName, byte[] bytes) {
+        return parseDocumentInternal(sourceName, bytes, null, false);
+    }
+
+    /**
+     * Parses one selected file and, when supplied, applies the same Scene
+     * schema validator used by the Scene store before the file can enter the
+     * management preflight model.
+     */
+    public static Document parseDocument(
+        String sourceName,
+        byte[] bytes,
+        JsonSchemaValidator sceneSchemaValidator
+    ) {
+        return parseDocumentInternal(
+            sourceName,
+            bytes,
+            sceneSchemaValidator,
+            true
+        );
+    }
+
+    private static Document parseDocumentInternal(
+        String sourceName,
+        byte[] bytes,
+        JsonSchemaValidator sceneSchemaValidator,
+        boolean validateSceneSchema
+    ) {
         String safeName = sourceName == null || sourceName.trim().isEmpty()
             ? "document.json"
             : sourceName.trim();
@@ -450,6 +479,13 @@ public final class ManagementImportModel {
             throw failure(safeName, "IMPORT_INVALID_JSON", "JSON 无法解析", error);
         }
         List<Document> expanded = parseRootDocuments(safeName, root);
+        if (validateSceneSchema) {
+            validateSceneDocuments(
+                safeName,
+                expanded,
+                sceneSchemaValidator
+            );
+        }
         if (expanded.size() != 1) {
             List<Record> records = new ArrayList<>();
             for (Document document : expanded) {
@@ -458,6 +494,37 @@ public final class ManagementImportModel {
             return new Document(safeName, "bundle", root, records);
         }
         return expanded.get(0);
+    }
+
+    private static void validateSceneDocuments(
+        String sourceName,
+        List<Document> documents,
+        JsonSchemaValidator sceneSchemaValidator
+    ) {
+        for (Document document : documents) {
+            if (!KIND_SCENE.equals(document.type)) {
+                continue;
+            }
+            if (sceneSchemaValidator == null) {
+                throw failure(
+                    sourceName,
+                    "IMPORT_SCHEMA_UNAVAILABLE",
+                    "Scene schema validator is unavailable"
+                );
+            }
+            for (Record record : document.records) {
+                try {
+                    sceneSchemaValidator.validate(record.document);
+                } catch (JsonSchemaValidator.ValidationException error) {
+                    throw failure(
+                        sourceName,
+                        "IMPORT_SCHEMA_INVALID",
+                        error.getMessage(),
+                        error
+                    );
+                }
+            }
+        }
     }
 
     /** Combines all ready files and rejects same-type identity collisions. */

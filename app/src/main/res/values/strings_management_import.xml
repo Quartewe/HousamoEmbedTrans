@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="management_import_title">Import data</string>
+    <string name="management_import_eyebrow">File check · import</string>
+    <string name="management_import_preflight_eyebrow">Import review</string>
+    <string name="management_import_preview_eyebrow">Import preview</string>
+    <string name="management_import_pending_eyebrow">Import recovery</string>
+    <string name="management_import_source_title">Choose import files</string>
+    <string name="management_import_source_description">Select one or more HET JSON files and review each file before continuing.</string>
+    <string name="management_import_preflight_description">Review detected conflicts and active translation tasks, then choose how the import should be applied.</string>
+    <string name="management_import_preview_description">Inspect the planned operation for each source file before handing the session to the shared storage coordinator.</string>
+    <string name="management_import_pending_title">Import submission pending</string>
+    <string name="management_import_pending_description">The previous session is retained until the service confirms its result. Retry the same session to finish safely.</string>
     <string name="management_import_add">+</string>
     <string name="management_import_add_description">Add files</string>
     <string name="management_import_remove_mode">−</string>
@@ -19,11 +29,17 @@
     <string name="management_import_snapshot_ready">Management snapshot is ready.</string>
     <string name="management_import_files_summary">%1$d file(s)</string>
     <string name="management_import_preflight_title">Import preflight</string>
+    <string name="management_import_conflicts_heading">Object conflicts</string>
     <string name="management_import_conflicts_title">Object conflicts (%1$d)</string>
     <string name="management_import_default_action">Default conflict action</string>
     <string name="management_import_default_action_hint">Applies to conflicts without an individual choice.</string>
+    <string name="management_import_bulk_overwrite">Overwrite all</string>
+    <string name="management_import_bulk_copy">Copy all</string>
+    <string name="management_import_bulk_skip">Skip all</string>
     <string name="management_import_no_conflicts">No object conflicts.</string>
     <string name="management_import_tasks_title">Active translation tasks</string>
+    <string name="management_import_tasks_summary">%1$d active task(s) are linked to the conflicts in this import.</string>
+    <string name="management_import_tasks_request_ids">Request IDs: %1$s</string>
     <string name="management_import_tasks_keep">Keep active tasks (%1$d)</string>
     <string name="management_import_tasks_cancel">Confirm canceling active tasks (%1$d)</string>
     <string name="management_import_preview_title">Import preview</string>
@@ -45,4 +61,7 @@
     <string name="management_import_type_character">Character</string>
     <string name="management_import_type_term">Game Term</string>
     <string name="management_import_type_unknown">Unknown data</string>
+    <string name="management_import_preview_file_meta">%1$s · %2$d planned operation(s)</string>
+    <string name="management_import_preview_summary">%1$d file(s) · %2$d planned operation(s) · %3$d conflict(s)</string>
+    <string name="management_import_conflict_existing">Existing object: %1$s</string>
 </resources>

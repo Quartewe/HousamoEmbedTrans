@@ -1,30 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/row_management_import_file"
-    style="@style/Widget.HET.SectionCard"
+    style="@style/Widget.HET.ManagementImport.FileCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp">
+    android:layout_marginBottom="6dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
-        android:minHeight="56dp"
+        android:minHeight="44dp"
         android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="8dp">
+        android:paddingStart="9dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="9dp"
+        android:paddingBottom="6dp">
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/check_management_import_file"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="5dp"
             android:clickable="true"
             android:focusable="true"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
             android:visibility="gone" />
 
         <LinearLayout
@@ -35,21 +37,18 @@
 
             <TextView
                 android:id="@+id/tv_management_import_file_name"
+                style="@style/TextAppearance.HET.ManagementImport.Title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
-                android:maxLines="2"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                android:textColor="@color/het_on_surface" />
+                android:maxLines="2" />
 
             <TextView
                 android:id="@+id/tv_management_import_file_state"
+                style="@style/TextAppearance.HET.ManagementImport.Meta"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-                android:textColor="@color/het_on_surface_muted" />
+                android:layout_marginTop="2dp" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
