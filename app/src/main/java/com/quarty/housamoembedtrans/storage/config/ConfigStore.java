@@ -52,7 +52,7 @@ public final class ConfigStore {
     public static final boolean DEFAULT_ENABLE_STARTUP_REVIEW = false;
     public static final String DEFAULT_RECOVERY_SORT_ORDER = "created_asc";
     public static final String DEFAULT_THINKING_STRENGTH = "none";
-    public static final int DEFAULT_CONTEXT_LENGTH = 16000;
+    public static final int DEFAULT_CONTEXT_LENGTH = 160000;
     public static final int MAX_TRANSLATION_RETRY_COUNT = 5;
     public static final int DEFAULT_SCENE_WORKER_COUNT =
         SceneSyncSettings.DEFAULT_SCENE_WORKER_COUNT;

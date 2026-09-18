@@ -8,6 +8,7 @@
     <string name="style_preview_read_only_body">The sample is passed through the Activity intent. Store writes, deletion, translation requests, and import or export commits are disabled.</string>
     <string name="style_preview_tasks">Task page</string>
     <string name="style_preview_management_home">Management home</string>
+    <string name="style_preview_scene_sync">Scene Sync</string>
     <string name="style_preview_management_export">Management export surface</string>
     <string name="style_preview_scene_detail">Scene detail</string>
     <string name="style_preview_scene_editor">Scene editor</string>
@@ -24,6 +25,7 @@
     <string name="style_preview_tasks_description">Queued, active, failed, completed, and waiting task states.</string>
     <string name="style_preview_waiting_body">A sample waiting record is present for visual review. Actions are disabled in this preview.</string>
     <string name="style_preview_management_home_description">Counts, sections, filters, and management entry points.</string>
+    <string name="style_preview_scene_sync_description">Scene files, sync status, result summaries, and read-only selectors.</string>
     <string name="style_preview_management_export_description">The management export controls and read-only preview state.</string>
     <string name="style_preview_scene_detail_description">Scene metadata, characters, terms, source rows, and translations.</string>
     <string name="style_preview_scene_editor_description">Scene identity, language, summaries, relations, and source sections.</string>

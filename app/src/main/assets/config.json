@@ -30,7 +30,7 @@
         },
         "Api": {
             "ThinkingStrength": "none",
-            "context_length": 16000,
+            "context_length": 160000,
             "max_concurrent_requests": 2
         },
         "TranslationQueue": {

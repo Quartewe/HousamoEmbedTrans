@@ -64,7 +64,7 @@
     <string name="thinking_strength">思考档位</string>
     <string name="thinking_strength_hint">Translation 与 Summary 请求共用。\'none\' 关闭思考；其他档位会以 reasoning_effort 传给 OpenAI 兼容服务，并映射为 Anthropic thinking budget。</string>
     <string name="context_length">上下文长度（tokens）</string>
-    <string name="context_length_hint">对完整 Provider 输入（system prompt + user content）的本地保守 token 预算。默认 16000。</string>
+    <string name="context_length_hint">对完整 Provider 输入（system prompt + user content）的本地保守 token 预算。默认 160000。</string>
     <string name="api_concurrency">API 并发上限</string>
     <string name="api_concurrency_hint">Translation 与 Summary API 请求的最大并发数。有效范围：1 到 8。</string>
     <string name="network_retry_count">网络重试次数</string>
