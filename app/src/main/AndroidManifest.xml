@@ -16,6 +16,7 @@
     </queries>
 
     <application
+        android:name=".HousamoApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -67,6 +68,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.ContextGroupEditorActivity"
+            android:exported="false"
+            android:label="@string/context_group_editor_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.SceneBatchEditActivity"
             android:exported="false"
             android:label="@string/scene_batch_edit_title"
@@ -75,7 +82,8 @@
         <activity
             android:name=".ui.TranslationQueueActivity"
             android:exported="false"
-            android:label="@string/translation_queue_title" />
+            android:label="@string/task_page_title"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".ui.SettingsActivity"
@@ -100,6 +108,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.StylePreviewActivity"
+            android:exported="false"
+            android:label="@string/style_preview_toolbar_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.PromptEditorActivity"
             android:exported="false"
             android:label="@string/settings_prompt_title"
@@ -109,6 +123,12 @@
             android:name=".ui.SceneManagementDetailActivity"
             android:exported="false"
             android:label="@string/scene_files_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.SceneManagementEditorActivity"
+            android:exported="false"
+            android:label="@string/scene_management_editor_title"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
