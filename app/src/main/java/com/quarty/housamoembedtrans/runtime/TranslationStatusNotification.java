@@ -19,6 +19,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -50,6 +51,8 @@ public final class TranslationStatusNotification {
     private static final int SCENE_CONFLICTS_REQUEST_CODE = 5;
     private static final int SCENE_CONTEXT_REVIEW_REQUEST_CODE = 6;
     private static final int REJECTED_API_RESULTS_REQUEST_CODE = 7;
+    private static final String NOTIFICATION_INTENT_SCHEME =
+        "housamoembedtrans";
 
     private static final String PREFS_NAME = "translation_notification_state";
     private static final String KEY_STATE = "state";
@@ -257,7 +260,11 @@ public final class TranslationStatusNotification {
             .setContentTitle(title)
             .setContentText(text)
             .setSubText(subText)
-            .setContentIntent(queuePendingIntent(context))
+            .setContentIntent(queuePendingIntent(
+                context,
+                requestId,
+                failureType
+            ))
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_ERROR)
@@ -326,7 +333,10 @@ public final class TranslationStatusNotification {
             .setSubText(appContext.getString(
                 R.string.notification_rejected_api_result_subtitle
             ))
-            .setContentIntent(rejectedApiResultsPendingIntent(appContext))
+            .setContentIntent(rejectedApiResultsPendingIntent(
+                appContext,
+                record.optString("record_id", requestId)
+            ))
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_ERROR)
@@ -909,6 +919,13 @@ public final class TranslationStatusNotification {
     }
 
     private static PendingIntent rejectedApiResultsPendingIntent(Context context) {
+        return rejectedApiResultsPendingIntent(context, null);
+    }
+
+    private static PendingIntent rejectedApiResultsPendingIntent(
+        Context context,
+        String recordId
+    ) {
         Intent intent = new Intent(context, TranslationQueueActivity.class)
             .putExtra(
                 TranslationQueueActivity.EXTRA_MANAGEMENT_ONLY,
@@ -918,9 +935,21 @@ public final class TranslationStatusNotification {
                 Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP
             );
+        if (recordId != null && !recordId.trim().isEmpty()) {
+            intent.putExtra(
+                TranslationQueueActivity.EXTRA_NOTIFICATION_REJECTED_RECORD_ID,
+                recordId
+            );
+            intent.setData(notificationIdentityUri(
+                "record",
+                "rejected_api_result",
+                recordId
+            ));
+        }
         return PendingIntent.getActivity(
             context,
-            REJECTED_API_RESULTS_REQUEST_CODE,
+            REJECTED_API_RESULTS_REQUEST_CODE
+                ^ (recordId == null ? 0 : recordId.hashCode()),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT
                 | PendingIntent.FLAG_IMMUTABLE
@@ -951,18 +980,59 @@ public final class TranslationStatusNotification {
     }
 
     private static PendingIntent queuePendingIntent(Context context) {
+        return queuePendingIntent(context, null);
+    }
+
+    private static PendingIntent queuePendingIntent(
+        Context context,
+        String requestId
+    ) {
+        return queuePendingIntent(context, requestId, "queue");
+    }
+
+    private static PendingIntent queuePendingIntent(
+        Context context,
+        String requestId,
+        String failureType
+    ) {
         Intent intent = new Intent(context, TranslationQueueActivity.class)
             .addFlags(
                 Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP
             );
+        if (requestId != null && !requestId.trim().isEmpty()) {
+            intent.putExtra(
+                TranslationQueueActivity.EXTRA_NOTIFICATION_REQUEST_ID,
+                requestId
+            );
+            intent.setData(notificationIdentityUri(
+                "request",
+                failureType,
+                requestId
+            ));
+        }
         return PendingIntent.getActivity(
             context,
-            QUEUE_REQUEST_CODE,
+            QUEUE_REQUEST_CODE
+                ^ (requestId == null ? 0 : requestId.hashCode()),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT
                 | PendingIntent.FLAG_IMMUTABLE
         );
+    }
+
+    private static Uri notificationIdentityUri(
+        String identityType,
+        String category,
+        String id
+    ) {
+        return new Uri.Builder()
+            .scheme(NOTIFICATION_INTENT_SCHEME)
+            .authority("notification")
+            .appendPath(identityType)
+            .appendPath(category == null ? "unknown" : category)
+            .appendPath(id)
+            .build();
     }
 
     private static String formatDuration(long startedAt, long finishedAt) {
