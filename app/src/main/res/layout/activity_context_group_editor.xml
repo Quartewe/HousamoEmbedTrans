@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_context_group_editor"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/het_surface"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar_context_group_editor"
+        style="@style/Widget.HET.StaticDetail.Toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:minHeight="56dp"
+        app:title="@string/context_group_editor_title"
+        app:navigationContentDescription="@string/back_action"
+        app:navigationIcon="?attr/homeAsUpIndicator" />
+
+    <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
+        style="@style/Widget.HET.ScrollView"
+        android:id="@+id/scroll_context_group_editor"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/container_context_group_editor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="24dp" />
+    </com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView>
+
+    <include layout="@layout/view_page_actions" />
+</LinearLayout>
