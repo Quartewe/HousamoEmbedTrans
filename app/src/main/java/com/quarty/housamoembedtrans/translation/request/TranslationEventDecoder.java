@@ -5,7 +5,8 @@ import org.json.JSONObject;
 import java.math.BigDecimal;
 
 /**
- * Decodes model-generated NDJSON after provider SSE framing has been removed.
+ * Decodes a stream of JSON event objects after provider SSE framing is removed.
+ * Both NDJSON and objects formatted across multiple lines are accepted.
  */
 public final class TranslationEventDecoder {
     public interface Listener {
@@ -34,6 +35,9 @@ public final class TranslationEventDecoder {
     private final boolean requireContextSummary;
     private final Listener listener;
     private final StringBuilder pending = new StringBuilder();
+    private int objectDepth;
+    private boolean inString;
+    private boolean escaped;
     private boolean summaryReceived;
     private boolean completeReceived;
     private int lastSeq;
@@ -55,24 +59,49 @@ public final class TranslationEventDecoder {
         if (delta == null || delta.isEmpty()) {
             return;
         }
-        pending.append(delta);
-        int newline;
-        while ((newline = indexOfNewline(pending)) >= 0) {
-            String line = pending.substring(0, newline);
-            int removeLength = newline + 1;
-            if (newline > 0 && pending.charAt(newline - 1) == '\r') {
-                line = pending.substring(0, newline - 1);
+        for (int index = 0; index < delta.length(); index++) {
+            char value = delta.charAt(index);
+            if (pending.length() == 0) {
+                if (value == ' ' || value == '\t' || value == '\r' || value == '\n') {
+                    continue;
+                }
+                if (completeReceived) {
+                    throw new ProtocolException("content appeared after complete event");
+                }
+                if (value != '{') {
+                    throw new ProtocolException("translation event must start with a JSON object");
+                }
             }
-            pending.delete(0, removeLength);
-            consumeLine(line);
+            pending.append(value);
+            if (inString) {
+                if (value < 0x20) {
+                    throw new ProtocolException("unescaped control character in JSON string");
+                }
+                if (escaped) {
+                    escaped = false;
+                } else if (value == '\\') {
+                    escaped = true;
+                } else if (value == '"') {
+                    inString = false;
+                }
+            } else if (value == '"') {
+                inString = true;
+            } else if (value == '{') {
+                objectDepth++;
+            } else if (value == '}') {
+                objectDepth--;
+                if (objectDepth == 0) {
+                    String event = pending.toString();
+                    pending.setLength(0);
+                    consumeEvent(event);
+                }
+            }
         }
     }
 
     public void finish() throws Exception {
-        String remaining = pending.toString().trim();
-        pending.setLength(0);
-        if (!remaining.isEmpty()) {
-            consumeLine(remaining);
+        if (pending.length() != 0) {
+            throw new ProtocolException("translation stream ended with an incomplete JSON event");
         }
         if (!repair && !summaryReceived) {
             throw new ProtocolException(
@@ -86,11 +115,7 @@ public final class TranslationEventDecoder {
         }
     }
 
-    private void consumeLine(String rawLine) throws Exception {
-        String line = rawLine.trim();
-        if (line.isEmpty()) {
-            return;
-        }
+    private void consumeEvent(String json) throws Exception {
         if (completeReceived) {
             throw new ProtocolException(
                 "content appeared after complete event"
@@ -99,10 +124,10 @@ public final class TranslationEventDecoder {
 
         final JSONObject event;
         try {
-            event = new JSONObject(line);
+            event = new JSONObject(json);
         } catch (Exception e) {
             throw new ProtocolException(
-                "invalid NDJSON event: " + truncate(line, 512),
+                "invalid JSON event: " + truncate(json, 512),
                 e
             );
         }
@@ -265,15 +290,6 @@ public final class TranslationEventDecoder {
         }
         completeReceived = true;
         listener.onComplete();
-    }
-
-    private static int indexOfNewline(StringBuilder builder) {
-        for (int index = 0; index < builder.length(); index++) {
-            if (builder.charAt(index) == '\n') {
-                return index;
-            }
-        }
-        return -1;
     }
 
     private static String truncate(String value, int maxLength) {
