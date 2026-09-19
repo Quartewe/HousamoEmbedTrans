@@ -423,6 +423,7 @@ public final class TranslationService extends Service {
                 try {
                     TranslationStatusNotification.translationStarted(
                         TranslationService.this,
+                        requestId,
                         scene
                     );
                 } catch (RuntimeException notificationFailure) {
@@ -509,6 +510,7 @@ public final class TranslationService extends Service {
                 try {
                     TranslationStatusNotification.translationSucceeded(
                         TranslationService.this,
+                        requestId,
                         scene
                     );
                 } catch (RuntimeException notificationFailure) {
@@ -534,6 +536,7 @@ public final class TranslationService extends Service {
                 try {
                     TranslationStatusNotification.translationFailed(
                         TranslationService.this,
+                        requestId,
                         scene
                     );
                     TranslationStatusNotification.translationFailedDetails(
@@ -580,6 +583,7 @@ public final class TranslationService extends Service {
                 try {
                     TranslationStatusNotification.translationNeedsUserAction(
                         TranslationService.this,
+                        requestId,
                         scene,
                         reason
                     );
@@ -872,6 +876,11 @@ public final class TranslationService extends Service {
                         executor == null
                             ? jobStore.requestCancellation(requestId)
                             : executor.cancelTranslationJob(requestId);
+                    if (result.isAccepted()) {
+                        TranslationStatusNotification.translationCanceled(
+                            TranslationService.this, requestId
+                        );
+                    }
                     switch (result.getDisposition()) {
                         case QUEUED_CANCELED:
                             return HetBridgeContract
@@ -3149,6 +3158,7 @@ public final class TranslationService extends Service {
             globalLimit
         );
         activeTaskExecutor = taskExecutor;
+        TranslationStatusNotification.refresh(this);
         taskExecutor.setSceneSyncCoordinator(sceneSyncCoordinator);
         taskExecutor.setActivityListener(this::publishApiActivity);
         taskExecutor.setApiConcurrencyGate(apiConcurrencyGate);
@@ -3736,7 +3746,7 @@ public final class TranslationService extends Service {
         String message
     ) {
         try {
-            TranslationStatusNotification.translationNeedsUserAction(
+            TranslationStatusNotification.admissionNeedsUserAction(
                 this,
                 requestId,
                 message == null || message.trim().isEmpty()

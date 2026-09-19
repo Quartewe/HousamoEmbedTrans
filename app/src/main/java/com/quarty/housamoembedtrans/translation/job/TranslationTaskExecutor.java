@@ -661,6 +661,39 @@ public final class TranslationTaskExecutor {
         }
     }
 
+    /** Immutable view of an existing coordinator; no disk reads or second registry. */
+    public static final class ActiveTranslationSnapshot {
+        public final String requestId;
+        public final String scene;
+        public final long startedAt;
+
+        private ActiveTranslationSnapshot(JobCoordinator coordinator) {
+            requestId = coordinator.requestId;
+            scene = coordinator.requestInfo.getScene();
+            startedAt = coordinator.startedAt;
+        }
+    }
+
+    public ActiveTranslationSnapshot getActiveTranslationSnapshot(String preferredRequestId) {
+        synchronized (activeJobsLock) {
+            JobCoordinator candidate = null;
+            for (LinkedHashSet<JobCoordinator> registered : activeJobs.values()) {
+                for (JobCoordinator coordinator : registered) {
+                    if (coordinator.cancelRequested || coordinator.terminal) {
+                        continue;
+                    }
+                    if (coordinator.requestId.equals(preferredRequestId)) {
+                        return new ActiveTranslationSnapshot(coordinator);
+                    }
+                    if (candidate == null) {
+                        candidate = coordinator;
+                    }
+                }
+            }
+            return candidate == null ? null : new ActiveTranslationSnapshot(candidate);
+        }
+    }
+
     private boolean registerActiveJob(
         String requestId,
         JobCoordinator coordinator
@@ -868,6 +901,13 @@ public final class TranslationTaskExecutor {
                 stateFailure
             );
             return false;
+        }
+    }
+
+    /** O(1) notification snapshot, shared with the task page's blocked list. */
+    public boolean hasUserActionRequiredJob(String requestId) {
+        synchronized (blockedLock) {
+            return userActionRequiredRequests.containsKey(requestId);
         }
     }
 
@@ -1790,6 +1830,7 @@ public final class TranslationTaskExecutor {
 
     private final class JobCoordinator {
         private final String requestId;
+        private final long startedAt;
         /** Stable identity for this coordinator's late-result archive. */
         private final String lateArchiveRecordId;
         private final JSONObject request;
@@ -1831,7 +1872,7 @@ public final class TranslationTaskExecutor {
         private long patchVersion;
         private boolean mainFinished;
         private boolean repairRunning;
-        private boolean terminal;
+        private volatile boolean terminal;
         private boolean successful;
         private boolean fatalProviderFailure;
         private String failureMessage = "";
@@ -2017,6 +2058,8 @@ public final class TranslationTaskExecutor {
             // of this late result reuses exactly the same record envelope.
             this.lateArchiveRecordId = "translation-canceled-"
                 + UUID.randomUUID().toString();
+            this.startedAt = state == null ? System.currentTimeMillis()
+                : state.optLong("started_at", System.currentTimeMillis());
             this.request = request;
             this.requestInfo = requestInfo;
             this.config = config;

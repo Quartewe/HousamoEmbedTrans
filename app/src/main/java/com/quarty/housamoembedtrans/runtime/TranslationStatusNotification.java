@@ -8,6 +8,7 @@ import com.quarty.housamoembedtrans.ui.SceneFilesActivity;
 import com.quarty.housamoembedtrans.ui.SettingsActivity;
 import com.quarty.housamoembedtrans.ui.TranslationQueueActivity;
 import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
+import com.quarty.housamoembedtrans.translation.job.TranslationTaskExecutor;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 
 import android.Manifest;
@@ -21,6 +22,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.format.DateUtils;
 import com.quarty.housamoembedtrans.logging.Log;
 
@@ -57,6 +60,7 @@ public final class TranslationStatusNotification {
     private static final String PREFS_NAME = "translation_notification_state";
     private static final String KEY_STATE = "state";
     private static final String KEY_SCENE = "scene";
+    private static final String KEY_REQUEST_ID = "request_id";
     private static final String KEY_STARTED_AT = "started_at";
     private static final String KEY_FINISHED_AT = "finished_at";
 
@@ -68,6 +72,8 @@ public final class TranslationStatusNotification {
     private static final String STATE_STARTUP_FAILED = "startup_failed";
 
     private static final String KEY_BLOCKED_MESSAGE = "blocked_message";
+    private static final String KEY_BLOCKED_REQUEST_ID = "blocked_request_id";
+    private static final String STATE_ADMISSION_BLOCKED = "admission_blocked";
     private static final String KEY_STARTUP_FAILED_MESSAGE =
         "startup_failed_message";
 
@@ -99,6 +105,11 @@ public final class TranslationStatusNotification {
      * failure and keeps an actionable jump into the queue.
      */
     public static void startupFailed(Context context, String message) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Context appContext = context.getApplicationContext();
+            runOnNotificationThread(() -> startupFailed(appContext, message));
+            return;
+        }
         Context appContext = context.getApplicationContext();
         state(appContext)
             .edit()
@@ -116,33 +127,105 @@ public final class TranslationStatusNotification {
 
     public static void translationStarted(
         Context context,
+        String requestId,
         String sceneName
     ) {
-        update(context, sceneName, STATUS_STARTED);
+        update(context, requestId, sceneName, STATUS_STARTED);
     }
 
     public static void translationSucceeded(
         Context context,
+        String requestId,
         String sceneName
     ) {
-        update(context, sceneName, STATUS_SUCCEEDED);
+        update(context, requestId, sceneName, STATUS_SUCCEEDED);
     }
 
     public static void translationFailed(
         Context context,
+        String requestId,
         String sceneName
     ) {
-        update(context, sceneName, STATUS_FAILED);
+        update(context, requestId, sceneName, STATUS_FAILED);
     }
 
     /**
-     * Shows a non-terminal user-action-required status. The job remains
-     * unsent and is never represented as a translation failure.
+     * Shows a non-terminal user-action-required status for a live blocked job.
+     * Either the main request or a later repair may have been blocked.
      */
     public static void translationNeedsUserAction(
         Context context,
+        String requestId,
         String sceneName,
         String message
+    ) {
+        Context appContext = context.getApplicationContext();
+        runOnNotificationThread(() -> {
+            TranslationTaskExecutor executor = TranslationService.getActiveTaskExecutor();
+            if (requestId == null || executor == null
+                || !executor.hasUserActionRequiredJob(requestId)) {
+                return;
+            }
+            publishBlocked(appContext, requestId, sceneName, message);
+        });
+    }
+
+    /** Admission failures have no stored job and must not masquerade as one. */
+    public static void admissionNeedsUserAction(
+        Context context,
+        String sceneName,
+        String message
+    ) {
+        Context appContext = context.getApplicationContext();
+        runOnNotificationThread(() -> publishBlocked(appContext, null, sceneName, message));
+    }
+
+    public static void translationCanceled(Context context, String requestId) {
+        Context appContext = context.getApplicationContext();
+        runOnNotificationThread(() -> {
+            SharedPreferences prefs = state(appContext);
+            if (requestId != null && requestId.equals(prefs.getString(KEY_REQUEST_ID, ""))) {
+                clearBlocked(prefs);
+            }
+            if (STATE_BLOCKED.equals(prefs.getString(KEY_STATE, STATE_IDLE))
+                && requestId != null
+                && requestId.equals(prefs.getString(KEY_BLOCKED_REQUEST_ID, ""))) {
+                clearBlocked(prefs);
+            }
+            // Reconcile active jobs too, including another job that is still running.
+            show(appContext);
+        });
+    }
+
+    private static void runOnNotificationThread(Runnable action) {
+        Runnable guarded = () -> {
+            try {
+                action.run();
+            } catch (RuntimeException error) {
+                Log.w(TAG, "Could not update translation status notification", error);
+            }
+        };
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            guarded.run();
+        } else {
+            new Handler(Looper.getMainLooper()).post(guarded);
+        }
+    }
+
+    private static void clearBlocked(SharedPreferences prefs) {
+        prefs.edit()
+            .putString(KEY_STATE, STATE_IDLE)
+            .remove(KEY_BLOCKED_REQUEST_ID)
+            .remove(KEY_BLOCKED_MESSAGE)
+            .remove(KEY_SCENE)
+            .remove(KEY_REQUEST_ID)
+            .remove(KEY_STARTED_AT)
+            .remove(KEY_FINISHED_AT)
+            .apply();
+    }
+
+    private static void publishBlocked(
+        Context context, String requestId, String sceneName, String message
     ) {
         if (sceneName == null || sceneName.trim().isEmpty()) {
             Log.w(
@@ -154,7 +237,8 @@ public final class TranslationStatusNotification {
         Context appContext = context.getApplicationContext();
         state(appContext)
             .edit()
-            .putString(KEY_STATE, STATE_BLOCKED)
+            .putString(KEY_STATE, requestId == null ? STATE_ADMISSION_BLOCKED : STATE_BLOCKED)
+            .putString(KEY_BLOCKED_REQUEST_ID, requestId)
             .putString(KEY_SCENE, sceneName)
             .putString(
                 KEY_BLOCKED_MESSAGE,
@@ -431,9 +515,15 @@ public final class TranslationStatusNotification {
 
     private static void update(
         Context context,
+        String requestId,
         String sceneName,
         int status
     ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Context appContext = context.getApplicationContext();
+            runOnNotificationThread(() -> update(appContext, requestId, sceneName, status));
+            return;
+        }
         if (sceneName == null || sceneName.trim().isEmpty()) {
             Log.w(TAG, "Ignoring translation status with an empty scene name");
             return;
@@ -441,8 +531,25 @@ public final class TranslationStatusNotification {
 
         Context appContext = context.getApplicationContext();
         SharedPreferences state = state(appContext);
+        String currentRequestId = state.getString(KEY_REQUEST_ID, "");
+        if (status != STATUS_STARTED && !requestId.equals(currentRequestId)) {
+            // A late terminal callback must not overwrite a different task.
+            show(appContext);
+            return;
+        }
+        if (status == STATUS_STARTED) {
+            TranslationTaskExecutor executor = TranslationService.getActiveTaskExecutor();
+            TranslationTaskExecutor.ActiveTranslationSnapshot active = executor == null
+                ? null : executor.getActiveTranslationSnapshot(requestId);
+            if (active == null || !requestId.equals(active.requestId)) {
+                show(appContext);
+                return;
+            }
+        }
         long now = System.currentTimeMillis();
-        SharedPreferences.Editor editor = state.edit().putString(KEY_SCENE, sceneName);
+        SharedPreferences.Editor editor = state.edit().putString(KEY_SCENE, sceneName).putString(KEY_REQUEST_ID, requestId)
+            .remove(KEY_BLOCKED_REQUEST_ID)
+            .remove(KEY_BLOCKED_MESSAGE);
 
         if (status == STATUS_STARTED) {
             editor
@@ -480,6 +587,42 @@ public final class TranslationStatusNotification {
     private static Notification buildStatusNotification(Context context, boolean forceOngoing) {
         SharedPreferences state = state(context);
         String status = state.getString(KEY_STATE, STATE_IDLE);
+        if (STATE_ACTIVE.equals(status) || STATE_IDLE.equals(status)
+            || STATE_SUCCEEDED.equals(status) || STATE_FAILED.equals(status)) {
+            TranslationTaskExecutor executor = TranslationService.getActiveTaskExecutor();
+            TranslationTaskExecutor.ActiveTranslationSnapshot active = executor == null
+                ? null : executor.getActiveTranslationSnapshot(state.getString(KEY_REQUEST_ID, ""));
+            if (active != null) {
+                state.edit().putString(KEY_STATE, STATE_ACTIVE)
+                    .putString(KEY_REQUEST_ID, active.requestId)
+                    .putString(KEY_SCENE, active.scene)
+                    .putLong(KEY_STARTED_AT, active.startedAt)
+                    .remove(KEY_FINISHED_AT).apply();
+                status = STATE_ACTIVE;
+            } else if (STATE_ACTIVE.equals(status)) {
+                // Includes legacy active notices and notices left by process death.
+                String completedRequestId = state.getString(KEY_REQUEST_ID, "");
+                clearBlocked(state);
+                // A queue refresh can precede the terminal observer callback.
+                // Retain only its identity, never its active display or timer.
+                state.edit().putString(KEY_REQUEST_ID, completedRequestId).apply();
+                status = STATE_IDLE;
+            }
+        }
+        if (STATE_BLOCKED.equals(status)) {
+            String requestId = state.getString(KEY_BLOCKED_REQUEST_ID, "");
+            TranslationTaskExecutor executor = TranslationService.getActiveTaskExecutor();
+            if (requestId.isEmpty()
+                || (executor != null && !executor.hasUserActionRequiredJob(requestId))) {
+                // Also migrates legacy notices that cannot identify their job.
+                clearBlocked(state);
+                status = STATE_IDLE;
+            } else if (executor == null) {
+                // Startup has not reconstructed live jobs yet; do not advertise
+                // an unverified persisted blocker as an actionable task.
+                status = STATE_IDLE;
+            }
+        }
         String scene = state.getString(KEY_SCENE, "");
         long startedAt = state.getLong(KEY_STARTED_AT, 0L);
         long finishedAt = state.getLong(KEY_FINISHED_AT, System.currentTimeMillis());
@@ -548,7 +691,8 @@ public final class TranslationStatusNotification {
 
         PendingIntent contentIntent;
         if (STATE_STARTUP_FAILED.equals(status)
-            || STATE_BLOCKED.equals(status)) {
+            || STATE_BLOCKED.equals(status)
+            || STATE_ADMISSION_BLOCKED.equals(status)) {
             contentIntent = queuePendingIntent(context);
         } else if (manualApply
             || (hasPendingConflicts && !sceneSyncActive)) {
@@ -611,7 +755,7 @@ public final class TranslationStatusNotification {
             actionableTaskTitle = context.getString(
                     R.string.notification_action_view_startup_failure
             );
-        } else if (STATE_BLOCKED.equals(status)) {
+        } else if (STATE_BLOCKED.equals(status) || STATE_ADMISSION_BLOCKED.equals(status)) {
             actionableTaskTitle = context.getString(
                     R.string.notification_action_view_queue_repair
             );
@@ -661,7 +805,7 @@ public final class TranslationStatusNotification {
                 builder.setSubText(context.getString(
                     R.string.notification_startup_failed_subtitle
                 ));
-            } else if (STATE_BLOCKED.equals(status)) {
+            } else if (STATE_BLOCKED.equals(status) || STATE_ADMISSION_BLOCKED.equals(status)) {
                 String blockedMessage = state.getString(
                     KEY_BLOCKED_MESSAGE,
                     context.getString(R.string.notification_waiting)
@@ -805,6 +949,10 @@ public final class TranslationStatusNotification {
     }
 
     private static void show(Context context) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            runOnNotificationThread(() -> show(context));
+            return;
+        }
         if (SceneSyncUiVisibility.isSceneSyncUiVisible()) {
             return;
         }
