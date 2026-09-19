@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_sync_title">Scene Sync</string>
+    <string name="scene_sync_scope_loading">Loading the current Scene Sync scope…</string>
+    <string name="scene_sync_scope_online">Online sync with the game</string>
+    <string name="scene_sync_scope_local">Local scene list only; the game is offline</string>
+    <string name="scene_sync_scope_service_unavailable">Scene Sync service is unavailable</string>
+    <string name="scene_sync_scope_description">Scene Sync compares the game and HET scene candidates, keeps complete conflicts together, and reports the latest runtime result below.</string>
+
+    <string name="scene_sync_policy_title">Conflict policy</string>
+    <string name="scene_sync_policy_current">Current policy: %1$s</string>
+    <string name="scene_sync_policy_note">Changing this policy affects the next sync. Existing manual conflicts remain available.</string>
+    <string name="scene_sync_policy_settings">Change in settings</string>
+    <string name="scene_sync_policy_manual">Ask before applying</string>
+    <string name="scene_sync_policy_manual_description">Keep each conflict pending until you choose a complete candidate.</string>
+    <string name="scene_sync_policy_manual_option">Ask before applying
+Keep each conflict pending until you choose a complete candidate.</string>
+    <string name="scene_sync_policy_game">Prefer the game version</string>
+    <string name="scene_sync_policy_game_description">Apply the game candidate automatically when the next conflict is detected.</string>
+    <string name="scene_sync_policy_game_option">Prefer the game version
+Apply the game candidate automatically on the next conflict.</string>
+    <string name="scene_sync_policy_het">Prefer the HET version</string>
+    <string name="scene_sync_policy_het_description">Apply the HET candidate automatically when the next conflict is detected.</string>
+    <string name="scene_sync_policy_het_option">Prefer the HET version
+Apply the HET candidate automatically on the next conflict.</string>
+    <string name="scene_sync_policy_preview">Read-only preview policy</string>
+    <string name="scene_sync_policy_unavailable">Policy unavailable</string>
+    <string name="scene_sync_policy_load_failed">The current policy could not be read.</string>
+    <string name="scene_sync_policy_save_failed">Could not save the conflict policy: %1$s</string>
+
+    <string name="scene_sync_conflicts_title">Scene conflicts</string>
+    <string name="scene_sync_conflicts_none">No pending conflicts</string>
+    <string name="scene_sync_conflicts_count">%1$d pending conflict(s)</string>
+    <string name="scene_sync_conflicts_empty">No complete scene conflicts need attention.</string>
+    <string name="scene_sync_conflicts_loading">Loading complete scene conflicts…</string>
+    <string name="scene_sync_conflicts_load_failed">Scene conflicts could not be loaded. Try again later.</string>
+    <string name="scene_sync_conflicts_preview">The preview shows one read-only sample conflict below.</string>
+    <string name="scene_sync_conflicts_expand">Expand scene conflicts</string>
+    <string name="scene_sync_conflicts_collapse">Collapse scene conflicts</string>
+    <string name="scene_sync_conflict_expand">Expand conflict candidates</string>
+    <string name="scene_sync_conflict_collapse">Collapse conflict candidates</string>
+    <string name="scene_sync_preview_scene">Preview scene</string>
+    <string name="scene_sync_preview_conflict_changes">Preview only · candidate differences are illustrative</string>
+    <string name="scene_sync_preview_game_candidate">Game candidate · sample only
+Saved languages: zh-cn, en</string>
+    <string name="scene_sync_preview_het_candidate">HET candidate · sample only
+Saved languages: zh-cn, en</string>
+    <string name="scene_sync_preview_conflict_details">The real conflict payload is not read in the style preview. Candidate actions are disabled.</string>
+
+    <string name="scene_sync_recent_title">Recent sync results</string>
+    <string name="scene_sync_recent_empty">No recent Scene Sync results.</string>
+    <string name="scene_sync_recent_item">%1$s · %2$s</string>
+    <string name="scene_sync_result_last">Last result: %1$s</string>
+    <string name="scene_sync_result_ready">Ready</string>
+    <string name="scene_sync_result_preparing">Preparing a Scene Sync refresh…</string>
+    <string name="scene_sync_result_refreshing_local">Refreshing the local scene list…</string>
+    <string name="scene_sync_result_started">Scene Sync started</string>
+    <string name="scene_sync_result_busy">Another Scene operation is active</string>
+    <string name="scene_sync_result_deferred">Scene Sync is waiting for the sync gate</string>
+    <string name="scene_sync_result_queued">Scene Sync is queued behind the startup gate</string>
+    <string name="scene_sync_result_local_refreshed">Local scene list refreshed</string>
+    <string name="scene_sync_result_succeeded">Scene Sync completed</string>
+    <string name="scene_sync_result_needs_attention">Scene Sync needs attention</string>
+    <string name="scene_sync_result_failed">Scene Sync failed</string>
+    <string name="scene_sync_result_unavailable">Scene Sync is unavailable</string>
+
+    <string name="scene_sync_direction_game_to_het">Game → HET</string>
+    <string name="scene_sync_direction_het_to_game">HET → Game</string>
+    <string name="scene_sync_direction_bidirectional">Both sides</string>
+    <string name="scene_sync_direction_local">Local</string>
+    <string name="scene_sync_direction_unknown">Unknown direction</string>
+    <string name="scene_sync_status_processed">Processed</string>
+    <string name="scene_sync_status_deleted">Deleted</string>
+    <string name="scene_sync_status_needs_attention">Needs attention</string>
+    <string name="scene_sync_status_not_processed">Not processed</string>
+
+    <string name="scene_sync_action_sync">Sync all scenes</string>
+    <string name="scene_sync_action_refresh_local">Refresh local list</string>
+    <string name="scene_sync_action_syncing">Syncing scenes…</string>
+</resources>

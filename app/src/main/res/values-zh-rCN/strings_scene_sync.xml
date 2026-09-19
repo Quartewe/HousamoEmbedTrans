@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_sync_title">剧情同步</string>
+    <string name="scene_sync_scope_loading">正在读取当前剧情同步范围…</string>
+    <string name="scene_sync_scope_online">已连接游戏，可在线同步</string>
+    <string name="scene_sync_scope_local">仅显示本地剧情列表；游戏未运行</string>
+    <string name="scene_sync_scope_service_unavailable">剧情同步服务不可用</string>
+    <string name="scene_sync_scope_description">剧情同步会比较游戏与 HET 的候选版本，把完整冲突集中保留，并在下方显示最新运行结果。</string>
+
+    <string name="scene_sync_policy_title">冲突策略</string>
+    <string name="scene_sync_policy_current">当前策略：%1$s</string>
+    <string name="scene_sync_policy_note">修改策略只影响下一次同步；已有手动冲突仍会保留。</string>
+    <string name="scene_sync_policy_settings">在设置中修改</string>
+    <string name="scene_sync_policy_manual">逐项确认后应用</string>
+    <string name="scene_sync_policy_manual_description">每个冲突都会保留，直到你选择完整的候选版本。</string>
+    <string name="scene_sync_policy_manual_option">逐项确认后应用
+每个冲突都会保留，直到你选择完整的候选版本。</string>
+    <string name="scene_sync_policy_game">优先使用游戏版本</string>
+    <string name="scene_sync_policy_game_description">下一次发现冲突时自动应用游戏候选。</string>
+    <string name="scene_sync_policy_game_option">优先使用游戏版本
+下一次发现冲突时自动应用游戏候选。</string>
+    <string name="scene_sync_policy_het">优先使用 HET 版本</string>
+    <string name="scene_sync_policy_het_description">下一次发现冲突时自动应用 HET 候选。</string>
+    <string name="scene_sync_policy_het_option">优先使用 HET 版本
+下一次发现冲突时自动应用 HET 候选。</string>
+    <string name="scene_sync_policy_preview">只读预览策略</string>
+    <string name="scene_sync_policy_unavailable">策略不可用</string>
+    <string name="scene_sync_policy_load_failed">无法读取当前策略。</string>
+    <string name="scene_sync_policy_save_failed">无法保存冲突策略：%1$s</string>
+
+    <string name="scene_sync_conflicts_title">剧情冲突</string>
+    <string name="scene_sync_conflicts_none">没有待处理冲突</string>
+    <string name="scene_sync_conflicts_count">%1$d 个待处理冲突</string>
+    <string name="scene_sync_conflicts_empty">没有需要处理的完整剧情冲突。</string>
+    <string name="scene_sync_conflicts_loading">正在读取完整剧情冲突…</string>
+    <string name="scene_sync_conflicts_load_failed">无法读取剧情冲突，请稍后重试。</string>
+    <string name="scene_sync_conflicts_preview">预览页会在下方显示一条只读样例冲突。</string>
+    <string name="scene_sync_conflicts_expand">展开剧情冲突</string>
+    <string name="scene_sync_conflicts_collapse">收起剧情冲突</string>
+    <string name="scene_sync_conflict_expand">展开冲突候选</string>
+    <string name="scene_sync_conflict_collapse">收起冲突候选</string>
+    <string name="scene_sync_preview_scene">预览剧情</string>
+    <string name="scene_sync_preview_conflict_changes">仅为预览 · 候选差异为示意内容</string>
+    <string name="scene_sync_preview_game_candidate">游戏候选 · 仅为样例
+已保存语言：zh-cn、en</string>
+    <string name="scene_sync_preview_het_candidate">HET 候选 · 仅为样例
+已保存语言：zh-cn、en</string>
+    <string name="scene_sync_preview_conflict_details">样式预览不会读取真实冲突内容；候选操作已禁用。</string>
+
+    <string name="scene_sync_recent_title">最近同步结果</string>
+    <string name="scene_sync_recent_empty">暂无最近的剧情同步结果。</string>
+    <string name="scene_sync_recent_item">%1$s · %2$s</string>
+    <string name="scene_sync_result_last">上次结果：%1$s</string>
+    <string name="scene_sync_result_ready">可以同步</string>
+    <string name="scene_sync_result_preparing">正在准备剧情同步…</string>
+    <string name="scene_sync_result_refreshing_local">正在刷新本地剧情列表…</string>
+    <string name="scene_sync_result_started">已开始剧情同步</string>
+    <string name="scene_sync_result_busy">另一个剧情操作正在进行</string>
+    <string name="scene_sync_result_deferred">剧情同步正在等待同步闸门</string>
+    <string name="scene_sync_result_queued">剧情同步已排在启动闸门之后</string>
+    <string name="scene_sync_result_local_refreshed">本地剧情列表已刷新</string>
+    <string name="scene_sync_result_succeeded">剧情同步已完成</string>
+    <string name="scene_sync_result_needs_attention">剧情同步需要处理</string>
+    <string name="scene_sync_result_failed">剧情同步失败</string>
+    <string name="scene_sync_result_unavailable">剧情同步不可用</string>
+
+    <string name="scene_sync_direction_game_to_het">游戏 → HET</string>
+    <string name="scene_sync_direction_het_to_game">HET → 游戏</string>
+    <string name="scene_sync_direction_bidirectional">双方</string>
+    <string name="scene_sync_direction_local">本地</string>
+    <string name="scene_sync_direction_unknown">方向未知</string>
+    <string name="scene_sync_status_processed">已处理</string>
+    <string name="scene_sync_status_deleted">已删除</string>
+    <string name="scene_sync_status_needs_attention">需要处理</string>
+    <string name="scene_sync_status_not_processed">未处理</string>
+
+    <string name="scene_sync_action_sync">同步全部剧情</string>
+    <string name="scene_sync_action_refresh_local">刷新本地列表</string>
+    <string name="scene_sync_action_syncing">正在同步剧情…</string>
+</resources>
