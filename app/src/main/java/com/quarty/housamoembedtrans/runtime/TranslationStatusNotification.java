@@ -42,7 +42,8 @@ public final class TranslationStatusNotification {
 
     private static final String TAG = "HET.Notification";
     private static final String CHANNEL_ID = "translation_status";
-    private static final String JOB_ERROR_CHANNEL_ID = "job_errors";
+    // A new ID is required: Android retains the old channel importance on upgrade.
+    private static final String JOB_ERROR_CHANNEL_ID = "job_errors_heads_up";
     public static final int NOTIFICATION_ID = 0x484554;
     private static final int SUMMARY_ERROR_NOTIFICATION_BASE = 0x534D;
     private static final int REJECTED_API_RESULT_NOTIFICATION_BASE = 0x524A;
@@ -986,7 +987,7 @@ public final class TranslationStatusNotification {
         NotificationChannel channel = new NotificationChannel(
             JOB_ERROR_CHANNEL_ID,
             context.getString(R.string.notification_job_errors_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         );
         channel.setDescription(context.getString(
             R.string.notification_job_errors_channel_description
