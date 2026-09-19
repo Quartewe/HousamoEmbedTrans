@@ -1699,7 +1699,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                     ? new ArrayList<>() : jobStore.listCanceledJobs();
                 loadedDelivery = managementOnly
                     ? new ArrayList<>()
-                    : jobStore.listPendingTerminalJobs();
+                    : jobStore.listCompletedJobs();
                 TranslationTaskExecutor activeExecutor =
                     TranslationService.getActiveTaskExecutor();
                 loadedUserAction = activeExecutor == null
@@ -2148,8 +2148,10 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             }
             boolean deliveryPending = job.requiresDelivery();
             boolean completed = job.getKind() == TerminalOutcome.Kind.COMPLETED
-                && !deliveryPending;
-            boolean actionNeeded = !deliveryPending && !completed;
+                && job.isLocalSceneSaved()
+                && job.getDeliveryState() == TerminalOutcome.DeliveryState.ACKNOWLEDGED;
+            boolean actionNeeded = job.getKind() == TerminalOutcome.Kind.FAILED
+                || !job.isLocalSceneSaved();
             result.add(new UiTask(
                 UiTaskKind.TERMINAL,
                 job.getRequestId(),
@@ -2171,8 +2173,10 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             }
             boolean deliveryPending = job.requiresDelivery();
             boolean completed = job.getKind() == TerminalOutcome.Kind.COMPLETED
-                && !deliveryPending;
-            boolean actionNeeded = !deliveryPending && !completed;
+                && job.isLocalSceneSaved()
+                && job.getDeliveryState() == TerminalOutcome.DeliveryState.ACKNOWLEDGED;
+            boolean actionNeeded = job.getKind() == TerminalOutcome.Kind.FAILED
+                || !job.isLocalSceneSaved();
             result.add(new UiTask(
                 UiTaskKind.TERMINAL,
                 job.getRequestId(),
@@ -2257,6 +2261,12 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     private String terminalStatus(TranslationJobStore.TerminalJob job) {
         if (job.getKind() == TerminalOutcome.Kind.COMPLETED) {
+            if (!job.isLocalSceneSaved()) {
+                return getString(R.string.task_status_local_save_pending);
+            }
+            if (job.getDeliveryState() == TerminalOutcome.DeliveryState.NOT_REQUIRED) {
+                return getString(R.string.task_status_local_only);
+            }
             return job.getDeliveryState()
                 == TerminalOutcome.DeliveryState.ACKNOWLEDGED
                 ? getString(R.string.task_status_acknowledged)
@@ -2270,6 +2280,13 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private String terminalReason(TranslationJobStore.TerminalJob job) {
         if (job.getKind() != TerminalOutcome.Kind.COMPLETED) {
             return friendlyFailureSummary(job);
+        }
+        if (!job.isLocalSceneSaved()) {
+            return getString(R.string.task_reason_local_save_pending)
+                + (job.getLocalSceneError().isEmpty() ? "" : "\n" + job.getLocalSceneError());
+        }
+        if (job.getDeliveryState() == TerminalOutcome.DeliveryState.NOT_REQUIRED) {
+            return getString(R.string.task_reason_local_only);
         }
         return job.getDeliveryState()
             == TerminalOutcome.DeliveryState.ACKNOWLEDGED

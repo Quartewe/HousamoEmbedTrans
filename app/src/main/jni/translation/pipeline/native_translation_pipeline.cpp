@@ -265,16 +265,8 @@ public:
             LOGE("[NativeTranslationPipeline] rejected final result requestId=%s scene=%s reason=%s", request_id.c_str(), request->scene_name.c_str(), error.c_str());
             return false;
         }
-        if (GetFileStatusForTarget(scene_name, target_lang)
-            == SceneFileStatus::complete) {
-            RecordCompletionReceipt(request_id, scene_name, target_lang);
-            LOGI(
-                "[NativeTranslationPipeline] completion already applied requestId=%s scene=%s target=%s",
-                request_id.c_str(),
-                scene_name.c_str(),
-                target_lang.c_str());
-            return true;
-        }
+        // A complete language alone is not evidence that this result was applied.
+        // The codec accepts identical values and refuses to overwrite newer ones.
         if (!CommitTranslationResult(*request, result, &error)) {
             LOGE("[NativeTranslationPipeline] final writeback failed requestId=%s scene=%s path=%s reason=%s", request_id.c_str(), request->scene_name.c_str(), scene_store::PathForLog(request->scene_name).c_str(), error.c_str());
             return false;

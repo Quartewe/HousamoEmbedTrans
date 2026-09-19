@@ -406,6 +406,10 @@ public final class TranslationService extends Service {
         (hasPendingJobs, heldQueuedJobCount, repairingStartupJobs) -> {
             notifyStartupWaiters();
             TranslationStatusNotification.refresh(this);
+            TerminalDeliveryCoordinator delivery = terminalDelivery;
+            if (delivery != null) {
+                delivery.onStoreStateChanged();
+            }
             if (repairingStartupJobs) {
                 // A failed pre-boundary admission preflight leaves the same
                 // repair generation open.  Wake its owner even when no
@@ -3060,6 +3064,11 @@ public final class TranslationService extends Service {
         );
         terminalDelivery = new TerminalDeliveryCoordinator(
             new TerminalDeliveryCoordinator.Store() {
+                @Override
+                public boolean reconcileCompletedScenes() throws Exception {
+                    return jobStore.reconcileCompletedScenes();
+                }
+
                 @Override
                 public List<TranslationJobStore.TerminalJob>
                     listPendingTerminalJobs() throws Exception {

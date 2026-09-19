@@ -3185,6 +3185,33 @@ public final class SceneStore {
         clearSceneDeletionIntent(sceneName);
     }
 
+    /** Fail-fast result commit; retry from the durable Job, never queue a stale whole Scene. */
+    public synchronized void applyTranslationResult(JSONObject request, JSONObject result)
+        throws Exception {
+        synchronized (MUTATION_ADMISSION.lock) {
+            requireTranslationMutationBoundaryLocked();
+            MUTATION_ADMISSION.activeExternalMutations++;
+            try {
+                String sceneName = requireSceneName(request.getString("scene"));
+                requireSceneFamilyNotManagementPending(sceneName);
+                if (isSceneDeleted(sceneName)) {
+                    throw new IOException("Scene was deleted; result retained");
+                }
+                com.quarty.housamoembedtrans.util.JobValidator.validateRequestAgainstScene(request, this);
+                ValidatedScene current = readValidSceneByName(sceneName);
+                JSONObject scene = new JSONObject(new String(current.bytes, StandardCharsets.UTF_8));
+                JSONObject merged = SceneTranslationResultApplier.apply(scene, result);
+                ValidatedScene updated = validate(serializeScene(merged));
+                if (!java.util.Arrays.equals(current.bytes, updated.bytes)) {
+                    saveInternal(updated);
+                }
+            } finally {
+                MUTATION_ADMISSION.activeExternalMutations--;
+                MUTATION_ADMISSION.lock.notifyAll();
+            }
+        }
+    }
+
     /**
      * Applies point edits to existing translation values in one Scene.
      *

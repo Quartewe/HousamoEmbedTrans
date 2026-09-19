@@ -237,6 +237,8 @@ public final class TranslationJobStore {
         private final String errorType;
         private final String errorMessage;
         private final String sceneValidationReason;
+        private boolean localSceneSaved;
+        private String localSceneError = "";
 
         TerminalJob(
             String requestId,
@@ -272,6 +274,8 @@ public final class TranslationJobStore {
         public long getUpdatedAt() { return updatedAt; }
         public String getErrorType() { return errorType; }
         public String getErrorMessage() { return errorMessage; }
+        public boolean isLocalSceneSaved() { return localSceneSaved; }
+        public String getLocalSceneError() { return localSceneError; }
 
         /** Stable reason for the damaged Scene management entry. */
         public String getSceneValidationReason() {
@@ -2537,9 +2541,9 @@ public final class TranslationJobStore {
         JSONObject state = readState(jobDirectory);
         return state != null
             && (STATUS_RUNNING.equals(state.optString("status", ""))
-                || STATUS_COMPLETED.equals(
+                || (state.optBoolean("local_scene_saved", false) && STATUS_COMPLETED.equals(
                     state.optString("status", "")
-                ));
+                )));
     }
 
     public ClaimedJob claimNextQueuedJob() throws Exception {
@@ -2643,51 +2647,57 @@ public final class TranslationJobStore {
         String requestId,
         byte[] resultJson
     ) throws Exception {
-        synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
-            if (resultJson == null || resultJson.length == 0) {
-                throw new IllegalArgumentException(
-                    "translation result cannot be empty"
-                );
-            }
-            JSONObject result = JobValidator.parseJsonObject(
-                resultJson,
-                MAX_RESULT_BYTES,
-                "result"
-            );
-
-            synchronized (this) {
-                validateRequestId(requestId);
-                File jobDirectory = requireJobDirectoryLocked(requestId);
-                JSONObject state = requireRunningStateLocked(
-                    jobDirectory,
-                    requestId
+        try {
+            synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
+                if (resultJson == null || resultJson.length == 0) {
+                    throw new IllegalArgumentException(
+                        "translation result cannot be empty"
+                    );
+                }
+                JSONObject result = JobValidator.parseJsonObject(
+                    resultJson,
+                    MAX_RESULT_BYTES,
+                    "result"
                 );
 
-            byte[] requestBytes = readRequest(jobDirectory);
-            JSONObject requestJson = JobValidator.parseJsonObject(
-                requestBytes,
-                MAX_REQUEST_BYTES,
-                "request"
-            );
-            JobValidator.RequestInfo requestInfo = JobValidator.validateRequest(requestJson);
-            validateCompletedResult(requestJson, requestInfo, result);
+                synchronized (this) {
+                    validateRequestId(requestId);
+                    File jobDirectory = requireJobDirectoryLocked(requestId);
+                    JSONObject state = requireRunningStateLocked(
+                        jobDirectory,
+                        requestId
+                    );
 
-            IoUtils.writeAtomically(
-                new File(jobDirectory, RESULT_FILE_NAME),
-                resultJson
-            );
-            state.put("status", STATUS_COMPLETED);
-            state.put(
-                "delivery_state",
-                TerminalOutcome.DeliveryState.PENDING.wireValue()
-            );
-            state.put("updated_at", System.currentTimeMillis());
-            writeState(jobDirectory, state);
-            removeJobFromIndexesLocked(requestId);
-                manualRerunCandidateIds.remove(requestId);
+                    byte[] requestBytes = readRequest(jobDirectory);
+                    JSONObject requestJson = JobValidator.parseJsonObject(
+                        requestBytes,
+                        MAX_REQUEST_BYTES,
+                        "request"
+                    );
+                    JobValidator.RequestInfo requestInfo = JobValidator.validateRequest(requestJson);
+                    validateCompletedResult(requestJson, requestInfo, result);
+
+                    IoUtils.writeAtomically(
+                        new File(jobDirectory, RESULT_FILE_NAME),
+                        resultJson
+                    );
+                    state.put("status", STATUS_COMPLETED);
+                    state.put(
+                        "delivery_state",
+                        TerminalOutcome.DeliveryState.PENDING.wireValue()
+                    );
+                    state.put("updated_at", System.currentTimeMillis());
+                    writeState(jobDirectory, state);
+                    removeJobFromIndexesLocked(requestId);
+                    manualRerunCandidateIds.remove(requestId);
+                    // Result/state are durable before Scene I/O. A failed local commit
+                    // remains completed and is retried without calling the provider.
+                    saveCompletedSceneLocked(jobDirectory, state);
+                }
             }
+        } finally {
+            notifyQueueListener();
         }
-        notifyQueueListener();
     }
 
     public void failRunningJob(
@@ -2833,7 +2843,7 @@ public final class TranslationJobStore {
         } else {
             manualRerunCandidateIds.remove(requestId);
         }
-        return new TerminalJob(
+        TerminalJob job = new TerminalJob(
             requestId,
             state.optString("scene", ""),
             state.optString("target_lang", ""),
@@ -2844,8 +2854,101 @@ public final class TranslationJobStore {
             errorMessage,
             sceneValidationReason
         );
+        job.localSceneSaved = state.optBoolean("local_scene_saved", false);
+        job.localSceneError = state.optString("local_scene_error", "");
+        return job;
     }
 
+    /** Caller holds ROOT_ACCESS_LOCK and this store; SceneStore owns its mutation gate. */
+    private boolean saveCompletedSceneLocked(File directory, JSONObject state) throws Exception {
+        if (!STATUS_COMPLETED.equals(state.optString("status"))) {
+            return true;
+        }
+        try {
+            JSONObject request = JobValidator.parseJsonObject(readRequest(directory), MAX_REQUEST_BYTES, "request");
+            byte[] bytes = readCompletedResult(directory.getName());
+            JSONObject result = JobValidator.parseJsonObject(bytes, MAX_RESULT_BYTES, "result");
+            validateCompletedResult(request, JobValidator.validateRequest(request), result);
+            sceneStore.applyTranslationResult(request, result);
+        } catch (Exception error) {
+            String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+            if (state.optBoolean("local_scene_saved", false)
+                || !reason.equals(state.optString("local_scene_error", ""))) {
+                state.put("local_scene_saved", false).put("local_scene_error", reason);
+                writeState(directory, state);
+                Log.w(TAG, "Local Scene save pending requestId=" + directory.getName() + " reason=" + reason);
+            }
+            return false;
+        }
+        if (!state.optBoolean("local_scene_saved", false) || state.has("local_scene_error")) {
+            state.put("local_scene_saved", true);
+            state.remove("local_scene_error");
+            writeState(directory, state);
+            Log.i(TAG, "Local Scene saved requestId=" + directory.getName());
+        }
+        return true;
+    }
+
+    /** New and legacy completed results share the same local commit/recovery path. */
+    public boolean reconcileCompletedScenes() throws Exception {
+        boolean[] changed = {false};
+        boolean needsRetry = SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                boolean retry = false;
+                for (File directory : jobStore.listValidJobDirectories()) {
+                    try {
+                        JSONObject state = readState(directory);
+                        String previous = state == null ? "" : state.toString();
+                        if (state != null && STATUS_RUNNING.equals(state.optString("status"))
+                            && IoUtils.atomicFileExists(new File(directory, RESULT_FILE_NAME))) {
+                            // Result write won, but the following state write failed.
+                            // ROOT/store locks exclude the completion writer; retained
+                            // terminal evidence also prevents cancellation or another claim.
+                            processIncompleteJob(directory, ValidationMode.RUNTIME_SELF_ONLY, false);
+                            state = readState(directory);
+                        }
+                        if (state == null || !STATUS_COMPLETED.equals(state.optString("status"))
+                            || state.optBoolean("local_scene_saved", false)) {
+                            continue;
+                        }
+                        if (!isTerminalDeliveryStableLocked(directory.getName())) {
+                            retry = true;
+                            continue;
+                        }
+                        retry |= !saveCompletedSceneLocked(directory, state);
+                        changed[0] |= !previous.equals(state.toString());
+                    } catch (Exception error) {
+                        retry = true;
+                        Log.w(TAG, "Could not persist local Scene recovery requestId=" + directory.getName(), error);
+                    }
+                }
+                return retry;
+            }
+        });
+        if (changed[0]) {
+            notifyQueueListener();
+        }
+        return needsRetry;
+    }
+
+    /** UI inventory is independent of the delivery queue, including ACKed/local-pending jobs. */
+    public List<TerminalJob> listCompletedJobs() throws Exception {
+        return SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                List<TerminalJob> result = new ArrayList<>();
+                for (File directory : jobStore.listValidJobDirectories()) {
+                    JSONObject state = readState(directory);
+                    if (state != null && STATUS_COMPLETED.equals(state.optString("status"))) {
+                        TerminalJob job = readTerminalJob(directory.getName());
+                        if (job != null) {
+                            result.add(job);
+                        }
+                    }
+                }
+                return result;
+            }
+        });
+    }
     /**
      * Reads one pending terminal outcome without scanning the job root.
      * This is used by delivery retries after the initial generation scan;
@@ -2863,6 +2966,12 @@ public final class TranslationJobStore {
                 if (job == null || !job.requiresDelivery()) {
                     return null;
                 }
+                File directory = requireJobDirectoryLocked(requestId);
+                JSONObject localState = readState(directory);
+                if (localState != null && !saveCompletedSceneLocked(directory, localState)) {
+                    return null;
+                }
+                job = readTerminalJob(requestId);
                 PendingProcessStore.ReferenceSnapshot references =
                     pendingProcessStore.snapshotReferences();
                 JSONObject state = readState(
@@ -2903,7 +3012,9 @@ public final class TranslationJobStore {
                                 state,
                                 references
                             )) {
-                            result.add(job);
+                            if (saveCompletedSceneLocked(directory, state)) {
+                                result.add(readTerminalJob(directory.getName()));
+                            }
                         }
                     } catch (IllegalArgumentException ignored) {
                         // Invalid directory names are not Translation Jobs.
@@ -3122,6 +3233,11 @@ public final class TranslationJobStore {
                     if (delivery == TerminalOutcome.DeliveryState.ACKNOWLEDGED
                         || delivery
                             == TerminalOutcome.DeliveryState.NOT_REQUIRED) {
+                        return null;
+                    }
+                    // A completed payload is eligible only after a current local commit.
+                    if (kind == TerminalOutcome.Kind.COMPLETED
+                        && !saveCompletedSceneLocked(directory, state)) {
                         return null;
                     }
                     // A process death loses the in-memory lease map.  The
@@ -5659,6 +5775,7 @@ public final class TranslationJobStore {
             .put(
                 "delivery_state",
                 requestInfo.isTargetAlreadyTranslated()
+                    && !IoUtils.atomicFileExists(new File(jobDirectory, RESULT_FILE_NAME))
                     ? TerminalOutcome.DeliveryState.NOT_REQUIRED.wireValue()
                     : TerminalOutcome.DeliveryState.PENDING.wireValue()
             )

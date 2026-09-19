@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 public final class TerminalDeliveryCoordinator implements AutoCloseable {
     private static final String TAG = "HET-TerminalDelivery";
     public interface Store {
+        /** Retries local Scene saves (including legacy results), independent of a game connection. */
+        default boolean reconcileCompletedScenes() throws Exception { return false; }
         List<TranslationJobStore.TerminalJob> listPendingTerminalJobs()
             throws Exception;
 
@@ -81,6 +83,8 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
     private boolean replayScanScheduled;
     private ScheduledFuture<?> replayScanTimer;
     private int replayScanDelayIndex;
+    private ScheduledFuture<?> localSaveTimer;
+    private boolean localSaveScheduled;
 
     private static final class Attempt {
         private final long generation;
@@ -165,6 +169,7 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
             }
             released = true;
         }
+        scheduleLocalSaves();
         scheduleReplay();
     }
 
@@ -265,6 +270,7 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
         if (requestId == null || requestId.isEmpty()) {
             return;
         }
+        scheduleLocalSaves();
         final long expectedGeneration;
         synchronized (lock) {
             if (closed || callback == null || !released) {
@@ -288,11 +294,49 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
      * replayed until the background repair pass has validated it.
      */
     public void onStoreStateChanged() {
+        scheduleLocalSaves();
         synchronized (lock) {
             if (!released) {
                 return;
             }
         }
+        scheduleReplay();
+    }
+
+    private void scheduleLocalSaves() {
+        synchronized (lock) {
+            if (closed || !released || localSaveScheduled) {
+                return;
+            }
+            if (localSaveTimer != null) {
+                localSaveTimer.cancel(false);
+                localSaveTimer = null;
+            }
+            localSaveScheduled = true;
+            scheduler.execute(this::reconcileLocalSaves);
+        }
+    }
+
+    private void reconcileLocalSaves() {
+        boolean retry = true;
+        try {
+            retry = store.reconcileCompletedScenes();
+        } catch (Exception error) {
+            Log.w(TAG, "Local Scene recovery will retry without a provider request", error);
+        } finally {
+            synchronized (lock) {
+                localSaveScheduled = false;
+                if (!closed && retry) {
+                    localSaveTimer = scheduler.schedule(() -> {
+                        synchronized (lock) {
+                            localSaveTimer = null;
+                        }
+                        scheduleLocalSaves();
+                    }, 60, TimeUnit.SECONDS);
+                }
+            }
+        }
+        // This is a no-op when no game callback is connected.
         scheduleReplay();
     }
 
@@ -635,6 +679,10 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
                 return;
             }
             closed = true;
+            if (localSaveTimer != null) {
+                localSaveTimer.cancel(false);
+                localSaveTimer = null;
+            }
             generation++;
             cancelAttemptsLocked();
             cancelReplayScanLocked();

@@ -668,10 +668,10 @@ bool UpsertLanguageString(
             JsonString(value, allocator),
             allocator);
     } else {
-        member->value.SetString(
-            value.data(),
-            static_cast<rapidjson::SizeType>(value.size()),
-            allocator);
+        // A synced or manually edited Scene may already contain this language.
+        // Accept the same result, but never replace a newer translation on replay.
+        return member->value.IsString()
+            && std::string(member->value.GetString(), member->value.GetStringLength()) == value;
     }
     return true;
 }
@@ -971,7 +971,6 @@ bool ApplyTranslationToScene(
     auto protect = scene.FindMember("protect");
     if (translated == scene.MemberEnd()
         || !internal::IsLanguageBooleanMap(translated->value)
-        || internal::IsTargetTranslated(translated->value, result.target_lang)
         || provider == scene.MemberEnd()
         || !internal::IsLanguageStringMap(provider->value)
         || model == scene.MemberEnd()
