@@ -1,7 +1,7 @@
 package com.quarty.housamoembedtrans.translation.delivery;
 import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import java.util.HashMap;
 import java.util.List;

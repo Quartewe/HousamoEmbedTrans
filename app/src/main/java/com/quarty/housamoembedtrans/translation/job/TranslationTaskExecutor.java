@@ -25,7 +25,7 @@ import com.quarty.housamoembedtrans.util.JobValidator;
 import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 
 import android.content.Context;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

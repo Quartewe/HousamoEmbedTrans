@@ -7,7 +7,7 @@ import android.os.Build;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 /** Handles notification actions in the module process. */
 public final class TranslationControlReceiver extends BroadcastReceiver {

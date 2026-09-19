@@ -9,7 +9,7 @@ import com.quarty.housamoembedtrans.management.pending.PendingProcessManager;
 
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -6,7 +6,7 @@ import com.quarty.housamoembedtrans.translation.TranslationService;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 /**
  * Process-wide durable Summary admission wake path.

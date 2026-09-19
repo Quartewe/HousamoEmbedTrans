@@ -2,11 +2,11 @@
 <resources>
     <string name="settings_rebuild_toolbar_title">Settings</string>
     <string name="settings_rebuild_export_logs">Export runtime logs</string>
-    <string name="settings_rebuild_export_logs_description">Export the HET app logs currently available in the system log buffer to the file you choose. Includes HET app logs only and excludes game process logs.</string>
+    <string name="settings_rebuild_export_logs_description">Export HET logs from today and the preceding 13 days as a ZIP archive. Logs are saved daily in internal storage. API bodies are included only when body logging is enabled. Game process logs are not included.</string>
     <string name="settings_rebuild_export_logs_choose">Choose file</string>
-    <string name="settings_rebuild_export_logs_in_progress">Reading HET logs...</string>
-    <string name="settings_rebuild_export_logs_empty">No HET app logs are available to export.</string>
-    <string name="settings_rebuild_export_logs_success">Exported %1$d HET log lines.</string>
+    <string name="settings_rebuild_export_logs_in_progress">Packing HET logs...</string>
+    <string name="settings_rebuild_export_logs_empty">No HET log files are available for the last 14 days.</string>
+    <string name="settings_rebuild_export_logs_success">Exported %1$d daily HET log files as ZIP.</string>
     <string name="settings_rebuild_export_logs_failed">Log export failed: %1$s</string>
     <string name="settings_rebuild_config_source_info">View config source</string>
     <string name="settings_rebuild_config_source_unknown">The config source is currently unavailable.</string>

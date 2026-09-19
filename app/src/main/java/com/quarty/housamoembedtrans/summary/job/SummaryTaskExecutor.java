@@ -17,7 +17,7 @@ import com.quarty.housamoembedtrans.context.store.SummaryTargetInvalidatedExcept
 import com.quarty.housamoembedtrans.util.IoUtils;
 
 import android.content.Context;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

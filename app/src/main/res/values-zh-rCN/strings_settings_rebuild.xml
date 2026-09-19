@@ -2,11 +2,11 @@
 <resources>
     <string name="settings_rebuild_toolbar_title">设置</string>
     <string name="settings_rebuild_export_logs">导出运行日志</string>
-    <string name="settings_rebuild_export_logs_description">导出系统日志缓冲区中当前可读取的 HET 应用日志，保存到你选择的文件。仅包含 HET 应用自身日志，不包含游戏进程日志。</string>
+    <string name="settings_rebuild_export_logs_description">将今天及此前 13 天的 HET 日志导出为 ZIP 压缩包。日志按日期保存在内部目录，API 正文仅在开启正文记录时保存。不包含游戏进程日志。</string>
     <string name="settings_rebuild_export_logs_choose">选择文件</string>
-    <string name="settings_rebuild_export_logs_in_progress">正在读取 HET 日志…</string>
-    <string name="settings_rebuild_export_logs_empty">没有可导出的 HET 应用日志。</string>
-    <string name="settings_rebuild_export_logs_success">已导出 %1$d 行 HET 日志。</string>
+    <string name="settings_rebuild_export_logs_in_progress">正在打包 HET 日志…</string>
+    <string name="settings_rebuild_export_logs_empty">最近 14 天没有可导出的 HET 日志文件。</string>
+    <string name="settings_rebuild_export_logs_success">已将 %1$d 个按日记录的 HET 日志文件导出为 ZIP。</string>
     <string name="settings_rebuild_export_logs_failed">日志导出失败：%1$s</string>
     <string name="settings_rebuild_config_source_info">查看配置来源</string>
     <string name="settings_rebuild_config_source_unknown">当前配置来源暂不可读。</string>

@@ -8,7 +8,7 @@ import com.quarty.housamoembedtrans.summary.job.SummaryJobWakeup;
 import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 
 import android.content.Context;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import org.json.JSONArray;
 import org.json.JSONException;

@@ -5585,7 +5585,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             // The durable queue is already safe; the next service start will
             // claim it.  Surface the transient owner failure without rolling
             // back the admitted local rerun.
-            android.util.Log.w(
+            com.quarty.housamoembedtrans.logging.Log.w(
                 "HET.TranslationQueue",
                 "Could not start TranslationService after local admission",
                 error

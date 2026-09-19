@@ -1,6 +1,8 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.logging.DailyLogStore;
+import com.quarty.housamoembedtrans.logging.Log;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
@@ -32,16 +34,12 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -60,7 +58,6 @@ public final class SettingsActivity extends AppCompatActivity {
     private final ExecutorService logExportExecutor =
         Executors.newSingleThreadExecutor();
     private Future<?> logExportTask;
-    private volatile java.lang.Process activeLogcatProcess;
     private volatile boolean logExportInProgress;
     private volatile int logExportGeneration;
 
@@ -198,11 +195,11 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private void launchLogExportPicker() {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
-            .setType("text/plain")
+            .setType("application/zip")
             .putExtra(
                 Intent.EXTRA_TITLE,
                 "het_" + new SimpleDateFormat("yy_MM_dd_HH_mm_ss", Locale.ROOT)
-                    .format(new Date()) + ".log"
+                    .format(new Date()) + ".zip"
             )
             .addCategory(Intent.CATEGORY_OPENABLE)
             .addFlags(
@@ -250,13 +247,13 @@ public final class SettingsActivity extends AppCompatActivity {
         ).show();
         logExportTask = logExportExecutor.submit(() -> {
             try {
-                LogSnapshot snapshot = readOwnLogcat(generation);
-                if (snapshot.lineCount == 0) {
+                List<DailyLogStore.Entry> snapshot = Log.snapshotRecent().get();
+                if (snapshot.isEmpty()) {
                     postLogExportEmpty(generation);
                     return;
                 }
-                writeLogSnapshot(destination, snapshot.content, generation);
-                postLogExportSuccess(generation, snapshot.lineCount);
+                writeLogSnapshot(destination, snapshot, generation);
+                postLogExportSuccess(generation, snapshot.size());
             } catch (InterruptedException error) {
                 Thread.currentThread().interrupt();
             } catch (Exception error) {
@@ -270,80 +267,7 @@ public final class SettingsActivity extends AppCompatActivity {
         if (task != null) {
             task.cancel(true);
         }
-        java.lang.Process process = activeLogcatProcess;
-        if (process != null) {
-            process.destroy();
-            process.destroyForcibly();
-        }
         logExportInProgress = false;
-    }
-
-    private LogSnapshot readOwnLogcat(int generation) throws Exception {
-        ensureLogExportActive(generation);
-        if (checkSelfPermission(Manifest.permission.READ_LOGS)
-            == PackageManager.PERMISSION_GRANTED) {
-            throw new IOException("privileged log access is not allowed");
-        }
-        int uid = android.os.Process.myUid();
-        if (uid != getApplicationInfo().uid
-            || uid < android.os.Process.FIRST_APPLICATION_UID) {
-            throw new IOException("log access requires this app's UID");
-        }
-        File cache = getCacheDir();
-        if (cache == null) {
-            throw new IOException("temporary cache is unavailable");
-        }
-        File temporary = File.createTempFile("het-logcat-", ".txt", cache);
-        java.lang.Process process = null;
-        try {
-            // API 28 has no --uid filter. Android 9 logd's flushTo service
-            // enforces the non-privileged reader UID boundary instead.
-            process = new ProcessBuilder(
-                "logcat",
-                "-d"
-            )
-                .redirectErrorStream(true)
-                .redirectOutput(temporary)
-                .start();
-            activeLogcatProcess = process;
-            process.waitFor();
-            if (process.exitValue() != 0) {
-                throw new IOException(
-                    "logcat exited with code " + process.exitValue()
-                );
-            }
-            ensureLogExportActive(generation);
-            return readLogcatFile(temporary, generation);
-        } finally {
-            activeLogcatProcess = null;
-            if (process != null) {
-                process.destroy();
-                if (process.isAlive()) {
-                    process.destroyForcibly();
-                }
-            }
-            temporary.delete();
-        }
-    }
-
-    private LogSnapshot readLogcatFile(File source, int generation)
-        throws Exception {
-        StringBuilder content = new StringBuilder();
-        int lineCount = 0;
-        try (BufferedReader input = new BufferedReader(
-            new InputStreamReader(
-                new FileInputStream(source),
-                StandardCharsets.UTF_8
-            )
-        )) {
-            String line;
-            while ((line = input.readLine()) != null) {
-                ensureLogExportActive(generation);
-                content.append(line).append('\n');
-                lineCount++;
-            }
-        }
-        return new LogSnapshot(content.toString(), lineCount);
     }
 
     private void ensureLogExportActive(int generation)
@@ -356,11 +280,10 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private void writeLogSnapshot(
         Uri destination,
-        String content,
+        List<DailyLogStore.Entry> entries,
         int generation
     ) throws Exception {
         ensureLogExportActive(generation);
-        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
         try (OutputStream output = getContentResolver().openOutputStream(
             destination,
             "w"
@@ -369,12 +292,11 @@ public final class SettingsActivity extends AppCompatActivity {
                 throw new IOException("document provider returned no output");
             }
             ensureLogExportActive(generation);
-            output.write(bytes);
-            output.flush();
+            DailyLogStore.writeZip(entries, output);
         }
     }
 
-    private void postLogExportSuccess(int generation, int lineCount) {
+    private void postLogExportSuccess(int generation, int fileCount) {
         mainHandler.post(() -> {
             if (generation != logExportGeneration) {
                 return;
@@ -386,7 +308,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     this,
                     getString(
                         R.string.settings_rebuild_export_logs_success,
-                        lineCount
+                        fileCount
                     ),
                     Toast.LENGTH_LONG
                 ).show();
@@ -433,16 +355,6 @@ public final class SettingsActivity extends AppCompatActivity {
             ))
             .setPositiveButton(R.string.settings_rebuild_close, null)
             .show();
-    }
-
-    private static final class LogSnapshot {
-        final String content;
-        final int lineCount;
-
-        LogSnapshot(String content, int lineCount) {
-            this.content = content;
-            this.lineCount = lineCount;
-        }
     }
 
     private void installThemePanel() {

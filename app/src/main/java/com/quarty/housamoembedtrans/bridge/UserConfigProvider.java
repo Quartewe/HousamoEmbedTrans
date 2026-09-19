@@ -14,7 +14,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import java.io.File;
 import java.io.FileNotFoundException;

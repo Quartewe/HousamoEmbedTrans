@@ -15,7 +15,7 @@ import com.quarty.housamoembedtrans.translation.request.TranslationSchemaValidat
 
 import android.content.Context;
 import android.util.AtomicFile;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import org.json.JSONObject;
 import org.json.JSONArray;

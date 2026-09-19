@@ -7,7 +7,7 @@ import com.quarty.housamoembedtrans.scene.store.PendingSceneApplyStore;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;
 
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import java.io.IOException;
 import java.util.List;

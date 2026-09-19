@@ -22,7 +22,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.text.format.DateUtils;
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 
 import org.json.JSONObject;
 

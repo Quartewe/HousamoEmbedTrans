@@ -2,7 +2,7 @@ package com.quarty.housamoembedtrans.provider;
 
 import com.quarty.housamoembedtrans.util.IoUtils;
 
-import android.util.Log;
+import com.quarty.housamoembedtrans.logging.Log;
 import android.os.SystemClock;
 
 import org.json.JSONArray;
