@@ -179,15 +179,15 @@
         <item name="cornerRadius">20dp</item>
     </style>
 
-    <!-- Page scroll containers use one visible, theme-coloured thumb. The
-         custom scroll host supplies drag handling where the page uses it;
-         this style only makes the native scrollbar visible and consistent. -->
+    <!-- Page scroll containers opt into the custom, theme-coloured thumb in
+         their layout; the shared style keeps other pages scrollbar-free and
+         does not reserve an extra content gutter. -->
     <style name="Widget.HET.ScrollView">
-        <item name="android:scrollbars">vertical</item>
+        <item name="android:scrollbars">none</item>
         <item name="android:fadeScrollbars">false</item>
         <item name="android:scrollbarStyle">insideOverlay</item>
         <item name="android:scrollbarSize">4dp</item>
-        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingEnd">0dp</item>
         <item name="android:scrollbarThumbVertical">@drawable/het_scrollbar_thumb_vertical</item>
     </style>
 

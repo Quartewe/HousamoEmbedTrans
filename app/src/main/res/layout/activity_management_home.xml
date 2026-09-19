@@ -85,6 +85,7 @@
       <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
         style="@style/Widget.HET.ScrollView"
         android:id="@+id/scroll_management_home"
+        android:scrollbars="vertical"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"

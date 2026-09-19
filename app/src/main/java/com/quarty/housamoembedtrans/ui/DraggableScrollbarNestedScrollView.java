@@ -28,7 +28,7 @@ public class DraggableScrollbarNestedScrollView extends NestedScrollView {
     private static final int TRACK_WIDTH_DP = 2;
     private static final int THUMB_WIDTH_DP = 4;
     private static final int EDGE_INSET_DP = 4;
-    /** Matches the 14dp end gutter reserved by the shared scroll layouts. */
+    /** Width of the edge touch coverage for scrollbar drag gestures. */
     private static final int HIT_WIDTH_DP = 14;
 
     private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -41,6 +41,7 @@ public class DraggableScrollbarNestedScrollView extends NestedScrollView {
     private final int edgeInset;
     private final int hitWidth;
     private final int minThumbHeight;
+    private final boolean drawScrollbar;
     private boolean draggingScrollbar;
     private float dragOffsetY;
 
@@ -61,6 +62,7 @@ public class DraggableScrollbarNestedScrollView extends NestedScrollView {
         int defStyleAttr
     ) {
         super(context, attrs, defStyleAttr);
+        drawScrollbar = isVerticalScrollBarEnabled();
         density = getResources().getDisplayMetrics().density;
         trackWidth = dp(TRACK_WIDTH_DP);
         thumbWidth = dp(THUMB_WIDTH_DP);
@@ -84,6 +86,9 @@ public class DraggableScrollbarNestedScrollView extends NestedScrollView {
     @Override
     protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
+        if (!drawScrollbar) {
+            return;
+        }
         int saveCount = canvas.save();
         canvas.translate(getScrollX(), getScrollY());
         drawScrollbar(canvas);
@@ -120,7 +125,8 @@ public class DraggableScrollbarNestedScrollView extends NestedScrollView {
         }
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                draggingScrollbar = isScrollable()
+                draggingScrollbar = drawScrollbar
+                    && isScrollable()
                     && isInScrollbarHitArea(event.getX(), event.getY());
                 if (draggingScrollbar) {
                     stopOngoingScroll();
@@ -173,11 +179,11 @@ public class DraggableScrollbarNestedScrollView extends NestedScrollView {
     }
 
     private void drawScrollbar(Canvas canvas) {
-        int range = getScrollRange();
         int viewportHeight = getViewportHeight();
-        if (range <= 0 || viewportHeight <= 0) {
+        if (viewportHeight <= 0) {
             return;
         }
+        int range = getScrollRange();
         float trackTop = getPaddingTop();
         float trackBottom = getHeight() - getPaddingBottom();
         float trackHeight = trackBottom - trackTop;
