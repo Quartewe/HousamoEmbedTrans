@@ -216,6 +216,7 @@ public final class TranslationRequestFactory {
                     .put("content", userContent));
             providerRequest = new JSONObject()
                 .put("model", config.getModel())
+                .put("max_tokens", 384000)
                 .put("stream", config.isStreamingResponseEnabled())
                 .put("messages", messages);
             if (config.shouldSendThinkingParameters()) {
