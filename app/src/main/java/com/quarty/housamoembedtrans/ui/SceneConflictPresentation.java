@@ -28,7 +28,7 @@ import java.util.TreeSet;
  */
 public final class SceneConflictPresentation {
 
-    /** Stable identity shared by all recursively nested Scene items. */
+    /** Source position; a choice and its first text option may share it. */
     public static final class OrderKey implements Comparable<OrderKey> {
         public final int labelIndex;
         public final int pageNo;
@@ -201,11 +201,11 @@ public final class SceneConflictPresentation {
 
         CandidateProjection game = parse(gameCandidate.bytes);
         CandidateProjection het = parse(hetCandidate.bytes);
-        TreeSet<OrderKey> structureOrders = new TreeSet<>();
+        TreeSet<String> structureOrders = new TreeSet<>();
         structureOrders.addAll(game.structures.keySet());
         structureOrders.addAll(het.structures.keySet());
         int structureChanges = 0;
-        for (OrderKey order : structureOrders) {
+        for (String order : structureOrders) {
             if (!Objects.equals(
                 game.structures.get(order),
                 het.structures.get(order)
@@ -245,7 +245,7 @@ public final class SceneConflictPresentation {
 
     private static CandidateProjection parse(byte[] bytes) throws JSONException {
         JSONObject root = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
-        TreeMap<OrderKey, StructureNode> structures = new TreeMap<>();
+        TreeMap<String, StructureNode> structures = new TreeMap<>();
         TreeMap<OrderKey, TextSide> texts = new TreeMap<>();
         TreeSet<String> languages = new TreeSet<>();
 
@@ -287,7 +287,7 @@ public final class SceneConflictPresentation {
     private static void walkItems(
         JSONArray items,
         String container,
-        TreeMap<OrderKey, StructureNode> structures,
+        TreeMap<String, StructureNode> structures,
         TreeMap<OrderKey, TextSide> texts,
         Set<String> languages
     ) throws JSONException {
@@ -363,13 +363,16 @@ public final class SceneConflictPresentation {
                 throw new JSONException("unsupported Scene item type");
             }
 
+            // A choice container uses its first option's source position.
+            // Keep both nodes while still rejecting duplicates of the same type.
+            String structureKey = type + ":" + order.internalKey();
             StructureNode previous = structures.put(
-                order,
+                structureKey,
                 new StructureNode(type, container, metadata)
             );
             if (previous != null) {
                 throw new JSONException(
-                    "duplicate Scene item OrderKey " + order.internalKey()
+                    "duplicate Scene item " + structureKey
                 );
             }
         }
@@ -448,12 +451,12 @@ public final class SceneConflictPresentation {
 
     private static final class CandidateProjection {
         private final SideSummary summary;
-        private final TreeMap<OrderKey, StructureNode> structures;
+        private final TreeMap<String, StructureNode> structures;
         private final TreeMap<OrderKey, TextSide> texts;
 
         private CandidateProjection(
             SideSummary summary,
-            TreeMap<OrderKey, StructureNode> structures,
+            TreeMap<String, StructureNode> structures,
             TreeMap<OrderKey, TextSide> texts
         ) {
             this.summary = summary;
