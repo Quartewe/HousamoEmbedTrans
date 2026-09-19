@@ -65,6 +65,12 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final int MENU_RESET_DEFAULTS = 2002;
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
@@ -103,6 +109,7 @@ public final class SettingsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        PrimaryNavigation.animateContentOnResume(this);
         refreshThemePanel();
         renderHome();
     }

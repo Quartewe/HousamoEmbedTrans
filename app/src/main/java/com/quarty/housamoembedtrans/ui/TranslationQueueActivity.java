@@ -1158,6 +1158,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        PrimaryNavigation.animateContentOnResume(this);
         if (stylePreview) {
             return;
         }

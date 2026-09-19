@@ -5,11 +5,14 @@ import com.quarty.housamoembedtrans.R;
 import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.Intent;
-import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 
 /** Connects the four top-level Android destinations. */
 public final class PrimaryNavigation {
+    private static final String EXTRA_ENTER_DIRECTION =
+        "com.quarty.housamoembedtrans.extra.PRIMARY_ENTER_DIRECTION";
     public enum Destination {
         HOME,
         TASKS,
@@ -96,16 +99,37 @@ public final class PrimaryNavigation {
         // Reorder the existing shell activity so each top-level destination
         // keeps its own tab, search, and scroll state. Notifications use
         // their own explicit deep-link flags and are not affected here.
-        Bundle animation = ActivityOptions.makeCustomAnimation(
-            activity,
-            movingForward
-                ? R.anim.het_slide_in_right
-                : R.anim.het_slide_in_left,
-            movingForward
-                ? R.anim.het_slide_out_left
-                : R.anim.het_slide_out_right
-        ).toBundle();
-        activity.startActivity(intent, animation);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+        intent.putExtra(EXTRA_ENTER_DIRECTION, movingForward ? 1 : -1);
+        activity.startActivity(
+            intent,
+            ActivityOptions.makeCustomAnimation(activity, 0, 0).toBundle()
+        );
+        activity.overridePendingTransition(0, 0);
+    }
+
+    /** Animate only the page siblings; the navigation bar never moves. */
+    public static void animateContentOnResume(Activity activity) {
+        Intent intent = activity.getIntent();
+        int direction = intent.getIntExtra(EXTRA_ENTER_DIRECTION, 0);
+        intent.removeExtra(EXTRA_ENTER_DIRECTION);
+        if (direction == 0) {
+            return;
+        }
+        View navigation = activity.findViewById(R.id.primary_navigation);
+        if (navigation == null || !(navigation.getParent() instanceof ViewGroup)) {
+            return;
+        }
+        ViewGroup page = (ViewGroup) navigation.getParent();
+        int animation = direction > 0
+            ? R.anim.het_slide_in_right : R.anim.het_slide_in_left;
+        for (int index = 0; index < page.getChildCount(); index++) {
+            View child = page.getChildAt(index);
+            if (child != navigation) {
+                child.clearAnimation();
+                child.startAnimation(AnimationUtils.loadAnimation(activity, animation));
+            }
+        }
     }
 
     private static int navigationIndex(Destination destination) {

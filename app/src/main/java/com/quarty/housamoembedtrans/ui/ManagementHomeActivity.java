@@ -97,6 +97,12 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     private long renderGeneration;
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_management_home);
@@ -809,6 +815,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        PrimaryNavigation.animateContentOnResume(this);
         loadSnapshotAsync();
     }
 

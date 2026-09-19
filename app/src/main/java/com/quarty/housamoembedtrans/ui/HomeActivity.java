@@ -73,6 +73,18 @@ public final class HomeActivity extends AppCompatActivity {
     private String targetLanguage = "";
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        PrimaryNavigation.animateContentOnResume(this);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         stylePreview = StylePreview.isEnabled(this);
