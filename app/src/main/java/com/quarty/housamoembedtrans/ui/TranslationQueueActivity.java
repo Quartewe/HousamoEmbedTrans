@@ -744,6 +744,11 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private void installStylePreviewNavigation() {
         View navigation = findViewById(R.id.primary_navigation);
         if (navigation == null) return;
+        View home = navigation.findViewById(R.id.nav_home);
+        if (home != null) home.setOnClickListener(view -> {
+            startActivity(StylePreview.intentFor(this, StylePreview.KIND_HOME));
+            finish();
+        });
         View tasks = navigation.findViewById(R.id.nav_tasks);
         View management = navigation.findViewById(R.id.nav_management);
         View settings = navigation.findViewById(R.id.nav_settings);

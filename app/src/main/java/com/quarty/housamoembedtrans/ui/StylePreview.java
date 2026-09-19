@@ -27,6 +27,7 @@ public final class StylePreview {
     public static final String EXTRA_STYLE_PREVIEW_JSON =
         "com.quarty.housamoembedtrans.extra.STYLE_PREVIEW_JSON";
 
+    public static final String KIND_HOME = "home";
     public static final String KIND_TASKS = "tasks";
     public static final String KIND_MANAGEMENT_HOME = "management-home";
     public static final String KIND_SCENE_SYNC = "scene-sync";
@@ -51,6 +52,7 @@ public final class StylePreview {
 
     private static final List<String> KINDS = Collections.unmodifiableList(
         Arrays.asList(
+            KIND_HOME,
             KIND_TASKS,
             KIND_MANAGEMENT_HOME,
             KIND_SCENE_SYNC,
@@ -128,6 +130,9 @@ public final class StylePreview {
         if (context == null) {
             throw new IllegalArgumentException("context is required");
         }
+        if (KIND_HOME.equals(kind)) {
+            return putPreview(new Intent(context, HomeActivity.class), kind);
+        }
         if (KIND_TASKS.equals(kind)) {
             return putPreview(new Intent(context, TranslationQueueActivity.class), kind);
         }
@@ -181,6 +186,14 @@ public final class StylePreview {
     /** Returns a new sample object for the requested real page. */
     public static JSONObject sample(String kind) {
         try {
+            if (KIND_HOME.equals(kind)) return new JSONObject()
+                .put("app_version", "1.0")
+                .put("latest_app_version", "1.1")
+                .put("resource_version", "1")
+                .put("resource_update_available", true)
+                .put("game_version", "5.0.0")
+                .put("target_language", "zh-cn")
+                .put("runtime", sampleSceneSync().getJSONObject("runtime"));
             if (KIND_TASKS.equals(kind)) return sampleTasks();
             if (KIND_MANAGEMENT_HOME.equals(kind)
                 || KIND_MANAGEMENT_EXPORT.equals(kind)) return sampleManagementHome();

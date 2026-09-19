@@ -99,6 +99,7 @@ public final class StylePreviewActivity extends AppCompatActivity {
     }
 
     private int labelFor(String kind) {
+        if (StylePreview.KIND_HOME.equals(kind)) return R.string.style_preview_home;
         if (StylePreview.KIND_TASKS.equals(kind)) return R.string.style_preview_tasks;
         if (StylePreview.KIND_MANAGEMENT_HOME.equals(kind)) return R.string.style_preview_management_home;
         if (StylePreview.KIND_SCENE_SYNC.equals(kind)) return R.string.style_preview_scene_sync;
@@ -118,6 +119,7 @@ public final class StylePreviewActivity extends AppCompatActivity {
     }
 
     private int descriptionFor(String kind) {
+        if (StylePreview.KIND_HOME.equals(kind)) return R.string.style_preview_home_description;
         if (StylePreview.KIND_TASKS.equals(kind)) return R.string.style_preview_tasks_description;
         if (StylePreview.KIND_MANAGEMENT_HOME.equals(kind)) return R.string.style_preview_management_home_description;
         if (StylePreview.KIND_SCENE_SYNC.equals(kind)) return R.string.style_preview_scene_sync_description;

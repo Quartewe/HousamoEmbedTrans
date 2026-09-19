@@ -8,9 +8,10 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 
-/** Connects the three top-level Android destinations. */
+/** Connects the four top-level Android destinations. */
 public final class PrimaryNavigation {
     public enum Destination {
+        HOME,
         TASKS,
         MANAGEMENT,
         SETTINGS
@@ -27,18 +28,26 @@ public final class PrimaryNavigation {
         if (activity == null || navigation == null) {
             return;
         }
+        View home = navigation.findViewById(R.id.nav_home);
         View tasks = navigation.findViewById(R.id.nav_tasks);
         View management = navigation.findViewById(R.id.nav_management);
         View settings = navigation.findViewById(R.id.nav_settings);
-        if (tasks == null || management == null || settings == null) {
+        if (home == null || tasks == null || management == null || settings == null) {
             return;
         }
+        home.setEnabled(true);
         tasks.setEnabled(true);
         management.setEnabled(true);
         settings.setEnabled(true);
+        home.setSelected(current == Destination.HOME);
         tasks.setSelected(current == Destination.TASKS);
         management.setSelected(current == Destination.MANAGEMENT);
         settings.setSelected(current == Destination.SETTINGS);
+        home.setOnClickListener(view -> open(
+            activity,
+            Destination.HOME,
+            current
+        ));
         tasks.setOnClickListener(view -> open(
             activity,
             Destination.TASKS,
@@ -68,6 +77,9 @@ public final class PrimaryNavigation {
             > navigationIndex(current);
         Class<?> target;
         switch (destination) {
+            case HOME:
+                target = HomeActivity.class;
+                break;
             case TASKS:
                 target = TranslationQueueActivity.class;
                 break;
@@ -98,13 +110,15 @@ public final class PrimaryNavigation {
 
     private static int navigationIndex(Destination destination) {
         switch (destination) {
-            case TASKS:
+            case HOME:
                 return 0;
-            case MANAGEMENT:
+            case TASKS:
                 return 1;
+            case MANAGEMENT:
+                return 2;
             case SETTINGS:
             default:
-                return 2;
+                return 3;
         }
     }
 }

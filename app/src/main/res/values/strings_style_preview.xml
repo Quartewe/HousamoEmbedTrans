@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="style_preview_home">Home</string>
+    <string name="style_preview_home_description">Connection status, version updates, and home entry points.</string>
     <string name="style_preview_toolbar_title">Style check</string>
     <string name="style_preview_eyebrow">Debug / style check</string>
     <string name="style_preview_title">Choose a page to preview</string>
@@ -25,7 +27,7 @@
     <string name="style_preview_tasks_description">Queued, active, failed, completed, and waiting task states.</string>
     <string name="style_preview_waiting_body">A sample waiting record is present for visual review. Actions are disabled in this preview.</string>
     <string name="style_preview_management_home_description">Counts, sections, filters, and management entry points.</string>
-    <string name="style_preview_scene_sync_description">Scene files, sync status, result summaries, and read-only selectors.</string>
+    <string name="style_preview_scene_sync_description">Conflict policy, expandable candidates, and recent sync results.</string>
     <string name="style_preview_management_export_description">The management export controls and read-only preview state.</string>
     <string name="style_preview_scene_detail_description">Scene metadata, characters, terms, source rows, and translations.</string>
     <string name="style_preview_scene_editor_description">Scene identity, language, summaries, relations, and source sections.</string>
