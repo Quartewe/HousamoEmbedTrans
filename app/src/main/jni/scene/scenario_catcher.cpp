@@ -537,9 +537,13 @@ static bool BuildContinuationChain(
     const std::string& stop,
     const std::vector<LabelBlock>& blocks,
     const std::unordered_map<std::string, size_t>& label_indices,
-    std::vector<std::string>* out) {
+    std::vector<std::string>* out,
+    bool* closed_loop = nullptr) {
     if (start.empty() || stop.empty() || out == nullptr) {
         return false;
+    }
+    if (closed_loop != nullptr) {
+        *closed_loop = false;
     }
 
     std::unordered_set<std::string> visited;
@@ -560,9 +564,12 @@ static bool BuildContinuationChain(
         }
 
         if (!visited.insert(current).second) {
-            LOGW("[ScenarioCatcher] continuation loop while resolving branch at label=%s",
-                 current.c_str());
-            return false;
+            // Keep the finite prefix for merge analysis. A backedge does not
+            // require another copy of its text, nor imply a real exit.
+            if (closed_loop != nullptr) {
+                *closed_loop = true;
+            }
+            return true;
         }
 
         out->push_back(current);
@@ -604,6 +611,7 @@ static bool FindChoiceMerge(
 
     std::vector<std::vector<std::string>> chains;
     chains.reserve(choice.branches.size());
+    bool has_closed_loop = false;
 
     for (const ChoiceBranch& branch : choice.branches) {
         if (branch.target_label.empty() || branch.options.empty()) {
@@ -612,14 +620,17 @@ static bool FindChoiceMerge(
 
         std::vector<std::string> chain;
         chain.reserve(blocks.size() + 1);
+        bool closed_loop = false;
         if (!BuildContinuationChain(
                 branch.target_label,
                 stop,
                 blocks,
                 label_indices,
-                &chain)) {
+                &chain,
+                &closed_loop)) {
             return false;
         }
+        has_closed_loop = has_closed_loop || closed_loop;
         chains.push_back(std::move(chain));
     }
 
@@ -644,6 +655,12 @@ static bool FindChoiceMerge(
         }
     }
 
+    // Disjoint cyclic branches need not have a common successor. The outer
+    // boundary limits extraction; BuildRange stops the repeated visit itself.
+    if (has_closed_loop) {
+        *merge_label = stop;
+        return true;
+    }
     return false;
 }
 
@@ -663,17 +680,20 @@ static bool FindIfMerge(
 
     std::vector<std::string> true_chain;
     true_chain.reserve(blocks.size() + 1);
+    bool true_loop = false;
     if (!BuildContinuationChain(
             true_start,
             stop,
             blocks,
             label_indices,
-            &true_chain)) {
+            &true_chain,
+            &true_loop)) {
         return false;
     }
 
     std::vector<std::string> false_chain;
     false_chain.reserve(blocks.size() + 1);
+    bool false_loop = false;
     if (false_start == kVirtualExit) {
         false_chain.emplace_back(kVirtualExit);
     } else if (!BuildContinuationChain(
@@ -681,7 +701,8 @@ static bool FindIfMerge(
             stop,
             blocks,
             label_indices,
-            &false_chain)) {
+            &false_chain,
+            &false_loop)) {
         return false;
     }
 
@@ -696,6 +717,10 @@ static bool FindIfMerge(
         }
     }
 
+    if (true_loop || false_loop) {
+        *merge_label = stop;
+        return true;
+    }
     return false;
 }
 
@@ -851,6 +876,9 @@ struct ForwardBuildContext {
     const std::unordered_map<std::string, size_t>* label_indices = nullptr;
     std::unordered_map<size_t, std::string> owners;
     std::unordered_set<size_t> active;
+    // Only share text within one root traversal. Separate leftover roots keep
+    // their existing conflict policy until that behavior is addressed.
+    std::unordered_set<size_t> root_visited;
 };
 
 struct ActiveRangeGuard {
@@ -1086,15 +1114,22 @@ static bool BuildRange(
         LabelBlock& block = (*context->blocks)[label_index];
 
         if (context->active.find(label_index) != context->active.end()) {
-            LOGW("[ScenarioCatcher] range loop owner=%s label=%s stop=%s",
+            LOGD("[ScenarioCatcher] repeated active label, stopping expansion owner=%s label=%s stop=%s",
                  owner_path.c_str(),
                  block.label.c_str(),
                  DisplayLabel(stop));
-            return false;
+            return true;
         }
 
         auto owner_it = context->owners.find(label_index);
         if (owner_it != context->owners.end()) {
+            if (context->root_visited.find(label_index) != context->root_visited.end()) {
+                // The first path owns the text; later paths retain their jump
+                // metadata without moving or copying that text a second time.
+                LOGD("[ScenarioCatcher] shared label already expanded owner=%s label=%s existing_owner=%s",
+                     owner_path.c_str(), block.label.c_str(), owner_it->second.c_str());
+                return true;
+            }
             LOGW("[ScenarioCatcher] label ownership conflict owner=%s label=%s existing_owner=%s stop=%s",
                  owner_path.c_str(),
                  block.label.c_str(),
@@ -1104,6 +1139,7 @@ static bool BuildRange(
         }
 
         context->owners.emplace(label_index, owner_path);
+        context->root_visited.insert(label_index);
         context->active.insert(label_index);
         active_guard.labels.push_back(label_index);
 
@@ -1171,6 +1207,7 @@ static bool AssembleLabelBlocks(
         }
 
         ++root_count;
+        context.root_visited.clear();
         const std::string& root_label = (*blocks)[label_index].label;
         const std::string owner_path = "root:" + root_label;
         if (!BuildRange(
@@ -1780,6 +1817,19 @@ bool CatchScenario(
          scenario.label_order.size());
 
     ScenarioParseOutput output = ParseScenarioToResult(scenario);
+    // Failed and skipped parses have no write-back targets.
+    if (output.status == ScenarioParseStatus::skipped_official_translation) {
+        LOGI("[ScenarioCatcher] scenario skipped because official translation exists entry=%s",
+             entry_label.c_str());
+        return true;
+    }
+
+    if (output.status != ScenarioParseStatus::ok) {
+        LOGE("[ScenarioCatcher] failed to parse scene entry=%s", entry_label.c_str());
+        ForgetCaughtScenario(scenario_key, captured_epoch);
+        return false;
+    }
+
     target_set.target_map = std::move(output.target_map);
     
     std::string scene_name = scenario.result.scene;
@@ -1803,18 +1853,6 @@ bool CatchScenario(
                  scenario_data);
             return true;
         }
-    }
-
-    if (output.status == ScenarioParseStatus::skipped_official_translation) {
-        LOGI("[ScenarioCatcher] scenario skipped because official translation exists entry=%s",
-             entry_label.c_str());
-        return true;
-    }
-
-    if (output.status != ScenarioParseStatus::ok) {
-        LOGE("[ScenarioCatcher] failed to parse scene entry=%s", entry_label.c_str());
-        ForgetCaughtScenario(scenario_key, captured_epoch);
-        return false;
     }
 
     {
