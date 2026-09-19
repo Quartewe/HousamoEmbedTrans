@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="primary_nav_home">主页</string>
+
+    <string name="home_state_loading">正在读取连接状态</string>
+    <string name="home_connection_loading">正在读取 HET 运行时状态…</string>
+    <string name="home_state_connected">游戏已连接</string>
+    <string name="home_connection_ready">HET 服务已就绪 · 可以同步剧情</string>
+    <string name="home_state_waiting_game">等待游戏连接</string>
+    <string name="home_connection_waiting_game">HET 服务已就绪 · 请启动游戏后同步剧情</string>
+    <string name="home_state_waiting_service">等待服务启动</string>
+    <string name="home_connection_waiting_service">HET 服务尚未就绪 · 请稍候</string>
+    <string name="home_state_syncing">正在同步剧情</string>
+    <string name="home_connection_syncing">HET 服务已就绪 · 正在交换剧情数据</string>
+
+    <string name="home_tasks_title">任务</string>
+    <string name="home_tasks_description">查看翻译与摘要</string>
+    <string name="home_management_title">管理</string>
+    <string name="home_management_description">剧情、角色与术语</string>
+
+    <string name="home_update_title">应用更新</string>
+    <string name="home_update_not_checked">尚未检查更新</string>
+    <string name="home_update_checking">正在检查最新稳定版本…</string>
+    <string name="home_update_available">发现新版本：%1$s</string>
+    <string name="home_update_latest">已是最新版本</string>
+    <string name="home_update_failed">无法检查更新</string>
+    <string name="home_update_open_failed">无法打开版本发布页</string>
+
+    <string name="home_sync_title">剧情同步</string>
+    <string name="home_conflicts_loading">正在读取待处理冲突…</string>
+    <string name="home_conflicts_count">有 %1$d 份剧情存在冲突</string>
+    <string name="home_conflicts_none">没有待处理冲突</string>
+
+    <string name="home_info_app_version">应用版本</string>
+    <string name="home_info_resource_version">资源版本</string>
+    <string name="home_info_game_version">游戏版本</string>
+    <string name="home_info_target_language">目标语言</string>
+    <string name="home_unknown">未知</string>
+    <string name="home_resource_version_unknown">未提供版本号</string>
+    <string name="home_app_version_pair">%1$s → %2$s</string>
+    <string name="home_resource_version_preview_update">v%1$s · 待更新（预览）</string>
+    <string name="home_resource_version_preview_current">v%1$s（预览）</string>
+
+    <string name="home_github_title">GitHub</string>
+    <string name="home_github_content_description">打开 HousamoEmbedTrans GitHub 项目</string>
+</resources>

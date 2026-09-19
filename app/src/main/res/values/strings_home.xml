@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="primary_nav_home">Home</string>
+
+    <string name="home_state_loading">Checking connection</string>
+    <string name="home_connection_loading">Reading HET runtime status…</string>
+    <string name="home_state_connected">Game connected</string>
+    <string name="home_connection_ready">HET service ready · Ready to sync scenes</string>
+    <string name="home_state_waiting_game">Waiting for game</string>
+    <string name="home_connection_waiting_game">HET service ready · Start the game to sync scenes</string>
+    <string name="home_state_waiting_service">Waiting for service</string>
+    <string name="home_connection_waiting_service">HET service is not ready yet · Please wait</string>
+    <string name="home_state_syncing">Syncing scenes</string>
+    <string name="home_connection_syncing">HET service ready · Exchanging scene data</string>
+
+    <string name="home_tasks_title">Tasks</string>
+    <string name="home_tasks_description">View translations and summaries</string>
+    <string name="home_management_title">Management</string>
+    <string name="home_management_description">Scenes, characters and terms</string>
+
+    <string name="home_update_title">App update</string>
+    <string name="home_update_not_checked">Not checked yet</string>
+    <string name="home_update_checking">Checking for the latest stable release…</string>
+    <string name="home_update_available">Update available: %1$s</string>
+    <string name="home_update_latest">You are up to date</string>
+    <string name="home_update_failed">Could not check for updates</string>
+    <string name="home_update_open_failed">Could not open the release page</string>
+
+    <string name="home_sync_title">Scene sync</string>
+    <string name="home_conflicts_loading">Reading pending conflicts…</string>
+    <string name="home_conflicts_count">%1$d scene conflict(s) need attention</string>
+    <string name="home_conflicts_none">No pending conflicts</string>
+
+    <string name="home_info_app_version">App version</string>
+    <string name="home_info_resource_version">Resource version</string>
+    <string name="home_info_game_version">Game version</string>
+    <string name="home_info_target_language">Target language</string>
+    <string name="home_unknown">Unknown</string>
+    <string name="home_resource_version_unknown">Version not provided</string>
+    <string name="home_app_version_pair">%1$s → %2$s</string>
+    <string name="home_resource_version_preview_update">v%1$s · update available (preview)</string>
+    <string name="home_resource_version_preview_current">v%1$s (preview)</string>
+
+    <string name="home_github_title">GitHub</string>
+    <string name="home_github_content_description">Open the HousamoEmbedTrans GitHub repository</string>
+</resources>
