@@ -531,7 +531,7 @@ public final class SummaryRequestAssembler {
                 .put("model", config.getModel())
                 .put("stream", false)
                 .put("messages", messages);
-            if (config.getThinkingStrength().isEnabled()) {
+            if (config.shouldSendThinkingParameters()) {
                 providerRequest.put(
                     "reasoning_effort",
                     config.getThinkingStrength().getConfigValue()
@@ -548,7 +548,7 @@ public final class SummaryRequestAssembler {
                 .put("max_tokens", ANTHROPIC_MAX_TOKENS)
                 .put("system", summaryPrompt)
                 .put("messages", messages);
-            if (config.getThinkingStrength().isEnabled()) {
+            if (config.shouldSendThinkingParameters()) {
                 providerRequest.put("thinking", new JSONObject()
                     .put("type", "enabled")
                     .put(

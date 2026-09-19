@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_field_enable_streaming_response">Streaming responses</string>
+    <string name="settings_field_hint_enable_streaming_response">Enabled by default. Translation and repair use SSE streaming; when disabled, receive the full JSON response before processing its text. Event validation and repair policy stay the same. Separate from streaming repair. Applies to newly started tasks; independent summary requests remain non-streaming.</string>
+    <string name="settings_field_omit_thinking_parameters">Omit thinking parameters</string>
+    <string name="settings_field_hint_omit_thinking_parameters">Debug comparison, off by default. Omits reasoning_effort, thinking budgets and the thinking beta header from translation, repair and summary requests. Uses provider defaults; does not guarantee thinking is disabled. Keeps your selected strength and streaming mode. Applies to newly started tasks.</string>
+    <string name="settings_field_enable_api_body_logging">Log API request and response bodies</string>
+    <string name="settings_field_hint_enable_api_body_logging">Off by default. Saves translation and repair request bodies and raw responses, including thinking and text, to daily internal log files and logcat. Produces large logs; headers are omitted and the API key is redacted. Applies to newly started tasks.</string>
     <string name="primary_nav_tasks">任务</string>
     <string name="primary_nav_management">管理</string>
     <string name="primary_nav_settings">设置</string>

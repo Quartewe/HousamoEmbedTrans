@@ -18,9 +18,12 @@ public final class TranslationConfig {
     private final int networkRetryCount;
     private final int resultRepairCount;
     private final boolean streamingRepairEnabled;
+    private final boolean streamingResponseEnabled;
     private final int repairGradientCount;
     private final boolean useFullSceneForRepair;
     private final boolean dumpFailedApiResponse;
+    private final boolean logApiBodies;
+    private final boolean omitThinkingParameters;
     private final String apiKey;
     private final String systemPrompt;
     private final ThinkingStrength thinkingStrength;
@@ -37,9 +40,12 @@ public final class TranslationConfig {
         int networkRetryCount,
         int resultRepairCount,
         boolean streamingRepairEnabled,
+        boolean streamingResponseEnabled,
         int repairGradientCount,
         boolean useFullSceneForRepair,
         boolean dumpFailedApiResponse,
+        boolean logApiBodies,
+        boolean omitThinkingParameters,
         String apiKey,
         String systemPrompt,
         ThinkingStrength thinkingStrength,
@@ -55,9 +61,12 @@ public final class TranslationConfig {
         this.networkRetryCount = networkRetryCount;
         this.resultRepairCount = resultRepairCount;
         this.streamingRepairEnabled = streamingRepairEnabled;
+        this.streamingResponseEnabled = streamingResponseEnabled;
         this.repairGradientCount = repairGradientCount;
         this.useFullSceneForRepair = useFullSceneForRepair;
         this.dumpFailedApiResponse = dumpFailedApiResponse;
+        this.logApiBodies = logApiBodies;
+        this.omitThinkingParameters = omitThinkingParameters;
         this.apiKey = apiKey;
         this.systemPrompt = systemPrompt;
         this.thinkingStrength = thinkingStrength;
@@ -102,6 +111,18 @@ public final class TranslationConfig {
 
     public boolean shouldDumpFailedApiResponse() {
         return dumpFailedApiResponse;
+    }
+
+    public boolean shouldLogApiBodies() {
+        return logApiBodies;
+    }
+
+    public boolean isStreamingResponseEnabled() {
+        return streamingResponseEnabled;
+    }
+
+    public boolean shouldSendThinkingParameters() {
+        return !omitThinkingParameters && thinkingStrength.isEnabled();
     }
 
     public String getApiKey() {
@@ -225,6 +246,7 @@ public final class TranslationConfig {
                 "EnableStreamingRepair",
                 ConfigStore.DEFAULT_ENABLE_STREAMING_REPAIR
             ),
+            api.optBoolean("EnableStreamingResponse", true),
             optionalInt(
                 api,
                 "RepairGradientCount",
@@ -235,6 +257,8 @@ public final class TranslationConfig {
                 ConfigStore.DEFAULT_USE_FULL_SCENE_FOR_REPAIR
             ),
             userSettings.optBoolean("EnableFailedApiResponseDump", false),
+            userSettings.optBoolean("EnableApiBodyLogging", false),
+            userSettings.optBoolean("DebugOmitThinkingParameters", false),
             apiKey == null ? "" : apiKey,
             systemPrompt,
             ThinkingStrength.fromConfigValue(thinkingStrengthValue),

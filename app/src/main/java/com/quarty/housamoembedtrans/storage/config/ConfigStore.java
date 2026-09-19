@@ -810,6 +810,18 @@ public final class ConfigStore {
                 "UserSettings.EnableFailedApiResponseDump must be a boolean"
             );
         }
+        if (userSettings.has("EnableApiBodyLogging")
+            && !(userSettings.get("EnableApiBodyLogging") instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                "UserSettings.EnableApiBodyLogging must be a boolean"
+            );
+        }
+        if (userSettings.has("DebugOmitThinkingParameters")
+            && !(userSettings.get("DebugOmitThinkingParameters") instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                "UserSettings.DebugOmitThinkingParameters must be a boolean"
+            );
+        }
         userSettings.getBoolean("OverwriteExistingJson");
         requireNonEmptyString(userSettings, "TargetLanguage", "UserSettings");
         getSceneWorkerCount(userSettings);
@@ -842,6 +854,7 @@ public final class ConfigStore {
             "UseFullSceneForRepair",
             "UserSettings.TranslationApi"
         );
+        requireBoolean(translationApi, "EnableStreamingResponse", "UserSettings.TranslationApi");
         validateRepairGradientCount(translationApi);
 
         JSONObject translationQueue =
@@ -962,6 +975,9 @@ public final class ConfigStore {
             "TranslationApi"
         );
         if (translationApi != null) {
+            if (!translationApi.has("EnableStreamingResponse")) {
+                translationApi.put("EnableStreamingResponse", true);
+            }
             if (!translationApi.has("EnableStreamingRepair")) {
                 translationApi.put(
                     "EnableStreamingRepair",
@@ -1338,6 +1354,7 @@ public final class ConfigStore {
             ? null
             : userSettings.optJSONObject("ContextHistory");
         return translationApi != null
+            && translationApi.has("EnableStreamingResponse")
             && translationApi.has("EnableStreamingRepair")
             && translationApi.has("RepairGradientCount")
             && translationApi.has("UseFullSceneForRepair")

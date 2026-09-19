@@ -4,6 +4,8 @@
         "EnablePageRecDebug": false,
         "EnableParseOnlyDebug": false,
         "EnableFailedApiResponseDump": false,
+        "EnableApiBodyLogging": false,
+        "DebugOmitThinkingParameters": false,
         "OverwriteExistingJson": false,
         "SceneWorkerCount": 4,
         "SceneSync": {
@@ -25,6 +27,7 @@
             "NetworkRetryCount": 3,
             "ResultRepairCount": 3,
             "EnableStreamingRepair": false,
+            "EnableStreamingResponse": true,
             "RepairGradientCount": 3,
             "UseFullSceneForRepair": true
         },

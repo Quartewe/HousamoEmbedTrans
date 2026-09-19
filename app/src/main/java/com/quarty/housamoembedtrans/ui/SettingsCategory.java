@@ -190,8 +190,10 @@ public final class SettingsCategory {
         return userSettings.optBoolean("EnablePageRecDebug", false)
                 || userSettings.optBoolean("EnableParseOnlyDebug", false)
                 || userSettings.optBoolean("EnableFailedApiResponseDump", false)
-            ? "页面记录、解析和失败响应诊断已开启"
-            : "页面记录、解析和失败响应诊断已关闭";
+                || userSettings.optBoolean("EnableApiBodyLogging", false)
+                || userSettings.optBoolean("DebugOmitThinkingParameters", false)
+            ? "部分调试选项已开启"
+            : "调试选项已关闭";
     }
 
     private static String targetLabel(String target) {

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_field_enable_streaming_response">流式返回</string>
+    <string name="settings_field_hint_enable_streaming_response">默认开启，翻译和修复使用 SSE 流式返回；关闭后等待完整 JSON 响应，再处理正文，事件校验和修复策略不变。与“流式修复”独立，对新启动的任务生效；独立摘要请求仍为非流式。</string>
+    <string name="settings_field_omit_thinking_parameters">不发送思考参数</string>
+    <string name="settings_field_hint_omit_thinking_parameters">调试对照，默认关闭。翻译、修复和摘要请求不发送 reasoning_effort、thinking 预算及思考专用 beta 请求头，使用服务商默认行为，不代表关闭思考。保留已选思考强度和流式设置，对新启动的任务生效。</string>
+    <string name="settings_field_enable_api_body_logging">打印 API 请求与响应正文</string>
+    <string name="settings_field_hint_enable_api_body_logging">默认关闭。将翻译和修复请求正文及原始响应按日保存到内部日志文件，同时打印到 logcat，包含思考和译文，日志量较大；不记录请求头，API Key 会脱敏。对新启动的任务生效。</string>
     <string name="primary_nav_tasks">任务</string>
     <string name="primary_nav_management">管理</string>
     <string name="primary_nav_settings">设置</string>

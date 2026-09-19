@@ -29,6 +29,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Provider transport. Translation semantics and validation live in the executor. */
 public final class TranslationApiClient {
@@ -40,9 +41,67 @@ public final class TranslationApiClient {
     private static final int TRANSLATION_READ_TIMEOUT_MS = 300_000;
     private static final int MAX_MODEL_RESPONSE_BYTES = 4 * 1024 * 1024;
     private static final int MAX_ERROR_RESPONSE_BYTES = 4 * 1024 * 1024;
+    private static final int MAX_TRANSLATION_RESPONSE_BYTES = 32 * 1024 * 1024;
     private static final long RETRY_BASE_DELAY_MS = 1_000L;
     private static final long RETRY_MAX_DELAY_MS = 8_000L;
     private static final long WAIT_LOG_INTERVAL_SECONDS = 30L;
+    private static final AtomicLong TRACE_SEQUENCE = new AtomicLong();
+
+    /** One transport thread writes; the wait logger only reads diagnostics. */
+    private static final class StreamTrace {
+        final long id = TRACE_SEQUENCE.incrementAndGet();
+        final long startedAt = SystemClock.elapsedRealtime();
+        volatile String phase = "attempt_callback";
+        volatile long lines;
+        volatile long events;
+        volatile long textChars;
+        volatile long lastLineAt;
+        volatile boolean terminalSeen;
+        private long bodyRecord;
+        private final boolean logBodies;
+
+        StreamTrace(boolean logBodies) {
+            this.logBodies = logBodies;
+        }
+
+        /** JSON-quoted chunks preserve newlines without losing logcat prefixes. */
+        void body(String kind, String value, String secret) {
+            if (!logBodies) {
+                return;
+            }
+            String safe = redactSecret(value, secret);
+            long record = ++bodyRecord;
+            int offset = 0;
+            int part = 0;
+            do {
+                // Even six-byte JSON escapes stay below logcat's entry limit.
+                int end = Math.min(offset + 400, safe.length());
+                if (end < safe.length() && Character.isHighSurrogate(safe.charAt(end - 1))) {
+                    end--;
+                }
+                Log.i(TAG, "[API-BODY] call=" + id + " record=" + record
+                    + " kind=" + kind + " part=" + (++part)
+                    + " last=" + (end == safe.length())
+                    + " data=" + JSONObject.quote(safe.substring(offset, end)));
+                offset = end;
+            } while (offset < safe.length());
+        }
+
+        void log(String event) {
+            long now = SystemClock.elapsedRealtime();
+            Log.i(TAG, "[API-TRACE] call=" + id + " " + event
+                + " phase=" + phase + " elapsedMs=" + (now - startedAt)
+                + " elapsed=" + formatElapsed(now - startedAt)
+                + " lines=" + lines + " events=" + events
+                + " textChars=" + textChars + " terminal=" + terminalSeen
+                + " lastLineAgoMs=" + (lastLineAt == 0 ? -1 : now - lastLineAt));
+        }
+
+        void stage(String value) {
+            phase = value;
+            log("stage");
+        }
+    }
     private static final ScheduledExecutorService WAIT_LOGGER =
         Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(
@@ -421,19 +480,12 @@ public final class TranslationApiClient {
             );
         }
 
-        long startedAt = SystemClock.elapsedRealtime();
+        StreamTrace trace = new StreamTrace(config.shouldLogApiBodies());
+        trace.log("start attempt=" + attemptNumber
+            + " protocol=" + config.getProtocol() + " model=" + config.getModel()
+            + " stream=" + config.isStreamingResponseEnabled());
         ScheduledFuture<?> waitLog = WAIT_LOGGER.scheduleAtFixedRate(
-            () -> Log.i(
-                TAG,
-                "Still waiting for API stream protocol="
-                    + config.getProtocol()
-                    + " model="
-                    + config.getModel()
-                    + " elapsed="
-                    + formatElapsed(
-                        SystemClock.elapsedRealtime() - startedAt
-                    )
-            ),
+            () -> trace.log("waiting"),
             WAIT_LOG_INTERVAL_SECONDS,
             WAIT_LOG_INTERVAL_SECONDS,
             TimeUnit.SECONDS
@@ -450,21 +502,16 @@ public final class TranslationApiClient {
             if (cancellation != null && cancellation.isCanceled()) {
                 throw new InterruptedException("provider attempt canceled");
             }
-            streamTranslationOnce(config, body, listener, cancellation);
+            streamTranslationOnce(config, body, listener, cancellation, trace);
+            trace.stage("completed");
+        } catch (Exception e) {
+            // Exception messages may contain provider response bodies or URLs.
+            trace.log("failed type=" + e.getClass().getSimpleName()
+                + " canceled=" + (cancellation != null && cancellation.isCanceled()));
+            throw e;
         } finally {
             waitLog.cancel(false);
-            Log.i(
-                TAG,
-                "API stream attempt ended"
-                    + " protocol="
-                    + config.getProtocol()
-                    + " model="
-                    + config.getModel()
-                    + " totalWait="
-                    + formatElapsed(
-                        SystemClock.elapsedRealtime() - startedAt
-                    )
-            );
+            trace.log("ended");
         }
     }
 
@@ -507,7 +554,7 @@ public final class TranslationApiClient {
                 "HousamoEmbedTrans/1.0"
             );
             if ("anthropic".equals(config.getProtocol())
-                && config.getThinkingStrength().isEnabled()) {
+                && config.shouldSendThinkingParameters()) {
                 connection.setRequestProperty(
                     "anthropic-beta",
                     ANTHROPIC_EXTENDED_THINKING_BETA
@@ -568,11 +615,17 @@ public final class TranslationApiClient {
         TranslationConfig config,
         String body,
         StreamListener listener,
-        AttemptHandle cancellation
+        AttemptHandle cancellation,
+        StreamTrace trace
     ) throws Exception {
+        trace.stage("opening_connection");
         HttpURLConnection connection = openConnection(
             resolveTranslationEndpoint(config)
         );
+        // Do not log credentials, query parameters or arbitrary URL paths.
+        trace.log("endpoint host=" + connection.getURL().getHost()
+            + " chatCompletions=" + connection.getURL().getPath().endsWith("/chat/completions")
+            + " messages=" + connection.getURL().getPath().endsWith("/messages"));
         HttpAttemptHandle concreteCancellation = cancellation
             instanceof HttpAttemptHandle
                 ? (HttpAttemptHandle) cancellation
@@ -586,12 +639,16 @@ public final class TranslationApiClient {
             }
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
-            connection.setReadTimeout(TRANSLATION_READ_TIMEOUT_MS);
+            // A non-streaming response may stay silent until generation finishes.
+            // Zero disables the read timeout; cancellation still disconnects the request.
+            connection.setReadTimeout(
+                config.isStreamingResponseEnabled() ? TRANSLATION_READ_TIMEOUT_MS : 0
+            );
             connection.setInstanceFollowRedirects(false);
             connection.setDoOutput(true);
             connection.setRequestProperty(
                 "Accept",
-                "text/event-stream"
+                config.isStreamingResponseEnabled() ? "text/event-stream" : "application/json"
             );
             connection.setRequestProperty(
                 "Content-Type",
@@ -602,7 +659,7 @@ public final class TranslationApiClient {
                 "HousamoEmbedTrans/1.0"
             );
             if ("anthropic".equals(config.getProtocol())
-                && config.getThinkingStrength().isEnabled()) {
+                && config.shouldSendThinkingParameters()) {
                 connection.setRequestProperty(
                     "anthropic-beta",
                     ANTHROPIC_EXTENDED_THINKING_BETA
@@ -616,13 +673,20 @@ public final class TranslationApiClient {
 
             byte[] requestBytes = body.getBytes(StandardCharsets.UTF_8);
             connection.setFixedLengthStreamingMode(requestBytes.length);
+            trace.log("requestBytes=" + requestBytes.length);
+            trace.body("request", body, config.getApiKey());
+            trace.stage("connecting_output");
             try (OutputStream output = connection.getOutputStream()) {
+                trace.stage("writing_request");
                 output.write(requestBytes);
                 output.flush();
             }
 
+            trace.stage("waiting_http_status");
             int statusCode = connection.getResponseCode();
+            trace.log("httpStatus=" + statusCode);
             if (statusCode < 200 || statusCode >= 300) {
+                trace.stage("reading_error_body");
                 InputStream errorStream = connection.getErrorStream();
                 String errorBody;
                 try (InputStream input = errorStream) {
@@ -633,6 +697,7 @@ public final class TranslationApiClient {
                             MAX_ERROR_RESPONSE_BYTES
                         );
                 }
+                trace.body("http_error", errorBody, config.getApiKey());
                 throw new HttpStatusException(
                     statusCode,
                     redactSecret(errorBody, config.getApiKey())
@@ -640,22 +705,76 @@ public final class TranslationApiClient {
             }
 
             ProviderStreamState state = new ProviderStreamState();
-            try (InputStream input = connection.getInputStream();
-                 BufferedReader reader = new BufferedReader(
-                     new InputStreamReader(input, StandardCharsets.UTF_8)
-                 )) {
-                readSse(
-                    reader,
-                    (eventName, data) -> dispatchProviderEvent(
-                        config.getProtocol(),
-                        eventName,
-                        data,
-                        listener,
-                        state
-                    )
-                );
+            StreamListener tracedListener = new StreamListener() {
+                @Override
+                public void onAttemptStarted(int attemptNumber) throws Exception {
+                    listener.onAttemptStarted(attemptNumber);
+                }
+
+                @Override
+                public void onTextDelta(String text) throws Exception {
+                    boolean first = trace.textChars == 0;
+                    trace.textChars += text.length();
+                    trace.phase = "text_callback";
+                    if (first) {
+                        trace.log("first_text");
+                    }
+                    listener.onTextDelta(text);
+                    trace.phase = "dispatching_event";
+                }
+
+                @Override
+                public void onStreamCompleted(String stopReason) throws Exception {
+                    listener.onStreamCompleted(stopReason);
+                }
+            };
+            if (!config.isStreamingResponseEnabled()) {
+                trace.stage("reading_response_body");
+                String responseBody;
+                try (InputStream input = connection.getInputStream()) {
+                    responseBody = IoUtils.readUtf8Limited(input, MAX_TRANSLATION_RESPONSE_BYTES);
+                }
+                trace.body("response", responseBody, config.getApiKey());
+                trace.stage("parsing_response");
+                dispatchCompleteResponse(config.getProtocol(), responseBody, tracedListener, state);
+                trace.terminalSeen = state.terminalEventSeen;
+                trace.log("response_received normalStop="
+                    + isNormalStopReason(config.getProtocol(), state.stopReason));
+            } else {
+                trace.stage("reading_stream");
+                try (InputStream input = connection.getInputStream();
+                     BufferedReader reader = new BufferedReader(
+                         new InputStreamReader(input, StandardCharsets.UTF_8)
+                     )) {
+                    readSse(
+                        reader,
+                        (eventName, data) -> {
+                            trace.events++;
+                            trace.phase = "dispatching_event";
+                            if (trace.events == 1) {
+                                trace.log("first_event");
+                            }
+                            if ("[DONE]".equals(data)) {
+                                trace.log("done_marker");
+                            }
+                            dispatchProviderEvent(
+                                config.getProtocol(), eventName, data, tracedListener, state
+                            );
+                            if (state.terminalEventSeen && !trace.terminalSeen) {
+                                trace.terminalSeen = true;
+                                trace.log("terminal_event normalStop="
+                                    + isNormalStopReason(config.getProtocol(), state.stopReason));
+                            }
+                            trace.phase = "reading_stream";
+                        },
+                        trace,
+                        config.getApiKey()
+                    );
+                    trace.stage("stream_eof");
+                }
             }
 
+            trace.stage("validating_stream");
             if (!state.terminalEventSeen) {
                 throw new IOException(
                     "provider stream ended without a terminal event"
@@ -675,6 +794,7 @@ public final class TranslationApiClient {
                 );
             }
             try {
+                trace.stage("completion_callback");
                 listener.onStreamCompleted(state.stopReason);
             } catch (Exception e) {
                 throw new ListenerFailure(e);
@@ -691,14 +811,70 @@ public final class TranslationApiClient {
         void accept(String eventName, String data) throws Exception;
     }
 
+    /** Feed non-streaming provider text through the same executor event decoder. */
+    private static void dispatchCompleteResponse(
+        String protocol,
+        String responseBody,
+        StreamListener listener,
+        ProviderStreamState state
+    ) throws Exception {
+        JSONObject response = new JSONObject(responseBody);
+        if (response.has("error")) {
+            throw new IllegalArgumentException("provider returned an error response");
+        }
+        String text;
+        if ("openai".equals(protocol)) {
+            JSONObject choice = response.getJSONArray("choices").getJSONObject(0);
+            Object content = choice.getJSONObject("message").opt("content");
+            if (!(content instanceof String)) {
+                throw new IllegalArgumentException("provider response message.content must be a string");
+            }
+            text = (String) content;
+            state.stopReason = choice.optString("finish_reason", "");
+        } else {
+            JSONArray blocks = response.getJSONArray("content");
+            StringBuilder content = new StringBuilder();
+            for (int index = 0; index < blocks.length(); index++) {
+                JSONObject block = blocks.getJSONObject(index);
+                if ("text".equals(block.optString("type", ""))) {
+                    Object value = block.opt("text");
+                    if (!(value instanceof String)) {
+                        throw new IllegalArgumentException("provider text block must contain a string");
+                    }
+                    content.append((String) value);
+                }
+            }
+            text = content.toString();
+            state.stopReason = response.optString("stop_reason", "");
+        }
+        state.terminalEventSeen = !state.stopReason.isEmpty();
+        if (!text.isEmpty()) {
+            try {
+                listener.onTextDelta(text);
+            } catch (Exception e) {
+                throw new ListenerFailure(e);
+            }
+        }
+    }
+
     private static void readSse(
         BufferedReader reader,
-        SseEventConsumer consumer
+        SseEventConsumer consumer,
+        StreamTrace trace,
+        String apiKey
     ) throws Exception {
         String eventName = "";
         StringBuilder data = new StringBuilder();
         String line;
         while ((line = reader.readLine()) != null) {
+            trace.lines++;
+            trace.lastLineAt = SystemClock.elapsedRealtime();
+            // Capture before parsing/listener callbacks, including thinking,
+            // heartbeat lines, terminal markers and malformed provider events.
+            trace.body("sse_line", line, apiKey);
+            if (trace.lines == 1) {
+                trace.log("first_line");
+            }
             if (line.isEmpty()) {
                 if (data.length() > 0) {
                     consumer.accept(eventName, data.toString());

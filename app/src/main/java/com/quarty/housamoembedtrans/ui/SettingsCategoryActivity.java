@@ -1563,6 +1563,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
         if (SettingsCategory.TRANSLATION_REPAIR.equals(categoryId)) {
             return Arrays.asList(
                 slider("result-repair-count", R.string.settings_field_result_repair_count, R.string.settings_field_hint_result_repair_count, new String[] {"TranslationApi", "ResultRepairCount"}, 0, 5, 1, true),
+                bool("enable-streaming-response", R.string.settings_field_enable_streaming_response, R.string.settings_field_hint_enable_streaming_response, new String[] {"TranslationApi", "EnableStreamingResponse"}),
                 bool("enable-streaming-repair", R.string.settings_field_enable_streaming_repair, R.string.settings_field_hint_enable_streaming_repair, new String[] {"TranslationApi", "EnableStreamingRepair"}),
                 slider("repair-gradient-count", R.string.settings_field_repair_gradient_count, R.string.settings_field_hint_repair_gradient_count, new String[] {"TranslationApi", "RepairGradientCount"}, 2, 8, 1, true),
                 bool("use-full-scene-for-repair", R.string.settings_field_use_full_scene_for_repair, R.string.settings_field_hint_use_full_scene_for_repair, new String[] {"TranslationApi", "UseFullSceneForRepair"})
@@ -1609,7 +1610,9 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
         return Arrays.asList(
             bool("enable-page-rec-debug", R.string.settings_field_enable_page_rec_debug, R.string.settings_field_hint_enable_page_rec_debug, new String[] {"EnablePageRecDebug"}),
             bool("enable-parse-only-debug", R.string.settings_field_enable_parse_only_debug, R.string.settings_field_hint_enable_parse_only_debug, new String[] {"EnableParseOnlyDebug"}),
-            bool("enable-failed-api-response-dump", R.string.settings_field_enable_failed_api_response_dump, R.string.settings_field_hint_enable_failed_api_response_dump, new String[] {"EnableFailedApiResponseDump"})
+            bool("enable-failed-api-response-dump", R.string.settings_field_enable_failed_api_response_dump, R.string.settings_field_hint_enable_failed_api_response_dump, new String[] {"EnableFailedApiResponseDump"}),
+            bool("enable-api-body-logging", R.string.settings_field_enable_api_body_logging, R.string.settings_field_hint_enable_api_body_logging, new String[] {"EnableApiBodyLogging"}),
+            bool("omit-thinking-parameters", R.string.settings_field_omit_thinking_parameters, R.string.settings_field_hint_omit_thinking_parameters, new String[] {"DebugOmitThinkingParameters"})
         );
     }
 

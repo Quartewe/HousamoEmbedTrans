@@ -216,9 +216,9 @@ public final class TranslationRequestFactory {
                     .put("content", userContent));
             providerRequest = new JSONObject()
                 .put("model", config.getModel())
-                .put("stream", true)
+                .put("stream", config.isStreamingResponseEnabled())
                 .put("messages", messages);
-            if (config.getThinkingStrength().isEnabled()) {
+            if (config.shouldSendThinkingParameters()) {
                 providerRequest.put(
                     "reasoning_effort",
                     config.getThinkingStrength().getConfigValue()
@@ -233,10 +233,10 @@ public final class TranslationRequestFactory {
             providerRequest = new JSONObject()
                 .put("model", config.getModel())
                 .put("max_tokens", ANTHROPIC_MAX_TOKENS)
-                .put("stream", true)
+                .put("stream", config.isStreamingResponseEnabled())
                 .put("system", config.getSystemPrompt())
                 .put("messages", messages);
-            if (config.getThinkingStrength().isEnabled()) {
+            if (config.shouldSendThinkingParameters()) {
                 providerRequest.put("thinking", new JSONObject()
                     .put("type", "enabled")
                     .put(
