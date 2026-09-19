@@ -8,6 +8,7 @@ import com.quarty.housamoembedtrans.runtime.RuntimeControlStore;
 import com.quarty.housamoembedtrans.runtime.TranslationControlReceiver;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
+import com.quarty.housamoembedtrans.context.history.HistoryResolution;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 import com.quarty.housamoembedtrans.summary.job.SummaryJobStore;
@@ -163,6 +164,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         new ArrayList<>();
     private List<TranslationJobStore.ReviewJob> activeJobs =
         new ArrayList<>();
+    private List<TranslationJobStore.ReviewJob> canceledJobs = new ArrayList<>();
     private List<TranslationJobStore.TerminalJob> failedJobs =
         new ArrayList<>();
     /** Terminal outcomes that still need game delivery/acknowledgement. */
@@ -296,6 +298,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private enum UiTaskKind {
         HELD,
         ACTIVE,
+        CANCELED,
         TERMINAL,
         SUMMARY_RECOVERY,
         SUMMARY_FAILED,
@@ -345,7 +348,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         }
 
         boolean unfinished() {
-            return !completed;
+            return !completed && kind != UiTaskKind.CANCELED;
         }
 
         String typeLabel() {
@@ -1671,6 +1674,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                     : jobStore.getHeldQueuedJobs();
             final List<TranslationJobStore.ReviewJob> loadedActiveJobs =
                 new ArrayList<>();
+            final List<TranslationJobStore.ReviewJob> loadedCanceled;
             final List<TranslationJobStore.TerminalJob> loadedFailed;
             final List<TranslationJobStore.TerminalJob> loadedDelivery;
             final List<SummaryJobStore.RecoveryJob> loadedSummary;
@@ -1691,6 +1695,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                     }
                 }
                 loadedFailed = jobStore.listRetainedFailedJobs();
+                loadedCanceled = managementOnly
+                    ? new ArrayList<>() : jobStore.listCanceledJobs();
                 loadedDelivery = managementOnly
                     ? new ArrayList<>()
                     : jobStore.listPendingTerminalJobs();
@@ -1747,6 +1753,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 repairingStartupJobs = repairing;
                 jobs = loadedJobs;
                 activeJobs = loadedActiveJobs;
+                canceledJobs = loadedCanceled;
                 failedJobs = loadedFailed;
                 deliveryJobs = loadedDelivery;
                 failedSummaryJobs = loadedFailedSummary;
@@ -2085,7 +2092,19 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         }
         List<UiTask> result = new ArrayList<>();
         Set<String> requestIds = new HashSet<>();
+        Set<String> blockedIds = new HashSet<>();
+        for (TranslationTaskExecutor.BlockedJob job : userActionJobs) {
+            blockedIds.add(job.getRequestId());
+        }
+        Set<String> canceledIds = new HashSet<>();
+        for (TranslationJobStore.ReviewJob job : canceledJobs) {
+            canceledIds.add(job.getRequestId());
+        }
         for (TranslationJobStore.HeldQueuedJob job : jobs) {
+            if (blockedIds.contains(job.getRequestId()) || canceledIds.contains(job.getRequestId())
+                || !requestIds.add(job.getRequestId())) {
+                continue;
+            }
             result.add(new UiTask(
                 UiTaskKind.HELD,
                 job.getRequestId(),
@@ -2103,6 +2122,10 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             requestIds.add(job.getRequestId());
         }
         for (TranslationJobStore.ReviewJob job : activeJobs) {
+            if (blockedIds.contains(job.getRequestId()) || canceledIds.contains(job.getRequestId())
+                || !requestIds.add(job.getRequestId())) {
+                continue;
+            }
             result.add(new UiTask(
                 UiTaskKind.ACTIVE,
                 job.getRequestId(),
@@ -2166,6 +2189,9 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             ));
         }
         for (TranslationTaskExecutor.BlockedJob job : userActionJobs) {
+            if (canceledIds.contains(job.getRequestId()) || !requestIds.add(job.getRequestId())) {
+                continue;
+            }
             result.add(new UiTask(
                 UiTaskKind.USER_ACTION,
                 job.getRequestId(),
@@ -2180,6 +2206,15 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 true,
                 job
             ));
+        }
+        for (TranslationJobStore.ReviewJob job : canceledJobs) {
+            if (!requestIds.add(job.getRequestId())) {
+                continue;
+            }
+            result.add(new UiTask(UiTaskKind.CANCELED, job.getRequestId(), job.getScene(),
+                getString(R.string.task_object_scene), "",
+                getString(R.string.task_status_canceled),
+                getString(R.string.task_reason_canceled), 0L, true, false, false, job));
         }
         for (SummaryJobStore.RecoveryJob job : summaryJobs) {
             result.add(new UiTask(
@@ -2478,6 +2513,93 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         return card;
     }
 
+    private void confirmDeleteTask(UiTask task) {
+        if (stylePreview || busy || repairingStartupJobs
+            || task == null || isFinishing()) {
+            return;
+        }
+        new UiMaterialAlertDialogBuilder(this)
+            .setTitle(R.string.task_action_delete)
+            .setMessage(R.string.task_delete_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.task_action_delete, (dialog, which) -> {
+                setBusy(true);
+                ioExecutor.execute(() -> {
+                    try {
+                        if (task.translation) {
+                            TranslationTaskExecutor executor = TranslationService.getActiveTaskExecutor();
+                            if (executor != null) {
+                                executor.deleteTask(task.requestId);
+                            } else {
+                                jobStore.requestCancellation(task.requestId);
+                                jobStore.deleteTask(task.requestId);
+                            }
+                        } else {
+                            SummaryJobStore activeStore = TranslationService.getActiveSummaryRecoveryStore();
+                            (activeStore == null ? summaryJobStore : activeStore)
+                                .deleteTaskForManagement(task.requestId);
+                        }
+                        runOnUiThread(() -> {
+                            if (isDestroyed() || isFinishing()) {
+                                return;
+                            }
+                            setBusy(false);
+                            selectedRequestIds.remove(task.requestId);
+                            selectedSummaryRequestIds.remove(task.requestId);
+                            if (detailTask != null && task.requestId.equals(detailTask.requestId)) {
+                                closeTaskDetails();
+                            }
+                            TranslationStatusNotification.refresh(this);
+                            refreshJobs();
+                        });
+                    } catch (TranslationJobStore.ManagementMutationBusyException error) {
+                        showOperationFailure(new IllegalStateException(getString(R.string.task_delete_delivery_busy)));
+                    } catch (Exception error) {
+                        showOperationFailure(error);
+                    }
+                });
+            })
+            .show();
+    }
+
+    private void confirmRerunCanceledTask(UiTask task) {
+        if (stylePreview || managementOnly || busy || repairingStartupJobs
+            || task == null || task.kind != UiTaskKind.CANCELED) {
+            return;
+        }
+        new UiMaterialAlertDialogBuilder(this)
+            .setTitle(R.string.task_action_rerun_canceled)
+            .setMessage(R.string.task_rerun_canceled_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                setBusy(true);
+                ioExecutor.execute(() -> {
+                    try {
+                        TranslationTaskExecutor executor = TranslationService.getActiveTaskExecutor();
+                        if (executor != null) {
+                            executor.manageCanceledJob(task.requestId, false);
+                        } else {
+                            throw new IllegalStateException(getString(R.string.task_rerun_service_required));
+                        }
+                        runOnUiThread(() -> {
+                            if (isDestroyed() || isFinishing()) {
+                                return;
+                            }
+                            setBusy(false);
+                            if (detailTask != null && task.requestId.equals(detailTask.requestId)) {
+                                closeTaskDetails();
+                            }
+                            TranslationStatusNotification.refresh(this);
+                            refreshJobs();
+                        });
+                    } catch (Exception error) {
+                        showOperationFailure(error);
+                    }
+                });
+            })
+            .show();
+    }
+
     private MaterialButton taskActionButton(UiTask task) {
         if (stylePreview) {
             return null;
@@ -2492,6 +2614,10 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         button.setMinHeight(dp(32));
         button.setPadding(dp(10), 0, dp(10), 0);
         switch (task.kind) {
+            case CANCELED:
+                button.setText(R.string.task_action_rerun_canceled);
+                button.setOnClickListener(view -> confirmRerunCanceledTask(task));
+                return button;
             case HELD:
                 int selectedIndex = selectedRequestIds.indexOf(task.requestId);
                 button.setText(selectedIndex >= 0
@@ -2504,11 +2630,11 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 button.setOnClickListener(view -> showTaskDetails(task));
                 return button;
             case TERMINAL:
-                if (task.completed || !task.actionNeeded) {
-                    return null;
-                }
                 TranslationJobStore.TerminalJob terminal =
                     (TranslationJobStore.TerminalJob) task.source;
+                if (terminal.getKind() != TerminalOutcome.Kind.FAILED) {
+                    return null;
+                }
                 if (terminal.isSceneValidationFailure()) {
                     button.setText(R.string.translation_job_move_scene_pending);
                     button.setOnClickListener(view -> openManagementForScene(terminal));
@@ -3128,6 +3254,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         );
         section.addView(title);
         MaterialButton action = null;
+        MaterialButton compressionAction = null;
         if (stylePreview) {
             action = null;
         } else if (task.kind == UiTaskKind.ACTIVE) {
@@ -3138,15 +3265,31 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         } else {
             action = taskActionButton(task);
         }
-        if (action == null) {
-            TextView empty = taskDetailText(
-                getString(R.string.task_detail_no_actions),
-                R.style.TextAppearance_HET_StaticTask_DetailMetadata
+        if (task.kind == UiTaskKind.USER_ACTION
+            && task.source instanceof TranslationTaskExecutor.BlockedJob
+            && ((TranslationTaskExecutor.BlockedJob) task.source).getReasonKind()
+                == HistoryResolution.ReasonKind.CONTEXT_LENGTH
+            && !stylePreview) {
+            TranslationTaskExecutor.BlockedJob blocked =
+                (TranslationTaskExecutor.BlockedJob) task.source;
+            compressionAction = detailButton(
+                R.string.user_action_enable_auto_compression
             );
-            empty.setPadding(0, dp(8), 0, dp(4));
-            section.addView(empty);
-        } else {
-            action.setEnabled(!busy && !repairingStartupJobs);
+            compressionAction.setOnClickListener(view ->
+                enableAutoCompressionAndRetry(blocked)
+            );
+        }
+        MaterialButton delete = detailButton(R.string.task_action_delete);
+        delete.setEnabled(!stylePreview && !busy && !repairingStartupJobs);
+        delete.setOnClickListener(view -> confirmDeleteTask(task));
+        section.addView(delete);
+        if (task.kind == UiTaskKind.USER_ACTION && !stylePreview) {
+            MaterialButton stop = detailButton(R.string.translation_stop_action);
+            stop.setEnabled(!busy && !repairingStartupJobs);
+            stop.setOnClickListener(view -> confirmStopRequest(task.requestId));
+            section.addView(stop);
+        }
+        if (action != null || compressionAction != null) {
             LinearLayout actionGroup = new LinearLayout(this);
             actionGroup.setOrientation(LinearLayout.VERTICAL);
             actionGroup.setGravity(Gravity.END);
@@ -3156,7 +3299,24 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             );
             groupParams.topMargin = dp(10);
             section.addView(actionGroup, groupParams);
-            actionGroup.addView(action);
+            if (compressionAction != null) {
+                compressionAction.setEnabled(!busy && !repairingStartupJobs);
+                actionGroup.addView(compressionAction);
+            }
+            if (action != null) {
+                action.setEnabled(!busy && !repairingStartupJobs);
+                if (compressionAction != null) {
+                    LinearLayout.LayoutParams actionParams =
+                        new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        );
+                    actionParams.topMargin = dp(8);
+                    actionGroup.addView(action, actionParams);
+                } else {
+                    actionGroup.addView(action);
+                }
+            }
         }
         addDetailSection(container, section);
     }
@@ -4692,6 +4852,62 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         });
     }
 
+    /** Enables the global compression setting, then retries this held job. */
+    private void enableAutoCompressionAndRetry(
+        TranslationTaskExecutor.BlockedJob job
+    ) {
+        if (stylePreview || busy || repairingStartupJobs || job == null
+            || job.getReasonKind() != HistoryResolution.ReasonKind.CONTEXT_LENGTH) {
+            return;
+        }
+        setBusy(true);
+        ioExecutor.execute(() -> {
+            try {
+                ConfigStore configStore = new ConfigStore(this);
+                ConfigStore.LoadResult latest = configStore.load();
+                JSONObject updated = new JSONObject(latest.config.toString());
+                JSONObject settings = updated.optJSONObject("UserSettings");
+                if (settings == null) {
+                    throw new IllegalStateException("missing UserSettings");
+                }
+                JSONObject contextHistory = settings.optJSONObject(
+                    "ContextHistory"
+                );
+                if (contextHistory == null) {
+                    contextHistory = new JSONObject();
+                    settings.put("ContextHistory", contextHistory);
+                }
+                contextHistory.put("EnableAutoCompression", true);
+                configStore.save(updated);
+
+                TranslationTaskExecutor activeExecutor =
+                    TranslationService.getActiveTaskExecutor();
+                boolean retried = activeExecutor != null
+                    && activeExecutor.retryUserActionRequiredJob(
+                        job.getRequestId()
+                    );
+                runOnUiThread(() -> {
+                    if (isDestroyed()) {
+                        return;
+                    }
+                    setBusy(false);
+                    TranslationStatusNotification.refresh(this);
+                    Toast.makeText(
+                        this,
+                        retried
+                            ? R.string.user_action_enable_auto_compression_queued
+                            : R.string.user_action_enable_auto_compression_not_found,
+                        Toast.LENGTH_LONG
+                    ).show();
+                    refreshJobs();
+                });
+            } catch (Exception error) {
+                // Keep the blocker when loading or saving the setting fails.
+                showOperationFailure(error);
+            }
+        });
+    }
+
     private void renderSummaryRecovery() {
         boolean empty = summaryJobs.isEmpty();
         boolean waitingForService = !managementOnly && !summaryRecoveryReady;
@@ -5172,7 +5388,13 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     }
 
     private void confirmStopActiveJob(TranslationJobStore.ReviewJob job) {
-        if (stylePreview || managementOnly || busy || captureControlBusy || job == null
+        if (job != null) {
+            confirmStopRequest(job.getRequestId());
+        }
+    }
+
+    private void confirmStopRequest(String requestId) {
+        if (stylePreview || managementOnly || busy || captureControlBusy || requestId == null
             || isFinishing()
             || !canShowControlDialog()) {
             return;
@@ -5185,7 +5407,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 R.string.translation_stop_action,
                 (shown, which) -> {
                     releaseControlDialog(shown);
-                    stopActiveJob(job.getRequestId());
+                    stopActiveJob(requestId);
                 }
             )
             .create();
@@ -5550,13 +5772,19 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         setBusy(true);
         ioExecutor.execute(() -> {
             try {
-                jobStore.rerunManualCandidate(job.getRequestId());
+                jobStore.withManagementMutation(() ->
+                    jobStore.rerunManualCandidate(job.getRequestId())
+                );
                 boolean serviceStarted = ensureTranslationService();
                 runOnUiThread(() -> {
                     if (isDestroyed()) {
                         return;
                     }
                     setBusy(false);
+                    if (detailTask != null
+                        && job.getRequestId().equals(detailTask.requestId)) {
+                        closeTaskDetails();
+                    }
                     TranslationStatusNotification.refresh(this);
                     Toast.makeText(
                         this,

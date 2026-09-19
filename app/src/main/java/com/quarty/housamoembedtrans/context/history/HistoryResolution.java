@@ -15,38 +15,65 @@ public final class HistoryResolution {
         USER_ACTION_REQUIRED
     }
 
+    /** Internal reason classification used by UI actions without parsing text. */
+    public enum ReasonKind {
+        OTHER,
+        CONTEXT_LENGTH
+    }
+
     private final Status status;
     private final HistoryPayload payload;
     private final String reason;
+    private final ReasonKind reasonKind;
 
     private HistoryResolution(
         Status status,
         HistoryPayload payload,
-        String reason
+        String reason,
+        ReasonKind reasonKind
     ) {
         this.status = status;
         this.payload = payload;
         this.reason = reason;
+        this.reasonKind = reasonKind == null ? ReasonKind.OTHER : reasonKind;
     }
 
     public static HistoryResolution ready(HistoryPayload payload) {
         return new HistoryResolution(
             Status.READY,
             payload == null ? HistoryPayload.empty() : payload,
-            ""
+            "",
+            ReasonKind.OTHER
         );
     }
 
     public static HistoryResolution waiting(String reason) {
-        return new HistoryResolution(Status.WAITING, null, reason);
+        return new HistoryResolution(
+            Status.WAITING,
+            null,
+            reason,
+            ReasonKind.OTHER
+        );
     }
 
     public static HistoryResolution userActionRequired(String reason) {
+        return userActionRequired(ReasonKind.OTHER, reason);
+    }
+
+    public static HistoryResolution userActionRequired(
+        ReasonKind reasonKind,
+        String reason
+    ) {
         return new HistoryResolution(
             Status.USER_ACTION_REQUIRED,
             null,
-            reason
+            reason,
+            reasonKind
         );
+    }
+
+    public static HistoryResolution contextLengthExceeded(String reason) {
+        return userActionRequired(ReasonKind.CONTEXT_LENGTH, reason);
     }
 
     public Status getStatus() {
@@ -64,6 +91,10 @@ public final class HistoryResolution {
 
     public String getReason() {
         return reason;
+    }
+
+    public ReasonKind getReasonKind() {
+        return reasonKind;
     }
 
     public boolean isReady() {

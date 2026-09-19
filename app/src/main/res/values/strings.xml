@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="task_action_delete">Delete task</string>
+    <string name="task_delete_message">Permanently delete this task and its request, progress and response files? Active translation will be canceled first; pending results will no longer be delivered. Saved Scenes, translations and summaries are kept. An API request already sent may still be billed.</string>
+    <string name="task_delete_delivery_busy">The game is applying this result. Please retry deletion after delivery finishes.</string>
     <string name="app_name">Housamo Embed Trans</string>
     <string name="xposed_description">AI translation prefetch for Tokyo Afterschool Summoners</string>
 
@@ -75,7 +78,7 @@
     <string name="thinking_strength">Thinking strength</string>
     <string name="thinking_strength_hint">Used by both Translation and Summary requests. \'none\' disables thinking; other values are passed to OpenAI-compatible providers as reasoning_effort and mapped to an Anthropic thinking budget.</string>
     <string name="context_length">Context length (tokens)</string>
-    <string name="context_length_hint">Conservative local token budget for the complete provider input, including system prompt and user content. Default: 16000.</string>
+    <string name="context_length_hint">Conservative local token budget for the complete provider input, including system prompt and user content. Default: 160000.</string>
     <string name="api_concurrency">API concurrency limit</string>
     <string name="api_concurrency_hint">Maximum concurrent Translation and Summary API requests. Valid range: 1 to 8.</string>
     <string name="network_retry_count">Network retry count</string>
@@ -138,6 +141,9 @@
     <string name="user_action_required_retry">Retry after fixing</string>
     <string name="user_action_required_retry_queued">The held translation job was re-queued.</string>
     <string name="user_action_required_not_found">The held job is no longer available; refresh and try again.</string>
+    <string name="user_action_enable_auto_compression">Enable auto compression</string>
+    <string name="user_action_enable_auto_compression_queued">Auto compression was enabled and the held translation job was re-queued.</string>
+    <string name="user_action_enable_auto_compression_not_found">Auto compression was enabled, but the held translation job is no longer available; refresh the task page.</string>
 
     <string name="summary_recovery_title">Summary recovery</string>
     <string name="summary_recovery_summary">%1$d legacy summary job(s) waiting. Select the jobs to restore; unselected jobs will be discarded.</string>
@@ -777,4 +783,11 @@
     <string name="task_waiting_result_payload">Saved result payload</string>
     <string name="task_value_unrecorded">Not recorded</string>
     <string name="task_waiting_related_unavailable">Related task unavailable</string>
+    <string name="task_status_canceled">Canceled</string>
+    <string name="task_reason_canceled">Execution stopped. The retained request can be rerun or permanently deleted.</string>
+    <string name="task_action_rerun_canceled">Rerun task</string>
+    <string name="task_action_delete_canceled">Permanently delete task</string>
+    <string name="task_rerun_canceled_message">Queue the retained request again using current translation settings? If the previous execution is still stopping, wait and retry.</string>
+    <string name="task_delete_canceled_message">Delete this canceled task and all files in its request directory? Scene data and separately retained results are kept. If execution is still stopping, wait and retry.</string>
+    <string name="task_rerun_service_required">Translation service is not ready. Wait for startup to finish and retry.</string>
 </resources>

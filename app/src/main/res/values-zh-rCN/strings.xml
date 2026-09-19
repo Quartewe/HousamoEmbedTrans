@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="task_action_delete">删除任务</string>
+    <string name="task_delete_message">永久删除此任务及其请求、进度和响应文件？正在翻译的任务会先取消，待投递结果将停止后续投递。保留已保存的 Scene、译文和摘要。已经发出的 API 请求仍可能计费。</string>
+    <string name="task_delete_delivery_busy">游戏正在应用此结果，请在投递结束后重试删除。</string>
     <string name="app_name">Housamo Embed Trans</string>
     <string name="xposed_description">东京放课后召唤师 AI 翻译预取模块</string>
 
@@ -127,6 +130,9 @@
     <string name="user_action_required_retry">修复后重试</string>
     <string name="user_action_required_retry_queued">已重新入队该被挂起的翻译任务。</string>
     <string name="user_action_required_not_found">该挂起任务已不存在，请刷新后重试。</string>
+    <string name="user_action_enable_auto_compression">开启自动压缩</string>
+    <string name="user_action_enable_auto_compression_queued">已开启自动压缩，并重新入队该被挂起的翻译任务。</string>
+    <string name="user_action_enable_auto_compression_not_found">已开启自动压缩，但该挂起的翻译任务已不存在，请刷新任务页。</string>
 
     <string name="summary_recovery_title">摘要任务恢复</string>
     <string name="summary_recovery_summary">有 %1$d 个遗留摘要任务等待处理。选择要恢复的任务；未选择的会被废弃。</string>
@@ -758,4 +764,11 @@
     <string name="task_waiting_result_payload">已保存结果内容</string>
     <string name="task_value_unrecorded">未记录</string>
     <string name="task_waiting_related_unavailable">关联任务不可用</string>
+    <string name="task_status_canceled">已取消</string>
+    <string name="task_reason_canceled">执行已停止。保留的请求可以重新执行或永久删除。</string>
+    <string name="task_action_rerun_canceled">重新执行任务</string>
+    <string name="task_action_delete_canceled">永久删除任务</string>
+    <string name="task_rerun_canceled_message">使用当前翻译设置，将保留的请求重新排队？如果上次执行仍在退出，请稍后重试。</string>
+    <string name="task_delete_canceled_message">删除这个已取消任务及其请求目录下的全部文件？剧情数据和单独保留的结果不受影响。如果执行仍在退出，请稍后重试。</string>
+    <string name="task_rerun_service_required">翻译服务尚未就绪，请等待启动完成后重试。</string>
 </resources>

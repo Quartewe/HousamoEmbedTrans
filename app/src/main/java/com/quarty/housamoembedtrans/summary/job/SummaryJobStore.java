@@ -55,6 +55,8 @@ public final class SummaryJobStore {
     private static final String STATUS_AWAITING_USER = "awaiting_user";
     private static final String STATUS_FAILED = "failed";
     private static final String STATUS_CANCELED = "canceled";
+    // Shared by UI/Service store facades, guarded by TARGET_ADMISSION_LOCK.
+    private static final Set<String> EXECUTING_TASKS = new HashSet<>();
 
     /** Durable reason for a job whose Context/Group owner was deleted. */
     public static final String OWNER_DELETED_REASON = "owner_deleted";
@@ -1400,6 +1402,24 @@ public final class SummaryJobStore {
      * marks it running. Only durable queued jobs are claimable; awaiting-user
      * jobs require a recovery decision before they become claimable.
      */
+    String claimNextReadyJobForExecution() throws Exception {
+        return queryUnderRoot(() -> {
+            synchronized (TARGET_ADMISSION_LOCK) {
+                String requestId = claimNextReadyJob();
+                if (requestId != null) {
+                    EXECUTING_TASKS.add(store.jobDirectory(requestId).getAbsolutePath());
+                }
+                return requestId;
+            }
+        });
+    }
+
+    void releaseTaskExecution(String requestId) {
+        synchronized (TARGET_ADMISSION_LOCK) {
+            EXECUTING_TASKS.remove(store.jobDirectory(requestId).getAbsolutePath());
+        }
+    }
+
     public String claimNextReadyJob() throws Exception {
         return queryUnderRoot(() -> {
             synchronized (TARGET_ADMISSION_LOCK) {
@@ -1413,6 +1433,9 @@ public final class SummaryJobStore {
                         continue;
                     }
                     if (!STATUS_QUEUED.equals(state.optString("status", ""))) {
+                        continue;
+                    }
+                    if (EXECUTING_TASKS.contains(directory.getAbsolutePath())) {
                         continue;
                     }
                     JSONObject request = JobValidator.parseJsonObject(
@@ -1736,6 +1759,25 @@ public final class SummaryJobStore {
                 if (!isOwnerDeletedState(readState(requestId))) {
                     deleteJobDirectoryLocked(directory);
                 }
+            }
+        });
+    }
+
+    /** Task-page deletion for the recovery and failed rows; never races a live claim. */
+    public void deleteTaskForManagement(String requestId) throws Exception {
+        mutateUnderRoot(() -> {
+            synchronized (TARGET_ADMISSION_LOCK) {
+                File directory = requireJobDirectory(requestId);
+                if (EXECUTING_TASKS.contains(directory.getAbsolutePath())) {
+                    throw new IllegalStateException("Summary task is still finishing; retry deletion shortly");
+                }
+                JSONObject state = readState(requestId);
+                String status = state == null ? "" : state.optString("status", "");
+                if (!STATUS_AWAITING_USER.equals(status) && !STATUS_FAILED.equals(status)
+                    && !STATUS_CANCELED.equals(status)) {
+                    throw new IllegalStateException("Summary task state changed; refresh before deleting");
+                }
+                deleteJobDirectoryLocked(directory);
             }
         });
     }

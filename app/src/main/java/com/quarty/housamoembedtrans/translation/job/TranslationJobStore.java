@@ -500,6 +500,43 @@ public final class TranslationJobStore {
     private final PendingProcessStore pendingProcessStore;
     private final TranslationSchemaValidator resultSchemaValidator;
     private final Set<String> pendingRequestIds = new HashSet<>();
+    // Includes claimed main work and queued/running repair work. Unlike durable
+    // status, these references remain held while canceled workers unwind.
+    private final Map<String, Integer> executionReferences = new HashMap<>();
+
+    synchronized void retainExecution(String requestId) {
+        executionReferences.put(requestId,
+            executionReferences.getOrDefault(requestId, 0) + 1);
+    }
+
+    synchronized void releaseExecution(String requestId) {
+        int remaining = executionReferences.getOrDefault(requestId, 0) - 1;
+        if (remaining > 0) {
+            executionReferences.put(requestId, remaining);
+        } else {
+            executionReferences.remove(requestId);
+            notifyAll();
+        }
+    }
+
+    /** Wait without holding the root/delivery barrier needed by exiting workers. */
+    synchronized void awaitExecutionSettled(String requestId) throws Exception {
+        long deadline = android.os.SystemClock.elapsedRealtime() + 5_000L;
+        while (executionReferences.containsKey(requestId)) {
+            long remaining = deadline - android.os.SystemClock.elapsedRealtime();
+            if (remaining <= 0) {
+                requireExecutionSettledLocked(requestId);
+            }
+            wait(remaining);
+        }
+    }
+
+    private void requireExecutionSettledLocked(String requestId) throws AdmissionException {
+        if (executionReferences.containsKey(requestId)) {
+            throw new AdmissionException("execution_not_settled",
+                "Translation execution is still stopping: " + requestId);
+        }
+    }
     private final Set<QueueListener> queueListeners = new HashSet<>();
     private final LinkedHashMap<String, HeldQueuedJob> heldQueuedJobs =
         new LinkedHashMap<>();
@@ -810,6 +847,7 @@ public final class TranslationJobStore {
             recoveryDecisionOpen = false;
             startupRecoveryCommitted = false;
             jobStore.ensureRoot();
+            finishDeletedJobsLocked();
             pendingQueue.clear();
             pendingRequestIds.clear();
             heldQueuedJobs.clear();
@@ -2948,6 +2986,14 @@ public final class TranslationJobStore {
      * requests and to rewrite only queued mappings.
      */
     public synchronized List<ReviewJob> listReviewJobs() throws Exception {
+        return listReviewJobs(false);
+    }
+
+    public synchronized List<ReviewJob> listCanceledJobs() throws Exception {
+        return listReviewJobs(true);
+    }
+
+    private List<ReviewJob> listReviewJobs(boolean canceledOnly) throws Exception {
         List<ReviewJob> result = new ArrayList<>();
         for (File directory : jobStore.listValidJobDirectories()) {
             try {
@@ -2956,8 +3002,8 @@ public final class TranslationJobStore {
                     continue;
                 }
                 String status = state.optString("status", "");
-                if (!STATUS_QUEUED.equals(status)
-                    && !STATUS_RUNNING.equals(status)) {
+                if (canceledOnly ? !STATUS_CANCELED.equals(status)
+                    : (!STATUS_QUEUED.equals(status) && !STATUS_RUNNING.equals(status))) {
                     continue;
                 }
                 String contextId = null;
@@ -3417,10 +3463,124 @@ public final class TranslationJobStore {
         return false;
     }
 
+    /** Explicit user rerun; canceled tasks never restart merely by being listed. */
+    public void rerunCanceledJob(String requestId) throws Exception {
+        SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                File directory = requireJobDirectoryLocked(requestId);
+                JSONObject state = readState(directory);
+                requireCanceledLocked(requestId, state);
+                if (!preparedForServiceStart || !startupRecoveryCommitted) {
+                    throw new AdmissionException("execution_not_settled",
+                        "Wait for startup recovery before rerunning the task");
+                }
+                JobValidator.RequestInfo info = JobValidator.validateRequest(
+                    JobValidator.parseJsonObject(readRequest(directory), MAX_REQUEST_BYTES, "request"));
+                requireManagementAdmissionAllowedLocked(info, state.opt("history_mapping"));
+                rerunRetainedJobLocked(directory, requestId, state);
+            }
+            return null;
+        });
+        notifyQueueListener();
+    }
+
+    /** Removes only an explicitly canceled, fully unwound task, never its Scene. */
+    public void deleteCanceledJob(String requestId) throws Exception {
+        SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                validateRequestId(requestId);
+                requireExecutionSettledLocked(requestId);
+                File directory = jobStore.jobDirectory(requestId);
+                File deleted = new File(jobRoot, ".deleted-" + requestId);
+                // Finish an older retired directory before retiring this task.
+                jobStore.deleteJobDirectory(deleted);
+                if (directory.exists()) {
+                    requireCanceledLocked(requestId, readState(directory));
+                    if (!directory.renameTo(deleted)) {
+                        throw new IOException("Could not retire canceled task " + requestId);
+                    }
+                }
+                removeJobFromIndexesLocked(requestId);
+                jobStore.deleteJobDirectory(deleted);
+            }
+            return null;
+        });
+        notifyQueueListener();
+    }
+
+    /** Deletes settled task artifacts, including pending terminal delivery, not Scene data. */
+    public void deleteTask(String requestId) throws Exception {
+        // Same lock order as acquireTerminalDelivery: delivery -> root -> store.
+        synchronized (terminalDeliveryLock) {
+            if (managementMutationActive
+                || activeTerminalLeases.containsKey(terminalLeaseKey(requestId, TerminalOutcome.Kind.COMPLETED))
+                || activeTerminalLeases.containsKey(terminalLeaseKey(requestId, TerminalOutcome.Kind.FAILED))) {
+                throw new ManagementMutationBusyException();
+            }
+            SceneContextStore.withRootAccess(() -> {
+                synchronized (this) {
+                    validateRequestId(requestId);
+                    requireExecutionSettledLocked(requestId);
+                    File directory = jobStore.jobDirectory(requestId);
+                    if (directory.exists()) {
+                        JSONObject state = readState(directory);
+                        String status = state == null ? "" : state.optString("status", "");
+                        if (!STATUS_CANCELED.equals(status) && !STATUS_COMPLETED.equals(status)
+                            && !STATUS_FAILED.equals(status)) {
+                            throw new AdmissionException("execution_not_settled",
+                                "Task must stop before deletion: " + requestId);
+                        }
+                    }
+                    File deleted = new File(jobRoot, ".deleted-" + requestId);
+                    jobStore.deleteJobDirectory(deleted);
+                    if (directory.exists() && !directory.renameTo(deleted)) {
+                        throw new IOException("Could not retire task " + requestId);
+                    }
+                    removeJobFromIndexesLocked(requestId);
+                    jobStore.deleteJobDirectory(deleted);
+                }
+                return null;
+            });
+        }
+        notifyQueueListener();
+    }
+
+    private void requireCanceledLocked(String requestId, JSONObject state) throws Exception {
+        requireExecutionSettledLocked(requestId);
+        if (state == null || !STATUS_CANCELED.equals(state.optString("status", ""))) {
+            throw new AdmissionException("execution_not_settled",
+                "Only a canceled task can be rerun or permanently deleted: " + requestId);
+        }
+    }
+
+    private void finishDeletedJobsLocked() {
+        File[] directories = jobRoot.listFiles();
+        if (directories == null) {
+            return;
+        }
+        for (File directory : directories) {
+            if (!directory.getName().startsWith(".deleted-")) {
+                continue;
+            }
+            try {
+                validateRequestId(directory.getName().substring(".deleted-".length()));
+            } catch (IllegalArgumentException ignored) {
+                continue;
+            }
+            try {
+                jobStore.deleteJobDirectory(directory);
+            } catch (IOException cleanupFailure) {
+                // The retired directory cannot be claimed or rebuilt. Retain
+                // it for cleanup next startup without blocking unrelated jobs.
+                Log.w(TAG, "Could not finish deleted task cleanup: "
+                    + directory.getName(), cleanupFailure);
+            }
+        }
+    }
+
     /**
      * Explicit local user action: abandon a pending failed delivery and rerun
-     * the retained request in one store lock.  Binder duplicate admission may
-     * not use this exception path.
+     * the retained request in one store lock. Binder admission cannot do this.
      */
     public boolean rerunManualCandidate(String requestId) throws Exception {
         try {
@@ -3496,6 +3656,7 @@ public final class TranslationJobStore {
         Long requestedSequence,
         boolean enqueueNow
     ) throws Exception {
+        requireExecutionSettledLocked(requestId);
         String status = state.optString("status", "");
         if (!STATUS_FAILED.equals(status)
             || isSceneValidationErrorLocked(directory)) {
@@ -4319,7 +4480,13 @@ public final class TranslationJobStore {
                     String existingStatus = existingState == null
                         ? ""
                         : existingState.optString("status", "");
-                    if (isTerminalStatus(existingStatus)) {
+                    String existingRequestSha256 = existingState == null ? ""
+                        : existingState.optString(JobValidator.REQUEST_SHA256_FIELD, "");
+                    if (!requestSha256.equals(existingRequestSha256)) {
+                        payloadConflict = new IllegalArgumentException(
+                            "Request ID already belongs to a different translation payload: "
+                                + requestId);
+                    } else if (isTerminalStatus(existingStatus)) {
                         TerminalOutcome.DeliveryState existingDelivery =
                             normalizeDeliveryStateLocked(
                                 jobDirectory,
@@ -4350,22 +4517,11 @@ public final class TranslationJobStore {
                             );
                             repaired = true;
                         }
-                    }
-                    if (result == ProcessResult.VALID
+                    } else if (result == ProcessResult.VALID
                         || result == ProcessResult.REPAIRED) {
                         repaired = result == ProcessResult.REPAIRED;
                         existingState = readState(jobDirectory);
-                        String existingRequestSha256 =
-                            existingState.getString(
-                                JobValidator.REQUEST_SHA256_FIELD
-                            );
-                        if (!requestSha256.equals(existingRequestSha256)) {
-                            payloadConflict = new IllegalArgumentException(
-                                "Request ID already belongs to a different "
-                                    + "translation payload: "
-                                    + requestId
-                            );
-                        } else if (existingState.optBoolean(
+                        if (existingState.optBoolean(
                             HISTORY_MEMBERSHIP_PENDING_FIELD,
                             false
                         )) {
@@ -4376,6 +4532,9 @@ public final class TranslationJobStore {
                                 requestId,
                                 existingState
                             );
+                        } else if (repaired) {
+                            // Recovery already rebuilt this request. Report
+                            // existing admission instead of rejecting its repair.
                         } else if (overwrite) {
                             payloadConflict = new AdmissionException(
                                 "execution_not_settled",

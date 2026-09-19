@@ -138,11 +138,20 @@ public final class TranslationTaskExecutor {
         private final String requestId;
         private final String scene;
         private final String reason;
+        private final HistoryResolution.ReasonKind reasonKind;
 
-        private BlockedJob(String requestId, String scene, String reason) {
+        private BlockedJob(
+            String requestId,
+            String scene,
+            String reason,
+            HistoryResolution.ReasonKind reasonKind
+        ) {
             this.requestId = requestId;
             this.scene = scene == null ? "" : scene;
             this.reason = reason == null ? "" : reason;
+            this.reasonKind = reasonKind == null
+                ? HistoryResolution.ReasonKind.OTHER
+                : reasonKind;
         }
 
         public String getRequestId() {
@@ -155,6 +164,10 @@ public final class TranslationTaskExecutor {
 
         public String getReason() {
             return reason;
+        }
+
+        public HistoryResolution.ReasonKind getReasonKind() {
+            return reasonKind;
         }
     }
 
@@ -185,10 +198,26 @@ public final class TranslationTaskExecutor {
     static final class PreflightResult {
         private final SendDecision decision;
         private final String reason;
+        private final HistoryResolution.ReasonKind reasonKind;
 
         private PreflightResult(SendDecision decision, String reason) {
+            this(
+                decision,
+                reason,
+                HistoryResolution.ReasonKind.OTHER
+            );
+        }
+
+        private PreflightResult(
+            SendDecision decision,
+            String reason,
+            HistoryResolution.ReasonKind reasonKind
+        ) {
             this.decision = decision;
             this.reason = reason == null ? "" : reason;
+            this.reasonKind = reasonKind == null
+                ? HistoryResolution.ReasonKind.OTHER
+                : reasonKind;
         }
 
         SendDecision getDecision() {
@@ -197,6 +226,10 @@ public final class TranslationTaskExecutor {
 
         String getReason() {
             return reason;
+        }
+
+        HistoryResolution.ReasonKind getReasonKind() {
+            return reasonKind;
         }
 
         boolean isBlocked() {
@@ -239,12 +272,14 @@ public final class TranslationTaskExecutor {
                 case WAITING:
                     return new PreflightResult(
                         SendDecision.WAITING,
-                        historyResolution.getReason()
+                        historyResolution.getReason(),
+                        historyResolution.getReasonKind()
                     );
                 case USER_ACTION_REQUIRED:
                     return new PreflightResult(
                         SendDecision.USER_ACTION_REQUIRED,
-                        historyResolution.getReason()
+                        historyResolution.getReason(),
+                        historyResolution.getReasonKind()
                     );
                 case READY:
                     break;
@@ -261,7 +296,8 @@ public final class TranslationTaskExecutor {
             if (!lengthCheck.isReady()) {
                 return new PreflightResult(
                     SendDecision.USER_ACTION_REQUIRED,
-                    lengthCheck.getReason()
+                    lengthCheck.getReason(),
+                    lengthCheck.getReasonKind()
                 );
             }
         }
@@ -366,6 +402,8 @@ public final class TranslationTaskExecutor {
         new LinkedHashMap<>();
     private final Map<String, String> userActionRequiredReasons =
         new LinkedHashMap<>();
+    private final Map<String, HistoryResolution.ReasonKind>
+        userActionRequiredReasonKinds = new LinkedHashMap<>();
     private final Set<String> userActionNotified = new LinkedHashSet<>();
     private final AtomicBoolean deferredRetryScheduled = new AtomicBoolean();
     private volatile SceneSyncCoordinator sceneSyncCoordinator;
@@ -549,10 +587,53 @@ public final class TranslationTaskExecutor {
             }
             userActionRequiredScenes.remove(requestId);
             userActionRequiredReasons.remove(requestId);
+            userActionRequiredReasonKinds.remove(requestId);
             userActionNotified.remove(requestId);
         }
         deferJob(new TranslationJobStore.ClaimedJob(requestId, requestJson), 0L);
         return true;
+    }
+
+    /** Same-process task-page action; no game/HET wire protocol changes. */
+    public void deleteTask(String requestId) throws Exception {
+        // Terminal tasks reject cancellation but are still eligible for deletion.
+        cancelTranslationJob(requestId);
+        jobStore.awaitExecutionSettled(requestId);
+        SceneContextStore.withRootAccess(() -> {
+            synchronized (blockedLock) {
+                deferredJobs.removeIf(candidate -> candidate.requestId.equals(requestId));
+                userActionRequiredRequests.remove(requestId);
+                userActionRequiredScenes.remove(requestId);
+                userActionRequiredReasons.remove(requestId);
+                userActionRequiredReasonKinds.remove(requestId);
+                userActionNotified.remove(requestId);
+            }
+            return null;
+        });
+        jobStore.deleteTask(requestId);
+    }
+
+    /** Same-process task-page action; no game/HET wire protocol changes. */
+    public void manageCanceledJob(String requestId, boolean delete) throws Exception {
+        SceneContextStore.withRootAccess(() -> {
+            if (!jobStore.isCancellationRequested(requestId)) {
+                throw new IllegalStateException("Task is no longer canceled: " + requestId);
+            }
+            synchronized (blockedLock) {
+                deferredJobs.removeIf(candidate -> candidate.requestId.equals(requestId));
+                userActionRequiredRequests.remove(requestId);
+                userActionRequiredScenes.remove(requestId);
+                userActionRequiredReasons.remove(requestId);
+                userActionRequiredReasonKinds.remove(requestId);
+                userActionNotified.remove(requestId);
+            }
+            if (delete) {
+                jobStore.deleteCanceledJob(requestId);
+            } else {
+                jobStore.rerunCanceledJob(requestId);
+            }
+            return null;
+        });
     }
 
     /**
@@ -619,6 +700,7 @@ public final class TranslationTaskExecutor {
             userActionRequiredRequests.remove(requestId);
             userActionRequiredScenes.remove(requestId);
             userActionRequiredReasons.remove(requestId);
+            userActionRequiredReasonKinds.remove(requestId);
             userActionNotified.remove(requestId);
         }
 
@@ -923,7 +1005,8 @@ public final class TranslationTaskExecutor {
                 result.add(new BlockedJob(
                     requestId,
                     userActionRequiredScenes.get(requestId),
-                    userActionRequiredReasons.get(requestId)
+                    userActionRequiredReasons.get(requestId),
+                    userActionRequiredReasonKinds.get(requestId)
                 ));
             }
             return result;
@@ -1074,7 +1157,8 @@ public final class TranslationTaskExecutor {
     void registerUserActionRequired(
         TranslationJobStore.ClaimedJob job,
         String scene,
-        String reason
+        String reason,
+        HistoryResolution.ReasonKind reasonKind
     ) {
         boolean shouldNotify;
         synchronized (blockedLock) {
@@ -1100,6 +1184,12 @@ public final class TranslationTaskExecutor {
             );
             userActionRequiredScenes.put(job.getRequestId(), scene);
             userActionRequiredReasons.put(job.getRequestId(), reason);
+            userActionRequiredReasonKinds.put(
+                job.getRequestId(),
+                reasonKind == null
+                    ? HistoryResolution.ReasonKind.OTHER
+                    : reasonKind
+            );
             shouldNotify = userActionNotified.add(job.getRequestId());
             try {
                 if (jobStore != null
@@ -1109,6 +1199,7 @@ public final class TranslationTaskExecutor {
                     userActionRequiredRequests.remove(job.getRequestId());
                     userActionRequiredScenes.remove(job.getRequestId());
                     userActionRequiredReasons.remove(job.getRequestId());
+                    userActionRequiredReasonKinds.remove(job.getRequestId());
                     userActionNotified.remove(job.getRequestId());
                     return;
                 }
@@ -1171,7 +1262,39 @@ public final class TranslationTaskExecutor {
         }
         mainExecutor.shutdownNow();
         if (repairExecutor != null) {
-            repairExecutor.shutdownNow();
+            for (Runnable pending : repairExecutor.shutdownNow()) {
+                if (pending instanceof RepairWork) {
+                    ((RepairWork) pending).release();
+                }
+            }
+        }
+    }
+
+    /** Owns one store reference even while the single repair worker is busy. */
+    private final class RepairWork implements Runnable {
+        private final String requestId;
+        private final Runnable action;
+
+        private RepairWork(String requestId, Runnable action) {
+            this.requestId = requestId;
+            this.action = action;
+            if (jobStore != null) {
+                jobStore.retainExecution(requestId);
+            }
+        }
+
+        @Override public void run() {
+            try {
+                action.run();
+            } finally {
+                release();
+            }
+        }
+
+        private void release() {
+            if (jobStore != null) {
+                jobStore.releaseExecution(requestId);
+            }
         }
     }
 
@@ -1224,6 +1347,9 @@ public final class TranslationTaskExecutor {
         }
         if (claimed == null) {
             return null;
+        }
+        if (jobStore != null) {
+            jobStore.retainExecution(claimed.getRequestId());
         }
         try {
             JSONObject request = JobValidator.parseJsonObject(
@@ -1278,6 +1404,7 @@ public final class TranslationTaskExecutor {
                 boolean apiPermitTransferred = false;
                 boolean reservationHeld = false;
                 boolean activeClaim = false;
+                String executionRequestId = null;
                 try {
                     if (gate != null) {
                         apiPermit = gate.acquireTranslation();
@@ -1329,6 +1456,7 @@ public final class TranslationTaskExecutor {
                     if (preparation == null) {
                         return;
                     }
+                    executionRequestId = preparation.claimedJob.getRequestId();
                     TranslationJobStore.ClaimedJob job =
                         preparation.claimedJob;
                     if (job == null) {
@@ -1363,6 +1491,9 @@ public final class TranslationTaskExecutor {
                         }
                     }
                 } finally {
+                    if (executionRequestId != null && jobStore != null) {
+                        jobStore.releaseExecution(executionRequestId);
+                    }
                     if (reservationHeld && coordinator != null) {
                         coordinator.releaseApiJobClaimReservation();
                         if (coordinator.getState()
@@ -1561,6 +1692,8 @@ public final class TranslationTaskExecutor {
                 HistoryResolution.Status blockedStatus =
                     coordinator.getBlockedStatus();
                 String blockedReason = coordinator.getBlockedReason();
+                HistoryResolution.ReasonKind blockedReasonKind =
+                    coordinator.getBlockedReasonKind();
                 if (blockedStatus
                     == HistoryResolution.Status.WAITING) {
                     Log.i(
@@ -1580,7 +1713,12 @@ public final class TranslationTaskExecutor {
                             + " reason="
                             + blockedReason
                     );
-                    registerUserActionRequired(job, scene, blockedReason);
+                    registerUserActionRequired(
+                        job,
+                        scene,
+                        blockedReason,
+                        blockedReasonKind
+                    );
                 }
                 return;
             }
@@ -1847,6 +1985,8 @@ public final class TranslationTaskExecutor {
         private final HistoryPayload historyPayload;
         private HistoryResolution.Status blockedStatus;
         private String blockedReason = "";
+        private HistoryResolution.ReasonKind blockedReasonKind =
+            HistoryResolution.ReasonKind.OTHER;
         private final ContextSummaryCoordinator.Options contextSummaryOptions;
         private final TranslationResultValidator validator;
         private final List<TranslationGradientPlanner.Block> blocks;
@@ -2086,6 +2226,7 @@ public final class TranslationTaskExecutor {
             if (historyBlockResolution != null) {
                 blockedStatus = historyBlockResolution.getStatus();
                 blockedReason = historyBlockResolution.getReason();
+                blockedReasonKind = historyBlockResolution.getReasonKind();
             }
             this.contextId = historyPreparation.getContextId();
             this.contextStorageName = historyPreparation.getStorageName();
@@ -2758,9 +2899,14 @@ public final class TranslationTaskExecutor {
                         );
                     }
                 }
-                repairExecutor.execute(
-                    () -> runRepair(selected, ownerAttempt)
-                );
+                RepairWork work = new RepairWork(requestId,
+                    () -> runRepair(selected, ownerAttempt));
+                try {
+                    repairExecutor.execute(work);
+                } catch (RuntimeException schedulingFailure) {
+                    work.release();
+                    throw schedulingFailure;
+                }
             } catch (Exception e) {
                 for (Integer seq : selected) {
                     ItemProgress item = items.get(seq);
@@ -3561,6 +3707,10 @@ public final class TranslationTaskExecutor {
             return blockedReason;
         }
 
+        private HistoryResolution.ReasonKind getBlockedReasonKind() {
+            return blockedReasonKind;
+        }
+
         private void applyPreflightBlock(PreflightResult result) {
             synchronized (this) {
                 if (blockedStatus != null) {
@@ -3571,6 +3721,7 @@ public final class TranslationTaskExecutor {
                         ? HistoryResolution.Status.WAITING
                         : HistoryResolution.Status.USER_ACTION_REQUIRED;
                 blockedReason = result.getReason();
+                blockedReasonKind = result.getReasonKind();
                 notifyAll();
             }
         }

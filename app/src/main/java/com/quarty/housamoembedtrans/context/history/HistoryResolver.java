@@ -230,7 +230,7 @@ public final class HistoryResolver {
         if (request.isWithinContextLength()) {
             return HistoryResolution.ready(request.getHistoryPayload());
         }
-        return HistoryResolution.userActionRequired(
+        return HistoryResolution.contextLengthExceeded(
             "full provider input exceeds context_length="
                 + request.getContextLength()
                 + " estimated_tokens="

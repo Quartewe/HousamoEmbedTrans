@@ -659,7 +659,7 @@ public final class SummaryTaskExecutor {
                 try {
                     permit = gate.acquireSummary();
                     requestId = SceneContextStore.withRootAccess(
-                        store::claimNextReadyJob
+                        store::claimNextReadyJobForExecution
                     );
                     if (requestId == null) {
                         break;
@@ -690,6 +690,9 @@ public final class SummaryTaskExecutor {
                     }
                     executeJob(requestId, snapshot);
                 } finally {
+                    if (requestId != null) {
+                        store.releaseTaskExecution(requestId);
+                    }
                     if (permit != null) {
                         gate.release(permit);
                     }
