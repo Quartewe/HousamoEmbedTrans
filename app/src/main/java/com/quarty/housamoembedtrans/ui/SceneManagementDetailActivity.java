@@ -904,11 +904,16 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
             ViewGroup.LayoutParams.WRAP_CONTENT,
             1f
         ));
-        if (action != null && actionLabel != null && !stylePreview) {
+        if (action != null && actionLabel != null) {
             MaterialButton actionButton = prototypeButton(actionLabel, true);
-            actionButton.setOnClickListener(view -> action.run());
-            registerAction(actionButton);
-            addPageAction(actionButton, wrapButtonParams(0));
+            actionButton.setOnClickListener(view -> {
+                if (!stylePreview) action.run();
+            });
+            actionButton.setEnabled(!stylePreview);
+            if (!stylePreview) registerAction(actionButton);
+            LinearLayout.LayoutParams actionParams = wrapButtonParams(0);
+            actionParams.setMarginStart(dp(8));
+            heading.addView(actionButton, actionParams);
         }
         content.addView(heading, fullWidthParams(10));
     }

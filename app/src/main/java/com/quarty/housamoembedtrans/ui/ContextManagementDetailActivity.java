@@ -89,6 +89,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     private boolean pendingMoveBusy;
     private MaterialButton editAction;
     private MaterialButton moveAction;
+    private MaterialButton activeAction;
     private boolean showingGroupSceneList;
     private String detailLayer = LAYER_SUMMARY;
     private SceneContextStore.ManualClosureState closureState;
@@ -1020,17 +1021,42 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         edit.setOnClickListener(view -> openEditor());
         editAction = edit;
         addPageAction(edit, wrapButtonParams(0));
-        if (!stylePreview) {
-            MaterialButton move = prototypeButton(
-                getString(R.string.detail_proto_context_move),
-                true
-            );
-            move.setOnClickListener(view -> moveCurrentToPending());
-            moveAction = move;
-            addPageAction(move, wrapButtonParams(0));
-        } else {
-            moveAction = null;
-        }
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.VERTICAL);
+        actions.setGravity(Gravity.END);
+        boolean active = objectId.equals(isContext()
+            ? loadedData.activeContextId : loadedData.activeGroupId);
+        activeAction = prototypeButton(getString(active
+            ? R.string.context_detail_deactivate
+            : R.string.context_detail_activate), false);
+        int activeColor = ContextCompat.getColor(this,
+            active ? R.color.het_warning : R.color.het_good);
+        int activeContainer = ContextCompat.getColor(this,
+            active ? R.color.het_warning_container : R.color.het_good_container);
+        activeAction.setTextColor(activeColor);
+        activeAction.setBackgroundTintList(ColorStateList.valueOf(activeContainer));
+        activeAction.setStrokeWidth(dp(1));
+        activeAction.setStrokeColor(ColorStateList.valueOf(
+            androidx.core.graphics.ColorUtils.blendARGB(
+                ContextCompat.getColor(this, R.color.het_outline_soft),
+                activeColor, 0.4f)));
+        activeAction.setEnabled(!stylePreview && !pendingMoveBusy);
+        activeAction.setOnClickListener(view -> changeActive(!active));
+        actions.addView(activeAction, wrapButtonParams(0));
+        moveAction = prototypeButton(
+            getString(R.string.detail_proto_context_move), true);
+        moveAction.setEnabled(!stylePreview && !pendingMoveBusy);
+        moveAction.setOnClickListener(view -> moveCurrentToPending());
+        LinearLayout.LayoutParams moveParams = wrapButtonParams(0);
+        moveParams.topMargin = dp(4);
+        actions.addView(moveAction, moveParams);
+        LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        actionParams.gravity = Gravity.TOP;
+        actionParams.setMarginStart(dp(8));
+        heading.addView(actions, actionParams);
         content.addView(heading, fullWidthParams(10));
     }
 
@@ -1455,6 +1481,44 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             scrollView.scrollTo(0, 0);
         }
         renderDocument();
+    }
+
+    private void changeActive(boolean activate) {
+        if (stylePreview || !editingAllowed || loadedData == null || pendingMoveBusy) {
+            return;
+        }
+        rememberScroll();
+        setPendingMoveBusy(true);
+        ioExecutor.execute(() -> {
+            String failure = null;
+            try {
+                SceneContextStore store = new SceneContextStore(this);
+                if (isContext()) {
+                    // The store validates membership and publishes the routing change.
+                    if (activate || objectId.equals(store.getActiveContextId())) {
+                        store.setActiveContext(activate ? objectId : null);
+                    }
+                } else if (activate || objectId.equals(store.getActiveGroupId())) {
+                    store.setActiveGroup(activate ? objectId : null);
+                }
+            } catch (Exception error) {
+                failure = error.getMessage();
+                if (failure == null) failure = error.getClass().getSimpleName();
+            }
+            final String message = failure;
+            runOnUiThread(() -> {
+                if (destroyed || isFinishing() || isDestroyed()) return;
+                setPendingMoveBusy(false);
+                if (message != null) {
+                    android.widget.Toast.makeText(this,
+                        getString(R.string.context_detail_active_failed, message),
+                        android.widget.Toast.LENGTH_LONG).show();
+                } else {
+                    setResult(RESULT_OK);
+                }
+                if (lifecycleStarted) loadAsync();
+            });
+        });
     }
 
     private void moveCurrentToPending() {
@@ -1913,23 +1977,8 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         button.setEnabled(enabled && !pendingMoveBusy);
         button.setOnClickListener(view -> openEditor());
         addPageAction(button, wrapButtonParams(0));
-        moveAction = new MaterialButton(this);
-        moveAction.setText(R.string.pending_process_move);
-        moveAction.setAllCaps(false);
-        applyDangerButton(moveAction);
-        moveAction.setEnabled(enabled && !pendingMoveBusy);
-        moveAction.setOnClickListener(view -> {
-            if (!editingAllowed || loadedData == null || pendingMoveBusy) return;
-            if (pendingMoveController == null) {
-                pendingMoveController = new PendingProcessMoveController(this);
-            }
-            setPendingMoveBusy(true);
-            pendingMoveController.confirmMove(
-                isContext() ? "context" : "group", objectId, objectId,
-                () -> { setResult(RESULT_OK); finish(); },
-                () -> setPendingMoveBusy(false));
-        });
-        addPageAction(moveAction, wrapButtonParams(0));
+        moveAction = null;
+        activeAction = null;
     }
 
     private void setPendingMoveBusy(boolean busy) {
@@ -1938,7 +1987,8 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             && loadedData != null
             && (editingAllowed || stylePreview);
         if (editAction != null) editAction.setEnabled(enabled);
-        if (moveAction != null) moveAction.setEnabled(enabled);
+        if (moveAction != null) moveAction.setEnabled(enabled && !stylePreview);
+        if (activeAction != null) activeAction.setEnabled(enabled && !stylePreview);
     }
 
     private void openEditor() {

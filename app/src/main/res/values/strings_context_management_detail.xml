@@ -49,4 +49,7 @@
     <string name="context_detail_empty_value">(empty)</string>
     <string name="context_detail_expand">Expand %1$s</string>
     <string name="context_detail_collapse">Collapse %1$s</string>
+    <string name="context_detail_activate">Set active</string>
+    <string name="context_detail_deactivate">Deactivate</string>
+    <string name="context_detail_active_failed">Could not change active selection: %1$s</string>
 </resources>

@@ -49,4 +49,7 @@
     <string name="context_detail_empty_value">（空）</string>
     <string name="context_detail_expand">展开%1$s</string>
     <string name="context_detail_collapse">收起%1$s</string>
+    <string name="context_detail_activate">设为活跃</string>
+    <string name="context_detail_deactivate">取消活跃</string>
+    <string name="context_detail_active_failed">更改活跃设置失败：%1$s</string>
 </resources>
