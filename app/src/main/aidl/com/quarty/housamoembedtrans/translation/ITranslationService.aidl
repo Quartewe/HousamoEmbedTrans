@@ -81,4 +81,7 @@ interface ITranslationService {
         String sessionToken,
         String expectedSnapshotFingerprint
     );
+
+    /** Records a missing game Scene and releases only the matching completion lease. */
+    boolean reportMissingGameScene(String requestId, String leaseToken, long connectionGeneration);
 }

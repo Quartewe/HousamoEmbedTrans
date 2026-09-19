@@ -2133,6 +2133,19 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     "[HousamoTrans] Native rejected completion requestId="
                         + requestId
                 );
+                // Classify the failed write afterwards; a corrupt/unreadable
+                // Scene must not be reported as absent. No receiver preflight.
+                GameScenePort port = sGameScenePort;
+                try {
+                    if (port != null && port.sceneStore.isSceneFileMissing(scene)) {
+                        if (client.reportMissingGameScene(requestId, leaseToken, connectionGeneration)) {
+                            return false;
+                        }
+                    }
+                } catch (Exception error) {
+                    XposedBridge.log("[HousamoTrans] Could not classify rejected Scene write: "
+                        + safeMessage(error));
+                }
                 return releaseTerminalLease(
                     client,
                     requestId,

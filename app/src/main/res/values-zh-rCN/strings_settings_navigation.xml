@@ -181,4 +181,6 @@
     <string name="settings_prompt_discarded_message">已放弃%1$s草稿。</string>
     <string name="settings_prompt_no_changes">当前没有未保存更改。</string>
     <string name="settings_prompt_reset_message_done">%1$s已恢复默认并保存。</string>
+    <string name="settings_field_auto_sync_new_translation">新翻译任务自动同步剧情</string>
+    <string name="settings_field_hint_auto_sync_new_translation">接纳新翻译任务后自动同步剧情。关闭后，结果可能需要等待手动同步或游戏重新连接，才能保存到 HET；已有翻译结果会保留。</string>
 </resources>

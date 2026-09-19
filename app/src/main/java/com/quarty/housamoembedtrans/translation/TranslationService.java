@@ -652,6 +652,7 @@ public final class TranslationService extends Service {
                     );
                 }
 
+                boolean sceneSyncRequired = false;
                 try (InputStream input =
                          new ParcelFileDescriptor.AutoCloseInputStream(
                              requestFd
@@ -721,6 +722,7 @@ public final class TranslationService extends Service {
                             HistoryMapping.resolutionOfValue(historyMapping)
                                 == HistoryMapping.Resolution.VALID
                         );
+                        sceneSyncRequired = created;
                     } catch (TranslationJobStore.AdmissionException e) {
                         // A duplicate with the same immutable payload may be
                         // the durable half of a previously interrupted
@@ -866,6 +868,10 @@ public final class TranslationService extends Service {
                             + requestId,
                         e
                     );
+                } finally {
+                    if (sceneSyncRequired) {
+                        requestAdmittedSceneSync(requestId);
+                    }
                 }
             }
 
@@ -1096,6 +1102,26 @@ public final class TranslationService extends Service {
                             + requestId,
                         e
                     );
+                    return false;
+                }
+            }
+
+            @Override
+            public boolean reportMissingGameScene(String requestId, String leaseToken,
+                long connectionGeneration) {
+                enforceAllowedCaller();
+                try {
+                    synchronized (callbackLock) {
+                        TerminalDeliveryCoordinator coordinator = terminalDelivery;
+                        if (jobStore == null || coordinator == null
+                            || !coordinator.isGenerationActive(connectionGeneration)) {
+                            return false;
+                        }
+                        return jobStore.reportMissingGameScene(requestId, leaseToken,
+                            connectionGeneration);
+                    }
+                } catch (Exception error) {
+                    Log.w(TAG, "Could not record missing game Scene requestId=" + requestId, error);
                     return false;
                 }
             }
@@ -3292,6 +3318,33 @@ public final class TranslationService extends Service {
         }
     }
 
+    /** Native commits the source Scene before admission; request its mirror afterwards. */
+    private void requestAdmittedSceneSync(String requestId) {
+        SceneSyncCoordinator coordinator = sceneSyncCoordinator;
+        if (coordinator == null) {
+            // Admission before startup preparation is covered by port replay's
+            // initial full sync. Never construct another coordinator here.
+            return;
+        }
+        try {
+            if (!new ConfigStore(this).load().config
+                .getJSONObject("UserSettings")
+                .getJSONObject("SceneSync")
+                .getBoolean("AutoSyncOnNewTranslation")) {
+                Log.i(TAG, "Automatic admitted Scene sync disabled requestId=" + requestId);
+                return;
+            }
+            SceneSyncCoordinator.TriggerResult result = coordinator.requestPublishedSceneSync();
+            Log.i(TAG, "Scene sync requested after admission requestId="
+                + requestId + " result=" + result);
+        } catch (Exception error) {
+            // The Job is already durable. Do not report admission failure and
+            // cause resubmission; connection recovery/manual refresh can retry.
+            Log.w(TAG, "Could not request admitted Scene sync requestId="
+                + requestId, error);
+        }
+    }
+
     private void onSceneOperationFinished(
         long sceneRuntimeGeneration,
         SceneSyncCoordinator.SyncOperationKind operationKind
@@ -3314,6 +3367,14 @@ public final class TranslationService extends Service {
             scheduleInitialAutoSyncBarrier(startupRepairGeneration);
         }
         if (current) {
+            if (operationKind != null) {
+                TerminalDeliveryCoordinator delivery = terminalDelivery;
+                if (delivery != null) {
+                    // Newly imported source Scenes can unblock retained results.
+                    delivery.onStoreStateChanged();
+                }
+            }
+
             if (operationKind == null) {
                 kickPendingPolicyRefresh();
             } else {

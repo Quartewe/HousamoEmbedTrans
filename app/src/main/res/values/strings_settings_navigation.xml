@@ -181,4 +181,6 @@
     <string name="settings_prompt_discarded_message">已放弃%1$s草稿。</string>
     <string name="settings_prompt_no_changes">当前没有未保存更改。</string>
     <string name="settings_prompt_reset_message_done">%1$s已恢复默认并保存。</string>
+    <string name="settings_field_auto_sync_new_translation">Sync scenes for new translation tasks</string>
+    <string name="settings_field_hint_auto_sync_new_translation">Automatically sync scenes after accepting a new translation task. When disabled, a result may wait for manual sync or game reconnection before it can be saved to HET. Existing results are retained.</string>
 </resources>

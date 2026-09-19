@@ -195,6 +195,15 @@ public final class SceneSyncCoordinator implements AutoCloseable {
 
     /** Requests the same automatic entry point without replacing the port. */
     public TriggerResult requestAutoSync() {
+        return requestAutoSync(false);
+    }
+
+    /** A newly published Scene may not belong to an in-progress snapshot. */
+    public TriggerResult requestPublishedSceneSync() {
+        return requestAutoSync(true);
+    }
+
+    private TriggerResult requestAutoSync(boolean publishedScene) {
         boolean schedule = false;
         TriggerResult result;
         synchronized (lock) {
@@ -205,10 +214,12 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 return TriggerResult.LOCAL_ONLY;
             }
             if (state != State.NONE) {
-                if (state == State.FULL_SYNC
-                    || state == State.MANUAL_REFRESH) {
+                if (!publishedScene
+                    && (state == State.FULL_SYNC || state == State.MANUAL_REFRESH)) {
                     return TriggerResult.REJECTED_BUSY;
                 }
+                // A newly committed Scene may be outside the active cycle's
+                // fixed snapshot. Coalesce requests into one following cycle.
                 pendingAutoSync = true;
                 return TriggerResult.DEFERRED_BUSY;
             }

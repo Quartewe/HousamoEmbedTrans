@@ -2149,10 +2149,11 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             }
             boolean deliveryPending = job.requiresDelivery();
             boolean completed = job.getKind() == TerminalOutcome.Kind.COMPLETED
-                && job.isLocalSceneSaved()
+                && job.isSavedToEitherScene()
                 && job.getDeliveryState() == TerminalOutcome.DeliveryState.ACKNOWLEDGED;
             boolean actionNeeded = job.getKind() == TerminalOutcome.Kind.FAILED
-                || !job.isLocalSceneSaved();
+                || (!job.isSavedToEitherScene()
+                    && (!job.isLocalSceneMissing() || job.isGameSceneMissing()));
             result.add(new UiTask(
                 UiTaskKind.TERMINAL,
                 job.getRequestId(),
@@ -2174,10 +2175,11 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             }
             boolean deliveryPending = job.requiresDelivery();
             boolean completed = job.getKind() == TerminalOutcome.Kind.COMPLETED
-                && job.isLocalSceneSaved()
+                && job.isSavedToEitherScene()
                 && job.getDeliveryState() == TerminalOutcome.DeliveryState.ACKNOWLEDGED;
             boolean actionNeeded = job.getKind() == TerminalOutcome.Kind.FAILED
-                || !job.isLocalSceneSaved();
+                || (!job.isSavedToEitherScene()
+                    && (!job.isLocalSceneMissing() || job.isGameSceneMissing()));
             result.add(new UiTask(
                 UiTaskKind.TERMINAL,
                 job.getRequestId(),
@@ -2262,6 +2264,12 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     private String terminalStatus(TranslationJobStore.TerminalJob job) {
         if (job.getKind() == TerminalOutcome.Kind.COMPLETED) {
+            if (job.isLocalSceneMissing()) {
+                return getString(job.getDeliveryState() == TerminalOutcome.DeliveryState.ACKNOWLEDGED
+                    ? R.string.task_status_acknowledged
+                    : job.isGameSceneMissing() ? R.string.task_status_scene_missing_both
+                    : R.string.task_status_game_save_fallback);
+            }
             if (!job.isLocalSceneSaved()) {
                 return getString(R.string.task_status_local_save_pending);
             }
@@ -2281,6 +2289,12 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private String terminalReason(TranslationJobStore.TerminalJob job) {
         if (job.getKind() != TerminalOutcome.Kind.COMPLETED) {
             return friendlyFailureSummary(job);
+        }
+        if (job.isLocalSceneMissing()) {
+            return getString(job.getDeliveryState() == TerminalOutcome.DeliveryState.ACKNOWLEDGED
+                ? R.string.task_reason_game_saved_fallback
+                : job.isGameSceneMissing() ? R.string.task_reason_scene_missing_both
+                : R.string.task_reason_game_save_fallback);
         }
         if (!job.isLocalSceneSaved()) {
             return getString(R.string.task_reason_local_save_pending)

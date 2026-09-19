@@ -4091,6 +4091,13 @@ public final class SceneStore {
         return output;
     }
 
+    /** True only for definite absence, not invalid data or an unreadable path. */
+    public synchronized boolean isSceneFileMissing(String sceneName) {
+        File file = new File(sceneDirectory, fileNameForScene(requireSceneName(sceneName)));
+        return java.nio.file.Files.notExists(file.toPath())
+            && java.nio.file.Files.notExists(new File(file.getPath() + ".bak").toPath());
+    }
+
     public File getValidSceneFileByName(String sceneName) {
         sceneName = requireSceneName(sceneName);
         if (isSceneDeleted(sceneName)) {

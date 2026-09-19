@@ -794,4 +794,9 @@
     <string name="task_rerun_canceled_message">Queue the retained request again using current translation settings? If the previous execution is still stopping, wait and retry.</string>
     <string name="task_delete_canceled_message">Delete this canceled task and all files in its request directory? Scene data and separately retained results are kept. If execution is still stopping, wait and retry.</string>
     <string name="task_rerun_service_required">Translation service is not ready. Wait for startup to finish and retry.</string>
+    <string name="task_status_game_save_fallback">Waiting to save in game</string>
+    <string name="task_status_scene_missing_both">Scene missing on both sides</string>
+    <string name="task_reason_game_save_fallback">HET has no source Scene. The retained result will be written to the game Scene when connected; no new translation request is needed.</string>
+    <string name="task_reason_game_saved_fallback">HET had no source Scene. The game confirmed saving the translation; the result remains retained in this task.</string>
+    <string name="task_reason_scene_missing_both">Neither HET nor the game has the source Scene. The translation result is retained, but cannot be saved. Restore the source Scene before retrying delivery; do not translate again.</string>
 </resources>

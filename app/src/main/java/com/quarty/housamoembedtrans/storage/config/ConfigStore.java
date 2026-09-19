@@ -1158,6 +1158,11 @@ public final class ConfigStore {
             sceneSync = (JSONObject) rawSceneSync;
         }
 
+        if (!sceneSync.has("AutoSyncOnNewTranslation")) {
+            sceneSync.put("AutoSyncOnNewTranslation", true);
+        }
+        requireBoolean(sceneSync, "AutoSyncOnNewTranslation", "UserSettings.SceneSync");
+
         if (!sceneSync.has("ConflictResolutionMode")) {
             sceneSync.put(
                 "ConflictResolutionMode",
@@ -1372,6 +1377,7 @@ public final class ConfigStore {
             && contextHistory.has("DefaultRecentSceneLimit")
             && userSettings.has("SceneWorkerCount")
             && userSettings.optJSONObject("SceneSync") != null
+            && userSettings.optJSONObject("SceneSync").has("AutoSyncOnNewTranslation")
             && userSettings.optJSONObject("SceneSync").has(
                 "ConflictResolutionMode"
             );

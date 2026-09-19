@@ -238,6 +238,8 @@ public final class TranslationJobStore {
         private final String errorMessage;
         private final String sceneValidationReason;
         private boolean localSceneSaved;
+        private boolean localSceneMissing;
+        private boolean gameSceneMissing;
         private String localSceneError = "";
 
         TerminalJob(
@@ -275,6 +277,12 @@ public final class TranslationJobStore {
         public String getErrorType() { return errorType; }
         public String getErrorMessage() { return errorMessage; }
         public boolean isLocalSceneSaved() { return localSceneSaved; }
+        public boolean isLocalSceneMissing() { return localSceneMissing; }
+        public boolean isGameSceneMissing() { return gameSceneMissing; }
+        public boolean isSavedToEitherScene() {
+            return localSceneSaved || (localSceneMissing
+                && deliveryState == TerminalOutcome.DeliveryState.ACKNOWLEDGED);
+        }
         public String getLocalSceneError() { return localSceneError; }
 
         /** Stable reason for the damaged Scene management entry. */
@@ -2855,6 +2863,8 @@ public final class TranslationJobStore {
             sceneValidationReason
         );
         job.localSceneSaved = state.optBoolean("local_scene_saved", false);
+        job.localSceneMissing = state.optBoolean("local_scene_missing", false);
+        job.gameSceneMissing = state.optBoolean("game_scene_missing", false);
         job.localSceneError = state.optString("local_scene_error", "");
         return job;
     }
@@ -2871,18 +2881,27 @@ public final class TranslationJobStore {
             validateCompletedResult(request, JobValidator.validateRequest(request), result);
             sceneStore.applyTranslationResult(request, result);
         } catch (Exception error) {
+            boolean missing = error instanceof JobValidator.SceneMissingException
+                && sceneStore.isSceneFileMissing(state.getString("scene"));
             String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
             if (state.optBoolean("local_scene_saved", false)
+                || state.optBoolean("local_scene_missing", false) != missing
                 || !reason.equals(state.optString("local_scene_error", ""))) {
                 state.put("local_scene_saved", false).put("local_scene_error", reason);
+                state.put("local_scene_missing", missing);
                 writeState(directory, state);
                 Log.w(TAG, "Local Scene save pending requestId=" + directory.getName() + " reason=" + reason);
             }
-            return false;
+            // Only an absent HET source allows the existing game writer to try.
+            // Deletion intent, management holds, invalid data and I/O failures
+            // remain local blockers; never create a source from result.json.
+            return missing;
         }
         if (!state.optBoolean("local_scene_saved", false) || state.has("local_scene_error")) {
             state.put("local_scene_saved", true);
             state.remove("local_scene_error");
+            state.remove("local_scene_missing");
+            state.remove("game_scene_missing");
             writeState(directory, state);
             Log.i(TAG, "Local Scene saved requestId=" + directory.getName());
         }
@@ -3235,7 +3254,7 @@ public final class TranslationJobStore {
                             == TerminalOutcome.DeliveryState.NOT_REQUIRED) {
                         return null;
                     }
-                    // A completed payload is eligible only after a current local commit.
+                    // Require a local commit or confirmed absence permitting game fallback.
                     if (kind == TerminalOutcome.Kind.COMPLETED
                         && !saveCompletedSceneLocked(directory, state)) {
                         return null;
@@ -3332,6 +3351,7 @@ public final class TranslationJobStore {
                         TerminalOutcome.DeliveryState.ACKNOWLEDGED.wireValue()
                     );
                     state.put("delivery_ack_lease", leaseToken);
+                    state.remove("game_scene_missing");
                     state.put(
                         "delivery_ack_generation",
                         connectionGeneration
@@ -3355,6 +3375,21 @@ public final class TranslationJobStore {
         String leaseToken,
         long connectionGeneration
     ) throws Exception {
+        return releaseTerminalDelivery(requestId, kind, leaseToken, connectionGeneration, false);
+    }
+
+    public boolean reportMissingGameScene(String requestId, String leaseToken,
+        long connectionGeneration) throws Exception {
+        boolean changed = releaseTerminalDelivery(requestId, TerminalOutcome.Kind.COMPLETED,
+            leaseToken, connectionGeneration, true);
+        if (changed) {
+            notifyQueueListener();
+        }
+        return changed;
+    }
+
+    private boolean releaseTerminalDelivery(String requestId, TerminalOutcome.Kind kind,
+        String leaseToken, long connectionGeneration, boolean gameSceneMissing) throws Exception {
         if (kind == null || leaseToken == null || leaseToken.trim().isEmpty()
             || connectionGeneration <= 0L) {
             return false;
@@ -3387,6 +3422,9 @@ public final class TranslationJobStore {
                         "delivery_state",
                         TerminalOutcome.DeliveryState.PENDING.wireValue()
                     );
+                    if (gameSceneMissing) {
+                        state.put("game_scene_missing", true);
+                    }
                     state.remove("delivery_lease");
                     state.remove("delivery_lease_generation");
                     state.put("updated_at", System.currentTimeMillis());

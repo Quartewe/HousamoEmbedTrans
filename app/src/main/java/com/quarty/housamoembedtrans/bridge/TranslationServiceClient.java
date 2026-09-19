@@ -630,6 +630,12 @@ public final class TranslationServiceClient {
         );
     }
 
+    /** Reports missing source data without treating a rejected write as an ACK. */
+    public boolean reportMissingGameScene(String requestId, String leaseToken,
+        long connectionGeneration) throws RemoteException {
+        return requireRemote().reportMissingGameScene(requestId, leaseToken, connectionGeneration);
+    }
+
     /** Returns an uncompleted lease to the durable replay queue. */
     public boolean releaseTerminalDelivery(
         String requestId,

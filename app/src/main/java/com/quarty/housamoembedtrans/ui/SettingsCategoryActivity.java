@@ -1571,6 +1571,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
         }
         if (SettingsCategory.CAPTURE_SYNC.equals(categoryId)) {
             return Arrays.asList(
+                bool("auto-sync-new-translation", R.string.settings_field_auto_sync_new_translation, R.string.settings_field_hint_auto_sync_new_translation, new String[] {"SceneSync", "AutoSyncOnNewTranslation"}),
                 bool("overwrite-existing-json", R.string.settings_field_overwrite_existing_json, R.string.settings_field_hint_overwrite_existing_json, new String[] {"OverwriteExistingJson"}),
                 slider("scene-worker-count", R.string.settings_field_scene_worker_count, R.string.settings_field_hint_scene_worker_count, new String[] {"SceneWorkerCount"}, 1, 4, 1, true),
                 select("conflict-resolution-mode", R.string.settings_field_conflict_resolution_mode, R.string.settings_field_hint_conflict_resolution_mode,

@@ -9,6 +9,7 @@
         "OverwriteExistingJson": false,
         "SceneWorkerCount": 4,
         "SceneSync": {
+            "AutoSyncOnNewTranslation": true,
             "ConflictResolutionMode": "manual"
         },
         "CharacterWeight": {
