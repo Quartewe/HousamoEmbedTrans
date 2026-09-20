@@ -27,7 +27,6 @@
             "Model": "",
             "NetworkRetryCount": 3,
             "ResultRepairCount": 3,
-            "EnableStreamingRepair": false,
             "EnableStreamingResponse": true,
             "RepairGradientCount": 3,
             "UseFullSceneForRepair": true

@@ -2244,10 +2244,10 @@ public final class TranslationTaskExecutor {
             );
 
             streamingRepairEnabled = savedProgress == null
-                ? config.isStreamingRepairEnabled()
+                ? config.isStreamingResponseEnabled()
                 : savedProgress.optBoolean(
                     "streaming_repair_enabled",
-                    config.isStreamingRepairEnabled()
+                    config.isStreamingResponseEnabled()
                 );
             useFullSceneForRepair = savedProgress == null
                 ? config.shouldUseFullSceneForRepair()

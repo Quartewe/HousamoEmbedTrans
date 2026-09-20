@@ -17,7 +17,6 @@ public final class TranslationConfig {
     private final String model;
     private final int networkRetryCount;
     private final int resultRepairCount;
-    private final boolean streamingRepairEnabled;
     private final boolean streamingResponseEnabled;
     private final int repairGradientCount;
     private final boolean useFullSceneForRepair;
@@ -39,7 +38,6 @@ public final class TranslationConfig {
         String model,
         int networkRetryCount,
         int resultRepairCount,
-        boolean streamingRepairEnabled,
         boolean streamingResponseEnabled,
         int repairGradientCount,
         boolean useFullSceneForRepair,
@@ -60,7 +58,6 @@ public final class TranslationConfig {
         this.model = model;
         this.networkRetryCount = networkRetryCount;
         this.resultRepairCount = resultRepairCount;
-        this.streamingRepairEnabled = streamingRepairEnabled;
         this.streamingResponseEnabled = streamingResponseEnabled;
         this.repairGradientCount = repairGradientCount;
         this.useFullSceneForRepair = useFullSceneForRepair;
@@ -95,10 +92,6 @@ public final class TranslationConfig {
 
     public int getResultRepairCount() {
         return resultRepairCount;
-    }
-
-    public boolean isStreamingRepairEnabled() {
-        return streamingRepairEnabled;
     }
 
     public int getRepairGradientCount() {
@@ -242,10 +235,6 @@ public final class TranslationConfig {
             api.optString("Model", "").trim(),
             networkRetryCount,
             resultRepairCount,
-            api.optBoolean(
-                "EnableStreamingRepair",
-                ConfigStore.DEFAULT_ENABLE_STREAMING_REPAIR
-            ),
             api.optBoolean("EnableStreamingResponse", true),
             optionalInt(
                 api,

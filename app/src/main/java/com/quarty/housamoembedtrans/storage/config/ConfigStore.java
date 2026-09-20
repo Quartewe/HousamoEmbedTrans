@@ -43,7 +43,6 @@ public final class ConfigStore {
     public static final int DEFAULT_CONTEXT_HISTORY_RECENT_SCENE_LIMIT = 10;
     public static final int MIN_CONTEXT_HISTORY_RECENT_SCENE_LIMIT = 1;
     public static final int MAX_CONTEXT_HISTORY_RECENT_SCENE_LIMIT = 10000;
-    public static final boolean DEFAULT_ENABLE_STREAMING_REPAIR = false;
     public static final int DEFAULT_REPAIR_GRADIENT_COUNT = 3;
     public static final boolean DEFAULT_USE_FULL_SCENE_FOR_REPAIR = true;
     public static final int MIN_REPAIR_GRADIENT_COUNT = 2;
@@ -935,11 +934,6 @@ public final class ConfigStore {
         }
         requireBoolean(
             translationApi,
-            "EnableStreamingRepair",
-            "UserSettings.TranslationApi"
-        );
-        requireBoolean(
-            translationApi,
             "UseFullSceneForRepair",
             "UserSettings.TranslationApi"
         );
@@ -1067,12 +1061,8 @@ public final class ConfigStore {
             if (!translationApi.has("EnableStreamingResponse")) {
                 translationApi.put("EnableStreamingResponse", true);
             }
-            if (!translationApi.has("EnableStreamingRepair")) {
-                translationApi.put(
-                    "EnableStreamingRepair",
-                    DEFAULT_ENABLE_STREAMING_REPAIR
-                );
-            }
+            // The response switch now owns both transport and staged delivery.
+            translationApi.remove("EnableStreamingRepair");
             if (!translationApi.has("RepairGradientCount")) {
                 translationApi.put(
                     "RepairGradientCount",
@@ -1449,7 +1439,7 @@ public final class ConfigStore {
             : userSettings.optJSONObject("ContextHistory");
         return translationApi != null
             && translationApi.has("EnableStreamingResponse")
-            && translationApi.has("EnableStreamingRepair")
+            && !translationApi.has("EnableStreamingRepair")
             && translationApi.has("RepairGradientCount")
             && translationApi.has("UseFullSceneForRepair")
             && translationQueue != null

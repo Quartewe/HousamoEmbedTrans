@@ -87,8 +87,6 @@
     <string name="network_retry_count_hint">Additional attempts after connection failures, timeouts, or retryable HTTP statuses. 0 disables network retries; allowed range: 0–5.</string>
     <string name="result_repair_count">Result repair count</string>
     <string name="result_repair_count_hint">Additional repair requests when a model result cannot be parsed, fails validation, or contains invalid seq entries. 0 disables repairs; allowed range: 0–5. Each repair may incur API charges.</string>
-    <string name="enable_streaming_repair">Staged streaming repair</string>
-    <string name="enable_streaming_repair_hint">When enabled, the first block is repaired quickly and later content is repaired in increasing gradient blocks. When disabled, repairs and Quest delivery wait until the main response is complete.</string>
     <string name="repair_gradient_count">Repair gradient count</string>
     <string name="repair_gradient_count_hint">Number of increasing repair blocks, from 2 to 8. A complete choice or if node is never split across blocks.</string>
     <string name="use_full_scene_for_repair">Use the full scene for repair context</string>

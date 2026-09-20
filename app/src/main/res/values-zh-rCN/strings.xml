@@ -76,8 +76,6 @@
     <string name="network_retry_count_hint">连接失败、超时或可重试 HTTP 状态后的额外请求次数。0 表示不重试，可填写 0–5。</string>
     <string name="result_repair_count">结果修复次数</string>
     <string name="result_repair_count_hint">模型结果无法解析、校验失败或部分 seq 无效时的额外修复请求次数。0 表示不修复，可填写 0–5；每次修复可能产生额外 API 费用。</string>
-    <string name="enable_streaming_repair">启用分阶段流式修复</string>
-    <string name="enable_streaming_repair_hint">开启后优先修复首块，后续按递增梯度分块修复；关闭后等待主响应结束，再统一修复并交付给 Quest。</string>
     <string name="repair_gradient_count">修复梯度数量</string>
     <string name="repair_gradient_count_hint">可填写 2–8。分块时不会把一个完整的 choice 或 if 节点拆开。</string>
     <string name="use_full_scene_for_repair">修复时使用完整场景上下文</string>

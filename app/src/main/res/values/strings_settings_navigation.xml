@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="settings_field_enable_streaming_response">Streaming responses</string>
-    <string name="settings_field_hint_enable_streaming_response">Enabled by default. Translation and repair use SSE streaming; when disabled, receive the full JSON response before processing its text. Event validation and repair policy stay the same. Separate from streaming repair. Applies to newly started tasks; independent summary requests remain non-streaming.</string>
+    <string name="settings_field_enable_streaming_response">启用流式翻译</string>
+    <string name="settings_field_hint_enable_streaming_response">开启后边接收边按块修复和回写；关闭后等待完整响应再统一修复、回写。修改对新开始的任务生效，恢复中的任务保留原分块策略。</string>
     <string name="settings_field_omit_thinking_parameters">Omit thinking parameters</string>
     <string name="settings_field_hint_omit_thinking_parameters">Debug comparison, off by default. Omits reasoning_effort, thinking budgets and the thinking beta header from translation, repair and summary requests. Uses provider defaults; does not guarantee thinking is disabled. Keeps your selected strength and streaming mode. Applies to newly started tasks.</string>
     <string name="settings_field_enable_api_body_logging">Log API request and response bodies</string>
@@ -90,7 +90,6 @@
     <string name="settings_field_api_concurrency">同时请求数</string>
     <string name="settings_field_network_retry_count">网络重试次数</string>
     <string name="settings_field_result_repair_count">结果修复次数</string>
-    <string name="settings_field_enable_streaming_repair">启用流式修复</string>
     <string name="settings_field_repair_gradient_count">流式修复梯度次数</string>
     <string name="settings_field_use_full_scene_for_repair">修复时带入完整场景</string>
     <string name="settings_field_overwrite_existing_json">覆盖已有剧情文件</string>
@@ -126,7 +125,6 @@
     <string name="settings_field_hint_api_concurrency">应用级并发上限为 1–8。</string>
     <string name="settings_field_hint_network_retry_count">单次请求发生可重试网络错误时的重试次数。</string>
     <string name="settings_field_hint_result_repair_count">解析到不完整结果时最多追加的修复尝试。</string>
-    <string name="settings_field_hint_enable_streaming_repair">启用后，下面的流式修复控制才会显示。</string>
     <string name="settings_field_hint_repair_gradient_count">流式修复需要 2–8 次梯度尝试。</string>
     <string name="settings_field_hint_use_full_scene_for_repair">会增加修复请求上下文；仅在流式修复开启时适用。</string>
     <string name="settings_field_hint_overwrite_existing_json">捕获同名剧情时允许替换现有本地文件。</string>

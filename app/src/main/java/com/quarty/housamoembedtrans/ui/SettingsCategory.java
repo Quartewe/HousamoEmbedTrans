@@ -134,9 +134,9 @@ public final class SettingsCategory {
             return (translationApi == null
                 ? 0
                 : translationApi.optInt("ResultRepairCount", 0))
-                + " 次结果修复 · 流式修复"
+                + " 次结果修复 · 流式翻译"
                 + (translationApi != null
-                    && translationApi.optBoolean("EnableStreamingRepair", false)
+                    && translationApi.optBoolean("EnableStreamingResponse", true)
                     ? "开启"
                     : "关闭");
         }
