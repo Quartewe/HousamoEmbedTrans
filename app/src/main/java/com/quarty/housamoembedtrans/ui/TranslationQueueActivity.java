@@ -1690,7 +1690,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                         jobStore.listReviewJobs()) {
                         if (TranslationJobStatus.RUNNING.wireValue().equals(
                             job.getStatus()
-                        )) {
+                        ) || TranslationJobStatus.QUEUED.wireValue().equals(job.getStatus())) {
                             loadedActiveJobs.add(job);
                         }
                     }
@@ -2127,14 +2127,15 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 || !requestIds.add(job.getRequestId())) {
                 continue;
             }
+            boolean queued = TranslationJobStatus.QUEUED.wireValue().equals(job.getStatus());
             result.add(new UiTask(
                 UiTaskKind.ACTIVE,
                 job.getRequestId(),
                 job.getScene(),
                 getString(R.string.task_object_scene),
                 "",
-                getString(R.string.task_status_running),
-                getString(R.string.task_reason_running),
+                getString(queued ? R.string.task_status_queued : R.string.task_status_running),
+                getString(queued ? R.string.task_reason_api_queued : R.string.task_reason_running),
                 0L,
                 true,
                 false,
@@ -3914,7 +3915,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             );
             scene.setText(job.getScene());
             status.setText(getString(
-                R.string.translation_stop_status_running
+                TranslationJobStatus.QUEUED.wireValue().equals(job.getStatus())
+                    ? R.string.task_status_queued : R.string.translation_stop_status_running
             ));
             card.setOnClickListener(view -> showActiveJobDetails(job));
             details.setOnClickListener(view -> showActiveJobDetails(job));
@@ -5400,7 +5402,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             || !canShowControlDialog()) {
             return;
         }
-        String status = getString(R.string.translation_stop_status_running);
+        String status = getString(TranslationJobStatus.QUEUED.wireValue().equals(job.getStatus())
+            ? R.string.task_status_queued : R.string.translation_stop_status_running);
         AlertDialog dialog = new UiMaterialAlertDialogBuilder(this)
             .setTitle(job.getScene())
             .setMessage(getString(

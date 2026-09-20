@@ -1308,8 +1308,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
         return !stylePreview
             && runtimeSnapshot != null
             && !refreshRequestPending
-            && runtimeSnapshot.phase == SceneSyncRuntimeState.Phase.IDLE
-            && runtimeSnapshot.activeApiJobs == 0;
+            && runtimeSnapshot.phase == SceneSyncRuntimeState.Phase.IDLE;
     }
 
     private void updateActionState() {

@@ -1411,8 +1411,8 @@ public final class TranslationTaskExecutor {
                     }
                     // Reserve under the coordinator lock, then perform the
                     // potentially blocking JobStore claim outside that lock.
-                    // A pending automatic sync closes the gate before this
-                    // worker can claim another job.
+                    // Runtime sync is independent; only a closed coordinator
+                    // rejects this activity reservation.
                     if (coordinator != null) {
                         if (!coordinator.reserveApiJobClaim()) {
                             blockedBySceneSync = true;
@@ -1977,7 +1977,7 @@ public final class TranslationTaskExecutor {
         private final ContextSummaryCoordinator contextSummaryCoordinator;
         private final Object historyMapping;
         private final HistoryMapping.Resolution mappingResolution;
-        private final HistoryResolution historyBlockResolution;
+        private final HistoryResolution historyResolution;
         private final String contextId;
         private final String contextStorageName;
         private final String capturedSourceHashExcludingScene;
@@ -2219,14 +2219,13 @@ public final class TranslationTaskExecutor {
                     config
                 );
             this.mappingResolution = HistoryMapping.resolution(state);
-            this.historyBlockResolution = historyPreparation.getResolution() != null
-                && !historyPreparation.getResolution().isReady()
-                ? historyPreparation.getResolution()
-                : null;
-            if (historyBlockResolution != null) {
-                blockedStatus = historyBlockResolution.getStatus();
-                blockedReason = historyBlockResolution.getReason();
-                blockedReasonKind = historyBlockResolution.getReasonKind();
+            // Preflight needs READY as evidence of successful preparation too.
+            // Only the separate blocked UI state omits a ready resolution.
+            this.historyResolution = historyPreparation.getResolution();
+            if (historyResolution != null && !historyResolution.isReady()) {
+                blockedStatus = historyResolution.getStatus();
+                blockedReason = historyResolution.getReason();
+                blockedReasonKind = historyResolution.getReasonKind();
             }
             this.contextId = historyPreparation.getContextId();
             this.contextStorageName = historyPreparation.getStorageName();
@@ -2333,7 +2332,7 @@ public final class TranslationTaskExecutor {
                 );
             PreflightResult preflightResult = preflight(
                 mappingResolution,
-                historyBlockResolution,
+                historyResolution,
                 prepared
             );
             if (preflightResult.isBlocked()) {
@@ -2983,7 +2982,7 @@ public final class TranslationTaskExecutor {
                     );
                 PreflightResult preflightResult = preflight(
                     mappingResolution,
-                    historyBlockResolution,
+                    historyResolution,
                     prepared
                 );
                 if (preflightResult.isBlocked()) {

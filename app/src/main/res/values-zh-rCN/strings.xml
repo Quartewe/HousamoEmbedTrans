@@ -780,4 +780,5 @@
     <string name="task_reason_game_save_fallback">HET 没有对应的原始剧情，将在游戏连接后尝试写入游戏剧情。翻译结果已保留，不重新请求翻译。</string>
     <string name="task_reason_game_saved_fallback">HET 没有对应的原始剧情，游戏已确认保存译文；翻译结果仍保留在此任务中。</string>
     <string name="task_reason_scene_missing_both">HET 和游戏均没有对应的原始剧情，无法保存译文。翻译结果已保留，请恢复原始剧情后重试投递，无需重新翻译。</string>
+    <string name="task_reason_api_queued">等待 API 调度或可用的并发名额。</string>
 </resources>

@@ -8,9 +8,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>The coordinator owns only lifecycle state.  Scene data, Binder calls and
  * worker pools belong to the operation implementations that are scheduled by
- * this class.  All transitions and the API activity count share one lock so a
- * worker can never claim a queued API job after a full or manual refresh
-     * reservation.</p>
+ * this class. API activity is counted independently of Scene synchronization.
+ * The Service owns startup admission; Scene mutation gates protect writes.</p>
  */
 public final class SceneSyncCoordinator implements AutoCloseable {
     public enum State {
@@ -179,10 +178,6 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 pendingAutoSync = true;
                 return TriggerResult.DEFERRED_BUSY;
             }
-            if (activeApiJobs != 0 || apiClaimReservations != 0) {
-                pendingAutoSync = true;
-                return TriggerResult.DEFERRED_ACTIVE_API;
-            }
             enterAutoFullSyncLocked();
             schedule = true;
             result = TriggerResult.STARTED;
@@ -223,10 +218,6 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 pendingAutoSync = true;
                 return TriggerResult.DEFERRED_BUSY;
             }
-            if (activeApiJobs != 0 || apiClaimReservations != 0) {
-                pendingAutoSync = true;
-                return TriggerResult.DEFERRED_ACTIVE_API;
-            }
             enterAutoFullSyncLocked();
             schedule = true;
             result = TriggerResult.STARTED;
@@ -249,9 +240,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
             if (closed) {
                 return TriggerResult.CLOSED;
             }
-            if (state != State.NONE
-                || activeApiJobs != 0
-                || apiClaimReservations != 0) {
+            if (state != State.NONE) {
                 return TriggerResult.REJECTED_BUSY;
             } else if (currentPort == null) {
                 scheduleLocal = true;
@@ -328,8 +317,8 @@ public final class SceneSyncCoordinator implements AutoCloseable {
 
     /**
      * Called immediately before an API worker successfully claims a job.
-     * MANUAL_APPLY deliberately does not change API admission; a full or
-     * manual refresh (or its pending automatic trigger) closes this gate.
+     * Runtime sync does not block immutable API requests. Startup admission
+     * remains controlled by the Service and JobStore recovery decision.
      */
     public boolean tryAcquireApiJob() {
         if (!reserveApiJobClaim()) {
@@ -342,10 +331,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
     /** Reserves a claim without counting it as an active API job yet. */
     public boolean reserveApiJobClaim() {
         synchronized (lock) {
-            if (closed
-                || state == State.FULL_SYNC
-                || state == State.MANUAL_REFRESH
-                || pendingAutoSync) {
+            if (closed) {
                 return false;
             }
             apiClaimReservations++;
@@ -711,9 +697,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
     private void enterAutoFullSyncLocked() {
         if (closed
             || state != State.NONE
-            || currentPort == null
-            || activeApiJobs != 0
-            || apiClaimReservations != 0) {
+            || currentPort == null) {
             throw new IllegalStateException(
                 "AUTO FULL_SYNC entry preconditions are not satisfied"
             );
@@ -736,8 +720,6 @@ public final class SceneSyncCoordinator implements AutoCloseable {
     private boolean shouldStartPendingAutoSyncLocked() {
         return pendingAutoSync
             && state == State.NONE
-            && activeApiJobs == 0
-            && apiClaimReservations == 0
             && currentPort != null
             && !closed;
     }

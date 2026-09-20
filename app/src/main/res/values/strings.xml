@@ -799,4 +799,5 @@
     <string name="task_reason_game_save_fallback">HET has no source Scene. The retained result will be written to the game Scene when connected; no new translation request is needed.</string>
     <string name="task_reason_game_saved_fallback">HET had no source Scene. The game confirmed saving the translation; the result remains retained in this task.</string>
     <string name="task_reason_scene_missing_both">Neither HET nor the game has the source Scene. The translation result is retained, but cannot be saved. Restore the source Scene before retrying delivery; do not translate again.</string>
+    <string name="task_reason_api_queued">Waiting for API scheduling or an available concurrency slot.</string>
 </resources>
