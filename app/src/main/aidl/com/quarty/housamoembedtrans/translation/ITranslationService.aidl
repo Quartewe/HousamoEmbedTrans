@@ -3,6 +3,7 @@ package com.quarty.housamoembedtrans.translation;
 import android.os.ParcelFileDescriptor;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;
 import com.quarty.housamoembedtrans.translation.ITranslationCallback;
+import com.quarty.housamoembedtrans.translation.IGameObbPort;
 
 interface ITranslationService {
     int getProtocolVersion();
@@ -84,4 +85,9 @@ interface ITranslationService {
 
     /** Records a missing game Scene and releases only the matching completion lease. */
     boolean reportMissingGameScene(String requestId, String leaseToken, long connectionGeneration);
+
+    // Appended transactions preserve the existing translation protocol.
+    void registerGameObbPort(IGameObbPort port);
+    void unregisterGameObbPort(IGameObbPort port);
+    IGameObbPort getGameObbPort();
 }

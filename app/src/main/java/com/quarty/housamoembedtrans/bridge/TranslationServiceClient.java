@@ -82,6 +82,7 @@ public final class TranslationServiceClient {
     }
 
     private final Context context;
+    private final GameObbPort gameObbPort;
     private final Consumer<String> logger;
     private final ResultSink resultSink;
     private final ComponentName component;
@@ -248,6 +249,12 @@ public final class TranslationServiceClient {
                     connectionSecurityFailure = null;
                     registerGameScenePort(connected);
                     connected.registerTranslationCallback(callback);
+                    // Optional extension: an older HET service must not break translation.
+                    try {
+                        connected.registerGameObbPort(gameObbPort);
+                    } catch (RemoteException | RuntimeException error) {
+                        log("Game OBB port unavailable: " + safeMessage(error));
+                    }
                     TranslationServiceClient.this.notifyAll();
                 }
                 log(
@@ -403,6 +410,7 @@ public final class TranslationServiceClient {
             ? applicationContext
             : context;
         this.logger = logger;
+        this.gameObbPort = new GameObbPort(this.context);
         this.resultSink = resultSink;
         if (sceneSyncSnapshot == null) {
             throw new IllegalArgumentException(
@@ -782,6 +790,7 @@ public final class TranslationServiceClient {
                 return;
             }
             closed = true;
+            gameObbPort.close();
             service = remote;
             port = gameScenePort;
             wasBound = bound;
@@ -823,6 +832,11 @@ public final class TranslationServiceClient {
             }
 
             if (service != null) {
+                try {
+                    service.unregisterGameObbPort(gameObbPort);
+                } catch (RemoteException | RuntimeException error) {
+                    log("Could not unregister game OBB port: " + safeMessage(error));
+                }
                 boolean callbackRemoved = false;
                 boolean busyLogged = false;
                 while (!callbackRemoved) {
@@ -968,6 +982,11 @@ public final class TranslationServiceClient {
         ITranslationService connected
     ) {
         if (connected != null) {
+            try {
+                connected.unregisterGameObbPort(gameObbPort);
+            } catch (RemoteException | RuntimeException ignored) {
+                // Optional extension may not exist in an older service.
+            }
             try {
                 connected.unregisterTranslationCallback(callback);
             } catch (RemoteException | RuntimeException ignored) {

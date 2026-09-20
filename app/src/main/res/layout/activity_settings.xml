@@ -36,6 +36,14 @@
             android:paddingEnd="14dp"
             android:paddingBottom="20dp">
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_obb_resources"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/obb_resource_title" />
+
             <LinearLayout
                 android:id="@+id/settings_intro"
                 android:layout_width="match_parent"

@@ -307,6 +307,8 @@ public final class TranslationService extends Service {
     }
 
     private final Object callbackLock = new Object();
+    private final Object gameObbLock = new Object();
+    private IGameObbPort gameObbPort;
     private final Object contextStoreLock = new Object();
     private CallbackRecord currentCallback;
     private final ExecutorService callbackIoExecutor =
@@ -943,6 +945,36 @@ public final class TranslationService extends Service {
             }
 
             @Override
+            public void registerGameObbPort(IGameObbPort port) {
+                enforceAllowedCaller();
+                synchronized (gameObbLock) {
+                    gameObbPort = port;
+                }
+            }
+
+            @Override
+            public void unregisterGameObbPort(IGameObbPort port) {
+                enforceAllowedCaller();
+                synchronized (gameObbLock) {
+                    if (gameObbPort != null && port != null
+                        && gameObbPort.asBinder().equals(port.asBinder())) {
+                        gameObbPort = null;
+                    }
+                }
+            }
+
+            @Override
+            public IGameObbPort getGameObbPort() {
+                enforceSelfUidCaller();
+                synchronized (gameObbLock) {
+                    if (gameObbPort != null && !gameObbPort.asBinder().isBinderAlive()) {
+                        gameObbPort = null;
+                    }
+                    return gameObbPort;
+                }
+            }
+
+            @Override
             public void unregisterTranslationCallback(
                 ITranslationCallback callback
             ) {
@@ -1529,6 +1561,9 @@ public final class TranslationService extends Service {
             startupCoordinator = null;
         }
         clearCallbacks();
+        synchronized (gameObbLock) {
+            gameObbPort = null;
+        }
         if (terminalDelivery != null) {
             terminalDelivery.close();
         }

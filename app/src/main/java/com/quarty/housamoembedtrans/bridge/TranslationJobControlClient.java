@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.bridge;
 
 import com.quarty.housamoembedtrans.translation.ITranslationService;
+import com.quarty.housamoembedtrans.translation.IGameObbPort;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
 import android.content.ComponentName;
@@ -278,6 +279,19 @@ public final class TranslationJobControlClient implements AutoCloseable {
                 );
             }
         }
+    }
+
+    /** Resolves the connected game's resource endpoint without registering a game callback. */
+    public IGameObbPort getGameObbPort() throws RemoteException {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new IllegalStateException("Game resource operations require a background thread");
+        }
+        ITranslationService service;
+        synchronized (lock) {
+            requireConnected();
+            service = remote;
+        }
+        return service.getGameObbPort();
     }
 
     /** Calls the existing service cancellation transaction. */

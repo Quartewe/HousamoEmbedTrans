@@ -54,6 +54,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private LinearLayout categoryList;
     private LinearLayout categoryListAfterPrompt;
     private TextView themeValue;
+    private ObbResourceDialog obbResourceDialog;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService logExportExecutor =
         Executors.newSingleThreadExecutor();
@@ -99,6 +100,11 @@ public final class SettingsActivity extends AppCompatActivity {
         );
         installToolbarMenu(toolbar);
         installThemePanel();
+        findViewById(R.id.btn_obb_resources).setOnClickListener(view -> {
+            if (obbResourceDialog != null) obbResourceDialog.close();
+            obbResourceDialog = new ObbResourceDialog(this);
+            obbResourceDialog.show();
+        });
         findViewById(R.id.card_prompt_editor).setOnClickListener(
             view -> startActivity(new Intent(this, PromptEditorActivity.class))
         );
@@ -116,6 +122,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (obbResourceDialog != null) obbResourceDialog.close();
         logExportGeneration++;
         cancelLogExport();
         logExportExecutor.shutdownNow();

@@ -313,6 +313,23 @@ public final class ConfigStore {
         }
     }
 
+    /** Applies a matching remote runtime only while local resources still need an update. */
+    public boolean updateRuntimeForGame(JSONObject runtime, String gameVersion) throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            validateRuntime(runtime);
+            if (!gameVersion.equals(runtime.getString("GameVersion").trim())) {
+                throw new IOException("远程 RVA 资源版本与游戏版本不一致");
+            }
+            JsonLoadResult current = loadJson(RUNTIME_FILE_NAME);
+            if (!current.invalidUserOverride
+                && gameVersion.equals(current.json.getString("GameVersion").trim())) {
+                return false;
+            }
+            writeJsonUnrestricted(getUserFile(RUNTIME_FILE_NAME), RUNTIME_FILE_NAME, runtime);
+            return true;
+        }
+    }
+
     /** Result of merging one prevalidated batch into the current dictionary. */
     public static final class DictionaryMergeResult {
         public final int imported;
