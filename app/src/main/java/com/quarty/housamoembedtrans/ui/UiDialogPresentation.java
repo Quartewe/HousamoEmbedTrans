@@ -12,7 +12,6 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -42,25 +41,17 @@ final class UiDialogPresentation {
         if (dialog == null) {
             return;
         }
+        // Inflate AlertController content before WindowManager attaches the window.
+        // Resizing from the first global layout can expose the original bounds for
+        // one frame and then visibly recenter the confirmation dialog.
+        dialog.create();
         Window window = dialog.getWindow();
         if (window == null) {
             return;
         }
         window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         window.setDimAmount(0.48f);
-        final View decor = window.getDecorView();
-        ViewTreeObserver observer = decor.getViewTreeObserver();
-        observer.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                if (!dialog.isShowing()) {
-                    return;
-                }
-                if (styleAfterLayout(dialog, decor)) {
-                    removeListener(decor, this);
-                }
-            }
-        });
+        styleContent(dialog, window.getDecorView());
     }
 
     /**
@@ -85,7 +76,7 @@ final class UiDialogPresentation {
         );
     }
 
-    private static boolean styleAfterLayout(
+    private static void styleContent(
         AlertDialog dialog,
         View decor
     ) {
@@ -244,11 +235,7 @@ final class UiDialogPresentation {
                 targetWidth,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             );
-            // The width/padding changes happen from a global-layout callback;
-            // explicitly schedule the final pass before removing the listener.
-            decor.requestLayout();
         }
-        return true;
     }
 
     private static void setPanelPadding(
@@ -424,19 +411,6 @@ final class UiDialogPresentation {
             }
         }
         return null;
-    }
-
-    private static void removeListener(
-        View decor,
-        ViewTreeObserver.OnGlobalLayoutListener listener
-    ) {
-        if (listener == null) {
-            return;
-        }
-        ViewTreeObserver observer = decor.getViewTreeObserver();
-        if (observer.isAlive()) {
-            observer.removeOnGlobalLayoutListener(listener);
-        }
     }
 
     private static int dp(Context context, float value) {
