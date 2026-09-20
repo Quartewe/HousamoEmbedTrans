@@ -66,7 +66,7 @@
     <string name="management_rebuild_no_translated_languages">暂无已翻译语言</string>
     <string name="management_rebuild_tree_node_detail">%1$s · %2$s</string>
     <string name="management_rebuild_batch_summary">已选 %1$d/%2$d · 当前结果 %3$d 项 · %4$s</string>
-    <string name="management_rebuild_batch_selected">已选 %1$d/%2$d</string>
+    <string name="management_rebuild_batch_selected">%1$d/%2$d</string>
     <string name="management_rebuild_batch_visible">当前结果 %1$d 项</string>
     <string name="management_rebuild_batch_export_short">导出</string>
     <string name="management_rebuild_batch_move_short">移入等待处理</string>

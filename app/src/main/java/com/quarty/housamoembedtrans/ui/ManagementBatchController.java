@@ -101,7 +101,6 @@ public final class ManagementBatchController implements AutoCloseable {
     private final LinkedHashMap<View, Integer> exportCoveredAccessibility =
         new LinkedHashMap<>();
     private TextView summarySelectedView;
-    private TextView summaryVisibleView;
     private MaterialButton exportButton;
     private MaterialButton moveButton;
     private MaterialButton exitButton;
@@ -522,20 +521,7 @@ public final class ManagementBatchController implements AutoCloseable {
             activity,
             R.color.het_on_surface
         ));
-        summaryVisibleView = new TextView(activity);
-        summaryVisibleView.setTextSize(12);
-        summaryVisibleView.setIncludeFontPadding(false);
-        summaryVisibleView.setMaxLines(1);
-        summaryVisibleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        summaryVisibleView.setTextColor(ContextCompat.getColor(
-            activity,
-            R.color.het_on_surface_muted
-        ));
         summary.addView(summarySelectedView, new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        summary.addView(summaryVisibleView, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ));
@@ -897,7 +883,7 @@ public final class ManagementBatchController implements AutoCloseable {
     }
 
     private void refreshSummary() {
-        if (summarySelectedView == null || summaryVisibleView == null) {
+        if (summarySelectedView == null) {
             return;
         }
         int selected = selectedKeyCount();
@@ -906,10 +892,6 @@ public final class ManagementBatchController implements AutoCloseable {
             R.string.management_rebuild_batch_selected,
             selected,
             selectableCount
-        ));
-        summaryVisibleView.setText(activity.getString(
-            R.string.management_rebuild_batch_visible,
-            visible
         ));
         updateActions(selected, visible);
     }
