@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.HousamoApplication;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
@@ -186,6 +187,25 @@ public final class HomeActivity extends AppCompatActivity {
     }
 
     private void installCardActions() {
+        View resourceEntry = (View) resourceVersionView.getParent();
+        resourceEntry.setClickable(true);
+        resourceEntry.setFocusable(true);
+        resourceEntry.setOnClickListener(view -> {
+            if (stylePreview) return;
+            resourceEntry.setEnabled(false);
+            Toast.makeText(this, "正在校验 RVA 资源版本…", Toast.LENGTH_SHORT).show();
+            ((HousamoApplication) getApplication()).getRuntimeResourceUpdater()
+                .requestCheck(message -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    resourceEntry.setEnabled(true);
+                    loadMetadataAsync();
+                    new UiMaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.home_info_resource_version)
+                        .setMessage(message)
+                        .setPositiveButton(R.string.settings_rebuild_close, null)
+                        .show();
+                });
+        });
         findViewById(R.id.card_home_tasks).setOnClickListener(
             view -> openTasks()
         );
@@ -451,13 +471,15 @@ public final class HomeActivity extends AppCompatActivity {
                 );
                 metadata = new HomeMetadata(
                     installedVersionOf("jp.co.lifewonders.housamo"),
+                    store.loadJson(ConfigStore.RUNTIME_FILE_NAME).json
+                        .getString("GameVersion").trim(),
                     userSettings == null
                         ? ""
                         : userSettings.optString("TargetLanguage", "").trim()
                 );
             } catch (Exception error) {
                 Log.w(TAG, "Could not load home version metadata", error);
-                metadata = new HomeMetadata("", "");
+                metadata = new HomeMetadata("", "", "");
             }
             HomeMetadata loaded = metadata;
             runOnUiThread(() -> {
@@ -465,6 +487,7 @@ public final class HomeActivity extends AppCompatActivity {
                     return;
                 }
                 gameVersion = loaded.gameVersion;
+                resourceVersion = loaded.resourceVersion;
                 targetLanguage = loaded.targetLanguage;
                 renderMetadata();
             });
@@ -508,7 +531,9 @@ public final class HomeActivity extends AppCompatActivity {
                     : R.color.het_on_surface_muted
             ));
         } else {
-            resourceVersionView.setText(R.string.home_resource_version_unknown);
+            resourceVersionView.setText(resourceVersion.isEmpty()
+                ? getString(R.string.home_resource_version_unknown)
+                : displayVersion(resourceVersion));
             resourceVersionView.setTextColor(ContextCompat.getColor(
                 this,
                 R.color.het_on_surface_muted
@@ -710,10 +735,12 @@ public final class HomeActivity extends AppCompatActivity {
 
     private static final class HomeMetadata {
         final String gameVersion;
+        final String resourceVersion;
         final String targetLanguage;
 
-        HomeMetadata(String gameVersion, String targetLanguage) {
+        HomeMetadata(String gameVersion, String resourceVersion, String targetLanguage) {
             this.gameVersion = gameVersion == null ? "" : gameVersion;
+            this.resourceVersion = resourceVersion == null ? "" : resourceVersion;
             this.targetLanguage = targetLanguage == null ? "" : targetLanguage;
         }
     }
