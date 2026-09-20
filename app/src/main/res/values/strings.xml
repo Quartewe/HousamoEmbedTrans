@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="notification_api_retry_title">API retry: %1$s</string>
+    <string name="notification_api_retry_text">%1$s: %2$s. Retrying %3$d/%4$d; the task has not failed. Tap for details.</string>
+    <string name="notification_api_main_phase">Translation request</string>
+    <string name="notification_api_repair_phase">Repair request</string>
+    <string name="notification_api_format_phase">Response format</string>
+    <string name="notification_api_response_invalid">Invalid API response</string>
+    <string name="notification_api_timeout">Connection or response timed out</string>
+    <string name="notification_api_network_error">Network connection interrupted or unavailable</string>
     <string name="task_action_delete">Delete task</string>
     <string name="task_delete_message">Permanently delete this task and its request, progress and response files? Active translation will be canceled first; pending results will no longer be delivered. Saved Scenes, translations and summaries are kept. An API request already sent may still be billed.</string>
     <string name="task_delete_delivery_busy">The game is applying this result. Please retry deletion after delivery finishes.</string>

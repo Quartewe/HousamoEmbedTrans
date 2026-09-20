@@ -315,6 +315,59 @@ public final class TranslationStatusNotification {
         );
     }
 
+    /** A retry is recoverable; never overwrite the task's terminal status. */
+    public static void apiRetry(Context context, String requestId, String scene,
+        String phase, Throwable error, int retry, int limit) {
+        if (context == null) {
+            return;
+        }
+        Context app = context.getApplicationContext();
+        runOnNotificationThread(() -> {
+            try {
+                NotificationManager manager = app.getSystemService(NotificationManager.class);
+                if (manager == null || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    && app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED)) {
+                    return;
+                }
+                createJobErrorChannel(app, manager);
+                String reason = app.getString(R.string.notification_api_response_invalid);
+                // Do not expose the provider response body or request secrets in a banner.
+                for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+                    if (cause instanceof com.quarty.housamoembedtrans.provider.TranslationApiClient.HttpStatusException) {
+                        reason = "HTTP " + ((com.quarty.housamoembedtrans.provider.TranslationApiClient.HttpStatusException) cause).getStatusCode();
+                        break;
+                    }
+                    if (cause instanceof java.net.SocketTimeoutException) {
+                        reason = app.getString(R.string.notification_api_timeout);
+                        break;
+                    }
+                    if (cause instanceof java.io.IOException) {
+                        reason = app.getString(R.string.notification_api_network_error);
+                        break;
+                    }
+                }
+                String text = app.getString(R.string.notification_api_retry_text,
+                    phase, reason, retry, limit);
+                Notification notification = new Notification.Builder(app, JOB_ERROR_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle(app.getString(R.string.notification_api_retry_title, scene))
+                    .setContentText(text)
+                    .setStyle(new Notification.BigTextStyle().bigText(text))
+                    .setContentIntent(queuePendingIntent(app, requestId, "translation"))
+                    .setAutoCancel(true)
+                    .setOnlyAlertOnce(true)
+                    .setTimeoutAfter(60_000L)
+                    .setCategory(Notification.CATEGORY_ERROR)
+                    .setVisibility(Notification.VISIBILITY_PRIVATE)
+                    .build();
+                manager.notify("api-retry:" + requestId + ":" + phase, 1, notification);
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Could not post API retry notification", e);
+            }
+        });
+    }
+
     private static void postJobErrorNotification(
         Context context,
         String requestId,

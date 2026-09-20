@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="notification_api_retry_title">API 正在重试：%1$s</string>
+    <string name="notification_api_retry_text">%1$s：%2$s。正在重试 %3$d/%4$d，任务尚未失败，点击查看详情。</string>
+    <string name="notification_api_main_phase">翻译请求</string>
+    <string name="notification_api_repair_phase">修复请求</string>
+    <string name="notification_api_format_phase">响应格式</string>
+    <string name="notification_api_response_invalid">API 响应无效</string>
+    <string name="notification_api_timeout">连接或响应超时</string>
+    <string name="notification_api_network_error">网络连接中断或不可用</string>
     <string name="task_action_delete">删除任务</string>
     <string name="task_delete_message">永久删除此任务及其请求、进度和响应文件？正在翻译的任务会先取消，待投递结果将停止后续投递。保留已保存的 Scene、译文和摘要。已经发出的 API 请求仍可能计费。</string>
     <string name="task_delete_delivery_busy">游戏正在应用此结果，请在投递结束后重试删除。</string>

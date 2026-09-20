@@ -25,6 +25,8 @@ import com.quarty.housamoembedtrans.util.JobValidator;
 import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 
 import android.content.Context;
+import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.logging.Log;
 
 import org.json.JSONArray;
@@ -2466,6 +2468,8 @@ public final class TranslationTaskExecutor {
                                 networkRetriesUsed,
                                 config.getNetworkRetryCount()
                             );
+                            notifyApiRetry(R.string.notification_api_main_phase, e,
+                                networkRetriesUsed, config.getNetworkRetryCount());
                             retryResult = true;
                         } else if (isRepairableMainResultFailure(e)
                             && canRestartMainResultLocked()) {
@@ -2474,6 +2478,8 @@ public final class TranslationTaskExecutor {
                             // previous request's network attempts.
                             networkRetriesUsed = 0;
                             mainResultRestarts++;
+                            notifyApiRetry(R.string.notification_api_format_phase, e,
+                                mainResultRestarts, config.getResultRepairCount());
                             if (!streamingRepairEnabled) {
                                 sceneRepairRounds++;
                             }
@@ -3157,6 +3163,8 @@ public final class TranslationTaskExecutor {
                                 networkRetriesUsed,
                                 config.getNetworkRetryCount()
                             );
+                            notifyApiRetry(R.string.notification_api_repair_phase, e,
+                                networkRetriesUsed, config.getNetworkRetryCount());
                             if (cancelRequested) {
                                 throw new InterruptedException(
                                     "repair retry canceled"
@@ -3467,6 +3475,14 @@ public final class TranslationTaskExecutor {
                 }
             }
             return true;
+        }
+
+        private void notifyApiRetry(int phaseResource, Throwable error, int retry, int limit) {
+            if (context != null && !cancelRequested) {
+                TranslationStatusNotification.apiRetry(context, requestId,
+                    request.optString("scene", requestId), context.getString(phaseResource),
+                    error, retry, limit);
+            }
         }
 
         private void emitBlockPatchLocked(
