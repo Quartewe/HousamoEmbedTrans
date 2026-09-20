@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="held_arrangement_title">等待编排任务</string>
+    <string name="held_arrangement_count">%1$d 个 Scene · 点击排序并提交</string>
+    <string name="held_arrangement_empty">没有等待编排的任务</string>
+    <string name="held_arrangement_submit_all">按此顺序提交</string>
+    <string name="held_arrangement_submit_scene">提交此 Scene</string>
+    <string name="held_arrangement_submitted">已提交，其他任务继续等待</string>
+    <string name="held_arrangement_failed">提交失败：%1$s</string>
+    <string name="held_arrangement_up">上移 %1$s</string>
+    <string name="held_arrangement_down">下移 %1$s</string>
+</resources>

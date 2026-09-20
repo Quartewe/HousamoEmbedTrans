@@ -4,6 +4,7 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 
 import android.Manifest;
 import android.content.Intent;
@@ -42,6 +43,14 @@ public final class HomeActivity extends AppCompatActivity {
         SceneSyncRuntimeState.getInstance();
     private final SceneSyncRuntimeState.Listener runtimeListener =
         this::dispatchRuntimeSnapshot;
+
+    private TranslationJobStore arrangementStore;
+    private final TranslationJobStore.QueueListener
+        arrangementListener = (pending, held, repairing) -> runOnUiThread(() -> {
+            if (arrangementStore != null && !isFinishing() && !isDestroyed()) {
+                renderArrangementEntry();
+            }
+        });
 
     private MaterialCardView statusCard;
     private MaterialCardView updateCard;
@@ -118,6 +127,8 @@ public final class HomeActivity extends AppCompatActivity {
         if (stylePreview) {
             return;
         }
+        arrangementStore = TranslationJobStore.getInstance(this);
+        arrangementStore.setQueueListener(arrangementListener);
         startRuntimeObservation();
         loadMetadataAsync();
         if (!appUpdateRequested) {
@@ -127,6 +138,10 @@ public final class HomeActivity extends AppCompatActivity {
 
     @Override
     protected void onStop() {
+        if (arrangementStore != null) {
+            arrangementStore.clearQueueListener(arrangementListener);
+            arrangementStore = null;
+        }
         stopRuntimeObservation();
         super.onStop();
     }
@@ -140,6 +155,20 @@ public final class HomeActivity extends AppCompatActivity {
             ioExecutor = null;
         }
         super.onDestroy();
+    }
+
+    private void renderArrangementEntry() {
+        if (stylePreview) return;
+        int count = HeldTaskArrangementDialog.scenes(this).size();
+        View entry = findViewById(R.id.card_home_arrangement);
+        entry.setVisibility(count > 1 ? View.VISIBLE : View.GONE);
+        ((TextView) findViewById(R.id.tv_home_arrangement_count)).setText(
+            getString(R.string.held_arrangement_count, count));
+        entry.setOnClickListener(view -> {
+            if (ioExecutor != null) {
+                HeldTaskArrangementDialog.show(this, ioExecutor, this::renderArrangementEntry);
+            }
+        });
     }
 
     private void bindViews() {

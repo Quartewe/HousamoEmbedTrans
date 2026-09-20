@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="held_arrangement_title">Tasks awaiting arrangement</string>
+    <string name="held_arrangement_count">%1$d Scenes · arrange and submit</string>
+    <string name="held_arrangement_empty">No tasks awaiting arrangement</string>
+    <string name="held_arrangement_submit_all">Submit in this order</string>
+    <string name="held_arrangement_submit_scene">Submit this Scene</string>
+    <string name="held_arrangement_submitted">Submitted; other tasks remain waiting</string>
+    <string name="held_arrangement_failed">Submission failed: %1$s</string>
+    <string name="held_arrangement_up">Move %1$s up</string>
+    <string name="held_arrangement_down">Move %1$s down</string>
+</resources>

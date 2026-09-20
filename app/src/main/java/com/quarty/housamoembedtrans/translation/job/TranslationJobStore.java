@@ -2337,6 +2337,56 @@ public final class TranslationJobStore {
         }
     }
 
+    /** Releases only the selected held jobs; all other held jobs remain selectable. */
+    public void submitHeldQueueOrder(List<String> orderedRequestIds) throws Exception {
+        if (orderedRequestIds == null || orderedRequestIds.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one held request");
+        }
+        try {
+            synchronized (this) {
+                requirePreparedLocked();
+                requireRecoveryDecisionOpenLocked();
+                requireStartupRepairCompleteLocked();
+                Set<String> selected = new HashSet<>();
+                LinkedHashMap<File, JSONObject> originals = new LinkedHashMap<>();
+                LinkedHashMap<File, JSONObject> updates = new LinkedHashMap<>();
+                LinkedHashMap<String, Long> sequences = new LinkedHashMap<>();
+                for (String id : orderedRequestIds) {
+                    if (id == null || !selected.add(id) || !heldQueuedJobs.containsKey(id)) {
+                        throw new IllegalArgumentException("Held request changed: " + id);
+                    }
+                    File directory = jobStore.jobDirectory(id);
+                    JSONObject state = requireHeldQueuedState(directory, id);
+                    originals.put(directory, new JSONObject(state.toString()));
+                    updates.put(directory, state);
+                }
+                // The first partial submission is the startup ordering boundary.
+                // Later partial submissions append to the same queue sequence counter.
+                if (!startupRecoveryCommitted) publishStartupAdmissionSequencesLocked(false);
+                long now = System.currentTimeMillis();
+                for (String id : orderedRequestIds) {
+                    long sequence = allocateQueueSequenceLocked();
+                    JSONObject state = updates.get(jobStore.jobDirectory(id));
+                    state.put("queue_sequence", sequence);
+                    state.put("updated_at", now);
+                    sequences.put(id, sequence);
+                }
+                writeStateBatch(originals, updates);
+                for (Map.Entry<String, Long> entry : sequences.entrySet()) {
+                    heldQueuedJobs.remove(entry.getKey());
+                    startupManualCandidateIds.remove(entry.getKey());
+                    addPendingJobLocked(entry.getKey(), entry.getValue());
+                }
+                startupRecoveryCommitted = true;
+                enqueuePublishedStartupAdmissionsLocked();
+                startupAdmissionOrder.clear();
+                startupAdmissionSequences.clear();
+            }
+        } finally {
+            notifyQueueListener();
+        }
+    }
+
     public void cancelHeldQueuedJobs() throws Exception {
         try {
             synchronized (this) {

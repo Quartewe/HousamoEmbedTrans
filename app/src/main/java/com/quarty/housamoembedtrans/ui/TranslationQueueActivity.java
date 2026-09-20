@@ -2652,11 +2652,15 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 button.setOnClickListener(view -> confirmRerunCanceledTask(task));
                 return button;
             case HELD:
-                int selectedIndex = selectedRequestIds.indexOf(task.requestId);
-                button.setText(selectedIndex >= 0
-                    ? getString(R.string.task_action_ordered, selectedIndex + 1)
-                    : getString(R.string.task_action_add_order));
-                button.setOnClickListener(view -> toggleSelection(task.requestId));
+                button.setText(R.string.held_arrangement_submit_scene);
+                button.setOnClickListener(view -> {
+                    if (busy || repairingStartupJobs) return;
+                    setBusy(true);
+                    HeldTaskArrangementDialog.submitScene(this, ioExecutor, task.title, () -> {
+                        setBusy(false);
+                        refreshJobs();
+                    });
+                });
                 return button;
             case ACTIVE:
                 button.setText(R.string.task_action_details);
@@ -3748,7 +3752,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             && (taskTab == TAB_SUMMARY
                 || (taskTab == TAB_ALL && selectedRequestIds.isEmpty()));
         boolean translationVisible = recoveryPage
-            && !selectedRequestIds.isEmpty()
+            && (!jobs.isEmpty() || !selectedRequestIds.isEmpty())
             && (taskTab == TAB_TRANSLATION
                 || (taskTab == TAB_ALL && !summaryVisible));
         boolean visible = translationVisible || summaryVisible;
@@ -3789,6 +3793,11 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     /** Confirm the selected recovery order; sorting only changes presentation. */
     private void showRecoveryOrderDialog() {
+        if (!stylePreview && !managementOnly && !busy && !repairingStartupJobs
+            && !jobs.isEmpty()) {
+            HeldTaskArrangementDialog.show(this, ioExecutor, this::refreshJobs);
+            return;
+        }
         if (stylePreview || managementOnly || repairingStartupJobs
             || (jobs.isEmpty() && !hasRerunCandidates())) {
             Toast.makeText(
