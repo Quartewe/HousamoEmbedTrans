@@ -353,19 +353,29 @@ public final class HomeActivity extends AppCompatActivity {
         boolean connected = snapshot.serviceAvailable
             && snapshot.gamePortAvailable;
         boolean serviceReady = snapshot.serviceAvailable;
-        boolean primarySurface = connected || syncing;
-        int cardColor = ContextCompat.getColor(
-            this,
-            primarySurface
-                ? R.color.het_primary_container
-                : R.color.het_surface_container_high
-        );
-        int textColor = ContextCompat.getColor(
-            this,
-            primarySurface
-                ? R.color.het_on_primary_container
-                : R.color.het_on_surface
-        );
+        int background;
+        int foreground;
+        int icon;
+        if (syncing) {
+            background = R.color.het_primary_container;
+            foreground = R.color.het_on_primary_container;
+            icon = R.drawable.ic_home_syncing;
+        } else if (connected) {
+            background = R.color.het_good_container;
+            foreground = R.color.het_good;
+            icon = R.drawable.ic_home_status;
+        } else if (serviceReady) {
+            background = R.color.het_warning_container;
+            foreground = R.color.het_warning;
+            icon = R.drawable.ic_home_waiting_game;
+        } else {
+            background = R.color.het_surface_container_high;
+            foreground = R.color.het_on_surface_muted;
+            icon = R.drawable.ic_home_waiting_service;
+        }
+        int cardColor = ContextCompat.getColor(this, background);
+        int textColor = ContextCompat.getColor(this, foreground);
+        statusIcon.setImageResource(icon);
         statusCard.setCardBackgroundColor(cardColor);
         stateView.setText(
             syncing
