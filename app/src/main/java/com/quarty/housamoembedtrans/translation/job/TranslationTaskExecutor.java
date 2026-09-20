@@ -12,6 +12,7 @@ import com.quarty.housamoembedtrans.summary.policy.ContextSummaryCoordinator;
 import com.quarty.housamoembedtrans.translation.request.TranslationEventDecoder;
 import com.quarty.housamoembedtrans.translation.request.TranslationGradientPlanner;
 import com.quarty.housamoembedtrans.translation.request.TranslationRequestFactory;
+import com.quarty.housamoembedtrans.translation.request.SceneTranslationRequestBuilder;
 import com.quarty.housamoembedtrans.translation.request.TranslationResultValidator;
 
 import com.quarty.housamoembedtrans.context.model.HistoryMapping;
@@ -486,8 +487,19 @@ public final class TranslationTaskExecutor {
             new ContextSummaryCoordinator.ContextSummaryReleaseGate(),
             resultListener::onRejectedApiResultArchived
         );
+        SceneStore historySceneStore = new SceneStore(this.context);
         this.contextHistoryPreparer = new ContextHistoryPreparer(
-            sceneContextStore
+            sceneContextStore,
+            (scene, language) -> {
+                SceneStore.RawSceneSnapshot raw = historySceneStore.readRawSceneSnapshot(scene);
+                JSONObject source = new JSONObject(new String(raw.bytes, StandardCharsets.UTF_8));
+                JSONObject original = new JSONObject(new String(
+                    SceneTranslationRequestBuilder.buildRequest(source, language), StandardCharsets.UTF_8));
+                return new JSONObject()
+                    .put("raw_lang", original.getString("raw_lang"))
+                    .put("scene_items", original.getJSONArray("scene_items"))
+                    .put("protect", original.getJSONArray("protect"));
+            }
         );
     }
 

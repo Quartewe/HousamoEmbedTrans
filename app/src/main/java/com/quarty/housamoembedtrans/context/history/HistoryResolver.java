@@ -25,6 +25,8 @@ public final class HistoryResolver {
 
     public static final class Options {
         public boolean autoCompression;
+        public String pendingSummaryMode = "wait";
+        public SceneOriginalLoader sceneOriginalLoader;
         /** Keyed lookup for the specific missing Scene Summary. */
         public SceneSummaryProducer sceneSummaryProducer;
         public int defaultRecentPercent =
@@ -38,6 +40,11 @@ public final class HistoryResolver {
          * Content Hash for the record's coverage. Defaults to true.
          */
         public boolean validateSourceHash = true;
+    }
+
+    @FunctionalInterface
+    public interface SceneOriginalLoader {
+        JSONObject load(String scene, String targetLang) throws Exception;
     }
 
     @FunctionalInterface
@@ -248,6 +255,60 @@ public final class HistoryResolver {
         int currentIndex,
         Options options
     ) throws MissingSceneException, JSONException {
+        if (!"wait".equals(options.pendingSummaryMode)) {
+            JSONArray entries = context.optJSONArray("scenes");
+            boolean missing = false;
+            for (int i = 0; entries != null && i < currentIndex; i++) {
+                JSONObject entry = entries.getJSONObject(i);
+                if (SceneSummaryResolver.resolve(entry.optJSONObject("summaries"), lang) == null) {
+                    missing = true;
+                    break;
+                }
+            }
+            if (missing) {
+                JSONArray history = new JSONArray();
+                for (int i = 0; i < currentIndex; i++) {
+                    JSONObject entry = entries.getJSONObject(i);
+                    String scene = entry.getString("scene");
+                    SceneSummaryResolver.Resolved summary =
+                        SceneSummaryResolver.resolve(entry.optJSONObject("summaries"), lang);
+                    if (summary != null) {
+                        history.put(new JSONObject().put("scene", scene).put("summary", summary.text));
+                    } else if ("original".equals(options.pendingSummaryMode)) {
+                        try {
+                            if (options.sceneOriginalLoader == null) {
+                                throw new IllegalStateException("Scene original loader is unavailable");
+                            }
+                            JSONObject original = options.sceneOriginalLoader.load(scene, lang);
+                            if (original == null) {
+                                throw new IllegalStateException("Scene original is missing");
+                            }
+                            history.put(new JSONObject().put("scene", scene).put("original", original));
+                        } catch (Exception e) {
+                            throw new JSONException("Cannot load original for " + scene + ": " + e.getMessage());
+                        }
+                    }
+                }
+                JSONObject output = new JSONObject()
+                    .put("source", "original".equals(options.pendingSummaryMode)
+                        ? "pending_originals" : "available_summaries")
+                    .put("scenes", history);
+                JSONObject summaryLanguage = languageObject(context.optJSONObject("summary"), lang);
+                String manual = manualText(summaryLanguage);
+                if (manual != null) {
+                    output.put("summary", manual);
+                } else if (options.autoCompression && summaryLanguage != null) {
+                    JSONObject compressed = summaryLanguage.optJSONObject("current");
+                    String cutoff = compressed == null ? "" : compressed.optString("cutoff", "");
+                    int cutoffIndex = findEntryIndex(context, cutoff);
+                    if (compressed != null && cutoffIndex >= 0 && cutoffIndex < currentIndex
+                        && isCurrentRecordApplicable(context, lang, compressed, cutoff, options)) {
+                        output.put("summary", compressed.optString("text", ""));
+                    }
+                }
+                return output;
+            }
+        }
         JSONObject langObject = languageObject(
             context.optJSONObject("summary"),
             lang

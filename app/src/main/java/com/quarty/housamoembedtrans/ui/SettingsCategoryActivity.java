@@ -1562,6 +1562,8 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
         if (SettingsCategory.TRANSLATION_REPAIR.equals(categoryId)) {
             return Arrays.asList(
                 slider("result-repair-count", R.string.settings_field_result_repair_count, R.string.settings_field_hint_result_repair_count, new String[] {"TranslationApi", "ResultRepairCount"}, 0, 5, 1, true),
+                select("pending-summary-mode", R.string.settings_field_pending_summary_mode, R.string.settings_field_hint_pending_summary_mode,
+                    new String[] {"wait", "skip", "original"}, new int[] {R.string.settings_option_summary_wait, R.string.settings_option_summary_skip, R.string.settings_option_summary_original}, new String[] {"TranslationApi", "PendingSummaryMode"}),
                 bool("enable-streaming-response", R.string.settings_field_enable_streaming_response, R.string.settings_field_hint_enable_streaming_response, new String[] {"TranslationApi", "EnableStreamingResponse"}),
                 slider("repair-gradient-count", R.string.settings_field_repair_gradient_count, R.string.settings_field_hint_repair_gradient_count, new String[] {"TranslationApi", "RepairGradientCount"}, 2, 8, 1, true),
                 bool("use-full-scene-for-repair", R.string.settings_field_use_full_scene_for_repair, R.string.settings_field_hint_use_full_scene_for_repair, new String[] {"TranslationApi", "UseFullSceneForRepair"})

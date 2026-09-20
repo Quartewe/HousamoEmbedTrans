@@ -108,15 +108,22 @@ public final class ContextHistoryPreparer {
     }
 
     private final SceneContextStore store;
+    private final HistoryResolver.SceneOriginalLoader sceneOriginalLoader;
 
 
     public ContextHistoryPreparer(SceneContextStore store) {
+        this(store, null);
+    }
+
+    public ContextHistoryPreparer(SceneContextStore store,
+        HistoryResolver.SceneOriginalLoader sceneOriginalLoader) {
         if (store == null) {
             throw new IllegalArgumentException(
                 "store is required"
             );
         }
         this.store = store;
+        this.sceneOriginalLoader = sceneOriginalLoader;
     }
 
     /**
@@ -190,6 +197,8 @@ public final class ContextHistoryPreparer {
 
             HistoryResolver.Options options = new HistoryResolver.Options();
             options.autoCompression = autoCompression;
+            options.pendingSummaryMode = config.getPendingSummaryMode();
+            options.sceneOriginalLoader = sceneOriginalLoader;
             options.defaultRecentPercent = config.getDefaultRecentPercent();
             options.defaultRecentLimit = config.getDefaultRecentSceneLimit();
             options.sceneSummaryProducer = sceneSummaryProducer;
@@ -203,6 +212,13 @@ public final class ContextHistoryPreparer {
             );
             if (!resolution.isReady()) {
                 return HistoryPreparation.blocked(resolution);
+            }
+            JSONObject currentHistory = resolution.getPayload().toJson()
+                .optJSONObject("current_context_summary");
+            if (currentHistory != null && ("pending_originals".equals(currentHistory.optString("source"))
+                || "available_summaries".equals(currentHistory.optString("source")))) {
+                // Incomplete summary sources must not produce a compressed summary checkpoint.
+                requestContextSummary = false;
             }
             return HistoryPreparation.ready(
                 contextId,

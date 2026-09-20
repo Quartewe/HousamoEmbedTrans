@@ -28,6 +28,7 @@
             "NetworkRetryCount": 3,
             "ResultRepairCount": 3,
             "EnableStreamingResponse": true,
+            "PendingSummaryMode": "wait",
             "MaxTokens": 384000,
             "RepairGradientCount": 3,
             "UseFullSceneForRepair": true

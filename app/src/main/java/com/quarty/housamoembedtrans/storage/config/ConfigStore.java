@@ -940,6 +940,11 @@ public final class ConfigStore {
         );
         requireBoolean(translationApi, "EnableStreamingResponse", "UserSettings.TranslationApi");
         requirePositiveInt(translationApi.get("MaxTokens"), "UserSettings.TranslationApi.MaxTokens");
+        String pendingMode = translationApi.getString("PendingSummaryMode");
+        if (!"wait".equals(pendingMode) && !"skip".equals(pendingMode)
+            && !"original".equals(pendingMode)) {
+            throw new IllegalArgumentException("Invalid TranslationApi.PendingSummaryMode");
+        }
         validateRepairGradientCount(translationApi);
 
         JSONObject translationQueue =
@@ -1063,6 +1068,9 @@ public final class ConfigStore {
             userSettings.put("DebugOmitThinkingParameters", true);
         }
         if (translationApi != null) {
+            if (!translationApi.has("PendingSummaryMode")) {
+                translationApi.put("PendingSummaryMode", "wait");
+            }
             if (!translationApi.has("MaxTokens")) {
                 translationApi.put("MaxTokens", DEFAULT_TRANSLATION_MAX_TOKENS);
             }
@@ -1448,6 +1456,7 @@ public final class ConfigStore {
         return translationApi != null
             && userSettings.has("DebugOmitThinkingParameters")
             && translationApi.has("MaxTokens")
+            && translationApi.has("PendingSummaryMode")
             && translationApi.has("EnableStreamingResponse")
             && !translationApi.has("EnableStreamingRepair")
             && translationApi.has("RepairGradientCount")

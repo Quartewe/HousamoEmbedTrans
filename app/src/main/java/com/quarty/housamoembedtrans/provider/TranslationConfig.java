@@ -28,6 +28,7 @@ public final class TranslationConfig {
     private final ThinkingStrength thinkingStrength;
     private final int contextLength;
     private final int maxTokens;
+    private final String pendingSummaryMode;
     private final boolean contextAutoCompression;
     private final boolean continueAutoSummaryAfterManual;
     private final int defaultRecentPercent;
@@ -50,6 +51,7 @@ public final class TranslationConfig {
         ThinkingStrength thinkingStrength,
         int contextLength,
         int maxTokens,
+        String pendingSummaryMode,
         boolean contextAutoCompression,
         boolean continueAutoSummaryAfterManual,
         int defaultRecentPercent,
@@ -71,6 +73,7 @@ public final class TranslationConfig {
         this.thinkingStrength = thinkingStrength;
         this.contextLength = contextLength;
         this.maxTokens = maxTokens;
+        this.pendingSummaryMode = pendingSummaryMode;
         this.contextAutoCompression = contextAutoCompression;
         this.continueAutoSummaryAfterManual = continueAutoSummaryAfterManual;
         this.defaultRecentPercent = defaultRecentPercent;
@@ -131,6 +134,10 @@ public final class TranslationConfig {
 
     public ThinkingStrength getThinkingStrength() {
         return thinkingStrength;
+    }
+
+    public String getPendingSummaryMode() {
+        return pendingSummaryMode;
     }
 
     public int getMaxTokens() {
@@ -260,6 +267,7 @@ public final class TranslationConfig {
             ThinkingStrength.fromConfigValue(thinkingStrengthValue),
             contextLength,
             optionalInt(api, "MaxTokens", ConfigStore.DEFAULT_TRANSLATION_MAX_TOKENS),
+            api.optString("PendingSummaryMode", "wait"),
             contextAutoCompression,
             continueAutoSummaryAfterManual,
             retention.recentPercent,
@@ -339,6 +347,10 @@ public final class TranslationConfig {
                     + " to "
                     + ConfigStore.MAX_REPAIR_GRADIENT_COUNT
             );
+        }
+        if (!"wait".equals(pendingSummaryMode) && !"skip".equals(pendingSummaryMode)
+            && !"original".equals(pendingSummaryMode)) {
+            throw new IllegalArgumentException("Invalid PendingSummaryMode");
         }
         if (maxTokens <= 0) {
             throw new IllegalArgumentException("MaxTokens must be positive");

@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_field_pending_summary_mode">同上下文前序剧情缺少摘要时</string>
+    <string name="settings_field_hint_pending_summary_mode">等待：沿用现有等待规则。不等待：只发送已有摘要。发送原文：补充当前剧情之前所有缺少摘要的完整原文。找不到原文或超过上下文上限时提示处理；不包含后续剧情。</string>
+    <string name="settings_option_summary_wait">等待</string>
+    <string name="settings_option_summary_skip">不等待</string>
+    <string name="settings_option_summary_original">发送所有未产生总结的完整原文</string>
     <string name="settings_field_max_output_tokens">输出 token 上限（max_tokens）</string>
     <string name="settings_field_hint_max_output_tokens">翻译与修复请求允许生成的最大 token 数，与输入上下文长度不同。请按模型和服务商支持的上限填写，过大可能导致请求被拒绝。</string>
     <string name="settings_field_enable_streaming_response">启用流式翻译</string>
