@@ -95,6 +95,22 @@ public final class ManagementHomeActivity extends AppCompatActivity {
     private org.json.JSONObject stylePreviewPayload;
     private ManagementBatchSelection.Session batchSelection;
     private long renderGeneration;
+    /** Current render only; repeated tree occurrences share a selection key. */
+    private final List<BatchCheckBinding> batchChecks = new ArrayList<>();
+
+    private static final class BatchCheckBinding {
+        final String kind;
+        final String id;
+        final String key;
+        final CheckBox check;
+
+        BatchCheckBinding(String kind, String id, CheckBox check) {
+            this.kind = kind;
+            this.id = id;
+            this.key = kind + ":" + id;
+            this.check = check;
+        }
+    }
 
     @Override
     protected void onNewIntent(Intent intent) {
@@ -794,8 +810,22 @@ public final class ManagementHomeActivity extends AppCompatActivity {
 
     void refreshHomeBatchRows() {
         if (batchMode && !destroyed && !isFinishing() && !isDestroyed()) {
-            rememberScrollPosition();
-            render();
+            updateBatchChecks(null);
+            notifyBatchHostRowsChanged();
+        }
+    }
+
+    private void updateBatchChecks(String changedKey) {
+        for (BatchCheckBinding binding : batchChecks) {
+            if (changedKey != null && !changedKey.equals(binding.key)) continue;
+            boolean checked = batchSelection.contains(binding.key);
+            if (binding.check.isChecked() != checked) {
+                binding.check.setChecked(checked);
+            }
+            boolean ready = batchDataSource.isItemReady(binding.kind, binding.id);
+            if (binding.check.isEnabled() != ready) {
+                binding.check.setEnabled(ready);
+            }
         }
     }
 
@@ -916,6 +946,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         updateFab();
         updateToolbarActions();
         batchDataSource.beginRender();
+        batchChecks.clear();
         content.removeAllViews();
         if (snapshot == null) {
             if (loadErrorMessage.isEmpty()) {
@@ -1257,6 +1288,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             );
             check.setChecked(batchSelection.contains(key));
             check.setEnabled(ready);
+            batchChecks.add(new BatchCheckBinding(batchKind, node.targetId, check));
             check.setClickable(false);
             check.setFocusable(false);
             check.setContentDescription(getString(
@@ -1478,6 +1510,7 @@ public final class ManagementHomeActivity extends AppCompatActivity {
         CheckBox check = new CheckBox(this);
         check.setChecked(batchSelection.contains(key));
         check.setEnabled(ready);
+        batchChecks.add(new BatchCheckBinding(kind, canonicalId, check));
         check.setClickable(false);
         check.setFocusable(false);
         check.setContentDescription(getString(
@@ -1541,7 +1574,8 @@ public final class ManagementHomeActivity extends AppCompatActivity {
             key,
             !batchSelection.contains(key)
         );
-        batchDataSource.onBatchSelectionChanged();
+        updateBatchChecks(key);
+        notifyBatchHostRowsChanged();
     }
 
     private String treeBatchKind(ManagementHomeData.TreeNode node) {
