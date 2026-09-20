@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingHorizontal="24dp"
+    android:paddingBottom="16dp">
+
+    <ScrollView
+        android:id="@+id/obb_status_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:fillViewport="true">
+        <TextView
+            android:id="@+id/obb_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingVertical="12dp"
+            android:text="@string/obb_resource_description"
+            android:textColor="@color/het_on_surface_muted"
+            android:textSize="15sp" />
+    </ScrollView>
+
+    <ProgressBar
+        android:id="@+id/obb_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:max="100"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/obb_progress_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="end"
+        android:textColor="@color/het_on_surface_muted"
+        android:visibility="gone" />
+</LinearLayout>

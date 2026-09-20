@@ -25,10 +25,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.function.Consumer;
 
 /** One user-requested check/download. Owns temporary HET files and HTTP cancellation. */
 public final class ObbResourceDownload implements AutoCloseable {
+    public interface ProgressListener {
+        void onProgress(String message, long received, long total);
+    }
+
     private static final String REPOSITORY = "quartawa/housamo-obb";
     private final File cacheDirectory;
     private volatile boolean canceled;
@@ -38,16 +41,16 @@ public final class ObbResourceDownload implements AutoCloseable {
         cacheDirectory = context.getCacheDir();
     }
 
-    public String run(IGameObbPort port, Consumer<String> progress) throws Exception {
+    public String run(IGameObbPort port, ProgressListener progress) throws Exception {
         if (port == null) {
             throw new IOException("游戏未连接，或游戏中的 HET 模块尚未更新。请先启动游戏并启用模块，再重试。");
         }
         checkCanceled();
-        progress.accept("正在读取游戏版本和 OBB 目录…");
+        progress.onProgress("正在读取游戏版本和 OBB 目录…", 0, -1);
         Bundle snapshot = port.inspect();
         String version = snapshot.getString("version");
         String tag = "v" + version;
-        progress.accept("游戏 " + version + "，正在查找 OBB Release " + tag + "…");
+        progress.onProgress("游戏 " + version + "，正在查找 OBB Release " + tag + "…", 0, -1);
         JSONObject release;
         HttpURLConnection connection = open(
             "https://api.github.com/repos/" + REPOSITORY + "/releases/tags/" + Uri.encode(tag)
@@ -91,7 +94,7 @@ public final class ObbResourceDownload implements AutoCloseable {
                 Bundle current = port.inspect();
                 requireMatchingVersion(current.getString("version"), releaseTag);
                 checkCanceled();
-                progress.accept("正在保存到游戏 OBB 目录：" + name);
+                progress.onProgress("正在保存到游戏 OBB 目录：" + name, 0, -1);
                 try (ParcelFileDescriptor descriptor = ParcelFileDescriptor.open(
                     temporary, ParcelFileDescriptor.MODE_READ_ONLY
                 )) {
@@ -122,9 +125,9 @@ public final class ObbResourceDownload implements AutoCloseable {
         }
     }
 
-    private void download(String tag, String name, File target, Consumer<String> progress)
+    private void download(String tag, String name, File target, ProgressListener progress)
         throws IOException {
-        progress.accept("正在下载：" + name);
+        progress.onProgress("正在下载：" + name, 0, -1);
         Log.i("HET-OBB", "Download started release=" + tag + " asset=" + name);
         HttpURLConnection connection = open(
             "https://github.com/" + REPOSITORY + "/releases/download/"
@@ -133,6 +136,7 @@ public final class ObbResourceDownload implements AutoCloseable {
         try {
             requireSuccess(connection.getResponseCode());
             long expected = connection.getContentLengthLong();
+            progress.onProgress("正在下载：" + name, 0, expected);
             long received = 0;
             long lastProgress = 0;
             try (InputStream input = connection.getInputStream();
@@ -145,14 +149,12 @@ public final class ObbResourceDownload implements AutoCloseable {
                     received += count;
                     long now = android.os.SystemClock.elapsedRealtime();
                     if (now - lastProgress >= 500) {
-                        progress.accept(String.format(Locale.ROOT,
-                            "正在下载：%s\n%.1f MB%s", name, received / 1048576.0,
-                            expected > 0 ? String.format(Locale.ROOT,
-                                " / %.1f MB", expected / 1048576.0) : ""));
+                        reportDownload(progress, name, received, expected);
                         lastProgress = now;
                     }
                 }
             }
+            reportDownload(progress, name, received, expected);
             // Transport completion only; no hash, OBB structure or content validation.
             if (expected >= 0 && received != expected) {
                 throw new IOException("下载连接提前结束，请重试");
@@ -162,6 +164,13 @@ public final class ObbResourceDownload implements AutoCloseable {
         }
     }
 
+    private static void reportDownload(ProgressListener progress, String name,
+                                       long received, long total) {
+        progress.onProgress(String.format(Locale.ROOT,
+            "正在下载：%s\n%.1f MB%s", name, received / 1048576.0,
+            total > 0 ? String.format(Locale.ROOT, " / %.1f MB", total / 1048576.0) : ""),
+            received, total);
+    }
     private synchronized HttpURLConnection open(String url) throws IOException {
         checkCanceled();
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();

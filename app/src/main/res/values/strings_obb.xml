@@ -2,5 +2,12 @@
 <resources>
     <string name="obb_resource_title">OBB 配置</string>
     <string name="obb_resource_action">检查并补齐 OBB</string>
+    <string name="obb_resource_close">关闭</string>
+    <string name="obb_resource_exit_title">停止 OBB 处理并退出？</string>
+    <string name="obb_resource_exit_message">检查或下载尚未完成。退出会取消当前操作并清理下载临时文件；已保存的 OBB 会保留，已经开始的游戏端保存会继续完成。</string>
+    <string name="obb_resource_continue">继续处理</string>
+    <string name="obb_resource_exit">停止并退出</string>
+    <string name="obb_resource_working">处理中…</string>
+    <string name="obb_resource_percent">%1$d%%（当前文件）</string>
     <string name="obb_resource_description">先启动游戏并启用 HET 模块，再检查 OBB。按游戏版本查找同版本 Release（例如 5.19.0 对应 v5.19.0），只下载缺失的 OBB，已有文件不覆盖，不做内容校验。\n\n下载可能消耗较多流量，请保持此窗口打开。关闭窗口会取消检查和下载；已开始的游戏端保存会完成。</string>
 </resources>
