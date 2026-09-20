@@ -20,6 +20,7 @@
         app:title="@string/scene_conflicts_title" />
 
     <TextView
+        android:id="@+id/tv_scene_conflicts_intro"
         style="@style/TextAppearance.HET.StaticDetail.Body"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

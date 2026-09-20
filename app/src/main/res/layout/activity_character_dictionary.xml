@@ -38,6 +38,15 @@
         android:padding="10dp"
         android:textAppearance="@style/TextAppearance.HET.StaticDetail.Status" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_chardict_conflicts"
+        style="@style/Widget.HET.StaticDetail.Button.Secondary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:text="@string/chardict_conflicts_title" />
+
     <com.google.android.material.card.MaterialCardView
         style="@style/Widget.HET.SectionCard"
         android:layout_width="match_parent"

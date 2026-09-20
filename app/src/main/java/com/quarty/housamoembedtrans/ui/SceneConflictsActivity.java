@@ -36,6 +36,8 @@ import java.util.concurrent.Executors;
 
 /** Displays and applies complete, independently stored Scene conflicts. */
 public final class SceneConflictsActivity extends AppCompatActivity {
+    public static final String EXTRA_CHARACTER_DICTIONARY = "character_dictionary";
+    private CharacterDictionaryConflictScreen dictionaryScreen;
     private static final String TAG = "HET.SceneConflicts";
     private static final String STATE_EXPANDED_SCENES = "expanded_scenes";
 
@@ -77,6 +79,11 @@ public final class SceneConflictsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_scene_conflicts);
         SystemBarInsets.apply(findViewById(R.id.root_scene_conflicts));
 
+        if (getIntent().getBooleanExtra(EXTRA_CHARACTER_DICTIONARY, false)) {
+            dictionaryScreen = new CharacterDictionaryConflictScreen(this);
+            return;
+        }
+
         if (savedInstanceState != null) {
             ArrayList<String> restored = savedInstanceState.getStringArrayList(
                 STATE_EXPANDED_SCENES
@@ -113,7 +120,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        runtimeBinding.start();
+        if (dictionaryScreen == null) runtimeBinding.start();
     }
 
     @Override
@@ -133,6 +140,7 @@ public final class SceneConflictsActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (dictionaryScreen != null) dictionaryScreen.close();
         runtimeBinding.stop();
         loadGeneration++;
         ioExecutor.shutdownNow();

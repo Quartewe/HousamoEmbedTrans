@@ -235,6 +235,12 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         findViewById(R.id.btn_add_character).setOnClickListener(view -> editCharacter(null));
         findViewById(R.id.btn_edit_mc).setOnClickListener(view -> editCharacter("mc"));
         findViewById(R.id.btn_restore_chardict).setOnClickListener(view -> confirmRestore());
+        findViewById(R.id.btn_chardict_conflicts).setOnClickListener(view -> {
+            if (stylePreview || dirty || importBusy || batchMode) return;
+            refreshListAfterEditor = true;
+            startActivity(new Intent(this, SceneConflictsActivity.class)
+                .putExtra(SceneConflictsActivity.EXTRA_CHARACTER_DICTIONARY, true));
+        });
         importButton.setOnClickListener(view -> {
             if (dirty || importBusy) {
                 Toast.makeText(
@@ -1609,10 +1615,7 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         try {
             ConfigStore.validateCharacterDictionary(dictionary);
             configStore.saveJson(ConfigStore.CHARDICT_FILE_NAME, dictionary);
-            userOverride = true;
-            invalidUserOverride = false;
-            dirty = false;
-            updateStatus();
+            loadDictionary();
             Toast.makeText(this, R.string.chardict_saved, Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Toast.makeText(
@@ -1652,6 +1655,8 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
     }
 
     private void updateStatus() {
+        findViewById(R.id.btn_chardict_conflicts).setEnabled(
+            !stylePreview && !dirty && !importBusy && !batchMode && dictionary != null);
         if (dictionary == null) {
             return;
         }

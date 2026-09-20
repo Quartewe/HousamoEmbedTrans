@@ -23,7 +23,8 @@ import java.util.Set;
 
 /**
  * Stores user-editable JSON resources in the module app's private files directory.
- * Bundled assets remain immutable defaults and are used whenever no user file exists.
+ * Character assets are incrementally reconciled with user edits; other resources
+ * retain whole-file override semantics.
  */
 public final class ConfigStore {
 
@@ -72,6 +73,7 @@ public final class ConfigStore {
     private static final String PREFS_NAME = "housamo_trans_prefs";
     private static final String KEY_API_KEY = "api_key";
     private static final Object CONFIG_ACCESS_LOCK = new Object();
+    private JSONObject characterEditBase;
 
     public static class JsonLoadResult {
         public final JSONObject json;
@@ -220,6 +222,14 @@ public final class ConfigStore {
     }
 
     public JsonLoadResult loadJson(String name) throws Exception {
+        if (CHARDICT_FILE_NAME.equals(name)) {
+            synchronized (CONFIG_ACCESS_LOCK) {
+                CharacterDictionaryUpdates.Snapshot snapshot = characterDictionarySnapshot();
+                characterEditBase = copyJsonObject(snapshot.dictionary);
+                return new JsonLoadResult(snapshot.dictionary, snapshot.userOverride,
+                    snapshot.invalidUserOverride);
+            }
+        }
         File userFile = getUserFile(name);
         AtomicFile atomicFile = new AtomicFile(userFile);
 
@@ -247,6 +257,52 @@ public final class ConfigStore {
         );
         validateResource(name, json);
         return json;
+    }
+
+    private Set<String> pendingCharacterKeys() throws IOException {
+        PendingProcessStore.ReferenceSnapshot references = snapshotPendingReferencesForConfig();
+        return references == null ? java.util.Collections.emptySet()
+            : references.canonicalIdsForKind("character");
+    }
+
+    private CharacterDictionaryUpdates.Snapshot characterDictionarySnapshot() throws IOException {
+        File file = getUserFile(CHARDICT_FILE_NAME);
+        Set<String> excluded = pendingCharacterKeys();
+        return recoveryGate.withDictionaryWrite(CHARDICT_FILE_NAME, file, () -> {
+            try {
+                return new CharacterDictionaryUpdates(file).load(
+                    loadBundledJson(CHARDICT_FILE_NAME), excluded);
+            } catch (Exception e) {
+                throw new IOException("could not reconcile character dictionary", e);
+            }
+        });
+    }
+
+    public java.util.List<CharacterDictionaryUpdates.Conflict> characterDictionaryConflicts()
+        throws IOException {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            CharacterDictionaryUpdates.Snapshot snapshot = characterDictionarySnapshot();
+            if (snapshot.invalidUserOverride) throw new IOException("invalid character dictionary override");
+            return snapshot.conflicts;
+        }
+    }
+
+    public void resolveCharacterDictionaryConflict(CharacterDictionaryUpdates.Conflict expected,
+                                                  boolean chooseBundled) throws IOException {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            File file = getUserFile(CHARDICT_FILE_NAME);
+            Set<String> excluded = pendingCharacterKeys();
+            if (excluded.contains(expected.name)) throw new IOException("character is pending removal");
+            recoveryGate.withDictionaryWrite(CHARDICT_FILE_NAME, file, () -> {
+                try {
+                    new CharacterDictionaryUpdates(file).resolve(expected, chooseBundled,
+                        loadBundledJson(CHARDICT_FILE_NAME), excluded);
+                    return null;
+                } catch (Exception e) {
+                    throw new IOException("could not resolve character dictionary conflict", e);
+                }
+            });
+        }
     }
 
     public void saveJson(String name, JSONObject json) throws IOException {
@@ -659,6 +715,8 @@ public final class ConfigStore {
         String name,
         JSONObject json
     ) throws IOException {
+        Set<String> pendingCharacters = CHARDICT_FILE_NAME.equals(name)
+            ? pendingCharacterKeys() : java.util.Collections.emptySet();
         final byte[] bytes;
         try {
             bytes = (json.toString(2) + "\n")
@@ -671,7 +729,19 @@ public final class ConfigStore {
                 name,
                 userFile,
                 () -> {
-                    IoUtils.writeAtomically(userFile, bytes);
+                    if (CHARDICT_FILE_NAME.equals(name)) {
+                        try {
+                            new CharacterDictionaryUpdates(userFile).save(json,
+                                characterEditBase, loadBundledJson(name), pendingCharacters);
+                            // The caller has only seen its submitted snapshot. Keep
+                            // concurrent additions out of its inferred deletion set.
+                            characterEditBase = copyJsonObject(json);
+                        } catch (Exception e) {
+                            throw new IOException("could not save character dictionary update", e);
+                        }
+                    } else {
+                        IoUtils.writeAtomically(userFile, bytes);
+                    }
                     return null;
                 }
             );
@@ -690,7 +760,15 @@ public final class ConfigStore {
                 name,
                 userFile,
                 () -> {
-                    new AtomicFile(userFile).delete();
+                    if (CHARDICT_FILE_NAME.equals(name)) {
+                        try {
+                            new CharacterDictionaryUpdates(userFile).reset(loadBundledJson(name));
+                        } catch (Exception e) {
+                            throw new IOException("could not reset character dictionary", e);
+                        }
+                    } else {
+                        new AtomicFile(userFile).delete();
+                    }
                     return null;
                 }
             );
@@ -702,6 +780,17 @@ public final class ConfigStore {
      * The provider uses this to avoid exposing a corrupt override to the game.
      */
     public File getValidUserFile(String name) {
+        if (CHARDICT_FILE_NAME.equals(name)) {
+            synchronized (CONFIG_ACCESS_LOCK) {
+                try {
+                    CharacterDictionaryUpdates.Snapshot snapshot = characterDictionarySnapshot();
+                    return snapshot.userOverride && !snapshot.invalidUserOverride
+                        ? getUserFile(name) : null;
+                } catch (IOException e) {
+                    throw new IllegalStateException("character dictionary update is unavailable", e);
+                }
+            }
+        }
         File file = getUserFile(name);
         AtomicFile atomicFile = new AtomicFile(file);
         if (!IoUtils.atomicFileExists(file)) {
