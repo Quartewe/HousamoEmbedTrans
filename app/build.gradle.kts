@@ -2,16 +2,31 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+val releaseStoreFile = providers.environmentVariable("HET_SIGNING_STORE_FILE").orNull
+val releaseStorePassword = providers.environmentVariable("SIGNING_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("SIGNING_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("SIGNING_KEY_PASSWORD").orNull
+val releaseSigningValues = listOf(
+    releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword
+)
+if (releaseSigningValues.any { it != null }) {
+    require(releaseSigningValues.all { !it.isNullOrEmpty() }) {
+        "Release signing requires all four signing environment variables"
+    }
+}
+
 android {
     namespace = "com.quarty.housamoembedtrans"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.quarty.housamoembedtrans"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = providers.gradleProperty("hetVersionCode").orElse("1").get().toInt()
+        versionName = providers.gradleProperty("hetVersionName").orElse("1.0").get()
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -39,9 +54,23 @@ android {
     }
 
     // 设置、字典与 scene 文件管理由已安装的 HET Activity 提供。
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("ciRelease") {
+                storeFile = file(releaseStoreFile)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseStoreFile != null) {
+                signingConfig = signingConfigs.getByName("ciRelease")
+            }
         }
     }
 

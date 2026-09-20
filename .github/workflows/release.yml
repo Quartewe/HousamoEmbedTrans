@@ -1,0 +1,164 @@
+name: Publish signed APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Read release version from tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+          tag = os.environ['RELEASE_TAG']
+          match = re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', tag)
+          if not match:
+              raise SystemExit('Tag must use vMAJOR.MINOR.PATCH, for example v1.0.0')
+          major, minor, patch = map(int, match.groups())
+          code = major * 1000000 + minor * 1000 + patch
+          if minor > 999 or patch > 999 or not 1 <= code <= 2100000000:
+              raise SystemExit('Version exceeds the supported Android versionCode range')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'HET_VERSION_NAME={tag[1:]}\nHET_VERSION_CODE={code}\n')
+              output.write(f'APK_NAME=HousamoEmbedTrans-{tag}-arm64-v8a.apk\n')
+          PY
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Install pinned Android build tools
+        run: |
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
+
+      - name: Restore signing keystore
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          for name in ('SIGNING_KEYSTORE_BASE64', 'SIGNING_STORE_PASSWORD', 'SIGNING_KEY_ALIAS', 'SIGNING_KEY_PASSWORD'):
+              if not os.environ.get(name):
+                  raise SystemExit(f'Missing Actions Secret: {name}')
+          data = base64.b64decode(os.environ['SIGNING_KEYSTORE_BASE64'], validate=True)
+          path = os.path.join(os.environ['RUNNER_TEMP'], 'het-release.jks')
+          with open(path, 'wb') as output:
+              output.write(data)
+          os.chmod(path, 0o600)
+          PY
+
+      - name: Build signed release APK
+        env:
+          HET_SIGNING_STORE_FILE: ${{ runner.temp }}/het-release.jks
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          bash ./gradlew :app:assembleRelease --no-daemon --no-configuration-cache --console=plain \
+            "-PhetVersionName=$HET_VERSION_NAME" "-PhetVersionCode=$HET_VERSION_CODE"
+
+      - name: Verify signature and collect APK
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          python3 - <<'PY'
+          import json, os, pathlib, shutil
+          directory = pathlib.Path('app/build/outputs/apk/release')
+          metadata = json.loads((directory / 'output-metadata.json').read_text())
+          outputs = metadata['elements']
+          if len(outputs) != 1:
+              raise SystemExit('Expected exactly one release APK')
+          apk = outputs[0]
+          if apk['versionName'] != os.environ['HET_VERSION_NAME'] or apk['versionCode'] != int(os.environ['HET_VERSION_CODE']):
+              raise SystemExit('APK version does not match the pushed tag')
+          pathlib.Path('dist').mkdir(exist_ok=True)
+          shutil.copy2(directory / apk['outputFile'], pathlib.Path('dist') / os.environ['APK_NAME'])
+          PY
+
+      - name: Retain APK for download if publishing needs a retry
+        uses: actions/upload-artifact@v4
+        with:
+          name: HousamoEmbedTrans-${{ github.ref_name }}
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Retain unstripped native symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-symbols-${{ github.ref_name }}
+          path: app/build/intermediates/cxx/RelWithDebInfo/*/obj/arm64-v8a/libhousamo_trans.so
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish release after APK upload
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const { owner, repo } = context.repo;
+            const tag = context.ref.slice('refs/tags/'.length);
+            const name = process.env.APK_NAME;
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner, repo, per_page: 100
+            });
+            let release = releases.find(item => item.tag_name === tag);
+            if (!release) {
+              ({ data: release } = await github.rest.repos.createRelease({
+                owner, repo, tag_name: tag, name: tag,
+                draft: true, generate_release_notes: true
+              }));
+            }
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              owner, repo, release_id: release.id, per_page: 100
+            });
+            const existing = assets.find(asset => asset.name === name);
+            if (existing && existing.state !== 'uploaded') {
+              throw new Error('Incomplete release asset; delete it before rerunning this workflow');
+            }
+            if (!existing) {
+              const data = fs.readFileSync(`dist/${name}`);
+              await github.rest.repos.uploadReleaseAsset({
+                owner, repo, release_id: release.id, name, data,
+                headers: { 'content-type': 'application/vnd.android.package-archive', 'content-length': data.length }
+              });
+            } else {
+              core.info('Release asset already exists; keeping the published APK');
+            }
+            if (release.draft) {
+              await github.rest.repos.updateRelease({
+                owner, repo, release_id: release.id, draft: false, make_latest: 'legacy'
+              });
+            }
+            await core.summary.addLink(`Release ${tag}`, release.html_url).write();
+
+      - name: Remove temporary signing keystore
+        if: ${{ always() }}
+        run: rm -f -- "$RUNNER_TEMP/het-release.jks"

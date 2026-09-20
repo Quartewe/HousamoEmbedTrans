@@ -13,7 +13,11 @@
 *.aab
 *.jks
 *.keystore
-/.github
+/.github/*
+!/.github/workflows/
+/.github/workflows/*
+!/.github/workflows/*.yml
+app/release
 /.codex
 /.vscode
 AGENTS.md
