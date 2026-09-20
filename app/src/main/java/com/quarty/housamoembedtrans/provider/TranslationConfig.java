@@ -27,6 +27,7 @@ public final class TranslationConfig {
     private final String systemPrompt;
     private final ThinkingStrength thinkingStrength;
     private final int contextLength;
+    private final int maxTokens;
     private final boolean contextAutoCompression;
     private final boolean continueAutoSummaryAfterManual;
     private final int defaultRecentPercent;
@@ -48,6 +49,7 @@ public final class TranslationConfig {
         String systemPrompt,
         ThinkingStrength thinkingStrength,
         int contextLength,
+        int maxTokens,
         boolean contextAutoCompression,
         boolean continueAutoSummaryAfterManual,
         int defaultRecentPercent,
@@ -68,6 +70,7 @@ public final class TranslationConfig {
         this.systemPrompt = systemPrompt;
         this.thinkingStrength = thinkingStrength;
         this.contextLength = contextLength;
+        this.maxTokens = maxTokens;
         this.contextAutoCompression = contextAutoCompression;
         this.continueAutoSummaryAfterManual = continueAutoSummaryAfterManual;
         this.defaultRecentPercent = defaultRecentPercent;
@@ -128,6 +131,10 @@ public final class TranslationConfig {
 
     public ThinkingStrength getThinkingStrength() {
         return thinkingStrength;
+    }
+
+    public int getMaxTokens() {
+        return maxTokens;
     }
 
     public int getContextLength() {
@@ -247,11 +254,12 @@ public final class TranslationConfig {
             ),
             userSettings.optBoolean("EnableFailedApiResponseDump", false),
             userSettings.optBoolean("EnableApiBodyLogging", false),
-            userSettings.optBoolean("DebugOmitThinkingParameters", false),
+            userSettings.optBoolean("DebugOmitThinkingParameters", true),
             apiKey == null ? "" : apiKey,
             systemPrompt,
             ThinkingStrength.fromConfigValue(thinkingStrengthValue),
             contextLength,
+            optionalInt(api, "MaxTokens", ConfigStore.DEFAULT_TRANSLATION_MAX_TOKENS),
             contextAutoCompression,
             continueAutoSummaryAfterManual,
             retention.recentPercent,
@@ -331,6 +339,9 @@ public final class TranslationConfig {
                     + " to "
                     + ConfigStore.MAX_REPAIR_GRADIENT_COUNT
             );
+        }
+        if (maxTokens <= 0) {
+            throw new IllegalArgumentException("MaxTokens must be positive");
         }
         if (contextLength <= 0) {
             throw new IllegalArgumentException(

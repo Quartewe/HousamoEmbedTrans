@@ -1553,8 +1553,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                 text("model", R.string.settings_field_model, R.string.settings_field_hint_model, new String[] {"TranslationApi", "Model"}, 200),
                 select("target-language", R.string.settings_field_target_language, R.string.settings_field_hint_target_language,
                     new String[] {"zh-cn", "zh-tw", "en", "custom"}, new int[] {R.string.settings_option_zh_cn, R.string.settings_option_zh_tw, R.string.settings_option_en, R.string.settings_category_target_custom}, new String[] {"TargetLanguage"}),
-                select("thinking-strength", R.string.settings_field_thinking_strength, R.string.settings_field_hint_thinking_strength,
-                    new String[] {"none", "minimal", "low", "medium", "high", "xhigh", "max"}, new int[] {R.string.settings_option_thinking_none, R.string.settings_option_thinking_minimal, R.string.settings_option_thinking_low, R.string.settings_option_thinking_medium, R.string.settings_option_thinking_high, R.string.settings_option_thinking_xhigh, R.string.settings_option_thinking_max}, new String[] {"Api", "ThinkingStrength"}),
+                number("max-output-tokens", R.string.settings_field_max_output_tokens, R.string.settings_field_hint_max_output_tokens, new String[] {"TranslationApi", "MaxTokens"}, 1, Integer.MAX_VALUE),
                 number("context-length", R.string.settings_field_context_length, R.string.settings_field_hint_context_length, new String[] {"Api", "context_length"}, 1, 1_000_000),
                 slider("max-concurrent-requests", R.string.settings_field_api_concurrency, R.string.settings_field_hint_api_concurrency, new String[] {"Api", "max_concurrent_requests"}, 1, 8, 1, true),
                 slider("network-retry-count", R.string.settings_field_network_retry_count, R.string.settings_field_hint_network_retry_count, new String[] {"TranslationApi", "NetworkRetryCount"}, 0, 5, 1, true)
@@ -1612,6 +1611,8 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
             bool("enable-parse-only-debug", R.string.settings_field_enable_parse_only_debug, R.string.settings_field_hint_enable_parse_only_debug, new String[] {"EnableParseOnlyDebug"}),
             bool("enable-failed-api-response-dump", R.string.settings_field_enable_failed_api_response_dump, R.string.settings_field_hint_enable_failed_api_response_dump, new String[] {"EnableFailedApiResponseDump"}),
             bool("enable-api-body-logging", R.string.settings_field_enable_api_body_logging, R.string.settings_field_hint_enable_api_body_logging, new String[] {"EnableApiBodyLogging"}),
+                select("thinking-strength", R.string.settings_field_thinking_strength, R.string.settings_field_hint_thinking_strength,
+                    new String[] {"none", "minimal", "low", "medium", "high", "xhigh", "max"}, new int[] {R.string.settings_option_thinking_none, R.string.settings_option_thinking_minimal, R.string.settings_option_thinking_low, R.string.settings_option_thinking_medium, R.string.settings_option_thinking_high, R.string.settings_option_thinking_xhigh, R.string.settings_option_thinking_max}, new String[] {"Api", "ThinkingStrength"}),
             bool("omit-thinking-parameters", R.string.settings_field_omit_thinking_parameters, R.string.settings_field_hint_omit_thinking_parameters, new String[] {"DebugOmitThinkingParameters"})
         );
     }

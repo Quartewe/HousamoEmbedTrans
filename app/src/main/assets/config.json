@@ -5,7 +5,7 @@
         "EnableParseOnlyDebug": false,
         "EnableFailedApiResponseDump": false,
         "EnableApiBodyLogging": false,
-        "DebugOmitThinkingParameters": false,
+        "DebugOmitThinkingParameters": true,
         "OverwriteExistingJson": false,
         "SceneWorkerCount": 4,
         "SceneSync": {
@@ -28,12 +28,13 @@
             "NetworkRetryCount": 3,
             "ResultRepairCount": 3,
             "EnableStreamingResponse": true,
+            "MaxTokens": 384000,
             "RepairGradientCount": 3,
             "UseFullSceneForRepair": true
         },
         "Api": {
             "ThinkingStrength": "none",
-            "context_length": 160000,
+            "context_length": 168000,
             "max_concurrent_requests": 2
         },
         "TranslationQueue": {

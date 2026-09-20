@@ -15,7 +15,6 @@ import java.util.Set;
 
 /** Builds provider requests while keeping the scene prefix stable for caching. */
 public final class TranslationRequestFactory {
-    private static final int ANTHROPIC_MAX_TOKENS = 38_400;
 
     private TranslationRequestFactory() {
         throw new AssertionError("No instances");
@@ -216,7 +215,7 @@ public final class TranslationRequestFactory {
                     .put("content", userContent));
             providerRequest = new JSONObject()
                 .put("model", config.getModel())
-                .put("max_tokens", 384000)
+                .put("max_tokens", config.getMaxTokens())
                 .put("stream", config.isStreamingResponseEnabled())
                 .put("messages", messages);
             if (config.shouldSendThinkingParameters()) {
@@ -233,7 +232,7 @@ public final class TranslationRequestFactory {
             );
             providerRequest = new JSONObject()
                 .put("model", config.getModel())
-                .put("max_tokens", ANTHROPIC_MAX_TOKENS)
+                .put("max_tokens", config.getMaxTokens())
                 .put("stream", config.isStreamingResponseEnabled())
                 .put("system", config.getSystemPrompt())
                 .put("messages", messages);

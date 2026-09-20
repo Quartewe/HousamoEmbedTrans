@@ -191,7 +191,7 @@ public final class SettingsCategory {
                 || userSettings.optBoolean("EnableParseOnlyDebug", false)
                 || userSettings.optBoolean("EnableFailedApiResponseDump", false)
                 || userSettings.optBoolean("EnableApiBodyLogging", false)
-                || userSettings.optBoolean("DebugOmitThinkingParameters", false)
+                || userSettings.optBoolean("DebugOmitThinkingParameters", true)
             ? "部分调试选项已开启"
             : "调试选项已关闭";
     }

@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_field_max_output_tokens">输出 token 上限（max_tokens）</string>
+    <string name="settings_field_hint_max_output_tokens">翻译与修复请求允许生成的最大 token 数，与输入上下文长度不同。请按模型和服务商支持的上限填写，过大可能导致请求被拒绝。</string>
     <string name="settings_field_enable_streaming_response">启用流式翻译</string>
     <string name="settings_field_hint_enable_streaming_response">开启后边接收边按块修复和回写；关闭后等待完整响应再统一修复、回写。修改对新开始的任务生效，恢复中的任务保留原分块策略。</string>
     <string name="settings_field_omit_thinking_parameters">不发送思考参数</string>
-    <string name="settings_field_hint_omit_thinking_parameters">调试对照，默认关闭。翻译、修复和摘要请求不发送 reasoning_effort、thinking 预算及思考专用 beta 请求头，使用服务商默认行为，不代表关闭思考。保留已选思考强度和流式设置，对新启动的任务生效。</string>
+    <string name="settings_field_hint_omit_thinking_parameters">调试对照，默认开启。翻译、修复和摘要请求不发送 reasoning_effort、thinking 预算及思考专用 beta 请求头，使用服务商默认行为，不代表关闭思考。保留已选思考强度和流式设置，对新启动的任务生效。</string>
     <string name="settings_field_enable_api_body_logging">打印 API 请求与响应正文</string>
-    <string name="settings_field_hint_enable_api_body_logging">默认关闭。将翻译和修复请求正文及原始响应按日保存到内部日志文件，同时打印到 logcat，包含思考和译文，日志量较大；不记录请求头，API Key 会脱敏。对新启动的任务生效。</string>
+    <string name="settings_field_hint_enable_api_body_logging">默认开启。将翻译和修复请求正文及原始响应按日保存到内部日志文件，同时打印到 logcat，包含思考和译文，日志量较大；不记录请求头，API Key 会脱敏。对新启动的任务生效。</string>
     <string name="primary_nav_tasks">任务</string>
     <string name="primary_nav_management">管理</string>
     <string name="primary_nav_settings">设置</string>
@@ -120,7 +122,7 @@
     <string name="settings_field_hint_api_key">只保存在本地私有设置中，不进入 config.json。</string>
     <string name="settings_field_hint_model">模型名会随下一次请求使用。</string>
     <string name="settings_field_hint_target_language">新建翻译任务使用此语言；已发送任务保持原语言。</string>
-    <string name="settings_field_hint_thinking_strength">仅对支持该能力的模型生效。</string>
+    <string name="settings_field_hint_thinking_strength">关闭“不发送思考参数”后生效；翻译、修复和摘要共用，仅适用于支持该能力的模型。</string>
     <string name="settings_field_hint_context_length">必须是正整数；用于后续请求的上下文预算。</string>
     <string name="settings_field_hint_api_concurrency">应用级并发上限为 1–8。</string>
     <string name="settings_field_hint_network_retry_count">单次请求发生可重试网络错误时的重试次数。</string>

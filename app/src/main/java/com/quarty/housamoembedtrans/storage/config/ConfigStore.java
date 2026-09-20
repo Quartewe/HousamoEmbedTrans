@@ -52,7 +52,8 @@ public final class ConfigStore {
     public static final boolean DEFAULT_ENABLE_STARTUP_REVIEW = false;
     public static final String DEFAULT_RECOVERY_SORT_ORDER = "created_asc";
     public static final String DEFAULT_THINKING_STRENGTH = "none";
-    public static final int DEFAULT_CONTEXT_LENGTH = 160000;
+    public static final int DEFAULT_CONTEXT_LENGTH = 168000;
+    public static final int DEFAULT_TRANSLATION_MAX_TOKENS = 384000;
     public static final int MAX_TRANSLATION_RETRY_COUNT = 5;
     public static final int DEFAULT_SCENE_WORKER_COUNT =
         SceneSyncSettings.DEFAULT_SCENE_WORKER_COUNT;
@@ -938,6 +939,7 @@ public final class ConfigStore {
             "UserSettings.TranslationApi"
         );
         requireBoolean(translationApi, "EnableStreamingResponse", "UserSettings.TranslationApi");
+        requirePositiveInt(translationApi.get("MaxTokens"), "UserSettings.TranslationApi.MaxTokens");
         validateRepairGradientCount(translationApi);
 
         JSONObject translationQueue =
@@ -1057,7 +1059,13 @@ public final class ConfigStore {
         JSONObject translationApi = userSettings.optJSONObject(
             "TranslationApi"
         );
+        if (!userSettings.has("DebugOmitThinkingParameters")) {
+            userSettings.put("DebugOmitThinkingParameters", true);
+        }
         if (translationApi != null) {
+            if (!translationApi.has("MaxTokens")) {
+                translationApi.put("MaxTokens", DEFAULT_TRANSLATION_MAX_TOKENS);
+            }
             if (!translationApi.has("EnableStreamingResponse")) {
                 translationApi.put("EnableStreamingResponse", true);
             }
@@ -1438,6 +1446,8 @@ public final class ConfigStore {
             ? null
             : userSettings.optJSONObject("ContextHistory");
         return translationApi != null
+            && userSettings.has("DebugOmitThinkingParameters")
+            && translationApi.has("MaxTokens")
             && translationApi.has("EnableStreamingResponse")
             && !translationApi.has("EnableStreamingRepair")
             && translationApi.has("RepairGradientCount")
