@@ -9,7 +9,9 @@
     <string name="notification_channel_name">HET status</string>
     <string name="notification_channel_description">Translation and Scene Sync progress and runtime controls</string>
     <string name="notification_job_errors_channel_name">HET job errors</string>
-    <string name="notification_job_errors_channel_description">One-time notifications for failed jobs and archived API results</string>
+    <string name="notification_job_errors_channel_description">Alerts for failed jobs, Scene conflicts and archived API results</string>
+    <string name="notification_scene_conflicts_title">Scene conflicts need attention</string>
+    <string name="notification_scene_conflicts_text">%1$d Scene conflicts pending. Tap to review and choose which version to keep.</string>
     <string name="notification_summary_failed_title">Summary job failed</string>
     <string name="notification_summary_failed_generic">The summary job could not be completed. Open the queue for details.</string>
     <string name="notification_summary_failed_subtitle">Summary job · %1$s</string>
@@ -800,4 +802,14 @@
     <string name="task_reason_game_saved_fallback">HET had no source Scene. The game confirmed saving the translation; the result remains retained in this task.</string>
     <string name="task_reason_scene_missing_both">Neither HET nor the game has the source Scene. The translation result is retained, but cannot be saved. Restore the source Scene before retrying delivery; do not translate again.</string>
     <string name="task_reason_api_queued">Waiting for API scheduling or an available concurrency slot.</string>
+    <string name="chardict_conflicts_title">Character dictionary conflicts</string>
+    <string name="chardict_conflicts_intro">Non-conflicting changes are merged automatically. Expand each character to compare candidates. Choosing a side only resolves conflicting fields; both candidates retain the other merged changes. Until resolved, conflicting fields keep the user value.</string>
+    <string name="chardict_conflicts_count">%1$d character conflicts</string>
+    <string name="chardict_conflicts_empty">No character dictionary update conflicts.</string>
+    <string name="chardict_conflict_fields">Conflicting fields: %1$s</string>
+    <string name="chardict_conflict_bundled">Bundled dictionary candidate</string>
+    <string name="chardict_conflict_user">User dictionary candidate</string>
+    <string name="chardict_conflict_choose_bundled">Use bundled values</string>
+    <string name="chardict_conflict_choose_user">Keep user values</string>
+    <string name="chardict_conflict_failed">Could not load or apply dictionary conflicts. The data may have changed. Reopen this page and try again.</string>
 </resources>

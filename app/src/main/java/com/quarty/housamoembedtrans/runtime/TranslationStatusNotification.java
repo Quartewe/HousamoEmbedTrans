@@ -45,6 +45,10 @@ public final class TranslationStatusNotification {
     // A new ID is required: Android retains the old channel importance on upgrade.
     private static final String JOB_ERROR_CHANNEL_ID = "job_errors_heads_up";
     public static final int NOTIFICATION_ID = 0x484554;
+    private static final int SCENE_CONFLICT_NOTIFICATION_ID = 0x484555;
+    // Accessed only on the notification (main) thread. Avoid re-posting a
+    // dismissed alert on every API/progress snapshot.
+    private static int notifiedSceneConflictCount;
     private static final int SUMMARY_ERROR_NOTIFICATION_BASE = 0x534D;
     private static final int REJECTED_API_RESULT_NOTIFICATION_BASE = 0x524A;
     private static final int SCENE_REJECTION_NOTIFICATION_BASE = 0x534E;
@@ -954,9 +958,6 @@ public final class TranslationStatusNotification {
             runOnNotificationThread(() -> show(context));
             return;
         }
-        if (SceneSyncUiVisibility.isSceneSyncUiVisible()) {
-            return;
-        }
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) {
             Log.w(TAG, "NotificationManager is unavailable");
@@ -971,12 +972,56 @@ public final class TranslationStatusNotification {
             return;
         }
 
+        refreshSceneConflictNotification(context, manager);
+        if (SceneSyncUiVisibility.isSceneSyncUiVisible()) {
+            return;
+        }
+
         Notification notification = buildStatusNotification(context, false);
 
         try {
             manager.notify(NOTIFICATION_ID, notification);
         } catch (SecurityException e) {
             Log.w(TAG, "Could not post translation notification", e);
+        }
+    }
+
+    private static void refreshSceneConflictNotification(
+        Context context,
+        NotificationManager manager
+    ) {
+        SceneSyncRuntimeState.Snapshot snapshot =
+            SceneSyncRuntimeState.getInstance().getSnapshot();
+        // Do not treat the temporary startup/offline snapshot as resolution.
+        if (!snapshot.serviceAvailable) {
+            return;
+        }
+        int count = snapshot.pendingConflictCount;
+        if (count == 0 || SceneSyncUiVisibility.isSceneSyncUiVisible()) {
+            manager.cancel(SCENE_CONFLICT_NOTIFICATION_ID);
+            notifiedSceneConflictCount = count;
+            return;
+        }
+        if (count == notifiedSceneConflictCount) {
+            return;
+        }
+        createJobErrorChannel(context, manager);
+        Notification notification = new Notification.Builder(context, JOB_ERROR_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(context.getColor(R.color.het_primary))
+            .setContentTitle(context.getString(R.string.notification_scene_conflicts_title))
+            .setContentText(context.getString(R.string.notification_scene_conflicts_text, count))
+            .setContentIntent(sceneConflictsPendingIntent(context))
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(count <= notifiedSceneConflictCount)
+            .setCategory(Notification.CATEGORY_ERROR)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build();
+        try {
+            manager.notify(SCENE_CONFLICT_NOTIFICATION_ID, notification);
+            notifiedSceneConflictCount = count;
+        } catch (SecurityException e) {
+            Log.w(TAG, "Could not post Scene conflict notification", e);
         }
     }
 
