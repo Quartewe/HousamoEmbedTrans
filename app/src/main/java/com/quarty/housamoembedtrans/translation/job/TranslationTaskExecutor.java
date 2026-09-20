@@ -3492,7 +3492,7 @@ public final class TranslationTaskExecutor {
                 }
                 updates.put(new JSONObject()
                     .put("seq", seq)
-                    .put("text", text)
+                    .put("text", restoreQuestPatchText(text))
                     .put("provisional", provisional));
                 deliveredItems.add(item);
             }
@@ -3525,7 +3525,7 @@ public final class TranslationTaskExecutor {
             for (ItemProgress item : items.values()) {
                 updates.put(new JSONObject()
                     .put("seq", item.seq)
-                    .put("text", item.finalText)
+                    .put("text", restoreQuestPatchText(item.finalText))
                     .put("provisional", false));
                 item.deliveredText = item.finalText;
                 item.deliveredProvisional = false;
@@ -3538,6 +3538,21 @@ public final class TranslationTaskExecutor {
                 .put("updates", updates);
             checkpointLocked();
             return patch;
+        }
+
+        /** Restore only the outgoing display copy; progress keeps API placeholders. */
+        private String restoreQuestPatchText(String text) throws Exception {
+            JSONArray protect = request.getJSONArray("protect");
+            for (int index = 0; index < protect.length(); index++) {
+                JSONObject token = protect.getJSONObject(index);
+                String label = token.getString("label");
+                int offset = text.indexOf(label);
+                if (offset >= 0) {
+                    text = text.substring(0, offset) + token.getString("origin")
+                        + text.substring(offset + label.length());
+                }
+            }
+            return text;
         }
 
         private void checkpointLocked() throws Exception {
