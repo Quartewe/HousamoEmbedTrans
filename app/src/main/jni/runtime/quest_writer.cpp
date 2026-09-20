@@ -7,7 +7,8 @@
 #include "rapidjson/document.h"
 
 #include <inttypes.h>
-#include <thread>
+#include <cstring>
+#include <unistd.h>
 #include <memory>
 
 namespace {
@@ -39,18 +40,22 @@ namespace {
 
     using Il2CppStringNewFn = void* (*)(const char*);
     using Il2CppWriteBarrierFn = void (*)(void*, void**, void*);
-    using DomainGetFn = void* (*)();
-    using ThreadAttachFn = void* (*)(void*);
-    using ThreadDetachFn = void (*)(void*);
+    using RuntimeInvokeFn = void* (*)(const void*, void*, void**, void**);
+    using MethodGetNameFn = const char* (*)(const void*);
+    using MethodGetClassFn = void* (*)(const void*);
+    using ClassGetNameFn = const char* (*)(void*);
     using RemakeTextFn = void (*)(void*, void*);
     using UiTextSetTextFn = void (*)(void*, void*, void*);
 
     void* g_il2cpp_handle = nullptr;
     Il2CppStringNewFn g_string_new = nullptr;
     Il2CppWriteBarrierFn g_write_barrier = nullptr;
-    DomainGetFn g_domain_get = nullptr;
-    ThreadAttachFn g_thread_attach = nullptr;
-    ThreadDetachFn g_thread_detach = nullptr;
+    RuntimeInvokeFn g_runtime_invoke = nullptr;
+    MethodGetNameFn g_method_get_name = nullptr;
+    MethodGetClassFn g_method_get_class = nullptr;
+    ClassGetNameFn g_class_get_name = nullptr;
+    ClassGetNameFn g_class_get_namespace = nullptr;
+    void* g_runtime_invoke_stub = nullptr;
     RemakeTextFn g_remake_text = nullptr;
     UiTextSetTextFn g_ui_text_set_text = nullptr;
 
@@ -318,25 +323,11 @@ namespace {
         return true;
     }
 
-    static void WorkerLoop() {
-        void* domain = g_domain_get();
-        void* thread = domain ? g_thread_attach(domain) : nullptr;
-
-        if (thread == nullptr) {
-            LOGE("[WorkerLoop] Failed to attach thread to IL2CPP domain");
-            g_patch_write_queue.Close();
-            return;
-        }
-
-        struct DetachOnExit {
-            void* thread;
-            ~DetachOnExit() {
-                g_thread_detach(thread);
-            }
-        } detach{thread};
-
+    // Called only at UnitySynchronizationContext.ExecuteTasks on the game thread.
+    // One block per tick: never block the PlayerLoop waiting for network work.
+    static void DrainQuestWrite() {
         QuestWriteBlock block;
-        while (g_patch_write_queue.Pop(&block)) {
+        if (g_patch_write_queue.TryPop(&block)) {
             std::shared_ptr<const QuestTargetSet> target_set;
             
             {
@@ -344,30 +335,68 @@ namespace {
                 auto it = g_quest_target_sets.find(block.scene_name);
                 if (it == g_quest_target_sets.end()) {
                     LOGW("[WriteQuestBlock] scene_name=%s not found in target sets", block.scene_name.c_str());
-                    continue;
+                    return;
                 }
 
                 target_set = it->second;
                 if (!ValidateQuestTargetSet(*target_set, block.scene_name, block.items.size())) {
                     LOGW("[WriteQuestBlock] ValidateQuestTargetSet failed for scene_name=%s", block.scene_name.c_str());
                     g_quest_target_sets.erase(it);
-                    continue;
+                    return;
                 }
             }
 
+            LOGI("[QuestWriterMainThread] applying scene=%s items=%zu tid=%d",
+                 block.scene_name.c_str(), block.items.size(), gettid());
             if (!WriteQuestBlock(block, *target_set)) {
-                LOGE("[WorkerLoop] WriteQuestBlock failed for scene_name=%s", block.scene_name.c_str());
+                LOGE("[QuestWriterMainThread] WriteQuestBlock failed for scene_name=%s", block.scene_name.c_str());
                 std::lock_guard<std::mutex> lock(quest_submit_mutex);
 
                 auto it = g_quest_target_sets.find(block.scene_name);
                 if (it != g_quest_target_sets.end() && it->second == target_set) {
                     g_quest_target_sets.erase(it);
-                    LOGI("[WorkerLoop] Removed scene_name=%s from target sets due to write failure", block.scene_name.c_str());
+                    LOGI("[QuestWriterMainThread] Removed scene_name=%s from target sets due to write failure", block.scene_name.c_str());
                 }
             } else {
-                LOGI("[WorkerLoop] WriteQuestBlock succeeded for scene_name=%s", block.scene_name.c_str());
+                LOGI("[QuestWriterMainThread] WriteQuestBlock succeeded for scene_name=%s", block.scene_name.c_str());
             }
         }
+    }
+
+    static void* ObserveRuntimeInvoke(const void* method, void* object,
+                                     void** args, void** exception) {
+        void* result = g_runtime_invoke(method, object, args, exception);
+        if (!method || (exception && *exception)) {
+            return result;
+        }
+        // Resolve through public IL2CPP metadata APIs, not MethodInfo offsets
+        // or a version-specific RVA. Only this Unity PlayerLoop callback may drain.
+        const char* name = g_method_get_name(method);
+        if (!name || std::strcmp(name, "ExecuteTasks") != 0) {
+            return result;
+        }
+        void* klass = g_method_get_class(method);
+        if (!klass) return result;
+        const char* class_name = g_class_get_name(klass);
+        const char* namespc = g_class_get_namespace(klass);
+        if (!class_name || !namespc
+            || std::strcmp(class_name, "UnitySynchronizationContext") != 0
+            || std::strcmp(namespc, "UnityEngine") != 0) {
+            return result;
+        }
+        static thread_local bool draining = false;
+        if (draining) return result;
+        struct DrainScope {
+            bool& value;
+            explicit DrainScope(bool& v) : value(v) { value = true; }
+            ~DrainScope() { value = false; }
+        } scope(draining);
+        static std::once_flag observed;
+        std::call_once(observed, [] {
+            LOGI("[QuestWriterMainThread] Unity ExecuteTasks observed tid=%d", gettid());
+        });
+        DrainQuestWrite();
+        return result;
     }
 
     bool ReadPatchItem(const rapidjson::Value& item, const std::string& target_lang, std::vector<QuestWriteItem>& result) {
@@ -563,9 +592,10 @@ bool InitQuestWriterRuntime(uintptr_t il2cpp_base, const RuntimeConfig& config) 
 
     g_string_new = reinterpret_cast<Il2CppStringNewFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_string_new"));
     g_write_barrier = reinterpret_cast<Il2CppWriteBarrierFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_gc_wbarrier_set_field"));
-    g_domain_get = reinterpret_cast<DomainGetFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_domain_get"));
-    g_thread_attach = reinterpret_cast<ThreadAttachFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_thread_attach"));
-    g_thread_detach = reinterpret_cast<ThreadDetachFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_thread_detach"));
+    g_method_get_name = reinterpret_cast<MethodGetNameFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_method_get_name"));
+    g_method_get_class = reinterpret_cast<MethodGetClassFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_method_get_class"));
+    g_class_get_name = reinterpret_cast<ClassGetNameFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_class_get_name"));
+    g_class_get_namespace = reinterpret_cast<ClassGetNameFn>(shadowhook_dlsym(g_il2cpp_handle, "il2cpp_class_get_namespace"));
     g_remake_text = reinterpret_cast<RemakeTextFn>(il2cpp_base + config.rva.remake_text);
     g_ui_text_set_text = reinterpret_cast<UiTextSetTextFn>(il2cpp_base + config.rva.ui_text_set_text);
 
@@ -587,30 +617,9 @@ bool InitQuestWriterRuntime(uintptr_t il2cpp_base, const RuntimeConfig& config) 
         return false;
     }
 
-    if (g_domain_get == nullptr) {
-        LOGE(
-            "[QuestWriter] failed to resolve IL2CPP functions "
-            "domain_get=%p",
-            reinterpret_cast<void*>(g_domain_get)
-        );
-        return false;
-    }
-
-    if (g_thread_attach == nullptr) {
-        LOGE(
-            "[QuestWriter] failed to resolve IL2CPP functions "
-            "thread_attach=%p",
-            reinterpret_cast<void*>(g_thread_attach)
-        );
-        return false;
-    }
-
-    if (g_thread_detach == nullptr) {
-        LOGE(
-            "[QuestWriter] failed to resolve IL2CPP functions "
-            "thread_detach=%p",
-            reinterpret_cast<void*>(g_thread_detach)
-        );
+    if (!g_method_get_name || !g_method_get_class || !g_class_get_name
+        || !g_class_get_namespace || !g_ui_text_set_text) {
+        LOGE("[QuestWriter] main-thread metadata APIs or text setter unavailable");
         return false;
     }
 
@@ -642,7 +651,19 @@ bool StartQuestWriter(uintptr_t il2cpp_base, const RuntimeConfig& config) {
             return;
         }
 
-        std::thread(WorkerLoop).detach();
+        void* invoke = shadowhook_dlsym(g_il2cpp_handle, "il2cpp_runtime_invoke");
+        if (!invoke) {
+            LOGE("[QuestWriter] il2cpp_runtime_invoke unavailable");
+            return;
+        }
+        g_runtime_invoke_stub = shadowhook_hook_func_addr(
+            invoke, reinterpret_cast<void*>(ObserveRuntimeInvoke),
+            reinterpret_cast<void**>(&g_runtime_invoke));
+        if (!g_runtime_invoke_stub) {
+            LOGE("[QuestWriter] failed to install main-thread dispatch hook: %d",
+                 shadowhook_get_errno());
+            return;
+        }
         started = true;
     });
 

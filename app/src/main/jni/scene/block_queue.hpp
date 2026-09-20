@@ -29,6 +29,15 @@ public:
         return true;
     }
 
+    // Nonblocking consumer for game-thread ticks.
+    bool TryPop(T* out) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (queue_.empty()) return false;
+        *out = std::move(queue_.front());
+        queue_.pop_front();
+        return true;
+    }
+
     void Close() {
         {
             std::lock_guard<std::mutex> lock(mutex_);
