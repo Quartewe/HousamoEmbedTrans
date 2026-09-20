@@ -47,7 +47,23 @@ final class HeldTaskArrangementDialog {
     }
 
     static void show(Activity activity, Executor executor, Runnable changed) {
-        LinkedHashMap<String, List<String>> scenes = scenes(activity);
+        show(activity, executor, changed, scenes(activity), false);
+    }
+
+    static void showPreview(Activity activity) {
+        LinkedHashMap<String, List<String>> samples = new LinkedHashMap<>();
+        for (String scene : new String[] {
+            "tourou2026_5-1", "quest_love_moritaka",
+            "等待翻译排序样例 · 较长的剧情名称用于核对换行和按钮布局",
+            "tourou2026_5-2"
+        }) {
+            samples.put(scene, Collections.emptyList());
+        }
+        show(activity, null, () -> { }, samples, true);
+    }
+
+    private static void show(Activity activity, Executor executor, Runnable changed,
+            LinkedHashMap<String, List<String>> scenes, boolean preview) {
         ArrayList<String> order = new ArrayList<>(scenes.keySet());
         if (order.isEmpty()) {
             Toast.makeText(activity, R.string.held_arrangement_empty, Toast.LENGTH_SHORT).show();
@@ -101,8 +117,12 @@ final class HeldTaskArrangementDialog {
             }
         };
         render.run();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            .setOnClickListener(view -> {
+        dialog.setOnShowListener(ignored -> {
+            if (preview) {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+                return;
+            }
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
                 ArrayList<String> ids = new ArrayList<>();
                 for (String scene : order) ids.addAll(scenes.get(scene));
                 dialog.setCancelable(false);
@@ -112,7 +132,8 @@ final class HeldTaskArrangementDialog {
                     dialog.dismiss();
                     changed.run();
                 });
-            }));
+            });
+        });
         dialog.show();
     }
 

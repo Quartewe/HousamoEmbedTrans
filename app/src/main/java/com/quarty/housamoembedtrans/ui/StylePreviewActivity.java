@@ -92,6 +92,10 @@ public final class StylePreviewActivity extends AppCompatActivity {
         body.addView(arrow, new LinearLayout.LayoutParams(dp(30), dp(42)));
 
         card.setOnClickListener(view -> {
+            if (StylePreview.KIND_HELD_ARRANGEMENT.equals(kind)) {
+                HeldTaskArrangementDialog.showPreview(this);
+                return;
+            }
             Intent intent = StylePreview.intentFor(this, kind);
             startActivity(intent);
         });
@@ -99,6 +103,7 @@ public final class StylePreviewActivity extends AppCompatActivity {
     }
 
     private int labelFor(String kind) {
+        if (StylePreview.KIND_HELD_ARRANGEMENT.equals(kind)) return R.string.style_preview_held_arrangement;
         if (StylePreview.KIND_HOME.equals(kind)) return R.string.style_preview_home;
         if (StylePreview.KIND_TASKS.equals(kind)) return R.string.style_preview_tasks;
         if (StylePreview.KIND_MANAGEMENT_HOME.equals(kind)) return R.string.style_preview_management_home;
@@ -119,6 +124,7 @@ public final class StylePreviewActivity extends AppCompatActivity {
     }
 
     private int descriptionFor(String kind) {
+        if (StylePreview.KIND_HELD_ARRANGEMENT.equals(kind)) return R.string.style_preview_held_arrangement_description;
         if (StylePreview.KIND_HOME.equals(kind)) return R.string.style_preview_home_description;
         if (StylePreview.KIND_TASKS.equals(kind)) return R.string.style_preview_tasks_description;
         if (StylePreview.KIND_MANAGEMENT_HOME.equals(kind)) return R.string.style_preview_management_home_description;

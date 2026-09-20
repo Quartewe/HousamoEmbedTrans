@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="style_preview_held_arrangement">Waiting translation order</string>
+    <string name="style_preview_held_arrangement_description">Preview the real ordering dialog with in-memory scenes. Move rows up or down; submission is disabled.</string>
     <string name="style_preview_home">Home</string>
     <string name="style_preview_home_description">Connection status, version updates, and home entry points.</string>
     <string name="style_preview_toolbar_title">Style check</string>

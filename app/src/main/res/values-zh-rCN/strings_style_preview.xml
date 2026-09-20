@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="style_preview_held_arrangement">等待翻译排序</string>
+    <string name="style_preview_held_arrangement_description">使用内存剧情样例查看真实排序弹窗，可上下移动核对布局；提交已禁用。</string>
     <string name="style_preview_home">主页</string>
     <string name="style_preview_home_description">连接状态、版本更新提示和主页入口。</string>
     <string name="style_preview_toolbar_title">样式核对</string>

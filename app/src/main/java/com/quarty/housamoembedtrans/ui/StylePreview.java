@@ -29,6 +29,7 @@ public final class StylePreview {
 
     public static final String KIND_HOME = "home";
     public static final String KIND_TASKS = "tasks";
+    public static final String KIND_HELD_ARRANGEMENT = "held-arrangement";
     public static final String KIND_MANAGEMENT_HOME = "management-home";
     public static final String KIND_SCENE_SYNC = "scene-sync";
     public static final String KIND_MANAGEMENT_EXPORT = "management-export";
@@ -54,6 +55,7 @@ public final class StylePreview {
         Arrays.asList(
             KIND_HOME,
             KIND_TASKS,
+            KIND_HELD_ARRANGEMENT,
             KIND_MANAGEMENT_HOME,
             KIND_SCENE_SYNC,
             KIND_MANAGEMENT_EXPORT,
