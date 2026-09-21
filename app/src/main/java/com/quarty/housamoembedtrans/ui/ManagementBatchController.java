@@ -1902,6 +1902,13 @@ public final class ManagementBatchController implements AutoCloseable {
             }
             JSONObject rawPayload = new JSONObject(payload.toString());
             if (KIND_SCENE.equals(kind)) {
+                // Reorder only the export copy, leaving stored Scene/request bytes intact.
+                for (String key : new String[] { "protect", "seq_to_order" }) {
+                    if (rawPayload.has(key)) {
+                        Object value = rawPayload.remove(key);
+                        rawPayload.put(key, value);
+                    }
+                }
                 files.add(new ManagementTransfer.FileSpec(
                     "",
                     ManagementTransfer.jsonFileName(id),
