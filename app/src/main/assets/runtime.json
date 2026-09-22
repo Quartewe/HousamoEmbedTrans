@@ -97,9 +97,9 @@
             },
             "TextColumns": {
                 "Raw": 8,
-                "En": 9,
-                "ZhTw": 10,
-                "ZhCn": 11
+                "En": 11,
+                "ZhTw": 12,
+                "ZhCn": 13
             }
         }
     }
