@@ -1,0 +1,265 @@
+{
+  "version": 1,
+  "id": "d0e5c1fb-dc9e-5464-b37f-dd348e4b942f",
+  "storage_name": "main_story_chapter_14",
+  "display_name": "主线第14章",
+  "revision": 3,
+  "created_at": 1790077145960,
+  "updated_at": 1790122970136,
+  "retention": {
+    "inherit_defaults": true,
+    "recent_percent": 30,
+    "recent_limit": 10
+  },
+  "manual_descriptions": {},
+  "summary": {
+    "zh-cn": {
+      "manual": {
+        "text": "东的青山、浅草、上野与荒川公会为营救失踪的成员及会长结成大联盟，调查逐渐指向有乐町：演艺家公会能将他人的“角色”剥下，使人从舞台上消失，却仍以无角色的身体活在舞台背后。主人公也遭到这种处理，失去手臂与武器，在例外处理的外侧遇见量子，并得知消失者并未死亡。所罗门代表积累过往记忆的“全”，奥弗罗德则是作为“零”的例外处理；有乐町与立法者联手，正试图让两者在同一舞台上现身。主人公重返有乐町后，东部联盟攻入歌剧院，舞台结构却将众人卷入后台。阿胡拉·马兹达以立法者的立场拖住主人公，并展示一个没有痛苦、由超知性替众人安排道路的理想现实；主人公拒绝以放弃选择换取安稳，持起从零中诞生的空刃，接受与阿胡拉·马兹达的最终审判。\n\n有乐町的“开膛手杰克”演目重演了新宿未解的肢体失踪案：切人被安排扮演犯人、让案件继续留在迷雾中；所谓受害者留下的手臂却来自主人公尚未经历的未来。内部告发揭示，事件真正要遮掩的是物部匡真作为游戏监视者越过规则、直接干涉奖品主人公的罪。奥斯卡原本打算让大脚怪扮演瓦坎坦卡的替身，以观众熟悉的情感建立足够可信的角色，并借这场演目迎接长期观看后台的那位观众；但计划失控，切人把所罗门带向奥弗罗德更深处，零的空洞开始吞噬有乐町。主人公仍在其中追赶切人、所罗门与大脚怪，悠马与安度西亚斯也以各自的“虚构”开出道路。\n\n危机尚未结束，未来世界乌托邦的代行者联同天照、米迦勒，利用对东京本地人的序列优势带走多名公会长与居民，并打算让须佐之男成为取代所罗门的新神之代理者。所罗门在消失前留下请求：希望主人公亲自选择并走到未来，直到从神宿学园毕业。大联盟与立法者的战斗因此扩大为对东京未来的争夺，众人也前往东京历史起点的目青不动地下迷宫。",
+        "updated_at": 1790122970136
+      }
+    }
+  },
+  "scenes": [
+    {
+      "entry_id": "0c703ef0-c02c-5809-a9e8-d80152376081",
+      "scene": "quest_main_14-1",
+      "scene_file": "quest_main_14-1.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "647f3fc1-e240-527c-b340-506b2389eaac",
+      "scene": "quest_main_14-2",
+      "scene_file": "quest_main_14-2.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "2ac1871e-fa34-5110-a640-d23ee7c79c50",
+      "scene": "quest_main_14-3",
+      "scene_file": "quest_main_14-3.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "7bfa63b6-005e-5bbf-8091-41524b3648c0",
+      "scene": "quest_main_14-4",
+      "scene_file": "quest_main_14-4.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "5ccc68cd-fec0-5660-a62c-dad3eb5c6ab0",
+      "scene": "quest_main_14-5",
+      "scene_file": "quest_main_14-5.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "5c602d70-d3e0-5ebf-8b07-de1f0a4967cc",
+      "scene": "quest_main_14-6",
+      "scene_file": "quest_main_14-6.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "f986c700-2d7a-5dd6-ab24-130286f6accd",
+      "scene": "quest_main_14-7",
+      "scene_file": "quest_main_14-7.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "43646ac0-a8a6-57d2-a4a3-357d906d45e5",
+      "scene": "quest_main_14-8",
+      "scene_file": "quest_main_14-8.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "0b9fad3c-da28-5519-90b6-f6c84e5555c0",
+      "scene": "quest_main_14-9",
+      "scene_file": "quest_main_14-9.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "99a13875-0009-5857-8519-119df5107c28",
+      "scene": "quest_main_14-10",
+      "scene_file": "quest_main_14-10.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "cfa17868-db9b-5013-bd66-39f8a4105873",
+      "scene": "quest_main_14-11",
+      "scene_file": "quest_main_14-11.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "5f453ff4-4fb9-5bd1-9bac-4adcd8102f9c",
+      "scene": "quest_main_14-12",
+      "scene_file": "quest_main_14-12.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "b5c90aca-309d-5aaf-ae7c-357cbf0e3de3",
+      "scene": "quest_main_14-13",
+      "scene_file": "quest_main_14-13.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "115fc629-0148-56a5-89fe-91b585c1da78",
+      "scene": "quest_main_14-14",
+      "scene_file": "quest_main_14-14.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "97b0ac2c-0446-52ba-b4af-c374826425fb",
+      "scene": "quest_main_14-15",
+      "scene_file": "quest_main_14-15.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "0a3ba527-90bf-569d-bb3f-89fd487b9f99",
+      "scene": "quest_main_14-16",
+      "scene_file": "quest_main_14-16.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "afc11a28-0568-56c4-bfec-e29d253c9a5b",
+      "scene": "quest_main_14-17",
+      "scene_file": "quest_main_14-17.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "2146e5b0-122f-5a45-a2aa-2cd71219a2c0",
+      "scene": "quest_main_14-18",
+      "scene_file": "quest_main_14-18.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "1cea4836-6e1f-5a0c-bc48-9eb1a317bb75",
+      "scene": "quest_main_14-19",
+      "scene_file": "quest_main_14-19.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "5c7133b4-4248-5c9c-ae01-36bbc1e08e21",
+      "scene": "quest_main_14-20",
+      "scene_file": "quest_main_14-20.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "eb227259-4ff8-52e9-8b02-e0209ff0a22b",
+      "scene": "quest_main_14-21",
+      "scene_file": "quest_main_14-21.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "99701254-881b-5b91-9a0c-35c926b45ae7",
+      "scene": "quest_main_14-22",
+      "scene_file": "quest_main_14-22.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "9f60058c-7cef-5c9d-896d-dc70413da18f",
+      "scene": "quest_main_14-23",
+      "scene_file": "quest_main_14-23.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "23bd934d-1124-5075-bd37-ee5b28cee473",
+      "scene": "quest_main_14-24",
+      "scene_file": "quest_main_14-24.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "471a5d5e-5f23-51a9-9ffb-41bf3f506939",
+      "scene": "quest_main_14-25",
+      "scene_file": "quest_main_14-25.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "19465d40-a829-5890-a681-d5673570e2ff",
+      "scene": "quest_main_14-26",
+      "scene_file": "quest_main_14-26.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "7385e7f4-5577-531f-b6d4-1f13fe07401c",
+      "scene": "quest_main_14-27",
+      "scene_file": "quest_main_14-27.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "e7619289-b879-5190-a9bc-69043d8b12c0",
+      "scene": "quest_main_14-28",
+      "scene_file": "quest_main_14-28.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "80b8f8b7-e7b2-5072-8a5e-6881c342ede7",
+      "scene": "quest_main_14-29",
+      "scene_file": "quest_main_14-29.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    },
+    {
+      "entry_id": "8676ea55-f3cb-59c4-8d9d-314b2a44bb4d",
+      "scene": "quest_main_14-30",
+      "scene_file": "quest_main_14-30.json",
+      "created_at": 1790077145960,
+      "updated_at": 1790077145960,
+      "summaries": {}
+    }
+  ]
+}
