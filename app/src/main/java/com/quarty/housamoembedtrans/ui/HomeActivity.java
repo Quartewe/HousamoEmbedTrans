@@ -14,6 +14,7 @@ import android.net.Uri;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
 import com.quarty.housamoembedtrans.logging.Log;
 import android.view.View;
@@ -44,6 +45,14 @@ public final class HomeActivity extends AppCompatActivity {
         SceneSyncRuntimeState.getInstance();
     private final SceneSyncRuntimeState.Listener runtimeListener =
         this::dispatchRuntimeSnapshot;
+    private final Handler runtimeRefreshHandler = new Handler(Looper.getMainLooper());
+    private final Runnable runtimeRefresh = new Runnable() {
+        @Override public void run() {
+            if (stylePreview || !runtimeListening || isFinishing() || isDestroyed()) return;
+            acceptRuntimeSnapshot(runtimeState.getSnapshot());
+            runtimeRefreshHandler.postDelayed(this, 1000L);
+        }
+    };
 
     private TranslationJobStore arrangementStore;
     private final TranslationJobStore.QueueListener
@@ -361,9 +370,12 @@ public final class HomeActivity extends AppCompatActivity {
         }
         runtimeListening = true;
         runtimeState.addListener(runtimeListener);
+        runtimeRefreshHandler.removeCallbacks(runtimeRefresh);
+        runtimeRefreshHandler.postDelayed(runtimeRefresh, 1000L);
     }
 
     private void stopRuntimeObservation() {
+        runtimeRefreshHandler.removeCallbacks(runtimeRefresh);
         if (!runtimeListening) {
             return;
         }
@@ -375,9 +387,9 @@ public final class HomeActivity extends AppCompatActivity {
         SceneSyncRuntimeState.Snapshot changed
     ) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
-            acceptRuntimeSnapshot(changed);
+            acceptRuntimeSnapshot(runtimeState.getSnapshot());
         } else {
-            runOnUiThread(() -> acceptRuntimeSnapshot(changed));
+            runOnUiThread(() -> acceptRuntimeSnapshot(runtimeState.getSnapshot()));
         }
     }
 
