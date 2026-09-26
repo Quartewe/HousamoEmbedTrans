@@ -2999,6 +2999,8 @@ public final class TranslationService extends Service {
                 jobStore
             );
         preparedManagementCoordinator.recover();
+        com.quarty.housamoembedtrans.management.transfer.BundledPresetImporter.importOnce(
+            this, preparedManagementCoordinator);
         managementImportCoordinator = preparedManagementCoordinator;
 
         SceneSyncCoordinator preparedSceneSyncCoordinator;
