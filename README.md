@@ -8,8 +8,12 @@
 # HOUSAMO EMBED TRANS
 
 基于 **[shadowhook](https://github.com/bytedance/android-inline-hook)** 的 **[LSPosed](https://github.com/LSPosed/LSPosed)** 东京放课后召唤师(housamo)的注入式剧情翻译
+
 该项目旨在不破坏游戏体验的情况下尽可能的提供高质量的剧情翻译服务
+
 该项目不收费 **<font color="red">不等于</font>** api调用不付费
+
+[此处下载](https://github.com/Quartewe/HousamoEmbedTrans/releases)
 
 ## 目录
 
