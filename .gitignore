@@ -21,11 +21,11 @@ app/release
 /.codex
 /.vscode
 AGENTS.md
-CONTEXT.md
+/CONTEXT.md
 PLAN.md
-/tools
 /debug
 /.scratch
 /docs/agents
 TODO.md
 /.review
+__pycache__
