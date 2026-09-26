@@ -1,4 +1,5 @@
 #include "housamo.hpp"
+#include "scene/page_rec.hpp"
 
 #include "translation/native_translation_pipeline.hpp"
 
@@ -68,23 +69,7 @@ public:
              item_count,
              protect_count);
 
-        std::vector<GameTerm> character_terms;
-
-        scene.scene = result.scene;
-        scene.target_lang = g_runtime_config.target_lang;
-        scene.protect = std::move(result.protect);
-        scene.scene_items = std::move(result.scene_items);
-        CharacterBuild(
-            result.speaker_character,
-            result.show_character,
-            result.text_character,
-            result.aliases,
-            item_count,
-            scene.character,
-            scene.mentioned_characters,
-            character_terms
-        );
-        TermBuild(result.game_terms, character_terms, scene.game_terms);
+        scene = BuildDocument(std::move(result));
 
         auto scene_ptr = std::make_shared<const Scene>(std::move(scene));
 
@@ -118,6 +103,21 @@ public:
             scene_ptr,
             std::move(production_lease),
             captured_epoch);
+    }
+
+    Scene BuildDocument(ScenarioParseResult result) {
+        Scene scene;
+        const size_t item_count = result.scene_items.size();
+        std::vector<GameTerm> character_terms;
+        scene.scene = result.scene;
+        scene.target_lang = g_runtime_config.target_lang;
+        scene.protect = std::move(result.protect);
+        scene.scene_items = std::move(result.scene_items);
+        CharacterBuild(result.speaker_character, result.show_character,
+                       result.text_character, result.aliases, item_count,
+                       scene.character, scene.mentioned_characters, character_terms);
+        TermBuild(result.game_terms, character_terms, scene.game_terms);
+        return scene;
     }
 
 private:
@@ -360,6 +360,10 @@ private:
 };
 
 static SceneBuilder g_scene_builder;
+
+Scene BuildSceneDocument(ScenarioParseResult result) {
+    return g_scene_builder.BuildDocument(std::move(result));
+}
 
 void SubmitScenarioParseResult(
     ScenarioParseResult result,

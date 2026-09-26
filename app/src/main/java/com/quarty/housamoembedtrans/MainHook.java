@@ -2529,8 +2529,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // observe one immutable worker choice for this game process.
             StartupConfig startup = loadStartupConfig(context);
             sOverwriteExistingJson = startup.overwriteExistingJson;
-            TranslationServiceClient client =
-                new TranslationServiceClient(
+            // PageRec isolates its documents, not the game/service connection.
+            TranslationServiceClient client = new TranslationServiceClient(
                     sTargetContext,
                     Log::game,
                     TRANSLATION_RESULT_SINK,
@@ -2596,7 +2596,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + startup.sceneWorkerCount
                     + " parseOnlyDebug="
                     + startup.enableParseOnlyDebug
-                    + " apiOwner=het-service"
+                    + " pageRecExport=" + startup.enablePageRecDebug
+                    + (startup.enablePageRecDebug ? " output=page_rec" : " apiOwner=het-service")
             );
         } catch (Throwable t) {
             TranslationServiceClient client = sTranslationClient;

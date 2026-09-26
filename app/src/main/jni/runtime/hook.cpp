@@ -1,6 +1,7 @@
 #include "translation/native_translation_pipeline.hpp"
 #include "housamo.hpp"
 #include "scene/scene_identity.hpp"
+#include "scene/page_rec.hpp"
 #include "shadowhook.h"
 
 #include <cstdint>
@@ -16,6 +17,7 @@ using SelectionClearAllFn = void (*)(void* self, void* method);
 static RawFuncPtr RawInitBase = nullptr; // 所有内容
 static RawFuncPtr RawInitText = nullptr; // Text专用
 static RawFindScenarioDataPtr RawFindScenarioData = nullptr;
+static void* (*PageRecStringNew)(const char*) = nullptr;
 static PageTextChangeFn RawPageTextChange = nullptr;
 static SelectionInitFn RawSelectionInit = nullptr;
 static SelectionClearAllFn RawSelectionClearAll = nullptr;
@@ -46,6 +48,15 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
     }
 
     std::string entry_label = read_il2cpp_string(label);
+
+    if (g_runtime_config.enable_page_rec_debug) {
+        ExportPageRecScenarios(scenario_data, entry_label, captured_epoch,
+            [self, method](const std::string& name) -> void* {
+                void* managed_label = PageRecStringNew(name.c_str());
+                return managed_label ? RawFindScenarioData(self, managed_label, method) : nullptr;
+            });
+        return scenario_data;
+    }
 
     if (!valid_ptr(scenario_data)) {
         LOGW("[FindScenarioData] scenarioData invalid entry=%s", entry_label.c_str());
@@ -156,6 +167,17 @@ static void ObserveSelectionChange(void* self, void* data, void* button_clicked_
 }
 
 bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config) {
+    if (config.enable_page_rec_debug) {
+        void* handle = shadowhook_dlopen("libil2cpp.so");
+        if (!handle) return false;
+        PageRecStringNew = reinterpret_cast<void* (*)(const char*)>(
+            shadowhook_dlsym(handle, "il2cpp_string_new"));
+        shadowhook_dlclose(handle);
+        if (!PageRecStringNew) {
+            LOGE("[PageRec] il2cpp_string_new unavailable");
+            return false;
+        }
+    }
     // 主链路：FindScenarioData 返回完整 AdvScenarioData 后做静态解析。
     void* targetFindScenarioData = reinterpret_cast<void*>(
         il2cpp_base + config.rva.find_scenario_data);
@@ -172,57 +194,57 @@ bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config) {
     }
     LOGI("shadowhook FindScenarioData success stub=%p", StubFindScenarioData);
 
-    void* targetPageTextChange = reinterpret_cast<void*>(
-        il2cpp_base + config.rva.page_text_change
-    );
-
-    StubPageTextChange = shadowhook_hook_func_addr(
-        targetPageTextChange,
-        reinterpret_cast<void*>(ObservePageTextChange),
-        reinterpret_cast<void**>(&RawPageTextChange)
-    );
-
-    if (StubPageTextChange == nullptr) {
-        int err = shadowhook_get_errno();
-        LOGE("shadowhook PageTextChange failed: %d %s", err, shadowhook_to_errmsg(err));
-        return false;
-    }
-
-    LOGI("shadowhook PageTextChange success stub=%p", StubPageTextChange);
-
-    StubSelectionClearAll = shadowhook_hook_func_addr(
-        reinterpret_cast<void*>(il2cpp_base + config.rva.ugui_selection_clear_all),
-        reinterpret_cast<void*>(ObserveSelectionClearAll),
-        reinterpret_cast<void**>(&RawSelectionClearAll)
-    );
-    
-    if (StubSelectionClearAll == nullptr) {
-        int err = shadowhook_get_errno();
-        LOGE("shadowhook SelectionClearAll failed: %d %s", err, shadowhook_to_errmsg(err));
-        return false;
-    }
-
-    LOGI("shadowhook SelectionClearAll success stub=%p", StubSelectionClearAll);
-
-    StubSelectionInit = shadowhook_hook_func_addr(
-        reinterpret_cast<void*>(il2cpp_base + config.rva.ugui_selection_init),
-        reinterpret_cast<void*>(ObserveSelectionChange),
-        reinterpret_cast<void**>(&RawSelectionInit)
-    );
-
-    if (StubSelectionInit == nullptr) {
-        int err = shadowhook_get_errno();
-        LOGE("shadowhook SelectionInit failed: %d %s", err, shadowhook_to_errmsg(err));
-        return false;
-    }
-    LOGI("shadowhook SelectionInit success stub=%p", StubSelectionInit);
-
     if (!config.enable_page_rec_debug) {
-        LOGI("[PageRec] debug hook disabled");
+        void* targetPageTextChange = reinterpret_cast<void*>(
+            il2cpp_base + config.rva.page_text_change
+        );
+
+        StubPageTextChange = shadowhook_hook_func_addr(
+            targetPageTextChange,
+            reinterpret_cast<void*>(ObservePageTextChange),
+            reinterpret_cast<void**>(&RawPageTextChange)
+        );
+
+        if (StubPageTextChange == nullptr) {
+            int err = shadowhook_get_errno();
+            LOGE("shadowhook PageTextChange failed: %d %s", err, shadowhook_to_errmsg(err));
+            return false;
+        }
+
+        LOGI("shadowhook PageTextChange success stub=%p", StubPageTextChange);
+
+        StubSelectionClearAll = shadowhook_hook_func_addr(
+            reinterpret_cast<void*>(il2cpp_base + config.rva.ugui_selection_clear_all),
+            reinterpret_cast<void*>(ObserveSelectionClearAll),
+            reinterpret_cast<void**>(&RawSelectionClearAll)
+        );
+    
+        if (StubSelectionClearAll == nullptr) {
+            int err = shadowhook_get_errno();
+            LOGE("shadowhook SelectionClearAll failed: %d %s", err, shadowhook_to_errmsg(err));
+            return false;
+        }
+
+        LOGI("shadowhook SelectionClearAll success stub=%p", StubSelectionClearAll);
+
+        StubSelectionInit = shadowhook_hook_func_addr(
+            reinterpret_cast<void*>(il2cpp_base + config.rva.ugui_selection_init),
+            reinterpret_cast<void*>(ObserveSelectionChange),
+            reinterpret_cast<void**>(&RawSelectionInit)
+        );
+
+        if (StubSelectionInit == nullptr) {
+            int err = shadowhook_get_errno();
+            LOGE("shadowhook SelectionInit failed: %d %s", err, shadowhook_to_errmsg(err));
+            return false;
+        }
+        LOGI("shadowhook SelectionInit success stub=%p", StubSelectionInit);
+
+        LOGI("[PageRec] export mode disabled");
         return true;
     }
 
-    // 调试链路：只在配置显式开启时安装 InitBase/InitText 对照 hook。
+    // 纯导出模式：只安装初始化记录 hook，不安装游戏画面回写观察 hook。
     void* targetBase = reinterpret_cast<void*>(il2cpp_base + config.rva.init_base);
     void* targetText = reinterpret_cast<void*>(il2cpp_base + config.rva.init_text);
 

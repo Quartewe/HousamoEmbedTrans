@@ -119,7 +119,7 @@
     <string name="settings_field_text_mentioned_score">仅名称点名门槛</string>
     <string name="settings_field_related_num">关联提升门槛</string>
     <string name="settings_field_low_term_score">次要角色术语门槛</string>
-    <string name="settings_field_enable_page_rec_debug">启用页面记录诊断</string>
+    <string name="settings_field_enable_page_rec_debug">PageRec 剧情导出</string>
     <string name="settings_field_enable_parse_only_debug">启用仅解析诊断</string>
     <string name="settings_field_enable_failed_api_response_dump">保存失败响应诊断</string>
     <string name="settings_field_hint_protocol">选择兼容的翻译服务协议。</string>
@@ -154,7 +154,7 @@
     <string name="settings_field_hint_text_mentioned_score">只带入名称和译名，不附带完整资料。</string>
     <string name="settings_field_hint_related_num">与主要角色存在词典关联时提升为次要角色所需的关联数量。</string>
     <string name="settings_field_hint_low_term_score">公会、学校或来源世界至少被多少个次要角色共同关联时提供。</string>
-    <string name="settings_field_hint_enable_page_rec_debug">高级调试：仅用于比较页面记录链路。</string>
+    <string name="settings_field_hint_enable_page_rec_debug">保留游戏进程连接，捕获链切换为完整剧情段导出。优先简中、繁中，缺失时使用日文。导出文件保存到游戏私有 files/housamo_embed_trans/page_rec，不参与同步、翻译或回写。开启和关闭均需重启游戏。</string>
     <string name="settings_field_hint_enable_parse_only_debug">高级调试：只解析、不提交翻译请求。</string>
     <string name="settings_field_hint_enable_failed_api_response_dump">高级调试：失败响应可能包含敏感内容，请按需开启。</string>
     <string name="settings_error_required">此项不能为空。</string>

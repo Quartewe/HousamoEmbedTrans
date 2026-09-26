@@ -1,6 +1,7 @@
 #include "housamo.hpp"
 #include "translation/native_translation_pipeline.hpp"
 #include "block_queue.hpp"
+#include "scene/page_rec.hpp"
 
 #include <algorithm>
 #include <mutex>
@@ -1229,14 +1230,23 @@ static bool AssembleLabelBlocks(
 
 class ScenarioParseRunner {
 public:
-    explicit ScenarioParseRunner(const RuntimeScenario& scenario)
-        : scenario_(scenario) {}
+    explicit ScenarioParseRunner(const RuntimeScenario& scenario, bool page_rec = false)
+        : scenario_(scenario), page_rec_(page_rec) {}
+
+    std::string RawLanguage() const {
+        switch (language_mask_) {
+            case 1: return "zh-cn";
+            case 2: return "zh-tw";
+            case 4: return "ja";
+            default: return "mul";
+        }
+    }
 
     ScenarioParseOutput Run() {
         result_.scene = scenario_.result.scene;
         result_.entry_label = scenario_.result.entry_label;
 
-        StartWorkers();
+        if (!page_rec_) StartWorkers();
         size_t submitted_jobs = SubmitJobs();
 
         job_queue_.Close();
@@ -1380,7 +1390,13 @@ private:
                 job.label = label.label;
                 job.page_data = page_data;
 
-                if (!job_queue_.Push(std::move(job))) {
+                if (page_rec_) {
+                    // Copy managed data before returning from the game hook.
+                    auto result = ParsePageJob(job);
+                    if (!result.ok) Abort(AbortReason::page_parse_failed);
+                    result_queue_.Push(std::move(result));
+                    ++submitted_jobs;
+                } else if (!job_queue_.Push(std::move(job))) {
                     LOGE("[ScenarioCatcher] failed to push page job label=%s pageIndex=%d",
                          label.label.c_str(),
                          page_index);
@@ -1557,7 +1573,7 @@ private:
             LOGW("[ScenarioCatcher] target lang [%s] has no official translation", g_runtime_config.target_lang.c_str());
         }
 
-        if (target_lang != 0) {
+        if (!page_rec_ && target_lang != 0) {
             std::string target_lang_text = ReadRowStringColumn(cmd_item, target_lang);
             if (!target_lang_text.empty()) {
                 LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
@@ -1565,7 +1581,22 @@ private:
             }
         }
 
-        std::string raw_text = ReadRowStringColumn(cmd_item, columns.raw);
+        std::string raw_text;
+        if (page_rec_) {
+            raw_text = ReadRowStringColumn(cmd_item, columns.zh_cn);
+            int language = 1;
+            if (raw_text.empty()) {
+                raw_text = ReadRowStringColumn(cmd_item, columns.zh_tw);
+                language = 2;
+            }
+            if (raw_text.empty()) {
+                raw_text = ReadRowStringColumn(cmd_item, columns.raw);
+                language = 4;
+            }
+            if (!raw_text.empty()) language_mask_ |= language;
+        } else {
+            raw_text = ReadRowStringColumn(cmd_item, columns.raw);
+        }
         if (raw_text.empty()) {
             return TextStatus::empty;
         }
@@ -1597,6 +1628,12 @@ private:
             }
         }
         
+        if (page_rec_) {
+            // Export the original game tags, without translation placeholders
+            // or registering any write-back targets.
+            *out = std::move(raw_text);
+            return TextStatus::ok;
+        }
         if (!SubmitQuestPtrSet(order, page_data)) {
             LOGW("[ScenarioCatcher] SubmitQuestPtrSet failed for order: label_index=%d page_no=%d cmd_index=%d sub_index=%d",
                 order.label_index, order.page_no, order.cmd_index, order.sub_index);
@@ -1768,6 +1805,8 @@ private:
 
 private:
     const RuntimeScenario& scenario_;
+    const bool page_rec_;
+    int language_mask_ = 0; // PageRec parses synchronously on the hook thread.
 
     std::atomic<int> abort_reason_{
         static_cast<int>(AbortReason::none)
@@ -1789,6 +1828,20 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 }
 
 } // namespace
+
+bool ParsePageRecScene(void* scenario_data, const std::string& entry_label,
+                      Scene* scene, std::vector<std::string>* labels) {
+    RuntimeScenario scenario;
+    if (!ParseScenarioLabels(scenario_data, entry_label, &scenario)) return false;
+    BuildLabelOrder(&scenario);
+    ScenarioParseRunner runner(scenario, true);
+    auto output = runner.Run();
+    if (output.status != ScenarioParseStatus::ok) return false;
+    *scene = BuildSceneDocument(std::move(output.result));
+    scene->raw_lang = runner.RawLanguage();
+    *labels = scenario.label_order;
+    return true;
+}
 
 bool CatchScenario(
     void* scenario_data,

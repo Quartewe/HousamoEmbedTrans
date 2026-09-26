@@ -1,560 +1,151 @@
-#include "housamo.hpp"
-#include <deque>
-#include <thread>
-#include <unordered_set>
-#include <utility>
+#include "scene/page_rec.hpp"
+#include "scene/scene_identity.hpp"
+#include "translation/codec/document_codec.hpp"
+
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <mutex>
+#include <unordered_map>
+#include <unordered_set>
+#include <unistd.h>
 
-struct PageKey {
-    uintptr_t page_data = 0;
-    uintptr_t command_list = 0;
-    int page_no = -1;
+namespace {
+std::mutex labels_mutex;
+std::unordered_map<std::string, std::uint64_t> pending_labels;
+std::uint64_t revision = 0;
+// Managed objects are never queued to another thread.
+std::mutex export_mutex;
+std::unordered_map<std::string, std::string> exported_json;
+std::filesystem::path export_directory;
 
-    bool operator==(const PageKey& other) const {
-        return page_data == other.page_data
-            && command_list == other.command_list
-            && page_no == other.page_no;
-    }
-};
-struct PageKeyHash {
-    std::size_t operator()(const PageKey& key) const noexcept {
-        std::size_t h1 = std::hash<uintptr_t>{}(key.page_data);
-        std::size_t h2 = std::hash<uintptr_t>{}(key.command_list);
-        std::size_t h3 = std::hash<int>{}(key.page_no);
-
-        return h1 ^ (h2 << 1) ^ (h3 << 2);
-    }
-};
-
-struct PageEvent {
-    void* page_data = nullptr;
-    void* command_list = nullptr;
-    int page_no = -1;
-    std::string source;
-    std::uint64_t capture_epoch = 0;
-};
-
-struct PageJob {
-    uint64_t seq = 0;
-    PageKey key;
-    void* page_data = nullptr;
-    void* command_list = nullptr;
-    int page_no = -1;
-    std::string source;
-};
-
-struct SelectionParseItem {
-    TextItem option;
-    std::string target_label;
-};
-
-using TextGroup = std::vector<TextItem>;
-using SelectionGroup = std::vector<SelectionParseItem>;
-
-struct ProcessPageResult {
-    uint64_t page_seq = 0;
-    OrderKey order;
-    std::string current_label;
-    std::vector<JumpItem> exit_labels;
-    std::vector<std::string> characters;
-    std::vector<ProtectedToken> protect;
-    std::vector<AcHit> ac_hits;
-
-    using PageItem = std::variant<
-        std::monostate,
-        TextGroup,
-        SelectionGroup
-    >;
-    PageItem items;
-};
-
-static constexpr int kPageWorkerCount = 2;
-static std::once_flag page_recorder_once;
-
-static std::mutex event_mutex;
-static std::mutex page_mutex;
-
-static std::deque<PageEvent> event_queue;
-static std::deque<PageJob> page_queue;
-
-static std::condition_variable event_cv;
-static std::condition_variable page_cv;
-
-static std::atomic<uint64_t> next_seq{0};
-static std::atomic<int> protect_label{0}; 
-static std::unordered_set<PageKey, PageKeyHash> seen_pages;
-
-static bool IsCapturePaused() {
-    return stop_reason.load(std::memory_order_acquire) == StopReason::user_pause;
+bool IsCurrent(std::uint64_t epoch) {
+    return stop_reason.load(std::memory_order_acquire) != StopReason::user_pause
+        && capture_pause_epoch.load(std::memory_order_acquire) == epoch;
 }
 
-class PageParser {
-public:
-    explicit PageParser(ProcessPageResult& result) : result_(result) {}
-
-    bool Parse(const PageJob& job) {
-        if (!valid_ptr(job.command_list)) {
+bool WriteScene(const Scene& scene, std::uint64_t epoch) {
+    std::string json, error;
+    het::translation::TranslationRequest unused_request;
+    // Only serialize: never submit the request to the translation pipeline.
+    if (!het::translation::document_codec::EncodeCapturedScene(
+            scene, &json, &unused_request, &error)) {
+        LOGE("[PageRec] encode failed scene=%s error=%s", scene.scene.c_str(), error.c_str());
+        return false;
+    }
+    auto previous = exported_json.find(scene.scene);
+    if (previous != exported_json.end() && previous->second == json) return IsCurrent(epoch);
+    if (g_runtime_config.base_dir.empty()) return false;
+    if (export_directory.empty()) {
+        const auto time = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        export_directory = std::filesystem::path(g_runtime_config.base_dir) / "page_rec"
+            / (std::to_string(time) + "-" + std::to_string(getpid()));
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(export_directory, ec);
+    if (ec) {
+        LOGE("[PageRec] create directory failed: %s", ec.message().c_str());
+        return false;
+    }
+    const auto destination = export_directory / (scene.scene + ".json");
+    const auto temporary = export_directory / (scene.scene + ".json.tmp");
+    {
+        std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
+        stream.write(json.data(), static_cast<std::streamsize>(json.size()));
+        stream.close();
+        if (!stream) {
+            LOGE("[PageRec] write failed: %s", temporary.c_str());
+            std::filesystem::remove(temporary, ec);
             return false;
         }
-
-        int select_seq = 0; // 用于同一个Selection内的选项区分
-
-        const auto& layout = g_runtime_config.layout;
-        const auto& list = layout.il2cpp_list;
-        const auto& array = layout.il2cpp_array;
-        const auto& cmd = layout.adv_command;
-        const auto& page = layout.adv_scenario_page_data;
-        const auto& scenario = layout.scenario_label_data;
-
-        result_.page_seq = job.seq;
-        result_.order.label_index = -1;
-        result_.order.page_no = job.page_no;
-
-        void* label_data = read_ptr(job.page_data, page.scenario_label_data);
-        void* label_ptr = read_ptr(label_data, scenario.scenario_label);
-        result_.current_label = read_il2cpp_string(label_ptr);
-
-        int list_size = read_int(job.command_list, list.size);
-        if (list_size <= 0 || list_size > 4096) {
-            return false;
-        }
-
-        void* cmd_array = read_ptr(job.command_list, list.items);
-        if (!valid_ptr(cmd_array)) {
-            return false;
-        }
-
-        TextGroup texts;
-        SelectionGroup selections;
-        std::string current_speaker;
-
-        for (int i = 0; i < list_size; i++) {
-            void* cmd_item = read_ptr(cmd_array, array.first_element + i * array.pointer_size);
-            if (!valid_ptr(cmd_item)) continue;
-
-            void* cmd_type_ptr = read_ptr(cmd_item, cmd.type);
-            std::string cmd_type = read_il2cpp_string(cmd_type_ptr);
-
-            if (cmd_type == "Character") {
-                current_speaker = GetNameItem(cmd_item);
-                continue;
-            } else if (cmd_type == "CharacterOff") { // characteroff 控制当前说话角色
-                current_speaker.clear();
-                continue;
-            } else if (cmd_type == "Text") {
-                TextItem text_item;
-                std::string raw_text = GetTextItem(cmd_item);
-                if (raw_text.empty()) continue;
-
-                text_item.order.label_index = -1;
-                text_item.order.page_no = job.page_no;
-                text_item.order.cmd_index = i;
-                text_item.order.sub_index = 0;
-
-                text_item.speaker = current_speaker;
-                AddUniqueName(current_speaker);
-                text_item.text = std::move(raw_text);
-
-                texts.push_back(std::move(text_item));
-                continue;
-            } else if (cmd_type == "Selection") {
-                SelectionParseItem item = GetSelectItem(cmd_item);
-                if (item.option.text.empty() || item.target_label.empty()) continue;
-
-                item.option.order.label_index = -1;
-                item.option.order.page_no = job.page_no;
-                item.option.order.cmd_index = i;
-                item.option.order.sub_index = ++select_seq;
-
-                selections.push_back(std::move(item));
-                continue;
-            } else if (cmd_type == "Jump") {
-                JumpItem item = GetJumpItem(cmd_item);
-                result_.exit_labels.push_back(std::move(item));
-                continue;
-            }
-        }
-
-        if (!selections.empty()) {
-            result_.items = std::move(selections);
-        } else if (!texts.empty()) {
-            result_.items = std::move(texts);
-        } else {
-            result_.items = std::monostate{};
-        }
-
-        return true;
     }
-
-private:
-    static bool IsTag(const std::string& raw, size_t i) {
-        if (raw[i] != '<') return false;
-        if (i + 1 >= raw.size()) return false;
-
-        unsigned char next = static_cast<unsigned char>(raw[i + 1]);
-
-        return next == '/'
-            || (next >= 'A' && next <= 'Z')
-            || (next >= 'a' && next <= 'z');
+    // Pause and committing an export have one ordering boundary.
+    std::lock_guard<std::mutex> transition(capture_transition_mutex);
+    if (!IsCurrent(epoch)) {
+        std::filesystem::remove(temporary, ec);
+        return false;
     }
-
-    std::string CatchTextLabel(const std::string& raw, bool replace_mode) {
-        if (raw.empty()) {
-            return "";
-        }
-
-        std::string out;
-        out.reserve(raw.size());
-
-        bool have_start = false;
-        size_t label_start = 0;
-
-        for(size_t i = 0; i < raw.size(); ++i) {
-            char c = raw[i];
-
-            if (!have_start) {
-                if (IsTag(raw, i)) {
-                    have_start = true;
-                    label_start = i;
-                } else {
-                    out.push_back(c);
-                }
-                continue;
-            }
-
-            if (c == '>' && have_start) {
-                std::string tag = raw.substr(label_start, i - label_start + 1);
-
-                if (replace_mode) {
-                    ProtectedToken token;
-                    token.label = "__HET__PT_" + std::to_string(protect_label.fetch_add(1)) + "__";
-                    token.origin = std::move(tag);
-
-                    out += token.label;
-                    result_.protect.push_back(std::move(token));
-                }
-
-                have_start = false;
-            }
-        }
-
-        if (have_start) {
-            // 处理不完整标签的情况，直接把剩余部分加入输出
-            out += raw.substr(label_start);
-        }
-
-        return out;
+    std::filesystem::rename(temporary, destination, ec);
+    if (ec) {
+        LOGE("[PageRec] commit failed: %s", ec.message().c_str());
+        return false;
     }
-
-    void AddUniqueName(const std::string& name) {
-        if (name.empty()) return;
-        if (name == "mc") return;
-
-        for (const auto& existing : result_.characters) {
-            if (existing == name) return;
-        }
-
-        result_.characters.push_back(name);
-    }
-
-    std::string ReadRowStringColumn(void* cmd_item, const int& column_index = -1) {
-        if (column_index < 0) {
-            return "";
-        }
-
-        const auto& layout = g_runtime_config.layout;
-        const auto& cmd = layout.adv_command;
-        const auto& row = layout.string_grid_row;
-        const auto& array = layout.il2cpp_array;
-
-        void* rowData = read_ptr(cmd_item, cmd.row_data);
-        void* stringsPtr = read_ptr(rowData, row.strings);
-
-        int text_len = read_int(stringsPtr, array.length);
-
-        if (text_len <= column_index || text_len > 4096) {
-            return "";
-        }
-
-        void* rawTextPtr = read_ptr(stringsPtr, array.first_element + column_index * array.pointer_size);
-        if (!valid_ptr(rawTextPtr)) {
-            return "";
-        }
-
-        std::string raw_text = read_il2cpp_string(rawTextPtr);
-        if (raw_text.empty()) {
-            return "";
-        }
-
-        return raw_text;
-    }
-
-    JumpItem GetJumpItem(void* cmd_item) {
-        const auto& layout = g_runtime_config.layout;
-        const auto& jump = layout.adv_command_jump;
-
-        JumpItem item;
-        void* jumpLabelPtr = read_ptr(cmd_item, jump.jump_label);
-        if (!valid_ptr(jumpLabelPtr)) {
-            return item;
-        }
-
-        item.target = read_il2cpp_string(jumpLabelPtr);
-        item.condition = ReadRowStringColumn(cmd_item, jump.condition_column);
-
-        return item;
-    }
-
-    std::string GetTextItem(void* cmd_item) {
-        const auto& column = g_runtime_config.layout.text_columns;
-
-        std::string cn_text = ReadRowStringColumn(cmd_item, column.zh_cn);
-        if (!cn_text.empty()) {
-            LOGW("[ProcessPageJob] Already has translation");
-            return "";
-        }
-
-        std::string raw_text = ReadRowStringColumn(cmd_item, column.raw);
-        std::string out = CatchTextLabel(raw_text, true);
-
-        auto ac_hits = AcScan(CatchTextLabel(raw_text, false));
-        result_.ac_hits.insert(result_.ac_hits.end(), ac_hits.begin(), ac_hits.end());
-
-        return out;
-    }
-
-    std::string GetNameItem(void* cmd_item) {
-        const auto& layout = g_runtime_config.layout;
-        const auto& character = layout.adv_command_character;
-
-        void* charInfo = read_ptr(cmd_item, character.character_info);
-        if (!valid_ptr(charInfo)) {
-            return "";
-        }
-
-        void* nameText = read_ptr(charInfo, character.name_text);
-        if (!valid_ptr(nameText)) {
-            return "";
-        }
-
-        return read_il2cpp_string(nameText);
-    }
-
-    SelectionParseItem GetSelectItem(void* cmd_item) {
-        const auto& layout = g_runtime_config.layout;
-        const auto& selection = layout.adv_command_selection;
-        const auto& column = layout.text_columns;
-        SelectionParseItem item;
-
-        void* jumpLabelPtr = read_ptr(cmd_item, selection.jump_label);
-
-        std::string cn_text = ReadRowStringColumn(cmd_item, column.zh_cn);
-        if (!cn_text.empty()) {
-            LOGW("[ProcessPageJob] Already has translation");
-            return item;
-        }
-
-        std::string raw_text = ReadRowStringColumn(cmd_item, column.raw);
-        std::string out = CatchTextLabel(raw_text, true);
-
-        auto ac_hits = AcScan(std::move(CatchTextLabel(raw_text, false)));
-        result_.ac_hits.insert(result_.ac_hits.end(), ac_hits.begin(), ac_hits.end());
-
-        item.option.text = out;
-        item.option.speaker = "mc"; // 选项通常没有说话人，这里用一个固定值占位
-        item.target_label = read_il2cpp_string(jumpLabelPtr);
-
-        return item;
-    }
-
-private:
-    ProcessPageResult& result_;
-};
-
-void NotifyPageRecStopChanged() {
-    event_cv.notify_all();
-    page_cv.notify_all();
+    exported_json[scene.scene] = std::move(json);
+    LOGI("[PageRec] exported scene=%s raw_lang=%s path=%s",
+         scene.scene.c_str(), scene.raw_lang.c_str(), destination.c_str());
+    return true;
 }
+} // namespace
+
+// No background workers to wake or managed references to clear.
+void NotifyPageRecStopChanged() {}
 
 void ClearPageRecOnPause() {
-    {
-        std::lock_guard<std::mutex> lock(event_mutex);
-        event_queue.clear();
-    }
-    {
-        std::lock_guard<std::mutex> lock(page_mutex);
-        page_queue.clear();
-        seen_pages.clear();
-    }
-    NotifyPageRecStopChanged();
+    std::lock_guard<std::mutex> lock(labels_mutex);
+    pending_labels.clear();
 }
 
-static bool ProcessPageJob(const PageJob& job, ProcessPageResult* out = nullptr) {
-    if (out == nullptr) {
-        return false;
-    }
-    PageParser parser(*out);
-    return parser.Parse(job);
-}
-
-static PageKey MakePageKey(void* pageData, void* commandList, int pageNo) {
-    // 构造PageKey, 用于去重和识别唯一页面
-    PageKey key;
-    key.page_data = reinterpret_cast<uintptr_t>(pageData);
-    key.command_list = reinterpret_cast<uintptr_t>(commandList);
-    key.page_no = pageNo;
-    return key;
-};
-
-static void PageEventWorker() {
-    // 这个线程专门处理来自Hook的页面事件，进行去重和初步处理
-    while (true) {
-        PageEvent event;
-        {
-            std::unique_lock<std::mutex> lock(event_mutex);
-
-            event_cv.wait(lock, [] {
-                return IsCapturePaused() || !event_queue.empty();
-            });
-
-            if (IsCapturePaused()) {
-                event_queue.clear();
-                {
-                    std::lock_guard<std::mutex> page_lock(page_mutex);
-                    page_queue.clear();
-                    seen_pages.clear();
-                }
-                event_cv.wait(lock, [] {
-                    return !IsCapturePaused();
-                });
-                continue;
-            }
-
-            event = event_queue.front();
-            event_queue.pop_front();
-        }
-        PageKey key = MakePageKey(event.page_data, event.command_list, event.page_no);
-        PageJob job;
-
-        {
-            std::lock_guard<std::mutex> lock(page_mutex);
-            if (IsCapturePaused()
-                || event.capture_epoch
-                    != capture_pause_epoch.load(std::memory_order_acquire)) {
-                continue;
-            }
-            auto res = seen_pages.insert(key);
-            if (!res.second) continue;
-
-            job.seq = next_seq.fetch_add(1);
-            job.key = key;
-            job.page_data = event.page_data;
-            job.command_list = event.command_list;
-            job.page_no = event.page_no;
-            job.source = event.source;
-
-            page_queue.push_back(job);
-        }
-
-        // 通知PageWorker有新任务
-        page_cv.notify_one();
-    }
-}
-
-static void PageWorker() {
-    // 这个线程专门处理PageJob，进行文本提取和翻译等后续工作
-    while (true) {
-        PageJob job;
-        ProcessPageResult out;
-
-        {
-            std::unique_lock<std::mutex> lock(page_mutex);
-
-            page_cv.wait(lock, [] {
-                return IsCapturePaused() || !page_queue.empty();
-            });
-
-            if (IsCapturePaused()) {
-                page_queue.clear();
-                seen_pages.clear();
-                page_cv.wait(lock, [] {
-                    return !IsCapturePaused();
-                });
-                continue;
-            }
-
-            job = page_queue.front();
-            page_queue.pop_front();
-        }
-
-        if (ProcessPageJob(job, &out)) {
-            LOGI("[PageRecDebug] parsed seq=%llu label=%s pageNo=%d source=%s",
-                 static_cast<unsigned long long>(out.page_seq),
-                 out.current_label.c_str(),
-                 out.order.page_no,
-                 job.source.c_str());
-        } else {
-            LOGE("[PageWorker] failed to parse page job seq=%llu pageNo=%d", static_cast<unsigned long long>(job.seq), job.page_no);
-        }
-    }
-};
-
-static void StartPageRecorder() {
-    // 确保PageEventWorker只启动一次
-    std::call_once(page_recorder_once, [] {
-        std::thread(PageEventWorker).detach();
-        for (int i = 0; i < kPageWorkerCount; ++i) {
-            std::thread(PageWorker).detach();
-        }
-        LOGI("[PageRec] worker started page_workers=%d", kPageWorkerCount);
-    });
-}
-
-bool CommandExamine(void* pageData, const std::string& source) {
-    const std::uint64_t captured_epoch = capture_pause_epoch.load(
-        std::memory_order_acquire);
-    if (IsCapturePaused()) {
-        return false;
-    }
-
-    // 这个函数由Hook调用，每次页面事件发生时被调用
-    StartPageRecorder();
-
-    if (!valid_ptr(pageData)) {
-        LOGE("[CommandExamine] pageData is nullptr!"); 
-        return false;
-    };
-
+bool CommandExamine(void* page_data, const std::string&) {
+    const auto epoch = capture_pause_epoch.load(std::memory_order_acquire);
+    if (!g_runtime_config.enable_page_rec_debug || !IsCurrent(epoch) || !valid_ptr(page_data)) return false;
     const auto& layout = g_runtime_config.layout;
-    const auto& page_data = layout.adv_scenario_page_data;
-
-    void* command_list = read_ptr(pageData, page_data.command_list);
-    int page_no = read_int(pageData, page_data.page_no);
-
-    if (!valid_ptr(command_list)) {
-        LOGE("[CommandExamine] command_list is nullptr!");
-        return false;
-    }
-
-    PageEvent event;
-    event.page_data = pageData;
-    event.command_list = command_list;
-    event.page_no = page_no;
-    event.source = source;
-    event.capture_epoch = captured_epoch;
-
-    {
-        std::lock_guard<std::mutex> lock(event_mutex);
-        if (IsCapturePaused()
-            || captured_epoch
-                != capture_pause_epoch.load(std::memory_order_acquire)) {
-            return false;
-        }
-        event_queue.push_back(event);
-    }
-    
-    // 通知PageEventWorker有新事件
-    event_cv.notify_one();
-
+    void* label_data = read_ptr(page_data, layout.adv_scenario_page_data.scenario_label_data);
+    if (!valid_ptr(label_data)) return false;
+    std::string label = read_il2cpp_string(read_ptr(label_data, layout.scenario_label_data.scenario_label));
+    if (label.empty()) return false;
+    std::lock_guard<std::mutex> lock(labels_mutex);
+    if (!IsCurrent(epoch)) return false;
+    pending_labels[std::move(label)] = ++revision;
     return true;
+}
+
+void ExportPageRecScenarios(
+    void* current_scenario, const std::string& entry_label,
+    std::uint64_t epoch, const std::function<void*(const std::string&)>& resolve) {
+    // Do not recursively enter the exporter or retain its manager.
+    static thread_local bool exporting = false;
+    if (exporting || !IsCurrent(epoch)) return;
+    exporting = true;
+    struct Reset { bool& value; ~Reset() { value = false; } } reset{exporting};
+    std::lock_guard<std::mutex> export_lock(export_mutex);
+    if (!IsCurrent(epoch)) return;
+    std::unordered_map<std::string, std::uint64_t> snapshot;
+    {
+        std::lock_guard<std::mutex> lock(labels_mutex);
+        snapshot = pending_labels;
+    }
+    std::unordered_set<std::string> covered;
+    std::unordered_set<std::string> attempted;
+    auto capture = [&](void* data, const std::string& entry) {
+        if (!valid_ptr(data) || !IsCurrent(epoch)) return;
+        const std::string name = read_il2cpp_string(
+            read_ptr(data, g_runtime_config.layout.adv_scenario_data.name));
+        if (!het::translation::scene_identity::IsValid(name)) return;
+        // A failed bucket can contain hundreds of initialized labels. Retry
+        // once on the next lookup, not once per label in the same sweep.
+        if (!attempted.insert(name).second) return;
+        Scene scene;
+        std::vector<std::string> labels;
+        if (!ParsePageRecScene(data, entry, &scene, &labels) || !WriteScene(scene, epoch)) {
+            LOGW("[PageRec] export deferred scene=%s; retry on next lookup", name.c_str());
+            return;
+        }
+        std::lock_guard<std::mutex> lock(labels_mutex);
+        for (const auto& label : labels) {
+            covered.insert(label);
+            auto old = snapshot.find(label);
+            auto pending = pending_labels.find(label);
+            if (old != snapshot.end() && pending != pending_labels.end()
+                && pending->second == old->second) pending_labels.erase(pending);
+        }
+    };
+    capture(current_scenario, entry_label);
+    for (const auto& entry : snapshot) {
+        if (!IsCurrent(epoch)) break;
+        if (covered.count(entry.first)) continue;
+        void* scenario = resolve(entry.first);
+        if (valid_ptr(scenario)) capture(scenario, entry.first);
+        else LOGW("[PageRec] unresolved label=%s; retained for next lookup", entry.first.c_str());
+    }
 }
