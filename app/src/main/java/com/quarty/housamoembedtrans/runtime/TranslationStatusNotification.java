@@ -104,6 +104,22 @@ public final class TranslationStatusNotification {
         statusSceneStore = store;
     }
 
+    /** Drop only the previous startup attempt's error before a new attempt. */
+    public static void clearStartupFailure(Context context) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            Context appContext = context.getApplicationContext();
+            runOnNotificationThread(() -> clearStartupFailure(appContext));
+            return;
+        }
+        android.content.SharedPreferences prefs = state(context);
+        if (STATE_STARTUP_FAILED.equals(prefs.getString(KEY_STATE, STATE_IDLE))) {
+            prefs.edit().putString(KEY_STATE, STATE_IDLE)
+                .remove(KEY_STARTUP_FAILED_MESSAGE)
+                .remove(KEY_STARTED_AT).remove(KEY_FINISHED_AT).apply();
+            refresh(context);
+        }
+    }
+
     /**
      * Shows a dedicated user-visible failure state for a failed linear
      * startup coordinator run. This is distinct from a per-job translation

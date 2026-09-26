@@ -1462,8 +1462,19 @@ public final class TranslationService extends Service {
         // the latest requested value.
         capturePausedRequest = RuntimeControlStore.isCapturePaused(this);
 
+        try {
+            if (!foregroundStarted) {
+                TranslationStatusNotification.clearStartupFailure(this);
+                promoteToForeground();
+            }
+        } catch (RuntimeException promotionFailure) {
+            foregroundStarted = false;
+            onStartupCoordinatorFailed(promotionFailure);
+            stopSelfResult(startId);
+            return START_NOT_STICKY;
+        }
         runOnStartCommandSequence(
-            this::promoteToForeground,
+            () -> { },
             () -> {
                 foregroundStarted = true;
                 startStartupCoordinator();
@@ -2913,6 +2924,7 @@ public final class TranslationService extends Service {
             }
             startupStarted = true;
         }
+        TranslationStatusNotification.clearStartupFailure(this);
         try {
             StartupCoordinator coordinator = new StartupCoordinator(
                 startupCoordinatorExecutor,
