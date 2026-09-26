@@ -18,6 +18,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -322,12 +326,48 @@ public final class ConfigStore {
             }
             JsonLoadResult current = loadJson(RUNTIME_FILE_NAME);
             if (!current.invalidUserOverride
-                && gameVersion.equals(current.json.getString("GameVersion").trim())) {
+                && Arrays.equals(runtimeHash(current.json), runtimeHash(runtime))) {
                 return false;
             }
             writeJsonUnrestricted(getUserFile(RUNTIME_FILE_NAME), RUNTIME_FILE_NAME, runtime);
             return true;
         }
+    }
+
+    /** Formatting and object-key order do not change resource identity. */
+    private static byte[] runtimeHash(JSONObject runtime) throws Exception {
+        return MessageDigest.getInstance("SHA-256").digest(
+            canonicalRuntimeJson(runtime).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String canonicalRuntimeJson(Object value) throws Exception {
+        if (value instanceof JSONObject) {
+            JSONObject object = (JSONObject) value;
+            ArrayList<String> keys = new ArrayList<>();
+            Iterator<String> iterator = object.keys();
+            while (iterator.hasNext()) keys.add(iterator.next());
+            Collections.sort(keys);
+            StringBuilder result = new StringBuilder("{");
+            for (String key : keys) {
+                if (result.length() > 1) result.append(',');
+                result.append(JSONObject.quote(key)).append(':')
+                    .append(canonicalRuntimeJson(object.get(key)));
+            }
+            return result.append('}').toString();
+        }
+        if (value instanceof JSONArray) {
+            JSONArray array = (JSONArray) value;
+            StringBuilder result = new StringBuilder("[");
+            for (int index = 0; index < array.length(); index++) {
+                if (index > 0) result.append(',');
+                result.append(canonicalRuntimeJson(array.get(index)));
+            }
+            return result.append(']').toString();
+        }
+        if (value == null || value == JSONObject.NULL) return "null";
+        if (value instanceof String) return JSONObject.quote((String) value);
+        if (value instanceof Number) return JSONObject.numberToString((Number) value);
+        return String.valueOf(value);
     }
 
     /** Result of merging one prevalidated batch into the current dictionary. */

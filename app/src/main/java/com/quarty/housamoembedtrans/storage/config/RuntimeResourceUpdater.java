@@ -73,7 +73,7 @@ public final class RuntimeResourceUpdater implements Application.ActivityLifecyc
                 Consumer<String> callback = manualCompletion;
                 manualCompletion = null;
                 if (callback != null) {
-                    callback.accept(result == null ? "RVA 资源版本与已安装游戏版本一致，无需更新。" : result);
+                    callback.accept(result == null ? "RVA 资源内容与仓库一致，无需更新。" : result);
                 } else if (notify) {
                     showMessage(result);
                 }
@@ -88,10 +88,6 @@ public final class RuntimeResourceUpdater implements Application.ActivityLifecyc
         ConfigStore store = new ConfigStore(application);
         ConfigStore.JsonLoadResult local = store.loadJson(ConfigStore.RUNTIME_FILE_NAME);
         String localVersion = local.json.getString("GameVersion").trim();
-        if (!local.invalidUserOverride && gameVersion.equals(localVersion)) {
-            Log.i(TAG, "Runtime matches game version=" + gameVersion);
-            return null;
-        }
         Log.i(TAG, "Checking remote runtime local=" + localVersion + " game=" + gameVersion);
         JSONObject remote = fetchRuntime();
         String remoteVersion = remote.getString("GameVersion").trim();
@@ -106,6 +102,7 @@ public final class RuntimeResourceUpdater implements Application.ActivityLifecyc
             Log.i(TAG, "Runtime updated version=" + gameVersion);
             return "RVA 资源已自动更新至 " + gameVersion + "，请重启游戏使其生效。";
         }
+        Log.i(TAG, "Runtime content hash matches remote; game=" + gameVersion);
         return null;
     }
 
