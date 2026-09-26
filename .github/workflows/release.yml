@@ -54,7 +54,13 @@ jobs:
 
       - name: Install pinned Android build tools
         run: |
-          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
+          sdkmanager_path="${ANDROID_HOME:?ANDROID_HOME is not set}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager_path" ]]; then
+            echo "::error::Android SDK manager is missing or not executable: $sdkmanager_path"
+            exit 1
+          fi
+          "$sdkmanager_path" --sdk_root="$ANDROID_HOME" \
+            'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
 
       - name: Restore signing keystore
         env:
