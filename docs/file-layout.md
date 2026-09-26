@@ -84,7 +84,7 @@ PageRec 复用正常 Scene 结构和分支组装：同一 Scene 的正文与分�
 
 会话目录在该进程首次导出时创建，后续章节可以写入同一目录。同名 Scene 内容相同时跳过重复写入；变化时先写 `<scene>.json.tmp`，再重命名替换该会话中的正式文件。新游戏进程创建新会话目录，不自动清理旧导出。
 
-PageRec 开启后，捕获输出到 `page_rec/`，这些文件不参与同步、翻译或 Quest 回写。游戏与 HET 的连接、正常 `scenes/` 端口仍保留；导出隔离不表示停止已有正常 Scene 的同步。切换模式需重启游戏。
+PageRec 开启后，捕获输出到 `page_rec/`，默认不参与同步、翻译或 Quest 回写。另行开启“PageRec 剧情加入翻译任务”后，导出的 Scene 同时进入正常 `scenes/` 保存与任务链，按当前目标语言处理；已有完整译文跳过，已有 Scene 沿用原内容。正常 Scene 副本参与既有同步，`page_rec/` 文件仍仅作导出留档。仅解析诊断仍阻止请求，PageRec 不启用 Quest 回写。该开关只处理此后捕获的剧情，不扫描旧会话目录。游戏与 HET 的连接、正常 `scenes/` 端口仍保留；导出隔离不表示停止已有正常 Scene 的同步。切换模式需重启游戏。
 
 游戏配置与字典优先通过 HET 用户文件 Provider 读取，无法取得可用的覆盖文件时回退到模块 APK assets，不从游戏 `housamo_embed_trans/` 寻找另一份 `runtime.json`。修改仓库 assets 不等于更新已安装 APK 或 HET 用户覆盖文件。
 

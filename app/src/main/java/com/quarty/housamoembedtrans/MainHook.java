@@ -1412,6 +1412,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         int sceneWorkerCount;
         SceneSyncStartupSnapshot sceneSyncSnapshot;
         boolean enablePageRecDebug;
+        boolean enablePageRecTasks;
         boolean enableParseOnlyDebug;
         boolean overwriteExistingJson;
         String targetLanguage;
@@ -1672,6 +1673,15 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return userSettings.getBoolean("EnablePageRecDebug");
     }
 
+    private static boolean Init_EnablePageRecTasks(JSONObject json) throws Exception {
+        JSONObject settings = json.getJSONObject("UserSettings");
+        if (settings.has("EnablePageRecTasks")
+            && !(settings.get("EnablePageRecTasks") instanceof Boolean)) {
+            throw new IllegalArgumentException("UserSettings.EnablePageRecTasks must be a boolean");
+        }
+        return settings.optBoolean("EnablePageRecTasks", false);
+    }
+
     private static boolean Init_EnableParseOnlyDebug(JSONObject json) throws Exception {
         JSONObject userSettings = json.getJSONObject("UserSettings");
         return userSettings.optBoolean("EnableParseOnlyDebug", false);
@@ -1750,6 +1760,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         );
         config.sceneWorkerCount = config.sceneSyncSnapshot.getSceneWorkerCount();
         config.enablePageRecDebug = Init_EnablePageRecDebug(userConfig);
+        config.enablePageRecTasks = Init_EnablePageRecTasks(userConfig);
         config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(userConfig);
         config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
         config.targetLanguage = Init_TargetLanguage(userConfig);
@@ -1804,6 +1815,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
         Init_CharacterWeight(json);
         Init_EnablePageRecDebug(json);
+        Init_EnablePageRecTasks(json);
         Init_EnableParseOnlyDebug(json);
         Init_OverwriteExistingJson(json);
         Init_TargetLanguage(json);
@@ -2568,6 +2580,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 startup.characterWeight,
                 startup.sceneWorkerCount,
                 startup.enablePageRecDebug,
+                startup.enablePageRecTasks,
                 startup.enableParseOnlyDebug,
                 startup.overwriteExistingJson,
                 startup.targetLanguage,
@@ -2596,6 +2609,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     + startup.sceneWorkerCount
                     + " parseOnlyDebug="
                     + startup.enableParseOnlyDebug
+                    + " pageRecTasks=" + (startup.enablePageRecDebug && startup.enablePageRecTasks)
                     + " pageRecExport=" + startup.enablePageRecDebug
                     + (startup.enablePageRecDebug ? " output=page_rec" : " apiOwner=het-service")
             );
@@ -2632,6 +2646,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         CharacterWeight characterWeight,
         int sceneWorkerCount,
         boolean enablePageRecDebug,
+        boolean enablePageRecTasks,
         boolean enableParseOnlyDebug,
         boolean overwriteExistingJson,
         String targetLanguage,

@@ -2,6 +2,7 @@
     "Version": "1.0",
     "UserSettings": {
         "EnablePageRecDebug": false,
+        "EnablePageRecTasks": false,
         "EnableParseOnlyDebug": false,
         "EnableFailedApiResponseDump": false,
         "EnableApiBodyLogging": false,

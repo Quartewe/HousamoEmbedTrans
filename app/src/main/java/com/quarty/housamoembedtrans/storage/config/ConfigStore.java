@@ -944,6 +944,12 @@ public final class ConfigStore {
 
         JSONObject userSettings = config.getJSONObject("UserSettings");
         userSettings.getBoolean("EnablePageRecDebug");
+        if (userSettings.has("EnablePageRecTasks")
+            && !(userSettings.get("EnablePageRecTasks") instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                "UserSettings.EnablePageRecTasks must be a boolean"
+            );
+        }
         if (userSettings.has("EnableParseOnlyDebug")
             && !(userSettings.get("EnableParseOnlyDebug") instanceof Boolean)) {
             throw new IllegalArgumentException(

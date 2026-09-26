@@ -153,7 +153,7 @@ public:
         std::uint64_t captured_epoch = 0;
     };
 
-    void SubmitCaptured(
+    bool SubmitCaptured(
         std::shared_ptr<const Scene> scene,
         het::scene_sync::SceneProductionLease production_lease,
         std::uint64_t captured_epoch) {
@@ -161,7 +161,7 @@ public:
             || scene->scene.empty()
             || !production_lease.allowed()
             || !IsCaptureEpochCurrent(captured_epoch)) {
-            return;
+            return false;
         }
         StartSceneWorker();
         {
@@ -172,7 +172,7 @@ public:
             // epoch closes the old admission generation even when a stale
             // producer is delayed until after pause and resume.
             if (!IsCaptureEpochCurrent(captured_epoch)) {
-                return;
+                return false;
             }
             scene_queue_.push_back(CapturedWork{
                 std::move(scene),
@@ -181,6 +181,7 @@ public:
             });
         }
         scene_cv_.notify_one();
+        return true;
     }
 
     bool ApplyResult(
@@ -609,11 +610,11 @@ bool SubmitExistingScene(
     return GetPipeline().SubmitExisting(scene_name, captured_epoch);
 }
 
-void SubmitCapturedScene(
+bool SubmitCapturedScene(
     std::shared_ptr<const Scene> scene,
     het::scene_sync::SceneProductionLease production_lease,
     std::uint64_t captured_epoch) {
-    GetPipeline().SubmitCaptured(
+    return GetPipeline().SubmitCaptured(
         std::move(scene),
         std::move(production_lease),
         captured_epoch);

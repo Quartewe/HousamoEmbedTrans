@@ -19,7 +19,8 @@ bool SubmitSceneToWriter(const std::string& scene_name, const std::string& targe
 bool SubmitExistingScene(
     const std::string& scene_name,
     std::uint64_t captured_epoch);
-void SubmitCapturedScene(
+// Returns queue admission only; the worker still owns local commit and dispatch.
+bool SubmitCapturedScene(
     std::shared_ptr<const Scene> scene,
     het::scene_sync::SceneProductionLease production_lease,
     std::uint64_t captured_epoch);

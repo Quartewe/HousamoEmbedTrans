@@ -188,6 +188,7 @@ public final class SettingsCategory {
                 + (weights == null ? 1 : weights.optInt("RelatedNum", 1));
         }
         return userSettings.optBoolean("EnablePageRecDebug", false)
+                || userSettings.optBoolean("EnablePageRecTasks", false)
                 || userSettings.optBoolean("EnableParseOnlyDebug", false)
                 || userSettings.optBoolean("EnableFailedApiResponseDump", false)
                 || userSettings.optBoolean("EnableApiBodyLogging", false)

@@ -241,6 +241,7 @@ struct RuntimeConfig {
     std::string base_dir;
     bool overwrite_existing = false;
     bool enable_page_rec_debug = false;
+    bool enable_page_rec_tasks = false;
     bool parse_only_debug = false;
 };
 
@@ -505,6 +506,7 @@ bool make_runtime_config(
     int scene_worker_count,
     const std::string& target_lang,
     bool enable_page_rec_debug,
+    bool enable_page_rec_tasks,
     bool parse_only_debug,
     bool overwrite_existing,
     const std::string& base_dir,

@@ -169,6 +169,7 @@ bool make_runtime_config(
     int scene_worker_count,
     const std::string& target_lang,
     bool enable_page_rec_debug,
+    bool enable_page_rec_tasks,
     bool parse_only_debug,
     bool overwrite_existing,
     const std::string& base_dir,
@@ -205,6 +206,7 @@ bool make_runtime_config(
     out->scene_worker_count = scene_worker_count;
     out->target_lang = target_lang;
     out->enable_page_rec_debug = enable_page_rec_debug;
+    out->enable_page_rec_tasks = enable_page_rec_tasks;
     out->parse_only_debug = parse_only_debug;
     out->overwrite_existing = overwrite_existing;
     out->base_dir = base_dir;

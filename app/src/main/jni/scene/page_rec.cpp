@@ -1,11 +1,13 @@
 #include "scene/page_rec.hpp"
 #include "scene/scene_identity.hpp"
 #include "translation/codec/document_codec.hpp"
+#include "translation/native_translation_pipeline.hpp"
 
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <unistd.h>
@@ -16,7 +18,12 @@ std::unordered_map<std::string, std::uint64_t> pending_labels;
 std::uint64_t revision = 0;
 // Managed objects are never queued to another thread.
 std::mutex export_mutex;
-std::unordered_map<std::string, std::string> exported_json;
+struct ExportRecord {
+    std::string json;
+    // Admission is scoped to a pause epoch: pausing may discard queued work.
+    std::optional<std::uint64_t> submitted_epoch;
+};
+std::unordered_map<std::string, ExportRecord> exported_json;
 std::filesystem::path export_directory;
 
 bool IsCurrent(std::uint64_t epoch) {
@@ -27,14 +34,14 @@ bool IsCurrent(std::uint64_t epoch) {
 bool WriteScene(const Scene& scene, std::uint64_t epoch) {
     std::string json, error;
     het::translation::TranslationRequest unused_request;
-    // Only serialize: never submit the request to the translation pipeline.
+    // Export serialization is independent of the optional normal task path.
     if (!het::translation::document_codec::EncodeCapturedScene(
             scene, &json, &unused_request, &error)) {
         LOGE("[PageRec] encode failed scene=%s error=%s", scene.scene.c_str(), error.c_str());
         return false;
     }
     auto previous = exported_json.find(scene.scene);
-    if (previous != exported_json.end() && previous->second == json) return IsCurrent(epoch);
+    if (previous != exported_json.end() && previous->second.json == json) return IsCurrent(epoch);
     if (g_runtime_config.base_dir.empty()) return false;
     if (export_directory.empty()) {
         const auto time = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -71,10 +78,46 @@ bool WriteScene(const Scene& scene, std::uint64_t epoch) {
         LOGE("[PageRec] commit failed: %s", ec.message().c_str());
         return false;
     }
-    exported_json[scene.scene] = std::move(json);
+    exported_json[scene.scene] = ExportRecord{std::move(json), std::nullopt};
     LOGI("[PageRec] exported scene=%s raw_lang=%s path=%s",
          scene.scene.c_str(), scene.raw_lang.c_str(), destination.c_str());
     return true;
+}
+
+// Called under export_mutex after the export has committed. No managed objects
+// leave the hook; the normal pipeline owns an immutable Scene and its lease.
+bool SubmitExportedScene(Scene scene, std::uint64_t epoch) {
+    if (!g_runtime_config.enable_page_rec_tasks) return true;
+    auto& record = exported_json.at(scene.scene);
+    if (record.submitted_epoch == epoch) return IsCurrent(epoch);
+    if (!IsCurrent(epoch)) return false;
+    auto lease = EnterSceneProduction(scene.scene);
+    if (!lease.allowed()) {
+        LOGI("[PageRec] task deferred scene=%s reason=%d",
+             scene.scene.c_str(), static_cast<int>(lease.reason()));
+        return false;
+    }
+    const std::string name = scene.scene;
+    bool admitted = false;
+    switch (GetSceneFileStatus(name)) {
+        case SceneFileStatus::complete:
+            // PageRec does not register Quest targets or enable game writeback.
+            admitted = true;
+            break;
+        case SceneFileStatus::pending:
+            admitted = SubmitExistingScene(name, epoch);
+            break;
+        case SceneFileStatus::not_found:
+            admitted = SubmitCapturedScene(
+                std::make_shared<const Scene>(std::move(scene)), std::move(lease), epoch);
+            break;
+    }
+    if (admitted && IsCurrent(epoch)) {
+        record.submitted_epoch = epoch;
+        LOGI("[PageRec] normal Scene path admitted scene=%s", name.c_str());
+        return true;
+    }
+    return false;
 }
 } // namespace
 
@@ -129,6 +172,10 @@ void ExportPageRecScenarios(
         std::vector<std::string> labels;
         if (!ParsePageRecScene(data, entry, &scene, &labels) || !WriteScene(scene, epoch)) {
             LOGW("[PageRec] export deferred scene=%s; retry on next lookup", name.c_str());
+            return;
+        }
+        if (!SubmitExportedScene(std::move(scene), epoch)) {
+            // Keep initialized labels pending when sync/pause/admission wins.
             return;
         }
         std::lock_guard<std::mutex> lock(labels_mutex);

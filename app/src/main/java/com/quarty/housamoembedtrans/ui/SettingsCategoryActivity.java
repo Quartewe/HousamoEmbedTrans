@@ -1610,6 +1610,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
         }
         return Arrays.asList(
             bool("enable-page-rec-debug", R.string.settings_field_enable_page_rec_debug, R.string.settings_field_hint_enable_page_rec_debug, new String[] {"EnablePageRecDebug"}),
+            bool("enable-page-rec-tasks", R.string.settings_field_enable_page_rec_tasks, R.string.settings_field_hint_enable_page_rec_tasks, new String[] {"EnablePageRecTasks"}),
             bool("enable-parse-only-debug", R.string.settings_field_enable_parse_only_debug, R.string.settings_field_hint_enable_parse_only_debug, new String[] {"EnableParseOnlyDebug"}),
             bool("enable-failed-api-response-dump", R.string.settings_field_enable_failed_api_response_dump, R.string.settings_field_hint_enable_failed_api_response_dump, new String[] {"EnableFailedApiResponseDump"}),
             bool("enable-api-body-logging", R.string.settings_field_enable_api_body_logging, R.string.settings_field_hint_enable_api_body_logging, new String[] {"EnableApiBodyLogging"}),
