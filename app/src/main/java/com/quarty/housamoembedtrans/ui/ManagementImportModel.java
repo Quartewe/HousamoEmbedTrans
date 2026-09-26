@@ -144,7 +144,8 @@ public final class ManagementImportModel {
             Map<String, List<String>> activeJobsByScene,
             String fingerprint
         ) {
-            this.objects = deepCopyObjects(objects);
+            // Callers construct private maps; fromJson copies each document once.
+            this.objects = objects;
             this.activeJobsByScene = copyJobMap(activeJobsByScene);
             this.fingerprint = fingerprint == null || fingerprint.trim().isEmpty()
                 ? fingerprintObjects(this.objects, this.activeJobsByScene)
@@ -165,6 +166,15 @@ public final class ManagementImportModel {
          * without making the UI know store implementation classes.
          */
         public static ExistingSnapshot fromJson(JSONObject envelope) {
+            return fromJson(envelope, true);
+        }
+
+        /** Hash a coordinator-owned envelope without copying its documents. */
+        public static String fingerprintOfJson(JSONObject envelope) {
+            return fromJson(envelope, false).fingerprint;
+        }
+
+        private static ExistingSnapshot fromJson(JSONObject envelope, boolean copyDocuments) {
             if (envelope == null) {
                 return empty();
             }
@@ -181,7 +191,7 @@ public final class ManagementImportModel {
                         String key = keys.next();
                         JSONObject value = map.optJSONObject(key);
                         if (value != null) {
-                            entries.put(key, copy(value));
+                            entries.put(key, copyDocuments ? copy(value) : value);
                         }
                     }
                 }
@@ -210,7 +220,7 @@ public final class ManagementImportModel {
             return new ExistingSnapshot(
                 objects,
                 jobs,
-                envelope.optString("fingerprint", null)
+                copyDocuments ? envelope.optString("fingerprint", null) : null
             );
         }
 
@@ -1151,23 +1161,6 @@ public final class ManagementImportModel {
         return values.isEmpty() ? "" : values.get(0);
     }
 
-    private static Map<String, Map<String, JSONObject>> deepCopyObjects(
-        Map<String, Map<String, JSONObject>> source
-    ) {
-        Map<String, Map<String, JSONObject>> result = new LinkedHashMap<>();
-        for (String kind : allKinds()) {
-            Map<String, JSONObject> values = new LinkedHashMap<>();
-            Map<String, JSONObject> input = source == null ? null : source.get(kind);
-            if (input != null) {
-                for (Map.Entry<String, JSONObject> entry : input.entrySet()) {
-                    values.put(entry.getKey(), copy(entry.getValue()));
-                }
-            }
-            result.put(kind, values);
-        }
-        return result;
-    }
-
     private static Map<String, List<String>> copyJobMap(
         Map<String, List<String>> source
     ) {
@@ -1191,27 +1184,40 @@ public final class ManagementImportModel {
         Map<String, Map<String, JSONObject>> objects,
         Map<String, List<String>> jobs
     ) {
-        StringBuilder value = new StringBuilder();
-        for (String kind : allKinds()) {
-            value.append(kind).append('\n');
-            Map<String, JSONObject> entries = objects.get(kind);
-            if (entries != null) {
-                List<String> keys = new ArrayList<>(entries.keySet());
-                Collections.sort(keys);
-                for (String key : keys) {
-                    value.append(key).append('=').append(entries.get(key)).append('\n');
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            for (String kind : allKinds()) {
+                updateFingerprint(digest, kind + "\n");
+                Map<String, JSONObject> entries = objects.get(kind);
+                if (entries != null) {
+                    List<String> keys = new ArrayList<>(entries.keySet());
+                    Collections.sort(keys);
+                    for (String key : keys) {
+                        updateFingerprint(digest, key + "=");
+                        updateFingerprint(digest, String.valueOf(entries.get(key)));
+                        updateFingerprint(digest, "\n");
+                    }
                 }
             }
-        }
-        if (jobs != null) {
-            List<String> scenes = new ArrayList<>(jobs.keySet());
-            Collections.sort(scenes);
-            for (String scene : scenes) {
-                value.append("job:").append(scene).append('=').append(jobs.get(scene))
-                    .append('\n');
+            if (jobs != null) {
+                List<String> scenes = new ArrayList<>(jobs.keySet());
+                Collections.sort(scenes);
+                for (String scene : scenes) {
+                    updateFingerprint(digest, "job:" + scene + "=" + jobs.get(scene) + "\n");
+                }
             }
+            StringBuilder output = new StringBuilder(64);
+            for (byte item : digest.digest()) {
+                output.append(String.format("%02x", item & 0xff));
+            }
+            return output.toString();
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 is unavailable", error);
         }
-        return sha256(value.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void updateFingerprint(MessageDigest digest, String value) {
+        digest.update(value.getBytes(StandardCharsets.UTF_8));
     }
 
     private static List<String> allKinds() {

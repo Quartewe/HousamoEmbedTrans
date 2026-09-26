@@ -597,9 +597,8 @@ public final class ManagementImportCoordinator {
                 requestIds.put(requestId);
             }
         }
-        ManagementImportModel.ExistingSnapshot normalized =
-            ManagementImportModel.ExistingSnapshot.fromJson(snapshot);
-        snapshot.put("fingerprint", normalized.fingerprint);
+        snapshot.put("fingerprint",
+            ManagementImportModel.ExistingSnapshot.fingerprintOfJson(snapshot));
         return snapshot;
     }
 
@@ -806,8 +805,7 @@ public final class ManagementImportCoordinator {
         applyContextGroupOperations(manifest, operations, current);
         current = buildSnapshotLocked(jobStore.listReviewJobs());
         applyDictionaryOperations(manifest, operations, current);
-        current = buildSnapshotLocked(jobStore.listReviewJobs());
-        applySceneOperations(manifest, operations, current, sceneLease);
+        applySceneOperations(manifest, operations, sceneLease);
         applyCancellationOperations(manifest);
     }
 
@@ -936,26 +934,32 @@ public final class ManagementImportCoordinator {
     private void applySceneOperations(
         JSONObject manifest,
         JSONArray operations,
-        JSONObject current,
         SceneStore.MutationAdmission.FullSyncLease sceneLease
     ) throws Exception {
         for (int index = 0; index < operations.length(); index++) {
             JSONObject operation = operations.getJSONObject(index);
-            if (!ManagementImportModel.KIND_SCENE.equals(
-                    operation.optString("type", "")
-                )
-                || "skip".equals(operation.optString("action", ""))
-                || isAlreadyApplied(current, operation)) {
+            if (!ManagementImportModel.KIND_SCENE.equals(operation.optString("type", ""))
+                || "skip".equals(operation.optString("action", ""))) {
                 continue;
             }
             String sceneName = operation.getString("target_id");
+            // The full-sync lease protects this read/check/write sequence.
+            // Read only this target, retaining the journal's before/after check.
+            JSONObject current = new JSONObject();
+            JSONObject scenes = new JSONObject();
+            current.put("scenes", scenes);
+            if (sceneStore.listFormalSceneNamesStrict().contains(sceneName)) {
+                SceneStore.RawSceneSnapshot existing = sceneStore.readRawSceneSnapshot(sceneName);
+                scenes.put(sceneName, new JSONObject(new String(existing.bytes, StandardCharsets.UTF_8)));
+            }
+            if (isAlreadyApplied(current, operation)) {
+                continue;
+            }
             byte[] bytes = operation.getJSONObject("content")
-                .toString()
-                .getBytes(StandardCharsets.UTF_8);
+                .toString().getBytes(StandardCharsets.UTF_8);
             SceneStore.RawSceneSnapshot validated =
                 sceneStore.validateRawSceneBytes(sceneName, bytes);
             sceneLease.saveRawSceneSnapshot(sceneStore, validated);
-            current = buildSnapshotLocked(jobStore.listReviewJobs());
         }
         markComponent(manifest, "scenes");
     }
