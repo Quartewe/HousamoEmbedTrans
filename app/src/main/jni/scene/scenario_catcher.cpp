@@ -2,6 +2,7 @@
 #include "translation/native_translation_pipeline.hpp"
 #include "block_queue.hpp"
 #include "scene/page_rec.hpp"
+#include "shadowhook.h"
 
 #include <algorithm>
 #include <mutex>
@@ -252,6 +253,75 @@ static std::string ReadRowStringColumn(void* cmd_item, int column_index) {
 
     void* text_ptr = read_ptr(strings, array.first_element + column_index * array.pointer_size);
     return read_il2cpp_string(text_ptr);
+}
+
+// Resolve field names from the loaded game's metadata instead of adding
+// version-specific StringGrid offsets just for diagnostics.
+static bool ReadDiagnosticField(void* object, const char* name, void* value) {
+    struct FieldApi {
+        using ObjectClass = void* (*)(void*);
+        using FindField = void* (*)(void*, const char*);
+        using FieldValue = void (*)(void*, void*, void*);
+        ObjectClass object_class = nullptr;
+        FindField find_field = nullptr;
+        FieldValue field_value = nullptr;
+
+        FieldApi() {
+            void* handle = shadowhook_dlopen("libil2cpp.so");
+            if (!handle) return;
+            object_class = reinterpret_cast<ObjectClass>(
+                shadowhook_dlsym(handle, "il2cpp_object_get_class"));
+            find_field = reinterpret_cast<FindField>(
+                shadowhook_dlsym(handle, "il2cpp_class_get_field_from_name"));
+            field_value = reinterpret_cast<FieldValue>(
+                shadowhook_dlsym(handle, "il2cpp_field_get_value"));
+            shadowhook_dlclose(handle);
+        }
+    };
+    static const FieldApi api;
+    if (!valid_ptr(object) || !api.object_class || !api.find_field || !api.field_value) {
+        return false;
+    }
+    void* klass = api.object_class(object);
+    void* field = klass ? api.find_field(klass, name) : nullptr;
+    if (!field) return false;
+    api.field_value(object, field, value);
+    return true;
+}
+
+static void LogStoryTableHeader(void* command, const std::string& scene) {
+    void* row = read_ptr(command, g_runtime_config.layout.adv_command.row_data);
+    void* grid = nullptr;
+    void* rows = nullptr;
+    int header_index = -1;
+    if (!ReadDiagnosticField(row, "grid", &grid)
+        || !ReadDiagnosticField(grid, "rows", &rows)
+        || !ReadDiagnosticField(grid, "headerRow", &header_index)) {
+        LOGW("[ScenarioCatcher] table_header scene=%s unavailable: grid fields", scene.c_str());
+        return;
+    }
+    ListView row_list = ReadList(rows, 1000000);
+    void* header = ListElement(row_list, header_index);
+    void* strings = nullptr;
+    if (!ReadDiagnosticField(header, "strings", &strings) || !valid_ptr(strings)) {
+        LOGW("[ScenarioCatcher] table_header scene=%s unavailable: headerRow=%d",
+             scene.c_str(), header_index);
+        return;
+    }
+    const auto& array = g_runtime_config.layout.il2cpp_array;
+    int count = read_int(strings, array.length);
+    if (count < 0 || count > 4096) {
+        LOGW("[ScenarioCatcher] table_header scene=%s invalid column count=%d", scene.c_str(), count);
+        return;
+    }
+    const auto& columns = g_runtime_config.layout.text_columns;
+    LOGI("[ScenarioCatcher] table_header scene=%s headerRow=%d count=%d configured Raw=%d En=%d ZhTw=%d ZhCn=%d",
+         scene.c_str(), header_index, count, columns.raw, columns.en, columns.zh_tw, columns.zh_cn);
+    for (int index = 0; index < count; ++index) {
+        std::string name = read_il2cpp_string(
+            read_ptr(strings, array.first_element + index * array.pointer_size));
+        LOGI("[ScenarioCatcher] table_header scene=%s column[%d]=%s", scene.c_str(), index, name.c_str());
+    }
 }
 
 static bool IsTagStart(const std::string& raw, size_t index) {
@@ -1390,6 +1460,24 @@ private:
                 job.label = label.label;
                 job.page_data = page_data;
 
+                if (!header_logged_) {
+                    // Inspect in submission order, before workers can skip a
+                    // scene with official translations. No managed pointer is retained.
+                    const auto& layout = g_runtime_config.layout;
+                    ListView commands = ReadList(
+                        read_ptr(page_data, layout.adv_scenario_page_data.command_list), 4096);
+                    for (int i = 0; commands.ok && i < commands.size; ++i) {
+                        void* command = ListElement(commands, i);
+                        if (!valid_ptr(command)) continue;
+                        if (read_il2cpp_string(read_ptr(command, layout.adv_command.type)) == "Text"
+                            && !ReadRowStringColumn(command, layout.text_columns.raw).empty()) {
+                            header_logged_ = true;
+                            LogStoryTableHeader(command, scenario_.result.scene);
+                            break;
+                        }
+                    }
+                }
+
                 if (page_rec_) {
                     // Copy managed data before returning from the game hook.
                     auto result = ParsePageJob(job);
@@ -1806,6 +1894,7 @@ private:
 private:
     const RuntimeScenario& scenario_;
     const bool page_rec_;
+    bool header_logged_ = false; // Owned only by the ordered job submitter.
     int language_mask_ = 0; // PageRec parses synchronously on the hook thread.
 
     std::atomic<int> abort_reason_{
