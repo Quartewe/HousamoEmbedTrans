@@ -579,6 +579,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
 
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) { // JNI_OnLoad函数是JNI库被加载时调用的函数，返回JNI版本号
     g_java_bridge.jvm = vm;
+    InitializeNativeLog(vm);
     LOGI("JNI_OnLoad called");
     // std::thread(InitThread).detach(); (已移交给Java层调用nativeStart函数来启动线程)
     return JNI_VERSION_1_6;

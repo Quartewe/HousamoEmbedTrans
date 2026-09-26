@@ -2,11 +2,11 @@
 <resources>
     <string name="settings_rebuild_toolbar_title">Settings</string>
     <string name="settings_rebuild_export_logs">Export runtime logs</string>
-    <string name="settings_rebuild_export_logs_description">Export HET logs from today and the preceding 13 days as a ZIP archive. Logs are saved daily in internal storage. API bodies are included only when body logging is enabled. Game process logs are not included.</string>
+    <string name="settings_rebuild_export_logs_description">Export HET and connected game logs from today and the preceding 13 days as a ZIP archive. Logs are saved daily in each app’s internal storage. API bodies are included only when body logging is enabled. Keep the game connected to include its logs.</string>
     <string name="settings_rebuild_export_logs_choose">Choose file</string>
-    <string name="settings_rebuild_export_logs_in_progress">Packing HET logs...</string>
+    <string name="settings_rebuild_export_logs_in_progress">Packing runtime logs...</string>
     <string name="settings_rebuild_export_logs_empty">No HET log files are available for the last 14 days.</string>
-    <string name="settings_rebuild_export_logs_success">Exported %1$d daily HET log files as ZIP.</string>
+    <string name="settings_rebuild_export_logs_success">Exported %1$d daily log files from HET and the game as ZIP.</string>
     <string name="settings_rebuild_export_logs_failed">Log export failed: %1$s</string>
     <string name="settings_rebuild_config_source_info">View config source</string>
     <string name="settings_rebuild_config_source_unknown">The config source is currently unavailable.</string>
@@ -66,4 +66,5 @@ A direct hit scores ≥ TextMentionedScore. A primary character\'s guild, school
     <string name="settings_rebuild_prompt_summary_helper">Edit the natural-language role, style, and context notes in summary requests.</string>
     <string name="settings_rebuild_prompt_translation_constraints">• Input fields, target-language mapping, and character context are supplied by the app.\n• Protected tags, runtime parameters, retry fields, and newline escaping must remain unchanged.\n• Output is ordered NDJSON translation events and cannot contain extra fields.</string>
     <string name="settings_rebuild_prompt_summary_constraints">• Request kind, summary input, and context snapshot semantics are supplied by the app.\n• Output must be one non-empty summary JSON object.\n• Do not add Markdown, extra fields, or unsupported events.</string>
+    <string name="settings_rebuild_export_logs_partial">Exported %1$d HET log files. Game logs were not included because the game is not connected.</string>
 </resources>

@@ -26,6 +26,7 @@ add_library(housamo_trans SHARED
     src/main/jni/translation/pipeline/translation_dispatcher.cpp
     src/main/jni/translation/codec/translation_result_codec.cpp
     src/main/jni/bridge/translation_callback_bridge.cpp
+    src/main/jni/bridge/native_log.cpp
 )
 
 # Header file paths

@@ -14,6 +14,7 @@ import com.quarty.housamoembedtrans.util.IoUtils;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XposedBridge;
+import com.quarty.housamoembedtrans.logging.Log;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 import de.robv.android.xposed.IXposedHookZygoteInit;
 
@@ -227,7 +228,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     // publishes the new generation's complete set.
                     held = nativeBeginSceneSyncHold();
                 } catch (UnsatisfiedLinkError e) {
-                    XposedBridge.log(
+                    Log.game(
                         "[HousamoTrans] Scene policy native hold "
                             + "is unavailable during generation activation"
                     );
@@ -344,7 +345,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 try {
                     held = nativeBeginSceneSyncHold();
                 } catch (UnsatisfiedLinkError e) {
-                    XposedBridge.log(
+                    Log.game(
                         "[HousamoTrans] Scene policy native hold "
                             + "is unavailable"
                     );
@@ -442,7 +443,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             try {
                 nativeResetSceneProductionPolicy();
             } catch (UnsatisfiedLinkError e) {
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Native Scene policy reset unavailable "
                         + "during " + reason
                 );
@@ -471,7 +472,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 );
                 currentActivity.compareAndSet(activity, null);
                 activity.finish();
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Could not create Scene export pipe: "
                         + e.getMessage()
                 );
@@ -523,7 +524,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 activity.finish();
                 closeQuietly(readEnd);
                 closeQuietly(writeEnd);
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Could not accept Scene export: "
                         + e.getClass().getSimpleName()
                 );
@@ -630,7 +631,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 try {
                     nativeResetSceneProductionPolicy();
                 } catch (UnsatisfiedLinkError e) {
-                    XposedBridge.log(
+                    Log.game(
                         "[HousamoTrans] Native Scene policy reset is "
                             + "unavailable during export cleanup"
                     );
@@ -687,7 +688,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             try {
                 nativeSetCapturePaused(paused);
             } catch (UnsatisfiedLinkError e) {
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Native capture pause control is unavailable"
                 );
             }
@@ -1066,7 +1067,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                                             );
                                     } catch (UnsatisfiedLinkError e) {
                                         policyUpdated = false;
-                                        XposedBridge.log(
+                                        Log.game(
                                             "[HousamoTrans] Native blocked "
                                                 + "Scene policy update is "
                                                 + "unavailable"
@@ -1116,7 +1117,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                                 : SceneSyncWireCodec.APPLY_REQUEST_STREAM_FAILED;
                     } catch (RuntimeException e) {
                         resultCode = SceneSyncWireCodec.APPLY_INTERNAL_FAILURE;
-                        XposedBridge.log(
+                        Log.game(
                             "[HousamoTrans] Scene apply task failed: "
                                 + e.getClass().getSimpleName()
                                 + ": "
@@ -1147,7 +1148,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                         // that caller explicitly confirms the policy with
                         // completeSceneProductionPolicy(generation).
                     } catch (IOException e) {
-                        XposedBridge.log(
+                        Log.game(
                             "[HousamoTrans] Could not return Scene apply result: "
                                 + e.getMessage()
                         );
@@ -1515,11 +1516,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         try (InputStream input = context.getContentResolver().openInputStream(uri)) {
             if (input != null) {
-                XposedBridge.log("[HousamoTrans] Using user override: " + name);
+                Log.game("[HousamoTrans] Using user override: " + name);
                 return IoUtils.readUtf8Limited(input, -1);
             }
         } catch (Exception e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] No usable user override for "
                     + name
                     + "; falling back to module asset ("
@@ -1781,7 +1782,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             validator.validate(json);
             return json;
         } catch (Exception e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Preferred "
                     + name
                     + " is invalid; "
@@ -1855,7 +1856,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 .toString()
                 .getBytes(StandardCharsets.UTF_8);
         } catch (Exception e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Request ID resolution failed: "
                     + e.getClass().getSimpleName()
                     + ": "
@@ -1940,7 +1941,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 .put("request_id", requestId)
                 .put("created", created);
 
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Translation task accepted requestId="
                     + requestId
                     + " created="
@@ -1960,7 +1961,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 true
             );
         } catch (RemoteException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] TranslationService Binder submission failed: "
                     + e.getClass().getSimpleName()
                     + ": "
@@ -1973,7 +1974,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 true
             );
         } catch (IOException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Translation request pipe/storage failed: "
                     + e.getClass().getSimpleName()
                     + ": "
@@ -1986,7 +1987,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 true
             );
         } catch (TranslationServiceClient.ClientClosedException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Translation client is permanently closed: "
                     + safeMessage(e)
             );
@@ -1997,7 +1998,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 false
             );
         } catch (TranslationServiceClient.AdmissionRejectedException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Translation admission rejected disposition="
                     + e.getDisposition()
                     + ": "
@@ -2010,7 +2011,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 false
             );
         } catch (TranslationServiceClient.ServiceUnavailableException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] TranslationService is temporarily unavailable: "
                     + safeMessage(e)
             );
@@ -2021,7 +2022,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 true
             );
         } catch (IllegalArgumentException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Translation request was rejected: "
                     + e.getClass().getSimpleName()
                     + ": "
@@ -2034,7 +2035,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 false
             );
         } catch (SecurityException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Translation request permission denied: "
                     + e.getClass().getSimpleName()
                     + ": "
@@ -2047,7 +2048,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 false
             );
         } catch (IllegalStateException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Unexpected translation client state: "
                     + e.getClass().getSimpleName()
                     + ": "
@@ -2060,7 +2061,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 false
             );
         } catch (RuntimeException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Unexpected translation submission failure: "
                     + e.getClass().getSimpleName()
                     + ": "
@@ -2073,7 +2074,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 false
             );
         } catch (Exception e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Unexpected checked translation submission failure: "
                     + e.getClass().getSimpleName()
                     + ": "
@@ -2106,14 +2107,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         TranslationServiceClient client = sTranslationClient;
         try {
             if (leaseToken == null || leaseToken.isEmpty()) {
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Ignoring completion without delivery lease "
                         + "requestId=" + requestId
                 );
                 return false;
             }
             if (client == null) {
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Completion client disappeared after "
                         + "delivery lease requestId=" + requestId
                 );
@@ -2129,7 +2130,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 resultJson
             );
             if (!accepted) {
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Native rejected completion requestId="
                         + requestId
                 );
@@ -2143,7 +2144,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                         }
                     }
                 } catch (Exception error) {
-                    XposedBridge.log("[HousamoTrans] Could not classify rejected Scene write: "
+                    Log.game("[HousamoTrans] Could not classify rejected Scene write: "
                         + safeMessage(error));
                 }
                 return releaseTerminalLease(
@@ -2160,7 +2161,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 leaseToken,
                 connectionGeneration
             )) {
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Completion ACK was not persisted "
                         + "requestId=" + requestId
                 );
@@ -2173,7 +2174,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 );
             }
             nativeAcknowledgeTranslationTerminal(requestId, "completed");
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Applied Scene result requestId="
                     + requestId
                     + " scene="
@@ -2185,7 +2186,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         } catch (UnsatisfiedLinkError e) {
             if (!sMissingSceneResultNativeLogged) {
                 sMissingSceneResultNativeLogged = true;
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Final scene callback reached Java, "
                         + "but the native result bridge is unavailable; "
                         + "the terminal remains pending for retry"
@@ -2199,7 +2200,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 connectionGeneration
             );
         } catch (RemoteException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Completion delivery Binder call failed "
                     + "requestId=" + requestId + ": " + safeMessage(e)
             );
@@ -2211,7 +2212,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 connectionGeneration
             );
         } catch (RuntimeException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Final scene callback failed requestId="
                     + requestId
                     + ": "
@@ -2237,14 +2238,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         TranslationServiceClient client = sTranslationClient;
         try {
             if (leaseToken == null || leaseToken.isEmpty()) {
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Ignoring failure without delivery lease "
                         + "requestId=" + requestId
                 );
                 return false;
             }
             if (client == null) {
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Failure client disappeared after delivery "
                         + "lease requestId=" + requestId
                 );
@@ -2279,7 +2280,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 );
             }
             nativeAcknowledgeTranslationTerminal(requestId, "failed");
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Failure ACK persisted requestId="
                     + requestId
             );
@@ -2287,7 +2288,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         } catch (UnsatisfiedLinkError e) {
             if (!sMissingFailureNativeLogged) {
                 sMissingFailureNativeLogged = true;
-                XposedBridge.log(
+                Log.game(
                     "[HousamoTrans] Failure callback reached Java, "
                         + "but the native failure bridge is unavailable; "
                         + "the terminal remains pending for retry"
@@ -2301,7 +2302,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 connectionGeneration
             );
         } catch (RemoteException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Failure delivery Binder call failed "
                     + "requestId=" + requestId + ": " + safeMessage(e)
             );
@@ -2313,7 +2314,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 connectionGeneration
             );
         } catch (RuntimeException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Native failure callback failed requestId="
                     + requestId
                     + ": "
@@ -2327,7 +2328,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 connectionGeneration
             );
         } finally {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Translation failed requestId="
                     + requestId
                     + " type="
@@ -2363,7 +2364,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 connectionGeneration
             );
         } catch (RemoteException | RuntimeException e) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Could not release terminal lease requestId="
                     + requestId
                     + ": "
@@ -2449,7 +2450,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         } catch (UnsatisfiedLinkError e) {
             // The service may die before nativeStart/library load; there is
             // no native policy to reset in that startup window.
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Native Scene policy reset unavailable before "
                     + "library initialization"
             );
@@ -2512,8 +2513,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             ? applicationContext
             : context;
 
+        Log.initializeGame(sTargetContext);
+        Log.game("[HousamoTrans] Module path: " + sModulePath);
+
         if (applicationContext == null) {
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Application context is not ready during attach; "
                     + "using the base context"
             );
@@ -2528,7 +2532,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             TranslationServiceClient client =
                 new TranslationServiceClient(
                     sTargetContext,
-                    XposedBridge::log,
+                    Log::game,
                     TRANSLATION_RESULT_SINK,
                     startup.sceneSyncSnapshot,
                     null,
@@ -2539,7 +2543,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             client.start();
             client.bind();
 
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Target application attached, initializing ShadowHook..."
             );
 
@@ -2549,13 +2553,13 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             ShadowHook.init(new ShadowHook.ConfigBuilder()
                 .setMode(ShadowHook.Mode.UNIQUE)
                 .build());
-            XposedBridge.log("[HousamoTrans] ShadowHook init ok");
+            Log.game("[HousamoTrans] ShadowHook init ok");
 
             IoUtils.ensureDirectory(new File(baseDir));
             File targetSceneDirectory = new File(baseDir, SceneStore.DIRECTORY_NAME);
             IoUtils.ensureDirectory(targetSceneDirectory);
             System.loadLibrary("housamo_trans");
-            XposedBridge.log("[HousamoTrans] Native library loaded successfully.");
+            Log.game("[HousamoTrans] Native library loaded successfully.");
 
             nativeStart(
                 startup.gameVersion,
@@ -2583,7 +2587,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             client.setGameScenePort(gameScenePort);
 
             s_loaded = true;
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] Native hook setup complete. gameVersion="
                     + startup.gameVersion
                     + " targetLanguage="
@@ -2607,7 +2611,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             if (client != null) {
                 client.close();
             }
-            XposedBridge.log(
+            Log.game(
                 "[HousamoTrans] FATAL: Initialization failed: "
                     + t.getClass().getSimpleName()
                     + ": "

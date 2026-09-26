@@ -1,8 +1,7 @@
 package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
-import com.quarty.housamoembedtrans.logging.DailyLogStore;
-import com.quarty.housamoembedtrans.logging.Log;
+import com.quarty.housamoembedtrans.logging.LogExport;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
@@ -39,7 +38,6 @@ import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -59,6 +57,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private final ExecutorService logExportExecutor =
         Executors.newSingleThreadExecutor();
     private Future<?> logExportTask;
+    private LogExport logExport;
     private volatile boolean logExportInProgress;
     private volatile int logExportGeneration;
 
@@ -259,15 +258,15 @@ public final class SettingsActivity extends AppCompatActivity {
             R.string.settings_rebuild_export_logs_in_progress,
             Toast.LENGTH_SHORT
         ).show();
+        final LogExport operation = new LogExport(getApplicationContext());
+        logExport = operation;
         logExportTask = logExportExecutor.submit(() -> {
-            try {
-                List<DailyLogStore.Entry> snapshot = Log.snapshotRecent().get();
-                if (snapshot.isEmpty()) {
-                    postLogExportEmpty(generation);
-                    return;
-                }
-                writeLogSnapshot(destination, snapshot, generation);
-                postLogExportSuccess(generation, snapshot.size());
+            try (LogExport ignored = operation) {
+                ensureLogExportActive(generation);
+                OutputStream output = getContentResolver().openOutputStream(destination, "w");
+                if (output == null) throw new IOException("document provider returned no output");
+                int count = operation.write(output);
+                postLogExportSuccess(generation, count, operation.includesGame());
             } catch (InterruptedException error) {
                 Thread.currentThread().interrupt();
             } catch (Exception error) {
@@ -277,6 +276,10 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private void cancelLogExport() {
+        if (logExport != null) {
+            logExport.close();
+            logExport = null;
+        }
         Future<?> task = logExportTask;
         if (task != null) {
             task.cancel(true);
@@ -292,25 +295,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    private void writeLogSnapshot(
-        Uri destination,
-        List<DailyLogStore.Entry> entries,
-        int generation
-    ) throws Exception {
-        ensureLogExportActive(generation);
-        try (OutputStream output = getContentResolver().openOutputStream(
-            destination,
-            "w"
-        )) {
-            if (output == null) {
-                throw new IOException("document provider returned no output");
-            }
-            ensureLogExportActive(generation);
-            DailyLogStore.writeZip(entries, output);
-        }
-    }
-
-    private void postLogExportSuccess(int generation, int fileCount) {
+    private void postLogExportSuccess(int generation, int fileCount, boolean gameIncluded) {
         mainHandler.post(() -> {
             if (generation != logExportGeneration) {
                 return;
@@ -321,28 +306,12 @@ public final class SettingsActivity extends AppCompatActivity {
                 Toast.makeText(
                     this,
                     getString(
-                        R.string.settings_rebuild_export_logs_success,
+                        gameIncluded ? R.string.settings_rebuild_export_logs_success
+                            : R.string.settings_rebuild_export_logs_partial,
                         fileCount
                     ),
                     Toast.LENGTH_LONG
                 ).show();
-            }
-        });
-    }
-
-    private void postLogExportEmpty(int generation) {
-        mainHandler.post(() -> {
-            if (generation != logExportGeneration) {
-                return;
-            }
-            logExportInProgress = false;
-            logExportTask = null;
-            if (!isFinishing() && !isDestroyed()) {
-                new UiMaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.settings_rebuild_export_logs)
-                    .setMessage(R.string.settings_rebuild_export_logs_empty)
-                    .setPositiveButton(R.string.settings_rebuild_close, null)
-                    .show();
             }
         });
     }

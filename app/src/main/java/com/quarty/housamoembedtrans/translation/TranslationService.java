@@ -309,6 +309,8 @@ public final class TranslationService extends Service {
     private final Object callbackLock = new Object();
     private final Object gameObbLock = new Object();
     private IGameObbPort gameObbPort;
+    private final Object gameLogLock = new Object();
+    private IGameLogPort gameLogPort;
     private final Object contextStoreLock = new Object();
     private CallbackRecord currentCallback;
     private final ExecutorService callbackIoExecutor =
@@ -975,6 +977,36 @@ public final class TranslationService extends Service {
             }
 
             @Override
+            public void registerGameLogPort(IGameLogPort port) {
+                enforceAllowedCaller();
+                synchronized (gameLogLock) {
+                    gameLogPort = port;
+                }
+            }
+
+            @Override
+            public void unregisterGameLogPort(IGameLogPort port) {
+                enforceAllowedCaller();
+                synchronized (gameLogLock) {
+                    if (gameLogPort != null && port != null
+                        && gameLogPort.asBinder().equals(port.asBinder())) {
+                        gameLogPort = null;
+                    }
+                }
+            }
+
+            @Override
+            public IGameLogPort getGameLogPort() {
+                enforceSelfUidCaller();
+                synchronized (gameLogLock) {
+                    if (gameLogPort != null && !gameLogPort.asBinder().isBinderAlive()) {
+                        gameLogPort = null;
+                    }
+                    return gameLogPort;
+                }
+            }
+
+            @Override
             public void unregisterTranslationCallback(
                 ITranslationCallback callback
             ) {
@@ -1574,6 +1606,9 @@ public final class TranslationService extends Service {
         clearCallbacks();
         synchronized (gameObbLock) {
             gameObbPort = null;
+        }
+        synchronized (gameLogLock) {
+            gameLogPort = null;
         }
         if (terminalDelivery != null) {
             terminalDelivery.close();

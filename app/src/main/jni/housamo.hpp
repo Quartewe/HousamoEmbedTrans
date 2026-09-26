@@ -16,13 +16,14 @@
 #include <utility>
 
 #include "scene/scene_production_policy.hpp"
+#include "bridge/native_log.hpp"
 
 // 日志宏
 #define LOG_TAG "HousamoTrans"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN,  LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGD(...) NativeLogPrint(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) NativeLogPrint(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
+#define LOGW(...) NativeLogPrint(ANDROID_LOG_WARN,  LOG_TAG, __VA_ARGS__)
+#define LOGE(...) NativeLogPrint(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 // 全局变量和结构体定义
 enum class StopReason {

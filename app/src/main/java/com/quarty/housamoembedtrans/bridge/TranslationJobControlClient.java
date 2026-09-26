@@ -2,6 +2,7 @@ package com.quarty.housamoembedtrans.bridge;
 
 import com.quarty.housamoembedtrans.translation.ITranslationService;
 import com.quarty.housamoembedtrans.translation.IGameObbPort;
+import com.quarty.housamoembedtrans.translation.IGameLogPort;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
 import android.content.ComponentName;
@@ -292,6 +293,18 @@ public final class TranslationJobControlClient implements AutoCloseable {
             service = remote;
         }
         return service.getGameObbPort();
+    }
+
+    public IGameLogPort getGameLogPort() throws RemoteException {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new IllegalStateException("Game log export require a background thread");
+        }
+        ITranslationService service;
+        synchronized (lock) {
+            requireConnected();
+            service = remote;
+        }
+        return service.getGameLogPort();
     }
 
     /** Calls the existing service cancellation transaction. */

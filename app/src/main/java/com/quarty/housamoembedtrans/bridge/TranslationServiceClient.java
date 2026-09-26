@@ -83,6 +83,7 @@ public final class TranslationServiceClient {
 
     private final Context context;
     private final GameObbPort gameObbPort;
+    private final GameLogPort gameLogPort;
     private final Consumer<String> logger;
     private final ResultSink resultSink;
     private final ComponentName component;
@@ -255,6 +256,11 @@ public final class TranslationServiceClient {
                     } catch (RemoteException | RuntimeException error) {
                         log("Game OBB port unavailable: " + safeMessage(error));
                     }
+                    try {
+                        connected.registerGameLogPort(gameLogPort);
+                    } catch (RemoteException | RuntimeException error) {
+                        log("Game log port unavailable: " + safeMessage(error));
+                    }
                     TranslationServiceClient.this.notifyAll();
                 }
                 log(
@@ -411,6 +417,7 @@ public final class TranslationServiceClient {
             : context;
         this.logger = logger;
         this.gameObbPort = new GameObbPort(this.context);
+        this.gameLogPort = new GameLogPort(this.context);
         this.resultSink = resultSink;
         if (sceneSyncSnapshot == null) {
             throw new IllegalArgumentException(
@@ -791,6 +798,7 @@ public final class TranslationServiceClient {
             }
             closed = true;
             gameObbPort.close();
+            gameLogPort.close();
             service = remote;
             port = gameScenePort;
             wasBound = bound;
@@ -836,6 +844,11 @@ public final class TranslationServiceClient {
                     service.unregisterGameObbPort(gameObbPort);
                 } catch (RemoteException | RuntimeException error) {
                     log("Could not unregister game OBB port: " + safeMessage(error));
+                }
+                try {
+                    service.unregisterGameLogPort(gameLogPort);
+                } catch (RemoteException | RuntimeException error) {
+                    log("Could not unregister game log port: " + safeMessage(error));
                 }
                 boolean callbackRemoved = false;
                 boolean busyLogged = false;
@@ -984,6 +997,11 @@ public final class TranslationServiceClient {
         if (connected != null) {
             try {
                 connected.unregisterGameObbPort(gameObbPort);
+            } catch (RemoteException | RuntimeException ignored) {
+                // Optional extension may not exist in an older service.
+            }
+            try {
+                connected.unregisterGameLogPort(gameLogPort);
             } catch (RemoteException | RuntimeException ignored) {
                 // Optional extension may not exist in an older service.
             }

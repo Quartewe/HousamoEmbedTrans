@@ -4,6 +4,7 @@ import android.os.ParcelFileDescriptor;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;
 import com.quarty.housamoembedtrans.translation.ITranslationCallback;
 import com.quarty.housamoembedtrans.translation.IGameObbPort;
+import com.quarty.housamoembedtrans.translation.IGameLogPort;
 
 interface ITranslationService {
     int getProtocolVersion();
@@ -90,4 +91,7 @@ interface ITranslationService {
     void registerGameObbPort(IGameObbPort port);
     void unregisterGameObbPort(IGameObbPort port);
     IGameObbPort getGameObbPort();
+    void registerGameLogPort(IGameLogPort port);
+    void unregisterGameLogPort(IGameLogPort port);
+    IGameLogPort getGameLogPort();
 }

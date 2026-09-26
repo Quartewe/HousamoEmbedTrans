@@ -2,11 +2,11 @@
 <resources>
     <string name="settings_rebuild_toolbar_title">设置</string>
     <string name="settings_rebuild_export_logs">导出运行日志</string>
-    <string name="settings_rebuild_export_logs_description">将今天及此前 13 天的 HET 日志导出为 ZIP 压缩包。日志按日期保存在内部目录，API 正文仅在开启正文记录时保存。不包含游戏进程日志。</string>
+    <string name="settings_rebuild_export_logs_description">将今天及此前 13 天的 HET 和已连接游戏的日志导出为 ZIP 压缩包。两端日志分别按日期保存在各自的内部目录，API 正文仅在开启正文记录时保存。导出时请保持游戏连接，以便一并读取游戏日志。</string>
     <string name="settings_rebuild_export_logs_choose">选择文件</string>
-    <string name="settings_rebuild_export_logs_in_progress">正在打包 HET 日志…</string>
+    <string name="settings_rebuild_export_logs_in_progress">正在打包运行日志…</string>
     <string name="settings_rebuild_export_logs_empty">最近 14 天没有可导出的 HET 日志文件。</string>
-    <string name="settings_rebuild_export_logs_success">已将 %1$d 个按日记录的 HET 日志文件导出为 ZIP。</string>
+    <string name="settings_rebuild_export_logs_success">已将 HET 和游戏的 %1$d 个按日日志文件导出为 ZIP。</string>
     <string name="settings_rebuild_export_logs_failed">日志导出失败：%1$s</string>
     <string name="settings_rebuild_config_source_info">查看配置来源</string>
     <string name="settings_rebuild_config_source_unknown">当前配置来源暂不可读。</string>
@@ -66,4 +66,5 @@ density = (speakerScore + showScore + textScore) / sqrt(sceneItemCount)。
     <string name="settings_rebuild_prompt_summary_helper">编辑摘要请求中的自然语言角色、文风和上下文说明。</string>
     <string name="settings_rebuild_prompt_translation_constraints">• 输入字段、目标语言映射和角色上下文由应用固定提供。\n• 保护标签、运行时参数、重试字段和换行转义必须保持原样。\n• 输出固定为按顺序发送的 NDJSON 翻译事件，不能添加额外字段。</string>
     <string name="settings_rebuild_prompt_summary_constraints">• 请求 kind、摘要输入和上下文快照语义由应用固定提供。\n• 输出只能是非空的单对象 summary JSON。\n• 不得添加 Markdown、额外字段或不支持的事件。</string>
+    <string name="settings_rebuild_export_logs_partial">已导出 %1$d 个 HET 日志文件。游戏未连接，本次未包含游戏日志。</string>
 </resources>
