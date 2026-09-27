@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "id": "186e2f64-0198-49fb-a285-426063f204fb",
+  "storage_name": "context_2",
+  "display_name": "转生后竟然成了夏天的魔物！？～堕入黑暗的魔王与地牢经营～",
+  "revision": 1,
+  "created_at": 1790473882525,
+  "updated_at": 1790473882525,
+  "retention": {
+    "inherit_defaults": true,
+    "recent_percent": 30,
+    "recent_limit": 10
+  },
+  "manual_descriptions": {},
+  "summary": {},
+  "scenes": [
+    {
+      "entry_id": "91ece4e5-4a48-4e70-afcb-be0652e4ad87",
+      "scene": "summerreincarnation2026_0-1",
+      "scene_file": "summerreincarnation2026_0-1.json",
+      "created_at": 1790473877647,
+      "updated_at": 1790473877647,
+      "summaries": {}
+    },
+    {
+      "entry_id": "955d0e5a-46b1-4f22-8cfe-27611d6e7f16",
+      "scene": "summerreincarnation2026_0-2",
+      "scene_file": "summerreincarnation2026_0-2.json",
+      "created_at": 1790473877847,
+      "updated_at": 1790473877847,
+      "summaries": {}
+    },
+    {
+      "entry_id": "fe7f0114-5948-48d8-8488-38c97a03fc69",
+      "scene": "summerreincarnation2026_1-1",
+      "scene_file": "summerreincarnation2026_1-1.json",
+      "created_at": 1790473879443,
+      "updated_at": 1790473879443,
+      "summaries": {}
+    },
+    {
+      "entry_id": "4bf69996-121d-4ea4-bbce-a3f076fef6de",
+      "scene": "summerreincarnation2026_1-2",
+      "scene_file": "summerreincarnation2026_1-2.json",
+      "created_at": 1790473879984,
+      "updated_at": 1790473879984,
+      "summaries": {}
+    }
+  ]
+}

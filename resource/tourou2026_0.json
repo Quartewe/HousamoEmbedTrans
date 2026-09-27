@@ -1,0 +1,7286 @@
+{
+  "scene": "tourou2026_0",
+  "game_version": "5.19.0",
+  "raw_lang": "ja",
+  "translated": {
+    "zh-cn": true
+  },
+  "character": {
+    "mc": {
+      "name": "mc",
+      "aliases": [],
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "school": [
+        "神宿学園"
+      ],
+      "guild": [
+        "新宿サモナーズ"
+      ],
+      "origin_world": [],
+      "relationships": [],
+      "info": "竜の尾より断ち離された神剣の「神器」を手にした、異界からの転光生。全属性を併せ持つ刃に宿る「離断」の権能は「支配」と「力」を分断し、その代償として「流者」は故郷から追放される。23の異界と接続した東京での出会いを経て、切り離されていた記憶の一部を受け容れ、神器の真価をより引き出せるようになった。",
+      "description": "",
+      "speech_style": ""
+    },
+    "high_weight": [
+      {
+        "name": "ロキ",
+        "aliases": [],
+        "i18n": {
+          "en": "Loki",
+          "zh_tw": "洛基",
+          "zh_cn": "洛基"
+        },
+        "school": [
+          "学園軍獄？",
+          "？？？"
+        ],
+        "guild": [
+          "有楽町エンタティナーズ"
+        ],
+        "origin_world": [
+          "ユグドラシル"
+        ],
+        "relationships": [
+          {
+            "target": "シパクトリ",
+            "type": "好意"
+          },
+          {
+            "target": "シャマシュ",
+            "type": "好意"
+          },
+          {
+            "target": "オスカー",
+            "type": "苦手"
+          },
+          {
+            "target": "アフラ・マズダ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ユグドラシルの狡知の神で、変幻自在の詐術師「転光生」。姿を変え性別すらも自在に変える「神器」は欺瞞と変容の権能を持ち、その真意は誰にも測り知れない。神々の黄昏の引き金を引く者として運命づけられながら、悪戯好きの笑みの裏に孤独と疎外感を秘め、東京でなお自由奔放に暗躍する。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "タサブロウ",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ヨリトモ",
+        "aliases": [],
+        "i18n": {
+          "en": "Yoritomo",
+          "zh_tw": "賴朝",
+          "zh_cn": "赖朝"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "練馬ウォーモンガーズ"
+        ],
+        "origin_world": [
+          "ワノクニ"
+        ],
+        "relationships": [
+          {
+            "target": "タネトモ",
+            "type": "好意"
+          },
+          {
+            "target": "メフィストフェレス",
+            "type": "苦手"
+          }
+        ],
+        "info": "ワノクニ出身の侍大将で、数多の合戦を勝ち抜いてきた「転光生」。軍扇の「神器」は戦場の風向きを変え味方に勝利を呼び込む権能を持ち、冷徹な戦略家としてギルドの軍事面を統括する。弟を自らの手で討った過去を持ち、権力と統治の重みを知る者として時に厳しい決断をも厭わない冷徹さとカリスマを併せ持つ。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "マイノグーラ",
+        "aliases": [],
+        "i18n": {
+          "en": "Mynoghra",
+          "zh_tw": "邁諾古拉",
+          "zh_cn": "迈诺古拉"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "荒川ワンダラーズ"
+        ],
+        "origin_world": [
+          "オールドワンズ"
+        ],
+        "relationships": [],
+        "info": "オールドワンズから訪れた没落令嬢の「転光生」で、かつては暗黒の貴婦人として知られた旧支配者。指先と日傘の二つの「神器」で、睨み付けた対象のしがらみを否定し彼我の境界を失わせる権能を持つが、一方的な不自由を強いると紐づけられた没落を憂い、人間と好きなお喋りができるよう転光した。人間スキスキクラブを立ち上げ一次産業バイトに励む。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "モリタカ",
+        "aliases": [],
+        "i18n": {
+          "en": "Moritaka",
+          "zh_tw": "戍孝",
+          "zh_cn": "戍孝"
+        },
+        "school": [
+          "神宿学園"
+        ],
+        "guild": [
+          "新宿サモナーズ"
+        ],
+        "origin_world": [
+          "ワノクニ"
+        ],
+        "relationships": [
+          {
+            "target": "アギョウ",
+            "type": "好意"
+          },
+          {
+            "target": "アンドヴァリ",
+            "type": "苦手"
+          },
+          {
+            "target": "キムンカムイ",
+            "type": "苦手"
+          }
+        ],
+        "info": "異世界ワノクニ出身の転光生で、神宿学園に通いながら亡き家族へ立派なサムライになることを誓う武士少年である。父が主君から預かった霊刀の神器は、水の力で邪を雪ぎ妖を治める氷の刃であり、過去の経緯からだまし取ろうとする相手を苦手とする。剣道や他流試合で腕を磨き続ける一方、仲間との温泉巡りなどを通じて年相応の柔軟さも得ていく。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "サトルヌス",
+        "aliases": [],
+        "i18n": {
+          "en": "Saturnus",
+          "zh_tw": "薩圖恩努斯",
+          "zh_cn": "萨图尔努斯"
+        },
+        "school": [
+          "世耕農業・林業学園"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "オリュンポス"
+        ],
+        "relationships": [
+          {
+            "target": "アメノウズメ",
+            "type": "好意"
+          },
+          {
+            "target": "ロビンソン",
+            "type": "苦手"
+          }
+        ],
+        "info": "オリュンポス出身で土星儀の「神器」を持つ「転光生」。土曜の0時から日付変更までの間だけ黄金時代を再現し、同一人物と認識できないほど変貌してクラブフロアを爆アゲする「土曜のシンデレラボーイ」。普段は植物工場バイトで生活する地味な苦学生で、クラブ文化の沼にハマるきっかけをくれた人物に感謝している。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "シーサァ",
+        "aliases": [],
+        "i18n": {
+          "en": "Shisa",
+          "zh_tw": "獅薩",
+          "zh_cn": "狮萨"
+        },
+        "school": [
+          "王子坊学園"
+        ],
+        "guild": [
+          "無所属"
+        ],
+        "origin_world": [
+          "ニライカナイ"
+        ],
+        "relationships": [
+          {
+            "target": "マイノグーラ",
+            "type": "好意"
+          },
+          {
+            "target": "ガーゴイル",
+            "type": "苦手"
+          }
+        ],
+        "info": "ニライカナイ出身の大柄な「転光生」教師で、元は石像として周囲を見守っていたが東京で自由に動けるようになり、現在は王子坊保育園の園長先生として子供たちと過ごす。ショッキングな事に遭うと石化してしまう癖があり、方言の訛りが強い。多数の民草や家屋を守護する存在として愛情深く接する。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "家政婦",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "オピオーン",
+        "aliases": [],
+        "i18n": {
+          "en": "Ophion",
+          "zh_tw": "俄菲翁",
+          "zh_cn": "俄菲翁"
+        },
+        "school": [
+          "六本城学園"
+        ],
+        "guild": [
+          "六本木タイクーンズ"
+        ],
+        "origin_world": [
+          "オリュンポス"
+        ],
+        "relationships": [
+          {
+            "target": "ハヌマン",
+            "type": "苦手"
+          }
+        ],
+        "info": "オリュンポスの創造者を自称する傲岸な竜種の「転光生」で、六本木タイクーンズの筆頭幹部。宇宙卵の「神器」は天地創造の力でオリュンポスに創造された全てを産み出せるが、卵から産まれた若き自分の姿を晒すことを恥じる。年功序列を絶対の真理とし年上の言うことに逆らわない。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "トゥーアルシェン",
+        "aliases": [],
+        "i18n": {
+          "en": "Tu'er Shen",
+          "zh_tw": "兔兒神",
+          "zh_cn": "兔儿神"
+        },
+        "school": [
+          "天横服飾アカデミア"
+        ],
+        "guild": [
+          "荒川ワンダラーズ",
+          "中央ルールメイカーズ",
+          "無所属"
+        ],
+        "origin_world": [
+          "ホウライ"
+        ],
+        "relationships": [
+          {
+            "target": "イナバ",
+            "type": "好意"
+          },
+          {
+            "target": "クルシャ",
+            "type": "好意"
+          },
+          {
+            "target": "ベルフェゴール",
+            "type": "苦手"
+          }
+        ],
+        "info": "ホウライ出身の自由奔放な転光生で、未来都市を好み、所属を渡り歩きながらパルクールと恋愛支援で知られる。赤いオッドアイの神器で未来を覗き、他者の自由恋愛を助ける一方、過去の失敗と罪悪感から自分の恋には臆病である。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ヤシマの守護狸？",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "オニワカ",
+        "aliases": [],
+        "i18n": {
+          "en": "Oniwaka",
+          "zh_tw": "鬼若",
+          "zh_cn": "鬼若"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "池袋バーサーカーズ"
+        ],
+        "origin_world": [
+          "ワノクニ"
+        ],
+        "relationships": [
+          {
+            "target": "カーシー",
+            "type": "好意"
+          },
+          {
+            "target": "クロード",
+            "type": "苦手"
+          },
+          {
+            "target": "タケマル",
+            "type": "苦手"
+          }
+        ],
+        "info": "巨大な薙刀の「神器」を振るう東京名うての暴れん坊で、捨て子として寺社に育てられ、強大な暴力こそが自己肯定だと信じてきた。転光生から力を奪う「簒奪」の権能で裏稼業やアプリ狩りに関わる一方、主の自刃を止められなかった役割と、届かなかった刃への思いを抱えている。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "「源たる者」の郎党たち",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      }
+    ],
+    "low_weight": []
+  },
+  "mentioned_characters": [],
+  "game_terms": [
+    {
+      "term": "拠点",
+      "i18n": {
+        "en": "Portal",
+        "zh_tw": "據點",
+        "zh_cn": "据点"
+      },
+      "description": "名前の通りギルドの勢力範囲を示す拠点。\n\n拠点を賭けたバトルの勝敗によって所有権が移動し、失った場合はギルドが消失する。\n\n誰でもアクセスできる、公共性のある施設以外を登録することはできない。"
+    },
+    {
+      "term": "有楽町エンタティナーズ",
+      "i18n": {
+        "en": "Yurakucho Entertainers",
+        "zh_tw": "有樂町演藝家",
+        "zh_cn": "有乐町演艺家"
+      },
+      "description": "有楽町エンタティナーズは、千代田区・有楽町を拠点とする芸能と演劇のギルド。ギルドマスターは未整理。主な特徴は、ゲームを観客にとって面白く保つ管理側権限、検閲・偽装・二重所属の操作。"
+    },
+    {
+      "term": "学園軍獄？",
+      "i18n": {
+        "en": "Penitentia Academy?",
+        "zh_tw": "學園軍獄？",
+        "zh_cn": "学园军狱？"
+      },
+      "description": "学園軍獄？は、詳細未整理の教育機関または関連施設。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "？？？",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "ユグドラシル",
+      "i18n": {
+        "en": "Yggdrasil",
+        "zh_tw": "尤克特拉希爾",
+        "zh_cn": "世界树"
+      },
+      "description": "ユグドラシルは北欧神話を基にした九つの世界から成る異世界。世界代行者はオーディン、東京でのリザーブはスルト、追放者はフレイ。ロキの壁によりラグナロクが終わらず、戦士たちはヴァルハラで蘇生され、死と再生の循環を永遠に繰り返す。"
+    },
+    {
+      "term": "練馬ウォーモンガーズ",
+      "i18n": {
+        "en": "Nerima Warmongers",
+        "zh_tw": "練馬好戰者",
+        "zh_cn": "练马好战者"
+      },
+      "description": "練馬ウォーモンガーズは、練馬区・光が丘を拠点とする戦争と政変の真の三大ギルド。ギルドマスターはベルトロ。主な特徴は、過去ループの戦争記憶の武器化と、軍・行政・地下組織への強い影響力。"
+    },
+    {
+      "term": "ワノクニ",
+      "i18n": {
+        "en": "Land of Wa",
+        "zh_tw": "和國",
+        "zh_cn": "和国"
+      },
+      "description": "ワノクニは日本の伝説・民話・歴史・文学を基にした異世界。世界代行者はヨリトモ、追放者はヨシツネ。人間、獣人、鬼などが暮らすが、人ならざる存在への恐れと偏見が強く、異種族間の恋愛や婚姻、その子供も蔑視されている。"
+    },
+    {
+      "term": "荒川ワンダラーズ",
+      "i18n": {
+        "en": "Arakawa Wanderers",
+        "zh_tw": "荒川流浪者",
+        "zh_cn": "荒川流浪者"
+      },
+      "description": "荒川ワンダラーズは、荒川区から足立区、荒川沿いを活動域とする放浪者のギルド。ギルドマスターはボヘミオ、不在時はバーゲストが代理を務める。主な特徴は、定住地を持たないことと、生存確認としての密な連絡網。"
+    },
+    {
+      "term": "オールドワンズ",
+      "i18n": {
+        "en": "Old Ones",
+        "zh_tw": "舊日支配者",
+        "zh_cn": "旧支配者"
+      },
+      "description": "オールドワンズはクトゥルフ神話を基にした星々の異世界。世界代行者はアザトース、追放者はクー・リトルリトル。夢は小世界の創造と見なされ、世界そのものもアザトースの夢とされる。狂気と終焉を永遠に繰り返す壊れた世界で、閉鎖領域外でも権能を使える特権を持つ。"
+    },
+    {
+      "term": "新宿サモナーズ",
+      "i18n": {
+        "en": "Shinjuku Summoners",
+        "zh_tw": "新宿召喚師",
+        "zh_cn": "新宿召唤师"
+      },
+      "description": "新宿サモナーズは、新宿区・西新宿を拠点とする主人公たちのギルド。ギルドマスターは主人公。主な特徴は、所属や出自を問わず仲間を受け入れる包括性と、剣・召喚陣・桜の花弁を組み合わせたギルドアイコン。"
+    },
+    {
+      "term": "神宿学園",
+      "i18n": {
+        "en": "Shinjuku Academy",
+        "zh_tw": "神宿學園",
+        "zh_cn": "神宿学园"
+      },
+      "description": "神宿学園は、新宿区にある主人公たちの通う教育機関。主な特徴は、自由度の高い指定制服と、転光生を含む多様な生徒を受け入れている点。関連する人物は主人公たち。"
+    },
+    {
+      "term": "未所属",
+      "i18n": {
+        "en": "Unaffiliated",
+        "zh_tw": "未隸屬",
+        "zh_cn": "未隶属"
+      },
+      "description": "特定のギルドに所属していない者たちを指す分類。ゲーム内の所属表示としては、明確な公会メンバーではないキャラクターに用いられる。"
+    },
+    {
+      "term": "世耕農業・林業学園",
+      "i18n": {
+        "en": "Setagaya Agriculture and Forestry Academy",
+        "zh_tw": "世耕農業林業學園",
+        "zh_cn": "世耕农业林业学园"
+      },
+      "description": "世耕農業・林業学園は、詳細未整理の農業・林業系教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "オリュンポス",
+      "i18n": {
+        "en": "Olympus",
+        "zh_tw": "奧林帕斯",
+        "zh_cn": "奥林匹斯"
+      },
+      "description": "オリュンポスはギリシャ神話を基にした異世界。世界代行者はゼウスだが、東京ではシンヤがリザーブを務める。血筋や高位者との絆を重視するシステムを持ち、愛は衝動的な結びつきや序列の商品として扱われる。追放者エウリュノメは血筋を引き裂く力を持つ。"
+    },
+    {
+      "term": "無所属",
+      "i18n": {
+        "en": "Independent",
+        "zh_tw": "無隸屬",
+        "zh_cn": "无隶属"
+      },
+      "description": "特定のギルドに完全には従属せず、独自の動機や仕事によって行動する者たちを指す分類。ギルドと関係を持つことはあっても、自分自身の目的を優先する。\n\n例として、他ギルドから報酬を得て働く独立請負人や、状況に応じてギルドへ加入・離脱する者が含まれる。"
+    },
+    {
+      "term": "王子坊学園",
+      "i18n": {
+        "en": "Ojimachi Academy",
+        "zh_tw": "王子坊學園",
+        "zh_cn": "王子坊学园"
+      },
+      "description": "王子坊学園は、詳細未整理の教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "ニライカナイ",
+      "i18n": {
+        "en": "Nirai Kanai",
+        "zh_tw": "理想鄉",
+        "zh_cn": "龙宫"
+      },
+      "description": "ニライカナイは「ゲーム」に参加している異世界のひとつで、琉球神話を基にした、神々の国の名を冠する世界。\n\nニライカナイの「世界代行者」はティダ。追放された魂はキンマモン。\n\nニライカナイは、死と別れの概念を水平線の向こうへ追放することで、永遠を実現しようとする世界である。"
+    },
+    {
+      "term": "六本木タイクーンズ",
+      "i18n": {
+        "en": "Roppongi Tycoons",
+        "zh_tw": "六本木大君",
+        "zh_cn": "六本木大君"
+      },
+      "description": "六本木タイクーンズは、港区・六本木を拠点とする富と政治力のギルド。形式上のギルドマスターはリヒト。主な特徴は、支配者や富裕層出身者の多さ、明確な上下関係、青山ミッショネルズとの対立。"
+    },
+    {
+      "term": "六本城学園",
+      "i18n": {
+        "en": "Roppongi Academy",
+        "zh_tw": "六本城學園",
+        "zh_cn": "六本城学园"
+      },
+      "description": "六本城学園は、東京23区の政財界支配層が集まる名門教育機関。主な特徴は、生徒がメイドやSPなどの従者を連れ、本人と従者で授業内容が異なる点。関連する組織は六本木タイクーンズ。"
+    },
+    {
+      "term": "中央ルールメイカーズ",
+      "i18n": {
+        "en": "Chuo Rule Makers",
+        "zh_tw": "中央立法者",
+        "zh_cn": "中央立法者"
+      },
+      "description": "中央ルールメイカーズは、中央区を拠点とする裁定者と選定者の真の三大ギルド。ギルドマスターはカレンとMS-C1。主な特徴は、主人公を神性の器または世界を支えるシステムへ変えようとする思想。"
+    },
+    {
+      "term": "天横服飾アカデミア",
+      "i18n": {
+        "en": "Ameyoko Fashion Academy",
+        "zh_tw": "天橫服飾學院",
+        "zh_cn": "天横服饰学院"
+      },
+      "description": "天横服飾アカデミアは、詳細未整理の服飾系教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "ホウライ",
+      "i18n": {
+        "en": "Hourai",
+        "zh_tw": "蓬萊",
+        "zh_cn": "蓬莱"
+      },
+      "description": "ホウライは中国の伝説・民話・文学を基にした異世界で、ペングライとも呼ばれる。世界代行者はフッキ、追放者はジョカ。大洪水後にフッキとジョカが世界を再建したが、ジョカ追放後は戦争と飢饉が広がり、シンノウも救済の道を探し続けている。"
+    },
+    {
+      "term": "池袋バーサーカーズ",
+      "i18n": {
+        "en": "Ikebukuro Berserkers",
+        "zh_tw": "池袋狂戰士",
+        "zh_cn": "池袋狂暴战士"
+      },
+      "description": "池袋バーサーカーズは、豊島区・池袋コロッセオを拠点とする戦闘系ギルド。ギルドマスターはクロード。主な特徴は、ランク制の闘技場、実力と名誉の重視、例外処理の観測・兵器化実験。"
+    }
+  ],
+  "protect": [
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_4_0__",
+      "origin": "<ruby=たいら>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_4_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_4_2__",
+      "origin": "<ruby=こうち>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_4_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_4_4__",
+      "origin": "<ruby=がた>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_4_5__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 5,
+        "cmd_index": 29,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_5_0__",
+      "origin": "<ruby=とうろう>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 5,
+        "cmd_index": 29,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_5_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 5,
+        "cmd_index": 29,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_5_2__",
+      "origin": "<ruby=かがわ>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 5,
+        "cmd_index": 29,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_5_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 10,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_10_0__",
+      "origin": "<ruby=まほら>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 10,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_10_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_12_0__",
+      "origin": "<ruby=あずま>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_12_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 13,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_13_0__",
+      "origin": "<ruby=まほ>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 13,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_13_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 13,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_13_2__",
+      "origin": "<ruby=まほろば>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 13,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_13_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_15_0__",
+      "origin": "<ruby=くげ>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_15_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_15_2__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_15_3__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_18_0__",
+      "origin": "<ruby=ノリヨリどの>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_18_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 22,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_22_0__",
+      "origin": "<ruby=ゆめ>"
+    },
+    {
+      "order": {
+        "label_index": 1,
+        "page_no": 22,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_1_22_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 2,
+        "page_no": 1,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_2_1_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 3,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_3_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 3,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_3_2_0__",
+      "origin": "<ruby=オレ>"
+    },
+    {
+      "order": {
+        "label_index": 3,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_3_2_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 4,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_4_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 4,
+        "page_no": 1,
+        "cmd_index": 23,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_4_1_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_0_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_0_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_0_2__",
+      "origin": "<ruby=オレ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_0_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_1_0__",
+      "origin": "<ruby=オレ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_1_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_3_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_3_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_4_0__",
+      "origin": "<ruby=あさげ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_4_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_5_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_6_0__",
+      "origin": "<ruby=おはよ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_6_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_6_2__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_0_0__",
+      "origin": "<size=45>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_0_1__",
+      "origin": "<\/size>"
+    },
+    {
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_7_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 9,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_9_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_2_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_8_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_11_0__",
+      "origin": "<ruby=オレ>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_11_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 13,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_13_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_14_0__",
+      "origin": "<ruby=オレ>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_14_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_14_2__",
+      "origin": "<ruby=オレ>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_14_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 16,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_16_0__",
+      "origin": "<ruby=じゅうたん>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 16,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_16_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_21_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_21_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_21_2__",
+      "origin": "<ruby=あいにく>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_21_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_23_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_23_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 25,
+        "cmd_index": 19,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_25_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 25,
+        "cmd_index": 19,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_25_1__",
+      "origin": "<ruby=せ>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 25,
+        "cmd_index": 19,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_25_2__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_26_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_26_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_26_2__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 11,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_11_26_3__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 14,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_14_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 19,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_19_0_0__",
+      "origin": "<ruby=先生>"
+    },
+    {
+      "order": {
+        "label_index": 19,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_19_0_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 22,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_22_0_0__",
+      "origin": "<ruby=いいなずけ>"
+    },
+    {
+      "order": {
+        "label_index": 22,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_22_0_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 22,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_22_1_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 23,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_23_3_0__",
+      "origin": "<size=40>"
+    },
+    {
+      "order": {
+        "label_index": 23,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_23_3_1__",
+      "origin": "<\/size>"
+    },
+    {
+      "order": {
+        "label_index": 23,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_23_5_0__",
+      "origin": "<ruby=うきみそーちー>"
+    },
+    {
+      "order": {
+        "label_index": 23,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_23_5_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 23,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_23_5_2__",
+      "origin": "<ruby=ゆたさたん>"
+    },
+    {
+      "order": {
+        "label_index": 23,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_23_5_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 24,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_24_0_0__",
+      "origin": "<ruby=わかぇーしんかぬ>"
+    },
+    {
+      "order": {
+        "label_index": 24,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_24_0_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_1_0__",
+      "origin": "<ruby=あんしぇー>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_1_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_1_2__",
+      "origin": "<ruby=元気>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_1_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_1_4__",
+      "origin": "<ruby=つんじめんそーれー>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_1_5__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 2,
+        "cmd_index": 9,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_2_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_5_0__",
+      "origin": "<size=40>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_5_1__",
+      "origin": "<ruby=フルサポート>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_5_2__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_5_3__",
+      "origin": "<\/size>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_6_0__",
+      "origin": "<ruby=わたくし>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_6_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_6_2__",
+      "origin": "<ruby=アゲ>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_6_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_7_0__",
+      "origin": "<ruby=ぼっち>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_7_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_8_0__",
+      "origin": "<size=40>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_8_1__",
+      "origin": "<ruby=ディスコ>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_8_2__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_8_3__",
+      "origin": "<ruby=パラパラ>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_8_4__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_25_8_5__",
+      "origin": "<\/size>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_1_0__",
+      "origin": "<ruby=オトモダチ>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_1_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_1_2__",
+      "origin": "<ruby=プロモーション>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_1_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 27,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_27_1_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 28,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_28_5_0__",
+      "origin": "<ruby=おおける>"
+    },
+    {
+      "order": {
+        "label_index": 28,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_28_5_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 30,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_30_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 31,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_31_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 31,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_31_3_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 31,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_31_3_1__",
+      "origin": "<ruby=ツラ>"
+    },
+    {
+      "order": {
+        "label_index": 31,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_31_3_2__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 32,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_32_1_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 32,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_32_5_0__",
+      "origin": "<ruby=セン>"
+    },
+    {
+      "order": {
+        "label_index": 32,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_32_5_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 32,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_32_7_0__",
+      "origin": "<ruby=おもっしょ>"
+    },
+    {
+      "order": {
+        "label_index": 32,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_32_7_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 32,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_32_8_0__",
+      "origin": "<ruby=おきて>"
+    },
+    {
+      "order": {
+        "label_index": 32,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_32_8_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 32,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_32_10_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 35,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_35_3_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 35,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_35_9_0__",
+      "origin": "<ruby=とうろうまつり>"
+    },
+    {
+      "order": {
+        "label_index": 35,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_35_9_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 35,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_35_12_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 35,
+        "page_no": 13,
+        "cmd_index": 9,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_35_13_0__",
+      "origin": "<ruby=いいなずけ>"
+    },
+    {
+      "order": {
+        "label_index": 35,
+        "page_no": 13,
+        "cmd_index": 9,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_35_13_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 35,
+        "page_no": 13,
+        "cmd_index": 9,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_35_13_2__",
+      "origin": "<param=playerName>"
+    }
+  ],
+  "provider": {
+    "zh-cn": "openai"
+  },
+  "model": {
+    "zh-cn": "gemini-3.8-flash"
+  },
+  "seq_to_order": [
+    {
+      "seq": 1,
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 16,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 2,
+      "order": {
+        "label_index": 1,
+        "page_no": 1,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 3,
+      "order": {
+        "label_index": 1,
+        "page_no": 2,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 4,
+      "order": {
+        "label_index": 1,
+        "page_no": 3,
+        "cmd_index": 23,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 5,
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 6,
+      "order": {
+        "label_index": 1,
+        "page_no": 5,
+        "cmd_index": 29,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 7,
+      "order": {
+        "label_index": 1,
+        "page_no": 6,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 8,
+      "order": {
+        "label_index": 1,
+        "page_no": 7,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 9,
+      "order": {
+        "label_index": 1,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 10,
+      "order": {
+        "label_index": 1,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 11,
+      "order": {
+        "label_index": 1,
+        "page_no": 10,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 12,
+      "order": {
+        "label_index": 1,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 13,
+      "order": {
+        "label_index": 1,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 14,
+      "order": {
+        "label_index": 1,
+        "page_no": 13,
+        "cmd_index": 13,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 15,
+      "order": {
+        "label_index": 1,
+        "page_no": 14,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 16,
+      "order": {
+        "label_index": 1,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 17,
+      "order": {
+        "label_index": 1,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 18,
+      "order": {
+        "label_index": 1,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 19,
+      "order": {
+        "label_index": 1,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 20,
+      "order": {
+        "label_index": 1,
+        "page_no": 19,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 21,
+      "order": {
+        "label_index": 1,
+        "page_no": 20,
+        "cmd_index": 22,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 22,
+      "order": {
+        "label_index": 1,
+        "page_no": 21,
+        "cmd_index": 9,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 23,
+      "order": {
+        "label_index": 1,
+        "page_no": 22,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 24,
+      "order": {
+        "label_index": 1,
+        "page_no": 23,
+        "cmd_index": 16,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 25,
+      "order": {
+        "label_index": 1,
+        "page_no": 24,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 26,
+      "order": {
+        "label_index": 1,
+        "page_no": 24,
+        "cmd_index": 4,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 27,
+      "order": {
+        "label_index": 2,
+        "page_no": 0,
+        "cmd_index": 21,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 28,
+      "order": {
+        "label_index": 2,
+        "page_no": 1,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 29,
+      "order": {
+        "label_index": 2,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 30,
+      "order": {
+        "label_index": 2,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 31,
+      "order": {
+        "label_index": 2,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 32,
+      "order": {
+        "label_index": 3,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 33,
+      "order": {
+        "label_index": 3,
+        "page_no": 1,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 34,
+      "order": {
+        "label_index": 3,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 35,
+      "order": {
+        "label_index": 1,
+        "page_no": 24,
+        "cmd_index": 5,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 36,
+      "order": {
+        "label_index": 4,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 37,
+      "order": {
+        "label_index": 4,
+        "page_no": 1,
+        "cmd_index": 23,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 38,
+      "order": {
+        "label_index": 4,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 39,
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 40,
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 41,
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 42,
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 43,
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 44,
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 45,
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 8,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 46,
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 47,
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 48,
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 49,
+      "order": {
+        "label_index": 6,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 50,
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 51,
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 52,
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 53,
+      "order": {
+        "label_index": 8,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 54,
+      "order": {
+        "label_index": 8,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 55,
+      "order": {
+        "label_index": 8,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 56,
+      "order": {
+        "label_index": 8,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 57,
+      "order": {
+        "label_index": 8,
+        "page_no": 4,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 58,
+      "order": {
+        "label_index": 8,
+        "page_no": 4,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 59,
+      "order": {
+        "label_index": 10,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 60,
+      "order": {
+        "label_index": 8,
+        "page_no": 4,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 61,
+      "order": {
+        "label_index": 9,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 62,
+      "order": {
+        "label_index": 9,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 63,
+      "order": {
+        "label_index": 9,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 64,
+      "order": {
+        "label_index": 11,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 65,
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 66,
+      "order": {
+        "label_index": 11,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 67,
+      "order": {
+        "label_index": 11,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 68,
+      "order": {
+        "label_index": 11,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 69,
+      "order": {
+        "label_index": 11,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 70,
+      "order": {
+        "label_index": 11,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 71,
+      "order": {
+        "label_index": 11,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 72,
+      "order": {
+        "label_index": 11,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 73,
+      "order": {
+        "label_index": 11,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 74,
+      "order": {
+        "label_index": 11,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 75,
+      "order": {
+        "label_index": 11,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 76,
+      "order": {
+        "label_index": 11,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 77,
+      "order": {
+        "label_index": 11,
+        "page_no": 13,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 78,
+      "order": {
+        "label_index": 11,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 79,
+      "order": {
+        "label_index": 11,
+        "page_no": 15,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 80,
+      "order": {
+        "label_index": 11,
+        "page_no": 16,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 81,
+      "order": {
+        "label_index": 11,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 82,
+      "order": {
+        "label_index": 11,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 83,
+      "order": {
+        "label_index": 11,
+        "page_no": 19,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 84,
+      "order": {
+        "label_index": 11,
+        "page_no": 20,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 85,
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 86,
+      "order": {
+        "label_index": 11,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 87,
+      "order": {
+        "label_index": 11,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 88,
+      "order": {
+        "label_index": 11,
+        "page_no": 24,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 89,
+      "order": {
+        "label_index": 11,
+        "page_no": 25,
+        "cmd_index": 19,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 90,
+      "order": {
+        "label_index": 11,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 91,
+      "order": {
+        "label_index": 11,
+        "page_no": 27,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 92,
+      "order": {
+        "label_index": 12,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 93,
+      "order": {
+        "label_index": 11,
+        "page_no": 27,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 94,
+      "order": {
+        "label_index": 13,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 95,
+      "order": {
+        "label_index": 11,
+        "page_no": 27,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 96,
+      "order": {
+        "label_index": 14,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 97,
+      "order": {
+        "label_index": 14,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 98,
+      "order": {
+        "label_index": 14,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 99,
+      "order": {
+        "label_index": 15,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 100,
+      "order": {
+        "label_index": 15,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 101,
+      "order": {
+        "label_index": 15,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 102,
+      "order": {
+        "label_index": 16,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 103,
+      "order": {
+        "label_index": 15,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 104,
+      "order": {
+        "label_index": 17,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 105,
+      "order": {
+        "label_index": 17,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 106,
+      "order": {
+        "label_index": 15,
+        "page_no": 2,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 107,
+      "order": {
+        "label_index": 18,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 108,
+      "order": {
+        "label_index": 19,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 109,
+      "order": {
+        "label_index": 19,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 110,
+      "order": {
+        "label_index": 19,
+        "page_no": 2,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 111,
+      "order": {
+        "label_index": 19,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 112,
+      "order": {
+        "label_index": 19,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 113,
+      "order": {
+        "label_index": 19,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 114,
+      "order": {
+        "label_index": 19,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 115,
+      "order": {
+        "label_index": 20,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 116,
+      "order": {
+        "label_index": 19,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 117,
+      "order": {
+        "label_index": 21,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 118,
+      "order": {
+        "label_index": 21,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 119,
+      "order": {
+        "label_index": 19,
+        "page_no": 6,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 120,
+      "order": {
+        "label_index": 22,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 121,
+      "order": {
+        "label_index": 22,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 122,
+      "order": {
+        "label_index": 22,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 123,
+      "order": {
+        "label_index": 23,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 124,
+      "order": {
+        "label_index": 23,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 125,
+      "order": {
+        "label_index": 23,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 126,
+      "order": {
+        "label_index": 23,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 127,
+      "order": {
+        "label_index": 23,
+        "page_no": 4,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 128,
+      "order": {
+        "label_index": 23,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 129,
+      "order": {
+        "label_index": 23,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 130,
+      "order": {
+        "label_index": 23,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 131,
+      "order": {
+        "label_index": 23,
+        "page_no": 6,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 132,
+      "order": {
+        "label_index": 24,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 133,
+      "order": {
+        "label_index": 25,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 134,
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 135,
+      "order": {
+        "label_index": 25,
+        "page_no": 2,
+        "cmd_index": 9,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 136,
+      "order": {
+        "label_index": 25,
+        "page_no": 3,
+        "cmd_index": 15,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 137,
+      "order": {
+        "label_index": 25,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 138,
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 139,
+      "order": {
+        "label_index": 25,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 140,
+      "order": {
+        "label_index": 25,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 141,
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 142,
+      "order": {
+        "label_index": 25,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 143,
+      "order": {
+        "label_index": 25,
+        "page_no": 10,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 144,
+      "order": {
+        "label_index": 25,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 145,
+      "order": {
+        "label_index": 25,
+        "page_no": 12,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 146,
+      "order": {
+        "label_index": 25,
+        "page_no": 12,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 147,
+      "order": {
+        "label_index": 26,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 148,
+      "order": {
+        "label_index": 26,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 149,
+      "order": {
+        "label_index": 26,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 150,
+      "order": {
+        "label_index": 26,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 151,
+      "order": {
+        "label_index": 25,
+        "page_no": 12,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 152,
+      "order": {
+        "label_index": 27,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 153,
+      "order": {
+        "label_index": 27,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 154,
+      "order": {
+        "label_index": 28,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 155,
+      "order": {
+        "label_index": 28,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 156,
+      "order": {
+        "label_index": 28,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 157,
+      "order": {
+        "label_index": 28,
+        "page_no": 3,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 158,
+      "order": {
+        "label_index": 28,
+        "page_no": 4,
+        "cmd_index": 12,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 159,
+      "order": {
+        "label_index": 28,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 160,
+      "order": {
+        "label_index": 28,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 161,
+      "order": {
+        "label_index": 28,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 162,
+      "order": {
+        "label_index": 28,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 163,
+      "order": {
+        "label_index": 28,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 164,
+      "order": {
+        "label_index": 29,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 165,
+      "order": {
+        "label_index": 28,
+        "page_no": 9,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 166,
+      "order": {
+        "label_index": 30,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 167,
+      "order": {
+        "label_index": 28,
+        "page_no": 9,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 168,
+      "order": {
+        "label_index": 31,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 169,
+      "order": {
+        "label_index": 31,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 170,
+      "order": {
+        "label_index": 31,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 171,
+      "order": {
+        "label_index": 31,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 172,
+      "order": {
+        "label_index": 32,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 173,
+      "order": {
+        "label_index": 32,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 174,
+      "order": {
+        "label_index": 32,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 175,
+      "order": {
+        "label_index": 32,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 176,
+      "order": {
+        "label_index": 32,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 177,
+      "order": {
+        "label_index": 32,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 178,
+      "order": {
+        "label_index": 32,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 179,
+      "order": {
+        "label_index": 32,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 180,
+      "order": {
+        "label_index": 32,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 181,
+      "order": {
+        "label_index": 32,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 182,
+      "order": {
+        "label_index": 32,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 183,
+      "order": {
+        "label_index": 32,
+        "page_no": 11,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 184,
+      "order": {
+        "label_index": 32,
+        "page_no": 11,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 185,
+      "order": {
+        "label_index": 32,
+        "page_no": 11,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 186,
+      "order": {
+        "label_index": 33,
+        "page_no": 0,
+        "cmd_index": 37,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 187,
+      "order": {
+        "label_index": 33,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 188,
+      "order": {
+        "label_index": 33,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 189,
+      "order": {
+        "label_index": 33,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 190,
+      "order": {
+        "label_index": 33,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 191,
+      "order": {
+        "label_index": 33,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 192,
+      "order": {
+        "label_index": 33,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 193,
+      "order": {
+        "label_index": 33,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 194,
+      "order": {
+        "label_index": 33,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 195,
+      "order": {
+        "label_index": 33,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 196,
+      "order": {
+        "label_index": 33,
+        "page_no": 9,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 197,
+      "order": {
+        "label_index": 33,
+        "page_no": 9,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 198,
+      "order": {
+        "label_index": 34,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 199,
+      "order": {
+        "label_index": 34,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 200,
+      "order": {
+        "label_index": 35,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 201,
+      "order": {
+        "label_index": 35,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 202,
+      "order": {
+        "label_index": 35,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 203,
+      "order": {
+        "label_index": 35,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 204,
+      "order": {
+        "label_index": 35,
+        "page_no": 4,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 205,
+      "order": {
+        "label_index": 35,
+        "page_no": 5,
+        "cmd_index": 15,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 206,
+      "order": {
+        "label_index": 35,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 207,
+      "order": {
+        "label_index": 35,
+        "page_no": 7,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 208,
+      "order": {
+        "label_index": 35,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 209,
+      "order": {
+        "label_index": 35,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 210,
+      "order": {
+        "label_index": 35,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 211,
+      "order": {
+        "label_index": 35,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 212,
+      "order": {
+        "label_index": 35,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 213,
+      "order": {
+        "label_index": 35,
+        "page_no": 13,
+        "cmd_index": 9,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 214,
+      "order": {
+        "label_index": 35,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 215,
+      "order": {
+        "label_index": 35,
+        "page_no": 15,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    }
+  ],
+  "summary": {
+    "zh-cn": "主人公在梦中目睹了源平合战时屋岛的奇妙幻影，随后在孤岛宅邸中被自称其未婚夫的岛长俄菲翁唤醒。一同暂住的兔儿神做好了早餐，青梅竹马鬼若也前来接主人公去学校。在三学年同班的教室中，萨图尔努斯与迈诺古拉正兴奋地讨论设立迪斯科舞厅，班主任洛基则迎来了新转校生——岛上的守护狸太三郎。在写暑假梦境日记时，主人公记下了合战之梦。学生们外出清扫落叶后，洛基向俄菲翁汇报主人公梦见合战之事，依岛上的传统，梦见合战之人将成为灯笼祭的“供品”，奇妙夏日的序幕就此拉开。"
+  },
+  "scene_items": [
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 16,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "――嵐の海をものともせず、\n「源たる者」は兵を率いていざ進む。",
+      "translations": {
+        "zh-cn": "——不顾狂风巨浪的大海，\n“源起之人”率领兵马毅然向前。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 1,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "目指すはその怨敵「平らげる者」の拠点。\n海を渡り、領地に侵入し、距離を詰めてゆく。",
+      "translations": {
+        "zh-cn": "目的地乃其宿敌“扫平之人”的据点。\n渡过大海，侵入领地，步步逼近。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 2,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "speaker": "「源たる者」の郎党たち",
+      "text": "――潮が引いた今なら、船を使わず\nかの島へ上陸できる。全軍、九郎判官殿に続けェッ！！",
+      "translations": {
+        "zh-cn": "——趁着现在退潮，无须乘船\n即可登上那座岛屿。全军，跟紧九郎判官大人！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 3,
+        "cmd_index": 23,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「源たる者」は海に出ようとしていた\n遠方の敵船へ直接攻撃を試みる。しかし――",
+      "translations": {
+        "zh-cn": "“源起之人”试图对企图出海的\n远方敌船发动直接攻击。然而——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "speaker": "ヤシマの守護狸？",
+      "text": "__HET__PT_1_4_0__平__HET__PT_1_4_1__の御殿様はおらが守る。\n__HET__PT_1_4_2__河内__HET__PT_1_4_3__の源はん__HET__PT_1_4_4__方__HET__PT_1_4_5__はこのヤシマに、入って来るなッ！",
+      "translations": {
+        "zh-cn": "<ruby=たいら>平家<\/ruby>的大人由俺来守护。\n<ruby=こうち>河内<\/ruby>的源氏<ruby=がた>各位<\/ruby>别想踏进这屋岛一步！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 5,
+        "cmd_index": 29,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "掲げた__HET__PT_1_5_0__灯籠__HET__PT_1_5_1__が__HET__PT_1_5_2__耀__HET__PT_1_5_3__ると共に、島の\n戦場のあちらこちらから大混乱の悲鳴が上がる。",
+      "translations": {
+        "zh-cn": "高举的<ruby=とうろう>灯笼<\/ruby>发出<ruby=かがわ>光芒<\/ruby>的同时，岛上\n各处战场爆发出一片陷入大混乱的悲鸣。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 6,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "渡ろうとした橋が、ただの絵図だと気付いて海へ落ちる。\nただのはりぼての城壁が、影法師たちが、本物に見える。",
+      "translations": {
+        "zh-cn": "想要渡过的桥，发觉只是画卷后便坠入海中。\n不过是纸糊的城墙与人影，看起来却如同真的一样。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 7,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "ヤシマの守護狸？",
+      "text": "敵の数、そこまで多くないけん、\n押し返せるかも……おらが援護する！",
+      "translations": {
+        "zh-cn": "敌人数量并没那么多，\n说不定能击退……俺来掩护！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「平らげる者」の敵勢は一斉に矢を放つ。\n守護狸が放つ光がその矢を照らすと、空を覆う程の数に増えた。",
+      "translations": {
+        "zh-cn": "“扫平之人”的敌军齐齐射出箭矢。\n守护狸释放的光芒照耀在箭矢上，数量竟倍增至遮天蔽日。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "幻と本物が入り混じった矢の雨が降り注ぐ。\nこれには「源たる者」の郎党も防御に徹さざるを得ない。",
+      "translations": {
+        "zh-cn": "真假难辨的箭雨倾盆而下。\n面对此景，“源起之人”的郎党们也不得不转入全神戒备的防御。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 10,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "「源たる者」の郎党たち",
+      "text": "これが噂に名高きヤシマの守護狸、\n平面を立体と化す、__HET__PT_1_10_0__理想郷__HET__PT_1_10_1__の妖術か……！",
+      "translations": {
+        "zh-cn": "这就是名闻遐迩的屋岛守护狸，\n化平面为立体的<ruby=まほら>理想乡<\/ruby>妖术吗……！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "「源たる者」の郎党たち",
+      "text": "平らの地を幻影を囮にし、混乱に乗じて\n敵の首魁を外海に逃がさせるつもりだな？",
+      "translations": {
+        "zh-cn": "打算以平家之地的幻影为诱饵，趁乱\n将敌方首领放回外海逃脱吧？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「源なる者」の郎党たちは、出陣前に\n__HET__PT_1_12_0__東__HET__PT_1_12_1__の大倉御所より授けられた、策のことを思い出す。",
+      "translations": {
+        "zh-cn": "“源起之人”的郎党们想起了出阵前\n由<ruby=あずま>关东<\/ruby>大仓御所传授的计策。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 13,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "speaker": "ヨリトモ",
+      "text": "……ヤマトタケルノミコト曰く、\n「倭は国の__HET__PT_1_13_0__真秀__HET__PT_1_13_1__ろば」――すなわち__HET__PT_1_13_2__幻__HET__PT_1_13_3__の理想郷。",
+      "translations": {
+        "zh-cn": "……日本武尊有云：\n“倭乃诸国之<ruby=まほ>至秀<\/ruby>之地”——亦即<ruby=まほろば>虚幻<\/ruby>的理想乡。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 14,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ヨリトモ",
+      "text": "その舵取りを担ってきた平家の者どもは\n机上の空論、画の餅を立派に見せることに長けてきた。",
+      "translations": {
+        "zh-cn": "执掌其舵的平家众人，\n向来擅长将纸上谈兵、画饼充饥之物粉饰得冠冕堂皇。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ヨリトモ",
+      "text": "政治の手腕ひとつを取っても、そうだ。\n__HET__PT_1_15_0__公家__HET__PT_1_15_1__の冠位の__HET__PT_1_15_2__次元を上げて__HET__PT_1_15_3__複雑にしたのだよ。",
+      "translations": {
+        "zh-cn": "单论政治手腕，亦是如此。\n他们<em=・>提升了<\/em><ruby=くげ>公卿<\/ruby>冠位之维，使其愈发繁复。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ヨリトモ",
+      "text": "従一位・太政大臣・検非違使別当殿と聞いて\nどれが誰より上か下かと分かる外様はそういない。",
+      "translations": {
+        "zh-cn": "听闻从一位、太政大臣、检非违使别当大人之衔，\n能分清孰高孰低的外样大名并无几人。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ヨリトモ",
+      "text": "その本当の序列を知る一族だけが、\nこの国の実権を握る仕組みを作り上げてみせた。",
+      "translations": {
+        "zh-cn": "他们打造出一套唯有深谙真正位阶的一族\n方能掌控国家实权的体制。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ヨリトモ",
+      "text": "戦でもその力を遺憾なく発揮せしめたならば\n……__HET__PT_1_18_0__第一次出征軍__HET__PT_1_18_1__では苦戦必至であろうな。",
+      "translations": {
+        "zh-cn": "若在战阵中亦将此力发挥得淋漓尽致，\n……仅凭<ruby=ノリヨリどの>第一次出征之军<\/ruby>，必将陷入苦战吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 19,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ヨリトモ",
+      "text": "……我が弟を、戦へ合流させる。\n敵陣へ突っ込ませよ、ただそれだけでよい。",
+      "translations": {
+        "zh-cn": "……让我那弟弟加入战局。\n命他突入敌阵，仅此足矣。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 20,
+        "cmd_index": 22,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ひとっ跳びに距離を詰めゆく、\nその機動は、まるで縮地するが如し。",
+      "translations": {
+        "zh-cn": "纵身一跃拉近距离，\n其身法机动，宛如缩地成寸。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 21,
+        "cmd_index": 9,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "かの幻術は、平面上に質感・立体感を表すものに過ぎない。\n触れればたちまち、夢幻の如く消えてしまうものに過ぎない。",
+      "translations": {
+        "zh-cn": "那幻术终究不过是在平面上映现质感与立体感罢了。\n一旦触及，便如梦幻泡影般消散殆尽。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 22,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "その剣にて、やすやすと紙を断つかの如く、\nかの武者は、__HET__PT_1_22_0__幻__HET__PT_1_22_1__の中へと踏み込み、そして――",
+      "translations": {
+        "zh-cn": "其利刃犹如轻取薄纸般，\n那名武士已然踏入<ruby=ゆめ>幻象<\/ruby>之中，随后——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 23,
+        "cmd_index": 16,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "……………\n……………",
+      "translations": {
+        "zh-cn": "……………\n……………"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 1,
+        "page_no": 24,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_a_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_a_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 24,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "（飛び起きる）",
+              "translations": {
+                "zh-cn": "（猛然坐起）"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 24,
+                "cmd_index": 4,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "（目覚まし時計を止める）",
+              "translations": {
+                "zh-cn": "（按掉闹钟）"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 0,
+                "cmd_index": 21,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "障子から朝陽が差し込んでいる。\n午前中の早い時間でもわかる、強い熱を持った夏の陽射しだ。",
+              "translations": {
+                "zh-cn": "朝阳透过拉门洒进屋内。\n哪怕是清晨时分，也能感受到带着炽热温度的夏日阳光。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 1,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "__HET__PT_2_1_0__は布団から出て、\nひとまず鳴り続ける目覚まし時計のアラームを止めた。",
+              "translations": {
+                "zh-cn": "<param=playerName>钻出被窝，\n姑且按停了响个不停的闹钟。"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 2,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_touroumatsuri2026_0_a_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_touroumatsuri2026_0_a-1_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 2,
+                        "page_no": 2,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "変な夢を見ていた気がする……",
+                      "translations": {
+                        "zh-cn": "总觉得做了一个奇怪的梦……"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 2,
+                        "page_no": 2,
+                        "cmd_index": 2,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "なんでここで寝てるんだっけ",
+                      "translations": {
+                        "zh-cn": "我为什么会睡在这里来着"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 2,
+                        "page_no": 2,
+                        "cmd_index": 3,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "（とりあえず布団から出る）",
+                      "translations": {
+                        "zh-cn": "（总之先从被窝里起来）"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 3,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "__HET__PT_3_0_0__が布団から出ようとした時、\n寝室の扉がほとんど音を立てずに開けられた。",
+                      "translations": {
+                        "zh-cn": "正当<param=playerName>准备钻出被窝时，\n卧室的房门几乎悄无声息地被推开了。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 3,
+                        "page_no": 1,
+                        "cmd_index": 5,
+                        "sub_index": 0
+                      },
+                      "speaker": "オピオーン",
+                      "text": "おぉ、起きていたか我が妻よッ！\n当然、ノックをするべきだったが……。",
+                      "translations": {
+                        "zh-cn": "哦哦，已经醒了吗，吾妻啊！\n按理而言，吾本该敲门才是，但……"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 3,
+                        "page_no": 2,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "オピオーン",
+                      "text": "許せ。あわよくばお前が起きてくるまで、\nその愛らしい寝顔を目に焼き付けたい__HET__PT_3_2_0__我__HET__PT_3_2_1__を抑えきれなんだ！",
+                      "translations": {
+                        "zh-cn": "原谅我。本想着若是可以的话，直到你醒来之前，\n我都想把那可爱的睡脸深深烙印在眼里，<ruby=オレ>我<\/ruby>终究没能按捺住！"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_a_alt2",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 24,
+                "cmd_index": 5,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "（２度寝する）",
+              "translations": {
+                "zh-cn": "（睡个回笼觉）"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 4,
+                "page_no": 0,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "__HET__PT_4_0_0__は目を閉じたまま\nアラームを止めて、再びまどろんだ――",
+              "translations": {
+                "zh-cn": "<param=playerName>闭着眼睛\n按掉闹钟，再次沉入微睡之中——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 4,
+                "page_no": 1,
+                "cmd_index": 23,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "――誰かに肩を優しく揺さぶられ、\n__HET__PT_4_1_0__は目を開けた。",
+              "translations": {
+                "zh-cn": "——肩膀被谁温柔地晃了晃，\n<param=playerName>睁开了双眼。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 4,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オピオーン",
+              "text": "ふふふ、もう少し寝顔見ていたくもあったが、\n少々うなされているようにも見えたからな。おはよう、我が妻よ？",
+              "translations": {
+                "zh-cn": "呵呵呵，虽然我还想再多看一会儿你的睡颜，\n但见你似乎有些被梦魇缠住了呢。早上好，我的爱妻？"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "我が家で、我が__HET__PT_5_0_0__許婚__HET__PT_5_0_1__が眠り、\n朝になれば__HET__PT_5_0_2__我__HET__PT_5_0_3__が起こす……ずっと夢を見ていた光景である。",
+      "translations": {
+        "zh-cn": "在吾之家邸，吾之<em=・>定亲之人<\/em>安歇，\n清晨降临便由<ruby=オレ>吾<\/ruby>唤醒……此乃吾一直梦寐以求之光景。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "欲を言えば、__HET__PT_5_1_0__我__HET__PT_5_1_1__の胸の中で毎夜、眠りにつくがいい。\nお前のわずかなみじろぎで目を覚まし幸福な一日が始まるのだ！",
+      "translations": {
+        "zh-cn": "若要得陇望蜀，汝每夜皆在<ruby=オレ>吾<\/ruby>之怀中安然入眠便更好了。\n因汝轻微的辗转而苏醒，开启幸福的一天！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そこで独り舞い上がりすぎたことに気付いたのか\nオピオーンは少し気恥ずかしそうに居直る。",
+      "translations": {
+        "zh-cn": "或许是发觉自己一人亢奋过了头，\n俄菲翁略带羞赧地收敛神色，故作镇定。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "すまない、__HET__PT_5_3_0__あのようなこと__HET__PT_5_3_1__を経験したばかりの貴様には\n少し配慮が足りなかったか。",
+      "translations": {
+        "zh-cn": "抱歉，对刚刚经历过<em=・>那般变故<\/em>的汝而言，\n吾确实稍欠体恤了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "さぁ今日は登校日だろう、皆で__HET__PT_5_4_0__朝餉__HET__PT_5_4_1__としよう我が妻よ！\n昨日の嵐もウソのように晴れておるわ。",
+      "translations": {
+        "zh-cn": "来，今日乃返校之日吧，大家一道共进<ruby=あさげ>早膳<\/ruby>吧，吾妻！\n昨日那场暴风雨亦如谎言般放晴了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "オピオーンに言われるがまま、__HET__PT_5_5_0__は\n着替えて布団をしまうと居間に向かった。",
+      "translations": {
+        "zh-cn": "<param=playerName>听从俄菲翁的话，\n换好衣服收起被褥，走向了起居室。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "――__HET__PT_5_6_0__早安__HET__PT_5_6_1__、__HET__PT_5_6_2__！\n昨日の今日で疲れてたろうに、早起き出来てえらいえらい！",
+      "translations": {
+        "zh-cn": "——<ruby=おはよ>早安<\/ruby>，<param=playerName>！\n明明昨天刚折腾完肯定很累，还能早起真是太了不起了！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "いやーそれにしても、広い家だねぇ。\n流石は「島長」オピオーン様って感じじゃん？",
+      "translations": {
+        "zh-cn": "不过话说回来，这房子可真大啊。\n不愧是“岛长”俄菲翁大人呢～"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_b_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_b_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 8,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "おっはよう！",
+              "translations": {
+                "zh-cn": "早上好！"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 6,
+                "page_no": 0,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "トゥーアルシェン",
+              "text": "__HET__PT_6_0_0__おっはよう！__HET__PT_6_0_1__",
+              "translations": {
+                "zh-cn": "<size=45>早上好！<\/size>"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 6,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "トゥーアルシェン",
+              "text": "君が元気そうでなにより。\n昨日はマジで危機一髪だったねぇ。",
+              "translations": {
+                "zh-cn": "看到你精神满满就再好不过了。\n昨天可真是千钧一发呢。"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_b_alt2",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 8,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "なんでトゥーアルシェンがここに？",
+              "translations": {
+                "zh-cn": "为什么兔儿神会在这里？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 8,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "……何がどうなってるんだっけ？",
+              "translations": {
+                "zh-cn": "……到底是怎么一回事来着？"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 7,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "トゥーアルシェン",
+              "text": "えっ__HET__PT_7_0_0__、寝ぼけてるだけだよね？\n俺が君を抱えて跳び出す時に、実は頭打ったりしてないよね？",
+              "translations": {
+                "zh-cn": "诶<param=playerName>，你只是还没睡醒对吧？\n我抱着你跳出来的时候，该不会其实撞到脑袋了吧？"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 8,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "ホント、俺が君の家に居候してて幸運だったね～？\nおかげで土砂崩れを察知して、君を助けられた。",
+      "translations": {
+        "zh-cn": "真是的，幸好我当时借住在你家呢～\n多亏如此我才能察觉到泥石流，把你给救了出来。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 8,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "君は俺がこの島に流れ着いてすぐの時も、\n親切にしてくれたし、恩返しみたいなことが出来てよかった。",
+      "translations": {
+        "zh-cn": "当初我刚漂流到这座岛上时，你也对我特别好，\n能有机会报恩真是太好了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 8,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "この島は時々嵐が来るらしいけどさ、\n昨日ほど酷いのは初めてだって、他の人も言ってたよ。",
+      "translations": {
+        "zh-cn": "听说这座岛偶尔会有暴风雨光顾，\n但其他人也都说，像昨天那么猛烈还是头一回呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 8,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "ま、暗い話はおーしまいっ。\n泊めてもらったお礼に朝ごはん作ってるから、そこで待ってて！",
+      "translations": {
+        "zh-cn": "好啦，沉重的话题就到此为止！\n为了答谢留宿之恩，我正在做早饭呢，你在那儿坐着等就好！"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 8,
+        "page_no": 4,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_c_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_c_alt2",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 4,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "そうだった気がしてきた",
+              "translations": {
+                "zh-cn": "好像确实是这样"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 4,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "そうだ、あと少しで家ごと……",
+              "translations": {
+                "zh-cn": "对了，差一点就连同房子一起……"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 10,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オピオーン",
+              "text": "ほう、わざわざ我が家の従者ではなく、\n貴様が朝餉の準備を……？",
+              "translations": {
+                "zh-cn": "哦？汝竟特意不用吾家随从，\n由汝亲自准备早膳……？"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_c_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 4,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "ピョンちゃんが作るご飯美味しいんだよね",
+              "translations": {
+                "zh-cn": "兔兔做的饭菜很好吃呢"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 9,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "トゥーアルシェン",
+              "text": "ピョンちゃん！？　あはは、悪くないかも。\n良かったよ__HET__PT_9_0_0__が喜んでくれて。",
+              "translations": {
+                "zh-cn": "兔兔！？啊哈哈，好像也不赖呢。\n<param=playerName>喜欢真是太好了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 9,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オピオーン",
+              "text": "なんだお前はッ、我が妻にそのように\n近付いて来るとは……なんと見る目のあるヤツか！！",
+              "translations": {
+                "zh-cn": "汝是何人，竟敢如此接近吾妻……\n……当真是个极具慧眼的家伙！！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 9,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オピオーン",
+              "text": "だが、しかと覚えておけ？\n我が妻の一等賞はこのオピオーンであることを！",
+              "translations": {
+                "zh-cn": "不过，给吾牢牢记住了！\n吾妻心中的第一名唯有吾俄菲翁！"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "あはは、そんな大層なモノじゃないよ。\nオピオーンさんとこのお手伝いさんの方が全然すごいモン出るって！",
+      "translations": {
+        "zh-cn": "啊哈哈，也不是什么了不起的东西啦。\n俄菲翁先生家的帮佣阿姨做的肯定丰盛多啦！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "一時期練習してた名残、\n俺も好きな人のご飯くらい作ってあげたいなって思ってさ。",
+      "translations": {
+        "zh-cn": "只是以前练习过一阵子的底子而已，\n我也想过至少能给自己喜欢的人做顿饭嘛。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "__HET__PT_11_2_0__が言われた通り待っていると、\nトゥーアルシェンが食卓に皿を並べ始めた。",
+      "translations": {
+        "zh-cn": "<param=playerName>依言等候着，\n兔儿神开始将盘子端上餐桌。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "用意された朝食を、\nオピオーンは物珍しげに覗き込む。",
+      "translations": {
+        "zh-cn": "看着准备好的早餐，\n俄菲翁有些稀奇地探头打量着。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "へへっ、でも予想してたよりは良い感じって反応かな？\n旅先のスパイスとか、この島には無いものも使ってるからね。",
+      "translations": {
+        "zh-cn": "嘿嘿，不过看来反应比预想的要好？\n毕竟用了旅行途中的香料等岛上没有的东西呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "成分不明の怪しいものとかは使ってないから安心して、\nどうかな、これで俺も怪しげな路上生活者から印象変わった？",
+      "translations": {
+        "zh-cn": "放心吧，绝对没有用成分不明的可疑材料。\n怎么样，这样一来我对你在我身上的“可疑流浪汉”印象有所改观了吗？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "怪しいという点ではそのまま、変わらぬがな。\n……少なくとも、お前が我が妻を救った事実は認めている。",
+      "translations": {
+        "zh-cn": "就可疑这一点而言，原封未动，毫无改观。\n……不过，至少汝拯救了吾妻这一事实，吾是认可的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "えぇ～～！　そこはさ、\n島長様が俺の印象をウサギ跳びさせてくれるところじゃん！",
+      "translations": {
+        "zh-cn": "诶～～！那种时候，\n不该由岛长大人帮我的印象来个兔子大跳步跃升吗！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "そうだ__HET__PT_11_8_0__、今日の放課後って暇？\n良かったらさ、一緒に海釣りでもしにいかない？",
+      "translations": {
+        "zh-cn": "对了<param=playerName>，今天放学后有空吗？\n要是可以的话，要不要一起去海钓？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "水の濁りとかうねりも落ち着いて、山や川から栄養が流れ込んだ\n今がむしろ絶好の好機だと思うんだよね。",
+      "translations": {
+        "zh-cn": "水质浑浊和风浪都平息下来了，山川的养分也被冲刷下来，\n我觉得现在反而是绝佳的大好时机呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "よそ者の俺はまだまだ島について知らないことがいっぱいだし\n良かったらその案内もして欲しいな～ってさ。",
+      "translations": {
+        "zh-cn": "作为外来者的我还对这座岛一无所知呢，\n要是能顺便带我参观参观就更好了～"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "いや、まだあちこち出歩くのは危険だ。\n案内が必要なら__HET__PT_11_11_0__我__HET__PT_11_11_1__がしてやる。",
+      "translations": {
+        "zh-cn": "不妥，当下四处走动仍有危险。\n若需向导，由<ruby=オレ>吾<\/ruby>来带路即可。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "トゥーアルシェン",
+      "text": "……ちぇっ、ほんとガードが堅いなあオピオーンさんは。\nもっと自由奔放に自由恋愛でいこうよ、ねえ？",
+      "translations": {
+        "zh-cn": "……切，俄菲翁先生防备心可真重啊。\n大家再自由奔放点、大搞自由恋爱不好嘛，你说对吧？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 13,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "speaker": "家政婦",
+      "text": "__HET__PT_11_13_0__様、\nオニワカさんがお迎えにいらっしゃいました。",
+      "translations": {
+        "zh-cn": "<param=playerName>大人，\n鬼若先生来接您了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "フン……__HET__PT_11_14_0__我__HET__PT_11_14_1__に負けず劣らずつかず離れずな輩が来たぞ。\n__HET__PT_11_14_2__我__HET__PT_11_14_3__が少し待つように言ってこよう。",
+      "translations": {
+        "zh-cn": "哼……来了个与<ruby=オレ>吾<\/ruby>相比亦不遑多让、若即若离的家伙啊。\n且由<ruby=オレ>吾<\/ruby>去叫他稍候片刻。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 15,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "海に臨んだ島一の大きさを誇るオピオーンの邸宅、\n瓦屋根に木造の柱と漆喰の白壁は見事としか言いようがない。",
+      "translations": {
+        "zh-cn": "面朝大海、号称岛上第一大宅邸的俄菲翁宅邸，\n其瓦顶、木柱与白灰泥墙除了叹为观止外别无形容。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 16,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "その玄関口、飛び石の__HET__PT_11_16_0__絨毯__HET__PT_11_16_1__の上で\nオニワカは少し機嫌の悪そうな様子で手を組んでいた。",
+      "translations": {
+        "zh-cn": "在其大门口，步石铺设的<ruby=じゅうたん>地毯<\/ruby>上方，\n鬼若正带着些许不悦的神情抱臂而立。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "……おせえ。島長様は客人をこんなに待たせるってのかよ。\nまさか、この機に乗じて変なことされてんじゃ……。",
+      "translations": {
+        "zh-cn": "……太慢了。岛长大人就这么晾着客人啊。\n该不会趁这个机会对那家伙动手动脚……"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "昨日の騒ぎもまさかハナから仕組まれてて、\n全部アイツの策って可能性も……。",
+      "translations": {
+        "zh-cn": "昨天的骚动该不会从一开始就是安排好的，\n全都是那家伙的诡计吧……"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 19,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "そんなわけがあるか馬鹿者。この島は狭く噂も広がりやすい、\nあまり不用意なことを口にすれば後悔することになるぞ。",
+      "translations": {
+        "zh-cn": "岂有此理，蠢材。此岛狭隘，流言易播，\n若口无遮拦，迟早会后悔莫及。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 20,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "ゲッ……てめぇは、オピオーン！\nてめえのことはお呼びじゃねえんだよ！？",
+      "translations": {
+        "zh-cn": "呃……是你这家伙，俄菲翁！\n老子找的可不是你啊！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "承知しているとも、__HET__PT_11_21_0__我が妻__HET__PT_11_21_1__を迎えに来たのだろう？\n__HET__PT_11_21_2__生憎__HET__PT_11_21_3__まだ朝餉の途中でな、先へ行くように言伝を預かってきた。",
+      "translations": {
+        "zh-cn": "吾自是知晓，汝是来接<em=・>吾妻<\/em>的吧？\n<ruby=あいにく>不巧<\/ruby>早膳尚未用毕，吾代为转达让汝先行一步之言。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "ハンッ、そんくらい待たされてやるよ。\nどうせ先に行ったってやることなんざねえんだ。",
+      "translations": {
+        "zh-cn": "哼，这点时间老子还等得起。\n反正先过去也没什么事可干。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オピオーン",
+      "text": "そうか、いつも我が妻のために感謝する。\nお前が側に居れば__HET__PT_11_23_0__悪い虫__HET__PT_11_23_1__など近付きようがないだろうからな？",
+      "translations": {
+        "zh-cn": "是吗，常日里承蒙汝对吾妻之照料，吾心甚慰。\n有汝伴其左右，想必<em=・>狂蜂浪蝶<\/em>亦无从接近吧？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 24,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "余裕ありげに笑みを浮かべるオピオーンを前に、\nオニワカは拳を強く握りしめるのだった。",
+      "translations": {
+        "zh-cn": "面对嘴角含着从容笑意的俄菲翁，\n鬼若紧紧地攥紧了拳头。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 25,
+        "cmd_index": 19,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "よっ、よう、__HET__PT_11_25_0__！\n__HET__PT_11_25_1__急__HET__PT_11_25_2__かしちまったみてぇで悪ぃな。",
+      "translations": {
+        "zh-cn": "哟、哟，<param=playerName>！\n抱歉啊，好像把你给<ruby=せ>催<\/ruby>急了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "__HET__PT_11_26_0__てめぇ__HET__PT_11_26_1__の家が壊れちまったって聞いてよう、\n心配してたんだぜ？　__HET__PT_11_26_2__幼馴染__HET__PT_11_26_3__のてめぇに何かあったら俺は……。",
+      "translations": {
+        "zh-cn": "听说<em=・>你<\/em>的房子塌了，\n老子可是担心得要命啊？要是我这<em=・>青梅竹马<\/em>有个万一，老子可就……"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 11,
+        "page_no": 27,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_d_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_d_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 27,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "そういうオニワカは大丈夫？",
+              "translations": {
+                "zh-cn": "那鬼若你还好吗？"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 12,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "おうよ。神社に避難させてたヤツらも皆無事だ。\nなんてったって、あそこには我らがこの島の守護狸様がいるからな！",
+              "translations": {
+                "zh-cn": "当然了。避难到神社的人也全都平安无事。\n毕竟那里可是有守护我们这座岛的守护狸大人坐镇啊！"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_d_alt2",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 27,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "心配してくれてありがとう",
+              "translations": {
+                "zh-cn": "谢谢你替我担心"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 13,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "あっ、当たり前だろ、俺にとっちゃてめぇは\n大切な――ただの幼馴染だからな、勘違いすんな！？",
+              "translations": {
+                "zh-cn": "理、理所当然的吧！对老子来说你可是\n重要的——普普通通的青梅竹马而已，别自作多情啊！？"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_d_alt3",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 27,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "（安心させるよう頭を撫でる）",
+              "translations": {
+                "zh-cn": "（为了让他安心而摸摸他的头）"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 0,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "__HET__PT_14_0_0__はそっと手を伸ばし、\nオニワカの頭を撫でる。",
+              "translations": {
+                "zh-cn": "<param=playerName>悄悄伸出手，\n摸了摸鬼若的头。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "や、やめろよガキじゃねぇんだし、\n絶対、汗で蒸れてっからよ……。",
+              "translations": {
+                "zh-cn": "住、住手啦我又不是小鬼头了，\n肯定全都是汗黏糊糊的……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 2,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "――あぁやめやめ！\n慰めてくれてんのはわかったっての！　サンキューな！！",
+              "translations": {
+                "zh-cn": "——啊真是的，打住打住！\n我知道你是在安慰我啦！谢了啊！！"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 15,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "てめぇはてめぇで、なんでよりによって島長の家なんかに……\nいや、それが自然な成り行きなのは理解してるんだけどよ……。",
+      "translations": {
+        "zh-cn": "你也是的，偏偏选了岛长家里借住……\n不对，虽然我也明白那是顺理成章的发展就是了……"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 15,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "……島長の家と比べたらクソせめぇけどよ、\n頼ってくれたら俺の部屋だって貸してやったのにさ。",
+      "translations": {
+        "zh-cn": "……虽然跟岛长家比起来窄得要死，\n但你找我求助的话，我的房间也是可以借给你的啊。"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 15,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_e_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_e_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 15,
+                "page_no": 2,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "そしたら部屋の外で立って寝始めるでしょ？",
+              "translations": {
+                "zh-cn": "那样的话你肯定又会在房门外站着睡了吧？"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 16,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "たりめぇだろっ！　俺はそういうの慣れてんだ、\nてめぇがいいなら別に一緒に……。",
+              "translations": {
+                "zh-cn": "废话！老子早就习惯那种事了，\n要是你乐意的话，一起……"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_e_alt2",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 15,
+                "page_no": 2,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "……汚そう",
+              "translations": {
+                "zh-cn": "……感觉会很脏"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 17,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "なッ、流石にてめぇを泊めるってなったら\n掃除くらいするに決まってんだろ！",
+              "translations": {
+                "zh-cn": "什、要是真让你留宿的话，\n老子肯定也会打扫一下的吧！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 17,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "……だけどあれこれ家探しするのはナシな。\nクソ、そう考えたら今の形が一番良いってのかよ……。",
+              "translations": {
+                "zh-cn": "……不过到处乱翻找东西可不行啊。\n可恶，这么一想现在的安排反倒是最妥当的了吗……"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_e_alt3",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 15,
+                "page_no": 2,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "今度泊まりにいくよ",
+              "translations": {
+                "zh-cn": "下次去你家住哦"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 18,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "言ったな？　絶対だかんな？\nおっしゃ、それまでに部屋片しとかねえと……。",
+              "translations": {
+                "zh-cn": "你说的啊？绝对要来啊！\n好嘞，在那之前得把房间收拾干净才行……"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 19,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "……って、とりあえずガッコー行こうぜ。\n遅れたら__HET__PT_19_0_0__あいつ__HET__PT_19_0_1__にネチネチ言われちまう。",
+      "translations": {
+        "zh-cn": "……话说回来，先去学校吧。\n迟到的话肯定又要被<ruby=先生>那家伙<\/ruby>阴阳怪气地念叨了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 19,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "あんな嵐の翌日でも予定通り登校日とはなぁ。\nまっ台風一過で晴天だし、皆の元気なツラは見ておきてぇな！",
+      "translations": {
+        "zh-cn": "在那种暴风雨的隔天居然还按原计划返校。\n算了，反正台风过境晴空万里，我也想看看大家精神的样子！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 19,
+        "page_no": 2,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "昨日の嵐の影響で、\n枝や木の葉が散らばっている道路を歩く。",
+      "translations": {
+        "zh-cn": "两人走在因受昨日暴风雨影响、\n散落着残枝败叶的道路上。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 19,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "やれやれ、予想はしてたが\n今日明日は道の掃除に専念しねぇとだ、こりゃ。",
+      "translations": {
+        "zh-cn": "哎呀呀，虽然早有预料，\n但这今明两天怕是得专心清扫道路了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 19,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "神社の掃除もまだ全然だ。\n氏子と青年団を両方やってると、こういう時しんどいんだよなァ！",
+      "translations": {
+        "zh-cn": "神社那边也完全还没打扫呢。\n身兼信众与青年团，遇到这种时候还真是吃不消啊！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 19,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "てめぇも暇があったら手伝ってくれよ。\nアイスくらい奢ってやるからさ。",
+      "translations": {
+        "zh-cn": "你要是有空也来帮个忙呗。\n至少请你吃根冰棒。"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 19,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_f_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_f_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 6,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "瓶ジュースも追加で！",
+              "translations": {
+                "zh-cn": "再加一瓶汽水！"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 20,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "よし、決まりだな！\nオピオーンの野郎には内緒で頼むぜ？",
+              "translations": {
+                "zh-cn": "好，一言为定！\n可别让俄菲翁那家伙知道啊？"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_f_alt2",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 6,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "今日はオピオーンが許してくれないかも",
+              "translations": {
+                "zh-cn": "今天俄菲翁可能不会答应呢"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 21,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "……そうだよな、そっちは家も大変なことになってんだし、\nそっちの片付けが優先だよな。",
+              "translations": {
+                "zh-cn": "……也是啊，你那边家里也出了那么大的事，\n先收拾那边才对。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 21,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "逆に俺のこと頼っていいからな？\n仕事なんかより、幼馴染の助けになりてぇしさ。",
+              "translations": {
+                "zh-cn": "反过来你可以尽管依赖我啊？\n比起干活，我更想去帮帮青梅竹马啊。"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_f_alt3",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 6,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "デートしてくれるならいいよ",
+              "translations": {
+                "zh-cn": "跟我约会的话就可以哦"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 22,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "な、な、何言ってんだよ！\nてめぇはオピオーンの__HET__PT_22_0_0__許婚__HET__PT_22_0_1__だろうが、島流しにされちまうって！",
+              "translations": {
+                "zh-cn": "你、你、你在胡说八道些什么啊！\n你可是俄菲翁的<ruby=いいなずけ>定亲之人<\/ruby>吧，老子会被流放离岛的啊！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 22,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "いや……__HET__PT_22_1_0__が本気で言うなら、\n俺は何もかも投げうってでも――",
+              "translations": {
+                "zh-cn": "不……要是<param=playerName>是说真的，\n老子就算抛弃一切也——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 22,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "――じゃねぇーよ！　ゲッホン！！\nたとえそうするとしても、無鉄砲じゃいけねえ、準備が必要だ。",
+              "translations": {
+                "zh-cn": "——才怪啦！咳咳！！\n就算真要那么干也不能莽撞行事，得做好准备才行。"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 23,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "もし居候してる間、オピオーンになんか嫌なことされたら言えよ。\n島長だろうが俺がブッ飛ばしてやるからな。",
+      "translations": {
+        "zh-cn": "借住期间要是俄菲翁敢对你动手动脚，尽管跟我说。\n管他是不是岛长，老子照样揍飞他。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 23,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "つーか、オピオーンの野郎はともかく、\nなんでトゥーアルシェンまで一緒に居んだよ！？",
+      "translations": {
+        "zh-cn": "话说回来，俄菲翁那家伙姑且不论，\n凭什么连兔儿神都跟你住在一起啊！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 23,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "助けたとかそういうのとはまた別だろ！？\n一番長い付き合いのはずの俺ですら、一緒に泊まったことなんて――",
+      "translations": {
+        "zh-cn": "救了人归救了人，这根本是两码事吧！？\n明明跟我相识时间最长，连我都还没跟你同住过——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 23,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "__HET__PT_23_3_0__――ゲホゴホッゴホン！！__HET__PT_23_3_1__",
+      "translations": {
+        "zh-cn": "<size=40>——咳咳咳咳咳！！<\/size>"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 23,
+        "page_no": 4,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "道路と同じく、草木が散らばっている校舎に到着。\n校門にはいつも通り、大柄な教師が生徒たちを迎えていた。",
+      "translations": {
+        "zh-cn": "和道路一样，散落着草木的校舍到了。\n校门口如往常一样，高大魁梧的教师正迎接着学生们。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 23,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "シーサァ",
+      "text": "__HET__PT_23_5_0__おはよう__HET__PT_23_5_1__２人とぅもーう！\n無事でぃ__HET__PT_23_5_2__良かった__HET__PT_23_5_3__やー！",
+      "translations": {
+        "zh-cn": "<ruby=うきみそーちー>早上好<\/ruby>啊你们两个～！\n平平安安可真是<ruby=ゆたさたん>太好<\/ruby>啦～！"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 23,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_f2_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_f2_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 6,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "うきみそーちー！",
+              "translations": {
+                "zh-cn": "早上好！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 6,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "心配おかけしました",
+              "translations": {
+                "zh-cn": "让您担心了"
+              }
+            }
+          ],
+          "following_text": []
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_f2_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 6,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "おはようございます、園長先生",
+              "translations": {
+                "zh-cn": "早上好，园长老师"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 24,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "シーサァ",
+              "text": "園長先生……？　わーは校長先生やさ。\n__HET__PT_24_0_0__若い子の__HET__PT_24_0_1__流行り言葉か何かやみ？",
+              "translations": {
+                "zh-cn": "园长老师……？俺可是校长老师啊。\n这是<ruby=わかぇーしんかぬ>年轻人的<\/ruby>流行语还是什么吗？"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "ウッス、先生。俺だって頑丈さが取り柄なんだぜ？\n__HET__PT_25_0_0__もこの通り、何ともなさそうだ。",
+      "translations": {
+        "zh-cn": "是，老师。老子唯一的长处就是结实抗造了。\n<param=playerName>也如您所见，看起来一点事都没有。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "シーサァ",
+      "text": "__HET__PT_25_1_0__それなら__HET__PT_25_1_1____HET__PT_25_1_2__がんじゅー__HET__PT_25_1_3__に\n__HET__PT_25_1_4__いってらっしゃい__HET__PT_25_1_5__！",
+      "translations": {
+        "zh-cn": "<ruby=あんしぇー>那样的话<\/ruby>就<ruby=元気>精神满满地<\/ruby>\n<ruby=つんじめんそーれー>快去吧<\/ruby>！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 2,
+        "cmd_index": 9,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "シーサァに見送られ、__HET__PT_25_2_0__たちは教室へ。\n生徒数が少ないこの学校は、３学年が同じ教室で学ぶのだ。",
+      "translations": {
+        "zh-cn": "目送着狮萨，<param=playerName>等人走进教室。\n由于学生稀少，这所学校由三个年级共用同一间教室授课。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 3,
+        "cmd_index": 15,
+        "sub_index": 0
+      },
+      "speaker": "サトルヌス",
+      "text": "――そう、今回も却下されちゃいました。\nディスコ……絶対絶対夜の憩いの場になるのに……！",
+      "translations": {
+        "zh-cn": "——对啊，这次又被驳回了。\n迪斯科……明明绝对绝对能成为夜间休憩的好去处啊……！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "モリタカ",
+      "text": "さ、左様で御座りまするか。\n馴染みのない文化故、まずは島民の皆に広めるところから――",
+      "translations": {
+        "zh-cn": "是、是这样吗。\n毕竟是对岛民而言毫无耳闻的文化，或许应当先从向大家推广开始——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "マイノグーラ",
+      "text": "__HET__PT_25_5_0__その活動、__HET__PT_25_5_1__全面協力__HET__PT_25_5_2__いたしますわ～～！！！__HET__PT_25_5_3__",
+      "translations": {
+        "zh-cn": "<size=40>这项活动，我自当<ruby=フルサポート>全力协助<\/ruby>～～！！！<\/size>"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マイノグーラ",
+      "text": "__HET__PT_25_6_0__私__HET__PT_25_6_1__を迎え入れてくださったこの島に、不満はありませんわ。\nけれど、ブチ__HET__PT_25_6_2__高揚__HET__PT_25_6_3__ても摘み出されない場所は限られていますでしょ？",
+      "translations": {
+        "zh-cn": "<ruby=わたくし>我<\/ruby>对迎纳了自己的这座岛并无不满。\n可是，就算彻底<ruby=アゲ>嗨翻<\/ruby>也不会被撵出去的地方，可是相当有限的吧？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マイノグーラ",
+      "text": "……山奥で__HET__PT_25_7_0__ソロ__HET__PT_25_7_1__ダンスは\n没落を突きつけられているようでスッゲェ堪えますわ～！！",
+      "translations": {
+        "zh-cn": "……在深山老林里<ruby=ぼっち>形单影只<\/ruby>地跳独舞，\n仿佛在赤裸裸地宣告我的没落，实在太折磨人啦～！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マイノグーラ",
+      "text": "__HET__PT_25_8_0__プリーズ、__HET__PT_25_8_1__舞踏場__HET__PT_25_8_2__！　レッツ、__HET__PT_25_8_3__舞踏会__HET__PT_25_8_4__！__HET__PT_25_8_5__",
+      "translations": {
+        "zh-cn": "<size=40>拜托了，<ruby=ディスコ>舞厅<\/ruby>！来吧，<ruby=パラパラ>跳舞吧<\/ruby>！<\/size>"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "相変わらずうるせぇな……！\nあいつのほうがよっぽど嵐だっての――",
+      "translations": {
+        "zh-cn": "一如既往地吵闹啊……！\n那家伙可比暴风雨折腾多了——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 10,
+        "cmd_index": 7,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "やれやれ……昨日の嵐は君たちの■■まで吹き飛ばして\nしまったか、それとも、あの予鈴が聞こえなかったのかね？",
+      "translations": {
+        "zh-cn": "哎呀呀……昨天的暴风雨把你们的■■也给吹飞了吗，\n还是说，你们没听见预备铃声呢？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 25,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "だが今日の欠席者が１人も居ないことはお目出たい。\n■■の如く集まる君たちの姿、大変好ましく思うよ、クク。",
+      "translations": {
+        "zh-cn": "不过今天没有一人缺席，真是可喜可贺。\n如同■■般聚集于此的你们，实在深得我心啊，呵呵。"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 25,
+        "page_no": 12,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_g_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_g_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 12,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "あーあ、先生来ちゃった",
+              "translations": {
+                "zh-cn": "唉——老师来了"
+              }
+            }
+          ],
+          "following_text": []
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_g_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 12,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "プリーズ、ディスコ！",
+              "translations": {
+                "zh-cn": "拜托了，迪斯科！"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 26,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "マイノグーラ",
+              "text": "__HET__PT_26_0_0__様も同意してくださるの！？\nハァンッ！！　スゥ、もっとお堅い方だと思ってッヘェ……！",
+              "translations": {
+                "zh-cn": "<param=playerName>大人也赞同吗！？\n啊嗯！！吸……原本还以为您是位更为古板之人呢，嘿……！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 26,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "マイノグーラ",
+              "text": "心強い__HET__PT_26_1_0__後ろ盾__HET__PT_26_1_1__ですわ！\nそうと決まればサトルヌス様、早速__HET__PT_26_1_2__布教活動__HET__PT_26_1_3__を――",
+              "translations": {
+                "zh-cn": "真是令人安心的<ruby=オトモダチ>后盾<\/ruby>呢！\n既然如此，萨图尔努斯大人，我们立刻开始<ruby=プロモーション>传教活动<\/ruby>——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 26,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "口を塞ぎたまえ、言っても黙れない奴は\n因習村らしく、座敷牢にでも入れてやろうか？",
+              "translations": {
+                "zh-cn": "闭上你的嘴。劝告过还不肯安静的家伙，\n要按陈规陋习之村的做派，把你关进关押房吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 26,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "マイノグーラ",
+              "text": "……………\n……………！",
+              "translations": {
+                "zh-cn": "……………\n……………！"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_g_alt2",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 12,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "せッ先生……？　ロキが……！？",
+              "translations": {
+                "zh-cn": "老、老师……？洛基竟然是……！？"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 27,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "ククク、こう見えて私は故郷でも\n反面教師として、とても有名だったんだぜ？",
+              "translations": {
+                "zh-cn": "呵呵呵，别看我这样，在故乡时\n我也作为反面教材名噪一时呢？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 27,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "しかしどうした__HET__PT_27_1_0__、随分な挨拶だな？\n私に会えてそんなに嬉しかったか、ならば後で職員室へ来るがいい！",
+              "translations": {
+                "zh-cn": "不过怎么了，<param=playerName>，好特别的打招呼方式啊？\n见到我有这么高兴吗？既然如此，待会儿到教职员室来一趟吧！"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "では、■■な手順として出欠の点呼をしなければならないのだが……\nその前に、ひとつ大事な報せを君たちに伝えなければ。",
+      "translations": {
+        "zh-cn": "那么，虽然依照■■的流程应当点名核对出勤……\n不过在此之前，有一条重要消息必须传达给你们。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "今日から転校生が来ることになった。\nまだ新学期ではないが、早くから馴染みたいという本人の希望でね。",
+      "translations": {
+        "zh-cn": "今天起有一位转校生要加入。\n虽说尚未到新学期，但出于本人想要尽早融入的意愿。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "とにかく入りたまえ？\n今さら自己紹介など不要だと思うが。",
+      "translations": {
+        "zh-cn": "总之进来吧？\n虽然事到如今我觉得自我介绍也是多余的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 3,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ロキは教室の扉を開け、\n外に居るであろう転校生へ声をかけた。",
+      "translations": {
+        "zh-cn": "洛基拉开教室门，\n向想必正候在门外的转校生唤道。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 4,
+        "cmd_index": 12,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "えっ……タサブロウ！？\nて、てめぇなんで、オピオーンの野郎に反対されてたじゃねーか！",
+      "translations": {
+        "zh-cn": "诶……太三郎！？\n你、你这家伙怎么会来，俄菲翁那混账之前不是反对的吗！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "タサブロウ",
+      "text": "はは……最近決まってな。\nきっと__HET__PT_28_5_0__驚く__HET__PT_28_5_1__と思って、内緒にしとったんよ。",
+      "translations": {
+        "zh-cn": "哈哈……最近才定下来的。\n想着大家肯定会<ruby=おおける>吃一惊<\/ruby>，所以就先瞒着啦。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "タサブロウ",
+      "text": "えっと、こほん。改めてここ「ヤシマ」の守護狸、\n当代のタサブロウ。皆よろしゅう、仲良うしようねー？",
+      "translations": {
+        "zh-cn": "呃，咳咳。再次做个介绍，俺是这“屋岛”的守护狸、\n当代的太三郎。大家请多关照，要和和气气的哦～？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "タサブロウ",
+      "text": "本当は境内の外に出ちゃいけないって村の掟なんやけど、\nオニワカと皆が訴えてくれたけん、お許しが出たんよ～！",
+      "translations": {
+        "zh-cn": "原本村里的规矩是不能踏出神社境内的，\n不过多亏鬼若和大家一起请愿，这才获准通融啦～！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 28,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "タサブロウ",
+      "text": "今日からは皆と一緒の生徒として、仲良うしような！\n神社の外の事はあまりわからんけん、教えてくれよると嬉しい～！",
+      "translations": {
+        "zh-cn": "从今天起俺就是和大家一样的学生了，大家要好好相处哦！\n神社外面的事情俺还不太懂，要是能教教俺就太开心啦～！"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 28,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_touroumatsuri2026_0_h_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_h_alt1",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 9,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "付きっきりで教えます",
+              "translations": {
+                "zh-cn": "我会形影不离地手把手教你"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 29,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "オイ、あの神社の氏子は俺だぞ！\nそれにてめぇ、絶対モフりたいだけだろ！　あのモフは俺の――",
+              "translations": {
+                "zh-cn": "喂，那家神社的信众可是老子啊！\n而且你这家伙，绝对只是想揉毛茸茸吧！那个毛茸茸明明是老子的——"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_h_alt2",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 9,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "席は自分の隣にしてください！！",
+              "translations": {
+                "zh-cn": "请把座位安排在我旁边！！"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 30,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "__HET__PT_30_0_0__、君の隣はちょうど空席だったな。\n遂に■■者の横が埋まるというのか。",
+              "translations": {
+                "zh-cn": "<param=playerName>，你身旁正好空着呢。\n■■者的身旁终于要有人坐下了吗。"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_h_alt3",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 9,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "（タサブロウをじっと見つめる）",
+              "translations": {
+                "zh-cn": "（目不转睛地凝视着太三郎）"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 31,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "タサブロウ",
+              "text": "ど……どしたんな__HET__PT_31_0_0__？\nおら、なんか変なところある？",
+              "translations": {
+                "zh-cn": "怎……怎么啦<param=playerName>？\n俺身上有什么奇怪的地方吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 31,
+                "page_no": 1,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "タサブロウ",
+              "text": "……ハッ！　まさか今朝気合を入れて\n毛並みを整えすぎて逆におかしくなってもうたん……？",
+              "translations": {
+                "zh-cn": "……哈！难不成是今天早上干劲太足，\n把毛梳理过头反而弄得奇奇怪怪的了……？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 31,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "タサブロウ",
+              "text": "初めての学校やのに……\nタサブロウはもうおしまいです……。",
+              "translations": {
+                "zh-cn": "明明是第一天上学……\n太三郎已经全完了啦……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 31,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "落ち着けって、どこも変じゃねぇから。\n__HET__PT_31_3_0__も何で初めて見るみたいな__HET__PT_31_3_1__面__HET__PT_31_3_2__してんだよ！",
+              "translations": {
+                "zh-cn": "冷静点，哪儿都不奇怪好吗。\n还有<param=playerName>，你干嘛摆出一副头一回见到的<ruby=ツラ>表情<\/ruby>啊！"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "では、さっさと席に座りたまえ。\n時間が押しているのでね。",
+      "translations": {
+        "zh-cn": "那么，赶快入座吧。\n时间已经有些紧迫了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ロキに急かされ、\nタサブロウは空いていた__HET__PT_32_1_0__の隣の席へ。",
+      "translations": {
+        "zh-cn": "在洛基的催促下，\n太三郎坐到了<param=playerName>身旁的空位上。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "……始めるとしよう。\nまずは夢日記からだ。日直、配りたまえ。",
+      "translations": {
+        "zh-cn": "……开始上课吧。\n首先是写梦境日记。值日生，去发下去。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "夏季休暇に入ってから今日までで、\n少しでも夢の記憶が残っていれば、書くのだ。",
+      "translations": {
+        "zh-cn": "从进入暑假到今天为止，\n哪怕只要有一丁点梦的记忆，就写下来。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ロキ",
+      "text": "君たちが自主的にバラさない限り、秘密は守ろう。\nどんな■■な夢でも、■■で■■でも！！　あるいは――",
+      "translations": {
+        "zh-cn": "只要你们不主动走漏风声，我会保守秘密的。\n不论是怎样■■的梦，还是■■且■■的梦！！又或者——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "ロキ__HET__PT_32_5_0__先__HET__PT_32_5_1__、ストップ！　\nタサブロウに変なこと吹き込むんじゃねぇ！？",
+      "translations": {
+        "zh-cn": "洛基<ruby=セン>老<\/ruby>，停手！\n别往太三郎脑袋里灌输奇怪的事情啊！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "タサブロウ",
+      "text": "はは……かまんよ～。\n皆から「ヤバいけど嫌いじゃない」先生やと聞いちょるけん。",
+      "translations": {
+        "zh-cn": "哈哈……没关系啦～\n俺听大家说他是“虽然很危险但并不讨厌”的老师呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "タサブロウ",
+      "text": "それにしても夢日記……。\nなるほど、__HET__PT_32_7_0__面白__HET__PT_32_7_1__いことしよんやね。",
+      "translations": {
+        "zh-cn": "话又说回来，梦境日记……\n原来如此，在做很<ruby=おもっしょ>有意思<\/ruby>的事呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "毎年決まった時期に書かされるんだよな。\nこの島の古い__HET__PT_32_8_0__掟__HET__PT_32_8_1__っつーか、伝統だってよ。",
+      "translations": {
+        "zh-cn": "每年到了固定时期就会被强迫写呢。\n据说是这座岛古老的<ruby=おきて>戒律<\/ruby>，或者说是传统来着。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オニワカ",
+      "text": "そういや、氏子になってからタサブロウの世話してたけど、\nてめぇが書いてるのは見たことねぇな。",
+      "translations": {
+        "zh-cn": "说起来，自从老子成为信众以来一直在照顾太三郎，\n倒还真没见你写过。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 32,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "タサブロウ",
+      "text": "うん～、島民の習わしとは縁が無いんよ。\n__HET__PT_32_10_0__は良い夢見よった？",
+      "translations": {
+        "zh-cn": "嗯～岛民的风俗习惯与俺无缘呢。\n<param=playerName>做了个好梦吗？"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 32,
+        "page_no": 11,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "",
+      "branches": [
+        {
+          "target_label": "quest_evMain_touroumatsuri2026_0_i_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 32,
+                "page_no": 11,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "それなら、ちょうど今日見たかな",
+              "translations": {
+                "zh-cn": "那个的话，正好今天做了呢"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 32,
+                "page_no": 11,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "あれは良い夢と言えるのだろうか",
+              "translations": {
+                "zh-cn": "那个算得上是好梦吗"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 32,
+                "page_no": 11,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "（朝見た夢を思い出す）",
+              "translations": {
+                "zh-cn": "（回想起早上做的梦）"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 0,
+                "cmd_index": 37,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "へぇ、そりゃなかなか面白そうな夢じゃねぇか。\nま、でも夢って自分の思い通りに動けねぇし――",
+              "translations": {
+                "zh-cn": "嘿，那听起来还挺有趣的嘛。\n嘛，不过梦里身不由己就是了——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "タサブロウと戦うのはなぁ。\n決闘は好きだが、モフな奴とは闘りたくねえよ……。",
+              "translations": {
+                "zh-cn": "跟太三郎打架也太……\n虽然老子喜欢决斗，但可不想跟毛茸茸的家伙动手啊……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 2,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "タサブロウ",
+              "text": "……………\n……………合戦の夢。",
+              "translations": {
+                "zh-cn": "……………\n……………合战的梦。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "なんか言ったか？\nもしかして、てめぇは悪夢だったとか？",
+              "translations": {
+                "zh-cn": "你刚才说了什么吗？\n难不成，你自己做了噩梦？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "タサブロウ",
+              "text": "いやぁなんでもない。合戦の夢なんてきっと疲れたやんな？\n今日はおまはんがぐっすり眠れるように、お祈りしとるけんな。",
+              "translations": {
+                "zh-cn": "没，没什么啦。梦到合战肯定很累人吧？\n俺今天会为你祈祷，让你能睡个好觉的啦。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 5,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "クククッ、舌を動かすのもいいが、\nできれば手を優先して動かしてほしいものだな？",
+              "translations": {
+                "zh-cn": "呵呵呵，动嘴皮子固然好，\n不过要是能优先动动手头的话就更好了？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 6,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "夢日記の後は、全員で外に出てシーサァ先生に従い、\n嵐でそこら中に■■のように散らばっている落ち葉を片付けるんだ。",
+              "translations": {
+                "zh-cn": "写完梦境日记后，全员都要到外面听从狮萨老师的指示，\n去清理暴风雨过后四处如■■般散落的落叶。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 7,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "その作業が終わって用済みになったら、\n登校日としてやることはない。",
+              "translations": {
+                "zh-cn": "等那项工作结束无事可做后，\n返校日的任务就算完成了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 33,
+                "page_no": 8,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オニワカ",
+              "text": "つまりその後は自由ってこった。\nじゃあ皆でとっとと片付けて、タサブロウの歓迎会やろうぜ！",
+              "translations": {
+                "zh-cn": "也就是说之后就自由了啊。\n那大家麻溜地打扫完，来办太三郎的欢迎会吧！"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 33,
+                "page_no": 9,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_touroumatsuri2026_0_J_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_touroumatsuri2026_0_J_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 33,
+                        "page_no": 9,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "町を案内しよう！",
+                      "translations": {
+                        "zh-cn": "带他逛逛镇上吧！"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 33,
+                        "page_no": 9,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "駄菓子屋にいこう！",
+                      "translations": {
+                        "zh-cn": "去粗点心店吧！"
+                      }
+                    }
+                  ],
+                  "following_text": []
+                },
+                {
+                  "target_label": "quest_evMain_touroumatsuri2026_0_J_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 33,
+                        "page_no": 9,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "この学校の七不思議を伝授しよう……",
+                      "translations": {
+                        "zh-cn": "让我来传授这所学校的七大不可思议吧……"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 34,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "タサブロウ",
+                      "text": "な、七不思議……？\n初めて聞いた、気になるやん……！",
+                      "translations": {
+                        "zh-cn": "七、七大不可思议……？\n第一次听说，好让人好奇啊……！"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 34,
+                        "page_no": 1,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "オニワカ",
+                      "text": "待て、俺も知らねぇぞ。\n適当言ってんじゃねぇだろうな……俺が知らねぇだけか？",
+                      "translations": {
+                        "zh-cn": "等等，老子也不知道啊。\n你不是信口胡诌的吧……还是说只是老子不知道而已？"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "張り切るのは結構だが、毎年この島の夏に耐えられず\n無様に保健室送りになる生徒が居ることを忘れないでくれ。",
+              "translations": {
+                "zh-cn": "干劲十足固然不错，但可别忘了每年都有承受不住这岛上的夏日\n狼狈地被送进医务室的学生在哦。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "島長殿に睨まれてしまうからね、\n己のか弱さを自覚し、管理することだ。クククッ……！",
+              "translations": {
+                "zh-cn": "要是惹得岛长大人不高兴我可吃不消呢，\n好好认清自己的脆弱，管好自己吧。呵呵呵……！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "島の神社に住むタサブロウ。\n親しまれていた彼が同じ生徒として学校に通う――",
+              "translations": {
+                "zh-cn": "寄宿在岛上神社的太三郎。\n一直深受大家喜爱的他如今作为同班同学来上学——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 3,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "――そのサプライズに湧きながら、夢日記を書き終えた\n__HET__PT_35_3_0__のクラスの生徒は社会奉仕に向かう。",
+              "translations": {
+                "zh-cn": "——为这份惊喜欢腾着的同时，写完梦境日记的\n<param=playerName>同班学生们动身前去参加社会实践服务。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 4,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "担任であるロキは付いていかず、\n提出された夢日記を見ていた。",
+              "translations": {
+                "zh-cn": "作为班主任的洛基并未随行，\n而是注视着提交上来的梦境日记。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 5,
+                "cmd_index": 15,
+                "sub_index": 0
+              },
+              "speaker": "オピオーン",
+              "text": "――おはよう、ロキ教諭。\n今しがたタサブロウが楽しそうに外へ向かう様子が見えた。",
+              "translations": {
+                "zh-cn": "——早安，洛基教谕。\n方才吾见到了太三郎兴致盎然地走向室外的身影。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 6,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オピオーン",
+              "text": "島内会は賛否両論だったが、\n判断は間違っていなかったと早速示してくれたな。",
+              "translations": {
+                "zh-cn": "虽说岛民会议上赞否不一，\n但他已然迅速证明了吾之决断并未出错。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 7,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "これはこれは島長殿。ククッ……。\nちょうど、良い知らせを伝えようと思っていたところだ。",
+              "translations": {
+                "zh-cn": "哎呀呀，这不是岛长大人吗。呵呵……\n我刚好正打算向您汇报一个好消息呢。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 8,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "恒例の夢日記だが、\n君が待ち望んでいた結果が得られたぞ？",
+              "translations": {
+                "zh-cn": "关于惯例的梦境日记，\n已经得到了您梦寐以求的结果哦？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 9,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オピオーン",
+              "text": "……合戦の夢を見た者が現れたか。\nならば急ぎ__HET__PT_35_9_0__灯籠祭__HET__PT_35_9_1__の準備をせねばなるまい……して誰が。",
+              "translations": {
+                "zh-cn": "……出现了梦见合战之人吗。\n如此一来便必须火速着手筹备<ruby=とうろうまつり>灯笼祭<\/ruby>了……究竟是谁。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 10,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "ククッ……クキキキ……！！\nあぁ、合戦の夢を見た者が現れたら灯籠祭を執り行う。そして――",
+              "translations": {
+                "zh-cn": "呵呵……嘻嘻嘻嘻……！！\n是啊，一旦出现梦见合战之人便举行灯笼祭。然后——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 11,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ロキ",
+              "text": "夢を見たものは「捧げ者」にされる、実に愉快な伝統だ！\nそれも……ククッ！　今回は君が１番よぉく知っている生徒さ。",
+              "translations": {
+                "zh-cn": "做了梦的人将被选为“供品”，真是件令人愉悦的传统啊！\n而且……呵呵！这次正是您最最熟悉的那名学生哦。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 12,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オピオーン",
+              "text": "……そうか。__HET__PT_35_12_0__が合戦の夢を見たのか。\nわかった、すぐに準備を始められるよう手配しておこう。",
+              "translations": {
+                "zh-cn": "……是吗。是<param=playerName>梦见了合战吗。\n明白了，吾这便安排下去，以便立即着手筹备。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 13,
+                "cmd_index": 9,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "島長オピオーンと、その__HET__PT_35_13_0__許婚__HET__PT_35_13_1____HET__PT_35_13_2__。",
+              "translations": {
+                "zh-cn": "岛长俄菲翁，以及他的<ruby=いいなずけ>定亲之人<\/ruby><param=playerName>。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 14,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "青年団長兼氏子のオニワカ、謎の教師ロキ、\n村の守護狸タサブロウ、そして無宿者のトゥーアルシェン。",
+              "translations": {
+                "zh-cn": "兼任青年团长与信众的鬼若、谜团重重的教师洛基、\n村落的守护狸太三郎，以及无拘无束的漂泊流浪者兔儿神。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 35,
+                "page_no": 15,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "絶海の、不思議な孤島の村で、\n夢まぼろしのようなひと夏が始まる――",
+              "translations": {
+                "zh-cn": "在绝海之中、奇妙的孤岛村落里，\n如梦似幻的一个夏天拉开了序幕——"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

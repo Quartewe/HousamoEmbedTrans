@@ -1,0 +1,5551 @@
+{
+  "scene": "summerreincarnation2026_0-2",
+  "game_version": "5.19.0",
+  "raw_lang": "ja",
+  "translated": {
+    "zh-cn": true
+  },
+  "character": {
+    "mc": {
+      "name": "mc",
+      "aliases": [],
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "school": [
+        "神宿学園"
+      ],
+      "guild": [
+        "新宿サモナーズ"
+      ],
+      "origin_world": [],
+      "relationships": [],
+      "info": "竜の尾より断ち離された神剣の「神器」を手にした、異界からの転光生。全属性を併せ持つ刃に宿る「離断」の権能は「支配」と「力」を分断し、その代償として「流者」は故郷から追放される。23の異界と接続した東京での出会いを経て、切り離されていた記憶の一部を受け容れ、神器の真価をより引き出せるようになった。",
+      "description": "",
+      "speech_style": ""
+    },
+    "high_weight": [
+      {
+        "name": "ガルム",
+        "aliases": [],
+        "i18n": {
+          "en": "Garmr",
+          "zh_tw": "加姆",
+          "zh_cn": "加姆"
+        },
+        "school": [
+          "武玄学園"
+        ],
+        "guild": [
+          "池袋バーサーカーズ"
+        ],
+        "origin_world": [
+          "ユグドラシル"
+        ],
+        "relationships": [
+          {
+            "target": "ベルフェゴール",
+            "type": "好意"
+          },
+          {
+            "target": "カーシー",
+            "type": "苦手"
+          }
+        ],
+        "info": "命令されることに喜びを感じる忠犬気質の「転光生」で、池袋ギルドの門番を務める。以前の召喚主から与えられた鎖の「神器」はマスドライバーのコイルであり、彼自身が鉄砲玉となって強大な力を加速して打ち出す。深く考えるのは苦手だが拠点防衛においては最高の番犬で、同じ番犬をライバル視する。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "アリス",
+        "aliases": [],
+        "i18n": {
+          "en": "Alice",
+          "zh_tw": "愛麗絲",
+          "zh_cn": "爱丽丝"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "押上ゲームマスターズ"
+        ],
+        "origin_world": [
+          "東京"
+        ],
+        "relationships": [
+          {
+            "target": "ジャンバヴァン",
+            "type": "好意"
+          },
+          {
+            "target": "オスカー",
+            "type": "好意"
+          },
+          {
+            "target": "クリスティーヌ",
+            "type": "苦手"
+          }
+        ],
+        "info": "マーチヘアと呼ぶぬいぐるみを抱きかかえた幼き少女の「転光生」で、支離滅裂な言動で周囲を戸惑わせる。語り掛けに他者が精神干渉を受け現実と妄想を入れ替えられてしまう力を持ち、ジャンバヴァンを従僕のように扱う。お騒がせな夢を鎮める「役割」を持ち、ハロウィンでは騎士や吸血鬼、探偵と衣装を変えて騒動の中心へ導く。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "異界の支配者？",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "レーヴン",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "サンゾウ",
+        "aliases": [],
+        "i18n": {
+          "en": "Sanzo",
+          "zh_tw": "三藏",
+          "zh_cn": "三藏"
+        },
+        "school": [
+          "得真道学園"
+        ],
+        "guild": [
+          "浅草タオシーズ"
+        ],
+        "origin_world": [
+          "東京"
+        ],
+        "relationships": [
+          {
+            "target": "バフォメット",
+            "type": "好意"
+          },
+          {
+            "target": "ボヘミオ",
+            "type": "好意"
+          }
+        ],
+        "info": "浅草タオシーズのギルドマスターで、超がつく恵まれた体躯ゆえに妖怪たちから食われそうになる現地人の「転光生」。折りたたまれた教典の「神器」は書かれたことを禁じる不犯の力を帯び、暴力を含む行動を禁じられている。人を殴れずケンカの才能がないが周囲の支えで学園に留まり、煩悩を滅した仏への道を歩む。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "イナリ",
+        "aliases": [],
+        "i18n": {
+          "en": "Inari",
+          "zh_tw": "稻荷",
+          "zh_cn": "稻荷"
+        },
+        "school": [
+          "世耕農業・林業学園"
+        ],
+        "guild": [
+          "赤坂エージェンツ",
+          "無所属"
+        ],
+        "origin_world": [
+          "タカマガハラ"
+        ],
+        "relationships": [
+          {
+            "target": "チョウジ",
+            "type": "好意"
+          },
+          {
+            "target": "ニスロク",
+            "type": "好意"
+          },
+          {
+            "target": "ガーゴイル",
+            "type": "好意"
+          },
+          {
+            "target": "サトルヌス",
+            "type": "苦手"
+          },
+          {
+            "target": "フーヴァー",
+            "type": "苦手"
+          }
+        ],
+        "info": "タカマガハラに縁を持つ元トップエージェントで、今は料理人の見習い学生としてセカンドライフを歩む「転光生」。蔵の「神器」は物の流通つまり伝播の加速度を司り、複数の料理を新鮮なまま保管し取り出せる。土からこだわった米と権能で握るおにぎりの味は絶賛され、過去の経歴を公式機密扱いにしている。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "クロード",
+        "aliases": [],
+        "i18n": {
+          "en": "Claude",
+          "zh_tw": "克勞德",
+          "zh_cn": "克劳德"
+        },
+        "school": [
+          "武玄学園"
+        ],
+        "guild": [
+          "池袋バーサーカーズ"
+        ],
+        "origin_world": [
+          "東京"
+        ],
+        "relationships": [
+          {
+            "target": "テスカトリポカ",
+            "type": "好意"
+          },
+          {
+            "target": "ハーロット",
+            "type": "苦手"
+          }
+        ],
+        "info": "池袋ギルドのマスターで、転光生たちが集う地下格闘場を保有し、王のように振る舞いながら強者同士の戦いを望んでいる。月桂樹の神器は眼下の相手へ権能を課すものと噂されるが、その詳細はギルドマスターの機密とされる。多くの敵を持ち、貴族や宗教的な勢力を信じない一方、愛憎を伴う好敵手との戦いに強い敬意と闘志を向ける。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "スノウ",
+        "aliases": [],
+        "i18n": {
+          "en": "Snow",
+          "zh_tw": "雪獅",
+          "zh_cn": "雪狮"
+        },
+        "school": [
+          "武玄学園"
+        ],
+        "guild": [
+          "池袋バーサーカーズ"
+        ],
+        "origin_world": [
+          "ホウライ",
+          "デーヴァローカ",
+          "シャングリラ"
+        ],
+        "relationships": [
+          {
+            "target": "クロード",
+            "type": "好意"
+          },
+          {
+            "target": "メリュジーヌ",
+            "type": "苦手"
+          },
+          {
+            "target": "ヘラクレス",
+            "type": "苦手"
+          }
+        ],
+        "info": "池袋ギルド長に仕えるライオン獣人の執事で、常に敬語を崩さず、勇気と智慧を備えた王者の傍らに侍る王佐を自任する。荒事を収める強さ、格闘場を治める智慧と勇気、怪我人を癒す力を備え、三枚の法輪の神器をチャクラムのように扱う。主人への敬愛を抱きながら、戦い続ける者には心を動かされ、戦いを諦める者には厳しい視線を向ける。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "SYSTEM：DEUS",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "アフラ・マズダ",
+        "aliases": [],
+        "i18n": {
+          "en": "Ahura Mazda",
+          "zh_tw": "阿胡拉·馬茲達",
+          "zh_cn": "阿胡拉·马兹达"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "中央ルールメイカーズ"
+        ],
+        "origin_world": [
+          "ガローデマーン"
+        ],
+        "relationships": [
+          {
+            "target": "ノブミチ",
+            "type": "好意"
+          },
+          {
+            "target": "ジゾウ",
+            "type": "好意"
+          },
+          {
+            "target": "ロキ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ガローデマーン出身の世界代行者で性善説に立つ光の化身の「転光生」。天球儀の教皇杖「神器」は照らした生物以外の全てを光に変える権能を持ち、一対一では必ず一度だけ勝つ。唯一の悪は仮想人格アーリマンだけと信じ、その悪役と戦う定めを帯びて審判の重責に耐えるため日々心身を鍛え続ける。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "頭骨魔王の演技指導者？",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ヘル",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      }
+    ],
+    "low_weight": [
+      {
+        "name": "勇者",
+        "aliases": [],
+        "i18n": {
+          "en": "The Hero",
+          "zh_tw": "勇者",
+          "zh_cn": "勇者"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "東京"
+        ],
+        "relationships": [
+          {
+            "target": "フェンリル",
+            "type": "苦手"
+          }
+        ],
+        "info": "伝説と物語に語り継がれる勇者の原型たる「転光生」で、特別な名を持たぬが故にあらゆる物語の主人公となり得る存在。聖剣と盾の「神器」は持ち主の勇気に応じて輝きを増し、どんな困難にも立ち向かう力を与える。自らが何者であるかより、誰のために戦うかを大切にし、困っている者を見過ごせない英雄の鑑。",
+        "description": "",
+        "speech_style": ""
+      }
+    ]
+  },
+  "mentioned_characters": [
+    {
+      "name": "ティンダロス",
+      "i18n": {
+        "en": "Tindalos",
+        "zh_tw": "廷達羅斯",
+        "zh_cn": "廷达罗斯"
+      }
+    },
+    {
+      "name": "レーヴン・アーサー",
+      "i18n": {
+        "en": "Raven Arthur",
+        "zh_tw": "瑞文・亞瑟",
+        "zh_cn": "列文・亚瑟"
+      }
+    },
+    {
+      "name": "エニグマ",
+      "i18n": {
+        "en": "Enigma",
+        "zh_tw": "恩尼格瑪",
+        "zh_cn": "恩尼格玛"
+      }
+    }
+  ],
+  "game_terms": [
+    {
+      "term": "ギルド",
+      "i18n": {
+        "en": "Guild",
+        "zh_tw": "公會",
+        "zh_cn": "公会"
+      },
+      "description": "東京に溢れるアプリを用いし者達の集い。\n\n大小様々な100を超えるギルドが東京に存在し、各ギルドはそれぞれ少なくとも1つの拠点とギルドマスターを要している。\n\nこの拠点が制圧され、ギルドマスターが敗北することでギルドは消滅する。\n\nギルドを正式発足するためには「ギルドマスター」「アプリバトルが可能な構成員(メンバー)を最低4人」「拠点」の3つが必要となる。\n\nギルドの全ての機能を利用するためにはさらにもう1人、合計5人の構成員が必要。\n\n第3章で明らかにされたこと"
+    },
+    {
+      "term": "権能",
+      "i18n": {
+        "en": "Rule",
+        "zh_tw": "權能",
+        "zh_cn": "权能"
+      },
+      "description": "神器より溢れる「神の力」の一端で、神器の能力や性質を表すルール。神器召喚時に宣言される。同じ権能を持つ者はいても役割との組み合わせまで同一の例はなく、同系統の効果は重ねがけできない。矛盾する権能が衝突すると例外処理につながる。"
+    },
+    {
+      "term": "異世界",
+      "i18n": {
+        "en": "world",
+        "zh_tw": "異世界",
+        "zh_cn": "异世界"
+      },
+      "description": "舞台となる東京と十数年前にゲートで接続された、異なる神話体系の世界群。\n\n23のゲートに対応した23の異世界の他にも、未知の異世界が存在すると思われる。\n\n東京と繋がった23世界外の異世界"
+    },
+    {
+      "term": "池袋バーサーカーズ",
+      "i18n": {
+        "en": "Ikebukuro Berserkers",
+        "zh_tw": "池袋狂戰士",
+        "zh_cn": "池袋狂暴战士"
+      },
+      "description": "池袋バーサーカーズは、豊島区・池袋コロッセオを拠点とする戦闘系ギルド。ギルドマスターはクロード。主な特徴は、ランク制の闘技場、実力と名誉の重視、例外処理の観測・兵器化実験。"
+    },
+    {
+      "term": "武玄学園",
+      "i18n": {
+        "en": "Bukuro Academy",
+        "zh_tw": "武玄學園",
+        "zh_cn": "武玄学园"
+      },
+      "description": "武玄学園は、池袋バーサーカーズが運営する教育機関。主な特徴は、バーサーカーズ構成員へ学生身分と生活基盤を保証する受け皿である点。関連する組織は池袋バーサーカーズ。"
+    },
+    {
+      "term": "ユグドラシル",
+      "i18n": {
+        "en": "Yggdrasil",
+        "zh_tw": "尤克特拉希爾",
+        "zh_cn": "世界树"
+      },
+      "description": "ユグドラシルは北欧神話を基にした九つの世界から成る異世界。世界代行者はオーディン、東京でのリザーブはスルト、追放者はフレイ。ロキの壁によりラグナロクが終わらず、戦士たちはヴァルハラで蘇生され、死と再生の循環を永遠に繰り返す。"
+    },
+    {
+      "term": "押上ゲームマスターズ",
+      "i18n": {
+        "en": "Oshiage Game Masters",
+        "zh_tw": "押上GameMasters",
+        "zh_cn": "押上游戏管理员"
+      },
+      "description": "押上ゲームマスターズは、墨田区・押上を拠点とするゲーム管理側ギルド。ギルドマスターは未整理。主な特徴は、ゲームの永続と安定、ポータル承認、条約作成、報酬情報の統制。"
+    },
+    {
+      "term": "？？？",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "東京",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "浅草タオシーズ",
+      "i18n": {
+        "en": "Asakusa Gurus",
+        "zh_tw": "淺草道士",
+        "zh_cn": "浅草道士"
+      },
+      "description": "浅草タオシーズは、浅草を拠点とする霊的・呪術的な技術者のギルド。ギルドマスターはホウゲン。主な特徴は、封印、結界、霊的修復など、東京の裏側で起きる異変処理。"
+    },
+    {
+      "term": "得真道学園",
+      "i18n": {
+        "en": "Umamichi Academy",
+        "zh_tw": "得真道學園",
+        "zh_cn": "得真道学园"
+      },
+      "description": "得真道学園は、浅草にある三部制・単位認定制の教育機関。主な特徴は、「悟り」に近づく修行を授業として認める一方、実態は問題児の多いヤンキー校である点。関連する人物はハヌマン、ゴウリョウ、テツギュウなど。"
+    },
+    {
+      "term": "赤坂エージェンツ",
+      "i18n": {
+        "en": "Akasaka Agents",
+        "zh_tw": "赤坂特務",
+        "zh_cn": "赤坂特工"
+      },
+      "description": "赤坂エージェンツは、港区・赤坂の名を冠する忍者・スパイ・諜報員のギルド。ギルドマスターはフーバー。主な特徴は、依頼主に応じた諜報活動、報酬を目的とする流動的な所属、形式的には解散済みである点。"
+    },
+    {
+      "term": "無所属",
+      "i18n": {
+        "en": "Independent",
+        "zh_tw": "無隸屬",
+        "zh_cn": "无隶属"
+      },
+      "description": "特定のギルドに完全には従属せず、独自の動機や仕事によって行動する者たちを指す分類。ギルドと関係を持つことはあっても、自分自身の目的を優先する。\n\n例として、他ギルドから報酬を得て働く独立請負人や、状況に応じてギルドへ加入・離脱する者が含まれる。"
+    },
+    {
+      "term": "世耕農業・林業学園",
+      "i18n": {
+        "en": "Setagaya Agriculture and Forestry Academy",
+        "zh_tw": "世耕農業林業學園",
+        "zh_cn": "世耕农业林业学园"
+      },
+      "description": "世耕農業・林業学園は、詳細未整理の農業・林業系教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "タカマガハラ",
+      "i18n": {
+        "en": "Takamagahara",
+        "zh_tw": "高天原",
+        "zh_cn": "高天原"
+      },
+      "description": "タカマガハラは神道神話を基にした異世界で、現在の「世界代行者」はアマテラス、追放者はスサノオ。不要と見なしたものを海底へ沈めて完全性を保つシステムを持ち、竜宮は苦痛や羞恥の記憶を封じる試作サブシステムとして機能する。"
+    },
+    {
+      "term": "ホウライ",
+      "i18n": {
+        "en": "Hourai",
+        "zh_tw": "蓬萊",
+        "zh_cn": "蓬莱"
+      },
+      "description": "ホウライは中国の伝説・民話・文学を基にした異世界で、ペングライとも呼ばれる。世界代行者はフッキ、追放者はジョカ。大洪水後にフッキとジョカが世界を再建したが、ジョカ追放後は戦争と飢饉が広がり、シンノウも救済の道を探し続けている。"
+    },
+    {
+      "term": "デーヴァローカ",
+      "i18n": {
+        "en": "Devaloka",
+        "zh_tw": "提婆",
+        "zh_cn": "天界"
+      },
+      "description": "デーヴァローカは「ゲーム」に参加している異世界のひとつで、ヒンドゥー神話を基にした世界。神々やデーヴァが存在する領域の名に由来する。\n\nデーヴァローカの「世界代行者」はシヴァ。追放された魂はヴァルナ・カーマデーヴァ。彼は愛と欲望の神カーマデーヴァであり、かつてはその二つを除くすべての権能を手放す前、全能神ヴァルナでもあった。"
+    },
+    {
+      "term": "シャングリラ",
+      "i18n": {
+        "en": "Shangri-La",
+        "zh_tw": "香格里拉",
+        "zh_cn": "香格里拉"
+      },
+      "description": "シャングリラはチベット伝承、仏教、東アジア神話を基にした異世界。世界代行者はスモーキーゴッド、追放者はアスラ。時間の流れが遅く歪んだ世界で、執着や欲望を切り離して悟りへ至る信仰を持つ。"
+    },
+    {
+      "term": "中央ルールメイカーズ",
+      "i18n": {
+        "en": "Chuo Rule Makers",
+        "zh_tw": "中央立法者",
+        "zh_cn": "中央立法者"
+      },
+      "description": "中央ルールメイカーズは、中央区を拠点とする裁定者と選定者の真の三大ギルド。ギルドマスターはカレンとMS-C1。主な特徴は、主人公を神性の器または世界を支えるシステムへ変えようとする思想。"
+    },
+    {
+      "term": "ガローデマーン",
+      "i18n": {
+        "en": "Midearth",
+        "zh_tw": "加洛德滿",
+        "zh_cn": "光明天"
+      },
+      "description": "ガローデマーンは「ゲーム」に参加している異世界のひとつで、イスラム以前のアラビア伝承の人物や、ゾロアスター教の人物を基にした世界とされ、名称はゾロアスター教における天国の概念に由来する。\n\nガローデマーンの「世界代行者」はアフラ・マズダ。追放された魂はアーリマン。"
+    }
+  ],
+  "provider": {
+    "zh-cn": "openai"
+  },
+  "model": {
+    "zh-cn": "gemini-3.8-flash"
+  },
+  "summary": {
+    "zh-cn": "在游戏世界中，阿胡拉·马兹达因初学技能的离谱效果导致队伍全灭并毁坏了队友的稀有装备，结果被队伍踢出。主角一行人与他相遇，得知他为了理解“游戏”的概念并听从朋友建议来放松身心。稻荷感同身受地邀请他加入队伍，阿胡拉·马兹达便以满级属性的“开挂新人”身份加入。随后众人前往冒险者公会与雷文会合，赫尔说明了大魔王巴萨雷乌斯拥有将人类玩家变为魔物族的强权能技能，赫尔为了保护普通休闲玩家的秩序，决定带众人去找魔王交涉。雷文作为退役传说级冒险者也答应协助。一行人来到初始地下城见到了骷髅头外观的魔王。与此同时，在王国的宫殿中，国王克劳德与近侍雪狮正准备调动各公会兵力讨伐魔王，加姆却匆忙闯入报告在城下闻到了前任主人赫尔的气味。"
+  },
+  "scene_items": [
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 12,
+        "sub_index": 0
+      },
+      "speaker": "異界の支配者？",
+      "text": "悪いが、これ以上、パーティには置いておけない。\nパーティ追放だ！　どこへでも行ってくれ！！",
+      "translations": {
+        "zh-cn": "不好意思，队伍里不能再留你了。\n你被踢出队伍了！爱去哪去哪吧！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 1,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "speaker": "サンゾウ",
+      "text": "わっ……あれ、追放系ってやつだ？　生で見ちった！\nジョブとかが、パーティ的に合わなかったんすかね……。",
+      "translations": {
+        "zh-cn": "哇……那、那就是所谓的放逐系吧？竟然亲眼见到了！\n难道是职业什么的，和队伍不太合拍吗……"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 1,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "",
+      "branches": [
+        {
+          "target_label": "quest_evMain_summerreincarnation2026_0-2a_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 2,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "……あれ、知り合いだ",
+              "translations": {
+                "zh-cn": "……咦，是熟人"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 2,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "アフラがゲームするなんて意外すぎる",
+              "translations": {
+                "zh-cn": "阿胡拉居然会玩游戏，太出人意料了"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 2,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "パーティクラッシャーしたんじゃない？",
+              "translations": {
+                "zh-cn": "该不会是把队伍给坑散了吧？"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 0,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "少し落ち込んでいたように見えたアフラ・マズダは\n<param=playerName>たちの視線に気付き、近付いてくる。",
+              "translations": {
+                "zh-cn": "看似有些失落的阿胡拉·马兹达\n注意到了<param=playerName>等人的视线，朝这边走了过来。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 1,
+                "cmd_index": 5,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "<param=playerName>、お久しぶりです。\n貴方もこのゲームをプレイしていたのですね？",
+              "translations": {
+                "zh-cn": "<param=playerName>，好久不见。\n原来你也在这款游戏中吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "そして、ご友人方にもご挨拶申し上げます。\n……少しお恥ずかしいところを見られてしまったようで。",
+              "translations": {
+                "zh-cn": "还有各位朋友，在此向你们致意。\n……似乎让你们见笑了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 3,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "げっ、最高裁判官様じゃん！\n相変わらず、太陽のニオイを撒き散らしてんね？",
+              "translations": {
+                "zh-cn": "呃，这不是最高裁判官大人吗！\n还是老样子，浑身散发着太阳的气味呢？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "……その節はどーも。ところで前に会った時のアナタは\n娯楽の「ご」も知らなそうだったのに、どうして<ruby=ここ>ゲーム<\/ruby>に？",
+              "translations": {
+                "zh-cn": "……之前多谢了。话说上次见面时你\n明明连娱乐的“娱”字怎么写都不知道，怎么会来<ruby=这里>游戏里<\/ruby>？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 5,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "今はただのアフラ・マズダとお呼びください、ヘル。\n……まさにそのことで最近、仕事に支障をきたしましてね。",
+              "translations": {
+                "zh-cn": "我现在只是一名普通的阿胡拉·马兹达，叫我名字就好，赫尔。\n……其实正因如此，最近工作上出现了一些阻碍。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 6,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "「貴方はゲームという概念を理解していない」。\n「対等な交渉を行ったことがないのでは」とご指摘があり。",
+              "translations": {
+                "zh-cn": "有人指出“您并不理解游戏这一概念”，\n“或许从未进行过对等的交涉”。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 7,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "ここはひとつ、ゲームというものを\n腰を据えて理解しようと思ったのですよ。",
+              "translations": {
+                "zh-cn": "于是我便想着，索性定下心来，\n好好了解一下所谓的“游戏”。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 8,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "それに、たまには仕事を休んで息抜きはどうか\n……と、友人たちから進められましたのもありまして。",
+              "translations": {
+                "zh-cn": "而且，也有朋友建议我偶尔放下工作，\n稍作放松……这也是原因之一。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 9,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "へー、アナタにもそんなことを言ってくれる友人が居たんだ？\n……やば、自分で言ってて、自分にブーメランぶっ刺さった。",
+              "translations": {
+                "zh-cn": "嘿～居然也有朋友会对你说这种话啊？\n……糟糕，自己说出口的话，回旋镖反倒扎自己身上了。"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 2,
+                "page_no": 10,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2b_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2b_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 2,
+                        "page_no": 10,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "ヘルと知り合いなの、アフラ？",
+                      "translations": {
+                        "zh-cn": "你和赫尔认识吗，阿胡拉？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 2,
+                        "page_no": 10,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "なんだかちょっと険悪……！？",
+                      "translations": {
+                        "zh-cn": "感觉气氛有点险恶……！？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 3,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "アフラ・マズダ",
+                      "text": "ヘル様の<ruby=ごかぞく>一親等内<\/ruby>の件で少々、顔を合わせたことがありまして。\n私の立場上、あまり良い印象をお持ちにないのは当然でしょう。",
+                      "translations": {
+                        "zh-cn": "因为赫尔大人的<ruby=直系亲属>家人<\/ruby>一事，曾打过几次交道。\n以我的立场，她对我印象不佳也是理所当然的吧。"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2b_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 2,
+                        "page_no": 10,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "ヘルもお一人様なんじゃん",
+                      "translations": {
+                        "zh-cn": "赫尔你不也是孤家寡人一个嘛"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 4,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "うぐっ！？　け、気高き孤高のソロプレイヤーだし！\nアタシはプレイスキルが高いから１人で十分なの！？",
+                      "translations": {
+                        "zh-cn": "呜呃！？我、我可是高傲的独行玩家！\n本小姐操作水平高，一个人就绰绰有余了好吗！？"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "それで、何をしたらパーティ追放なんて憂き目にあうわけ？\n<ruby=ママ>パパ<\/ruby>への面会の土産話にするから聞かせなさいよ。",
+              "translations": {
+                "zh-cn": "所以说，你到底干了什么才沦落到被踢出队伍的境地啊？\n说来听听，好让我去探望<ruby=妈妈>爸爸<\/ruby>时当成谈资。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "それでヘル、貴方のストレス値が下がるのであればいくらでも。\n本当なら日光浴を是非ともオススメしたい所ではありますが。",
+              "translations": {
+                "zh-cn": "如果这能让赫尔你的压力值降低，我自是知无不言。\n不过按理来说，我更推荐你去晒晒日光浴就是了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "先程の方々は親切にも私を\nパーティに誘ってくださったのですが……。",
+              "translations": {
+                "zh-cn": "刚才那几位十分好心地\n邀请我组队，然而……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 3,
+                "cmd_index": 12,
+                "sub_index": 0
+              },
+              "speaker": "異界の支配者？",
+              "text": "さあ、目標はドラゴン系マモノの討伐だ。\n気合入れていくぜ、新人！",
+              "translations": {
+                "zh-cn": "好了，目标是讨伐龙系魔物。\n打起精神上吧，新人！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "はい、よろしくお願いします！\n（折角誘って頂いたのです、しっかり貢献せねば……！）",
+              "translations": {
+                "zh-cn": "好的，请多指教！\n（承蒙好意相邀，必须好好做出贡献才行……！）"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 5,
+                "cmd_index": 12,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "……！　ここは私にお任せを。\n私の有用性を、皆さんにこの場で証明してみせましょう！",
+              "translations": {
+                "zh-cn": "……！这里就交给我吧。\n我要在此向大家证明我的用处！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 6,
+                "cmd_index": 10,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "真理の火よ、万物を焼き払い、輝ける秩序のもとへ還れ\n――究極魔法、サン・ジャッジメント・ノヴァ！！",
+              "translations": {
+                "zh-cn": "真理之火啊，焚尽万物，归于辉煌的秩序之下吧\n——究极魔法，太阳审判新星！！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 7,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "異界の支配者？",
+              "text": "わっ、ちょっ、コレナニ――っ！？！？",
+              "translations": {
+                "zh-cn": "哇、等、这什么玩意——！？！？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 8,
+                "cmd_index": 13,
+                "sub_index": 0
+              },
+              "speaker": "SYSTEM：DEUS",
+              "text": "システムメッセージ：パーティが全滅しました。\n自動帰還システムにより近くの都市へと送還されます。",
+              "translations": {
+                "zh-cn": "系统提示：队伍全灭。\n将通过自动归还系统传送至邻近都市。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 9,
+                "cmd_index": 12,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "……その初期習得魔法？　の特殊効果？　というのが\nどうやら敵味方の装備？　を消去するものだったそうでして。",
+              "translations": {
+                "zh-cn": "……据说那个初始习得魔法？的特殊效果？\n似乎是将敌我双方的装备？全部抹除。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 10,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "仲間を全員巻き込んだ挙句、\n激レア装備？　がすべて光となり消えてしまい――",
+              "translations": {
+                "zh-cn": "结果把同伴全卷了进去，\n超稀有装备？全都化作光芒消散了——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 11,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "うわぁ、グロい。本気でゲームやってればやってるほど\nガチ効きするやつね、成る程ああなるのも納得だわ。",
+              "translations": {
+                "zh-cn": "哇啊，真惨烈。越是认真玩游戏的人，\n这招越是暴击啊，怪不得人家会那样。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 12,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "私の防御力？　は何も変わらなかったのですが特別バトルで\nメンバー数が一定以下になると自動的に全滅？　扱いとのことで。",
+              "translations": {
+                "zh-cn": "我的防御力？虽然没有任何变化，但在特殊战斗中，\n队员人数降至一定数量以下似乎就会自动判定为全灭？。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 13,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "……ってかアンタも始めたばっかよね？\nステータスどうなってんのよ、廃ゲーマーみたいな数値だけど。",
+              "translations": {
+                "zh-cn": "……话说你也才刚建号吧？\n你这属性值是怎么回事，简直跟废人高玩一样。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 14,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "ああ、それに関してはログインした時から\nすべてカンストしておりました、そういうものではないのです？",
+              "translations": {
+                "zh-cn": "啊，关于那个，从我登录游戏起\n所有数值就都是全满的，难道大家不是这样吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 15,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "なわけないでしょ……ああ、なるほどユニークスキルの効果か。\nアナタってば、つくづくチートね。",
+              "translations": {
+                "zh-cn": "怎么可能有这种事……啊，原来如此，是独有技能的效果啊。\n我说你啊，真是彻头彻尾的外挂呢。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 16,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "ちょっと！　今、俺よりもアフラ・マズダさんのが\n勇者っぽいって思ったでしょう！",
+              "translations": {
+                "zh-cn": "等下！你们刚才，心里肯定觉得\n阿胡拉·马兹达先生比我更像勇者了吧！"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 5,
+                "page_no": 17,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2c_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2c_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 5,
+                        "page_no": 17,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "まだ何も言ってないよサンゾウ",
+                      "translations": {
+                        "zh-cn": "我可还什么都没说呢，三藏"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 5,
+                        "page_no": 17,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "（さっと目を逸らす）",
+                      "translations": {
+                        "zh-cn": "（唰地把视线移开）"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 6,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "サンゾウ",
+                      "text": "うう、ひどいっ。\n口にしてねえだけでバッチリ思ってるってことじゃないですかぁ？",
+                      "translations": {
+                        "zh-cn": "呜呜，好过分。\n就算没说出口，心里也明摆着就是这么想的吧！？"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2c_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 5,
+                        "page_no": 17,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "人の魅力は強さ以外にもたくさんある",
+                      "translations": {
+                        "zh-cn": "人的魅力可不仅仅只有强大这一种"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 7,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "サンゾウ",
+                      "text": "<param=playerName>……つまりお前は俺の何かを\n魅力に思ってくれてるってことでいいんです！？",
+                      "translations": {
+                        "zh-cn": "<param=playerName>……也就是说，你觉得我身上\n也有某种魅力所在，可以这么理解吗！？"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "ねえ、よかったらアフラ・マズダさんも一緒にどうかな？\n今から僕ら、ヘルのお手伝いに行くんだ！",
+              "translations": {
+                "zh-cn": "那个，如果不介意的话，阿胡拉·马兹达先生也跟我们一起走怎么样？\n我们接下来正要去帮赫尔的忙呢！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 1,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "ちょっとイナリ！　アンタなに勝手に……。\nアンタ、こいつがどんな奴か知らないから……。",
+              "translations": {
+                "zh-cn": "等等，稻荷！你擅自说什么呢……\n你根本不知道这家伙是个怎样的人……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "そう、ほとんど知らないんだけど、どうしてかな、\nちょっとシンパシーを感じるんだ、あの頃の僕と。",
+              "translations": {
+                "zh-cn": "对，我虽然几乎不了解他，但不知为什么，\n总觉得能产生一些共鸣，就像那个时候的我一样。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "イナリの物言いに、アフラ・マズダはショックを\n受けたわけではないが少し驚いたような表情を見せた。",
+              "translations": {
+                "zh-cn": "听到稻荷这番话，阿胡拉·马兹达倒没有受到打击，\n只是露出了些许惊讶的神情。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "イナリ、貴方はこの私を憐れんでいるのですね。\n常に遠巻きにはされても、そういう扱いは実に新鮮です。",
+              "translations": {
+                "zh-cn": "稻荷，你是在怜悯我吗？\n旁人向来对我敬而远之，这种对待方式还真是新鲜。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 5,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "そんなつもりは……！　いや……でもそうなのかな。\n少なくとも僕はその憐れみに救われた側だったから。",
+              "translations": {
+                "zh-cn": "我不是那个意思……！不……或许是吧。\n至少我曾是被那份怜悯所拯救的一方。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 6,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "無意識の内に今度は僕の番だって、そう思ったのかも。\nお気に障ってしまったのなら謝ります。",
+              "translations": {
+                "zh-cn": "或许是在潜意识里，觉得这次该轮到我了。\n如果冒犯到了您，我向您道歉。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 7,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "いえ、どうかお気になさらず、実は私がここに居るのも、\n先ほど申した通り、学友に同様のことを言われたからなので。",
+              "translations": {
+                "zh-cn": "不，请不必介怀。其实我之所以在这里，\n也是因为正如刚才所说，同窗也对我说了类似的话。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 8,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "貴方のその感情はきっと誤りではない。\nですが、本当に私がついていってもよろしいので……？",
+              "translations": {
+                "zh-cn": "你的那份心意绝没有错。\n不过，真的允许我同行吗……？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 9,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "今度は少し遠慮したような目をアフラ・マズダはイナリへ向ける。\nその意図を理解したイナリは努めて笑ってみせた。",
+              "translations": {
+                "zh-cn": "这一次，阿胡拉·马兹达带着略显拘谨的目光看向稻荷。\n领会其意的稻荷努力露出了微笑。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 10,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "うん、アフラ・マズダさんさえよければだけど！\nみんなで協力した方がヘルの困り事も早く終わるんじゃない？",
+              "translations": {
+                "zh-cn": "嗯，只要阿胡拉·马兹达先生愿意就行！\n大家齐心协力的话，赫尔的麻烦事也能更快解决吧？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 11,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "ありがとうございます、イナリ。\nそれでは改めまして皆様にお願い申し上げます。",
+              "translations": {
+                "zh-cn": "非常感谢，稻荷。\n那么，请允许我郑重地拜托各位。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 12,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "私、アフラ・マズダを皆様のパーティに入れてくれませんか。\n存分にこき使って頂いて構いませんので。",
+              "translations": {
+                "zh-cn": "我阿胡拉·马兹达，能否加入各位的队伍？\n请尽管尽情驱使我，我绝无怨言。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 13,
+                "cmd_index": 14,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "はぁ……イナリの言う通り、この後のことを考えると、\n<em=・>アイツ<\/em>を止めるだけの戦力はあった方が良いけどさ～。",
+              "translations": {
+                "zh-cn": "哈啊……虽然正如稻荷所说，考虑到之后的事，\n能有足以制止<em=・>那家伙<\/em>的战力确实更好啦～"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 14,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "それにしたってよりにもよって<ruby=パパ>ママ<\/ruby>を監獄送りにしたアイツ……。\nてかアタシたちは敵対陣営だっつってんのにさあ。",
+              "translations": {
+                "zh-cn": "可偏偏是把<ruby=妈妈>爸爸<\/ruby>送进监狱的这家伙……\n而且我们明明是敌对阵营的好吧。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 15,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "ごめんねヘル、勝手なこと言っちゃって。\nこの世界では現実のしがらみなしっていうわけにはいかないかな？",
+              "translations": {
+                "zh-cn": "对不起哦赫尔，是我自作主张了。\n在这个世界里，就不能撇开现实中的纠葛吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 16,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "まあそうね、アタシが割り切るしかないか～。\nなんせここはそういう<em=・>願い<\/em>も叶えられる新世界なんだから。",
+              "translations": {
+                "zh-cn": "哎算了，也只能由我来想开了～\n反正这里就是连那种<em=・>愿望<\/em>也能实现的新世界嘛。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 17,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "アタシだってゲームの世界に居ればそこそこチヤホヤされるし、\nイケてる自覚があるけど、<ruby=リアル>現実<\/ruby>は現実であるわけだしね。",
+              "translations": {
+                "zh-cn": "本小姐在游戏世界里好歹也挺受捧的，\n自认算得上现充，但<ruby=现实>现实<\/ruby>归现实就是了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 18,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "風呂キャンはするし、デスクの上はエナドリの缶だらけだし……。\nだからゲームの世界にリアルを持ち込みたくないのはよく分かる。",
+              "translations": {
+                "zh-cn": "平时懒得洗澡，桌上堆满了功能饮料罐……\n所以我也很理解不想把现实带进游戏的心情啦。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 19,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "ま……たとえそうでなくても、いちゲーマーとしても\nゲームであんなノー治安を見ないふりは<ruby=プライド>ゲーマー魂<\/ruby>が許さないけど。",
+              "translations": {
+                "zh-cn": "嘛……就算抛开这些，作为一名玩家，\n在游戏里对那种毫无治安的行为坐视不管，本小姐的<ruby=自尊>玩家之魂<\/ruby>也是不容许的。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 20,
+                "cmd_index": 23,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "……………ふふっ。",
+              "translations": {
+                "zh-cn": "……………呵呵。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 21,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "何よ、言いたいことがあんなら言いなさいよ。",
+              "translations": {
+                "zh-cn": "干嘛啊，有话就直说。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 22,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "いや、結構想像通りだったなって。\nエナドリとかの下り……。",
+              "translations": {
+                "zh-cn": "没，就是觉得果然和我想象的差不多呢。\n关于功能饮料的那段……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 23,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "はぁ！？　アタシがヒキゲーマー感全開でコミュ障こじらせてて、\nまとってる雰囲気も冥界みたいに暗いって言いたいわけ！？",
+              "translations": {
+                "zh-cn": "哈啊！？你是想说本小姐浑身散发着死宅玩家的气息、社交障碍晚期，\n而且身上的氛围还跟冥界一样阴暗是吧！？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 24,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "そこまで言ってないけど……そうだとしてもヘルは優しいよ。\nね、改めて僕たちと友達になってよ！",
+              "translations": {
+                "zh-cn": "我可没说到那种程度……但即使如此，赫尔也很温柔哦。\n来，重新和我们交个朋友吧！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 25,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "ふっ、フレンド申請ってやつね。まあいいわ、考えといてあげる。\nイナリも悪い奴じゃなさそうだから。",
+              "translations": {
+                "zh-cn": "哼、这就是所谓的好友申请吧。算了，本小姐就考虑考虑吧。\n反正稻荷看起来也不像坏人。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 26,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "ヘルとイナリがそんな会話をしている間、\n<param=playerName>とアフラ・マズダたちは――",
+              "translations": {
+                "zh-cn": "在赫尔与稻荷交谈的期间，\n<param=playerName>和阿胡拉·马兹达等人则——"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 8,
+                "page_no": 27,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2d_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2d_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 8,
+                        "page_no": 27,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "良かったね、アフラ・マズダ",
+                      "translations": {
+                        "zh-cn": "太好了呢，阿胡拉·马兹达"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 9,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "アフラ・マズダ",
+                      "text": "ええ、私を受け容れてくれた貴方たち、そしてイナリに感謝を。\nしかし、このゲームはこれから何をすればよいのでしょう？",
+                      "translations": {
+                        "zh-cn": "嗯，感谢接纳我的各位，也感谢稻荷。\n不过，在这款游戏里接下来该做什么才好呢？"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2d_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 8,
+                        "page_no": 27,
+                        "cmd_index": 2,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "（ちょっと警戒する）",
+                      "translations": {
+                        "zh-cn": "（稍微提高警惕）"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 10,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "アフラ・マズダ",
+                      "text": "そう警戒しないでください。先ほど申し上げた通り、\n私の現実の肩書などもろもろは忘れて頂ければと。",
+                      "translations": {
+                        "zh-cn": "请不要那么戒备。正如刚才所说，\n希望各位能将我在现实中的头衔等抛诸脑后。"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2d_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 8,
+                        "page_no": 27,
+                        "cmd_index": 3,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "最強パーティになっちゃったな",
+                      "translations": {
+                        "zh-cn": "这下变成最强队伍了呢"
+                      }
+                    }
+                  ],
+                  "following_text": []
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "質問があります、親切な元パーティメンバーが言っていました。\nこのゲームは装備やレベルをあげて強くなることが目的であると。",
+              "translations": {
+                "zh-cn": "我有个问题，之前那位热心的前队友曾说过，\n这款游戏的目的就是通过提升装备和等级来变强。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "で、あるならばこれから私は何をすればよいのでしょう？\n生まれた時から目標を達成してしまっているのですが。",
+              "translations": {
+                "zh-cn": "如果是这样的话，我接下来究竟该做什么呢？\n毕竟我一出生就已经达成目标了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "い、言いてえ～！！　無自覚最強系主人公じゃないですか！？\nちょっと剣の錆を落としただけなんだが……とかさあ！",
+              "translations": {
+                "zh-cn": "好好好想说一次这种台词～！！这不就是毫无自觉的最强系主角吗！？\n比如“我只是随便磨了磨剑锈而已……”之类的！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "初級魔法だけど、あれ……上級魔法認定されちまうんだ……とか。\nやべっ、やりすぎちまったか……とか、モテそ～！！",
+              "translations": {
+                "zh-cn": "还有“这只是初级魔法，咦……居然被认定成高级魔法了吗……”之类的。\n“糟了，做得太过了吗……”之类的，绝对超受欢迎～！！"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 11,
+                "page_no": 4,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2e_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2e_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 11,
+                        "page_no": 4,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "サンゾウ、随分詳しいね？",
+                      "translations": {
+                        "zh-cn": "三藏，你懂得挺多的嘛？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "サンゾウ",
+                      "text": "まあ、そりゃ俺はほんっとーによええですから。\n最強とかちょっと憧れちまうんですよね。",
+                      "translations": {
+                        "zh-cn": "哎呀，毕竟我是真的超级弱嘛。\n所以难免会对“最强”有点憧憬啦。"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2e_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 11,
+                        "page_no": 4,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "後は主人公溺愛系とかね",
+                      "translations": {
+                        "zh-cn": "还有那种主角备受宠溺的类型呢"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 13,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "サンゾウ",
+                      "text": "そうそう、ゲームの攻略対象全員から矢印向けられて……\nで始まるやつ、あれ俺好きなんですよ～。",
+                      "translations": {
+                        "zh-cn": "对对，游戏里所有攻略对象的好感度全冲着自己来……\n以这种开头的题材，我就很喜欢呢～。"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2e_alt3",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 11,
+                        "page_no": 4,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "自分も転生したらマモノだった",
+                      "translations": {
+                        "zh-cn": "自己转生后也变成了魔物"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 14,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "サンゾウ",
+                      "text": "いいな～、いろんなことが出来るじゃないですか！\n俺なんて勇者でぬか喜びさせられて専用デバフ祭りですよ！？",
+                      "translations": {
+                        "zh-cn": "真好啊～能做到好多事情不是吗！\n我可是白高兴一场当了勇者，结果被挂了一堆专属减益状态好吗！？"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 15,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "まあでも、まだ諦めてねえですよ、俺は！\n最弱勇者でもハーレム無双出来る……はず。",
+              "translations": {
+                "zh-cn": "不过嘛，我可还没有放弃！\n就算是弱鸡勇者，也一定能开后宫无双的……应该吧。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 15,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "だからアフラ・マズダさんも強さ以外にもこの世界で\nやれることが色々あるはずですよ！　それこそ恋愛とか！",
+              "translations": {
+                "zh-cn": "所以阿胡拉·马兹达先生在这个世界里，\n除了变强以外肯定还有很多事情能做！比如说恋爱什么的！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 15,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "知ってました？　このゲーム、結婚システムもあるんすよ。\n特定の指輪アイテムを渡すと結婚できちゃうんです！",
+              "translations": {
+                "zh-cn": "你知道吗？这款游戏里还有结婚系统哦。\n只要把特定的戒指道具送出去，就能结婚了！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 15,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "へえ、それは面白いですね？\n<param=playerName>、試しに私と結婚してみますか？",
+              "translations": {
+                "zh-cn": "哦，那还挺有趣的？\n<param=playerName>，要不试着跟我结个婚看看？"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 15,
+                "page_no": 4,
+                "cmd_index": 5,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2f_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2f_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 4,
+                        "cmd_index": 5,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "はい？？",
+                      "translations": {
+                        "zh-cn": "哈啊？？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 16,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "アフラ・マズダ",
+                      "text": "……？　そんなにおかしなことを言いましたか？\n現実で難しいことにトライしてみようと思ったのですが……。",
+                      "translations": {
+                        "zh-cn": "……？我说的话有那么奇怪吗？\n我只是想试着挑战一下现实中难以做到的事情……"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2f_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 4,
+                        "cmd_index": 6,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "式は盛大にあげよう！",
+                      "translations": {
+                        "zh-cn": "典礼一定要办得隆重盛大！"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 17,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "サンゾウ",
+                      "text": "そ、そそそんなに軽いノリで決めるもんじゃないと思いますよ！？\nちゃんとお互い長い時間を共に過ごしてというか……。",
+                      "translations": {
+                        "zh-cn": "等等等等这种事情不能用这么随便的态度决定吧！？\n应该好好地共同相处很长一段时间才行……"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 17,
+                        "page_no": 1,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "アフラ・マズダ",
+                      "text": "……？　そんなにおかしなことを言いましたか？\n現実で難しいことにトライしてみようと思ったのですが……。",
+                      "translations": {
+                        "zh-cn": "……？我说的话有那么奇怪吗？\n我只是想试着挑战一下现实中难以做到的事情……"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2f_alt3",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 4,
+                        "cmd_index": 7,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "丁重にお断りします！！",
+                      "translations": {
+                        "zh-cn": "我郑重地拒绝！！"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 18,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "アフラ・マズダ",
+                      "text": "ふむ、そうですか、残念です。\n現実で難しいことにトライしてみようと思ったのですが……。",
+                      "translations": {
+                        "zh-cn": "唔，是吗，真遗憾。\n我只是想试着挑战一下现实中难以做到的事情……"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "結婚まで、先を越されてたまるかー！！\n（すげえ重大な決断なんですからよく考えるべきですよ！？）",
+              "translations": {
+                "zh-cn": "连结婚都要被抢先一步的话我可受不了——！！\n（这可是超级重大的决定，应该慎重考虑才对吧！？）"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 1,
+                "cmd_index": 5,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "そうこうしているうちに目的地の冒険者ギルドが見えてくる。\n果たして、ヘルが探しているという人物とは――",
+              "translations": {
+                "zh-cn": "不知不觉间，目的地的冒险者公会已经映入眼帘。\n赫尔所寻找的那个人究竟是——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 2,
+                "cmd_index": 11,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "よく来たな、冒険者のひよっこたち。\nクエストの受注、それとも冒険者登録からにするかね？",
+              "translations": {
+                "zh-cn": "欢迎光临，冒险者雏鸟们。\n是要接取任务，还是先从冒险者注册开始？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "一行を出迎えたのは、東京では消防総監を務めている\nレーヴン・アーサーその人。もちろん装いは普段と異なり――",
+              "translations": {
+                "zh-cn": "迎接众人的，正是在东京担任消防总监的\n列文・亚瑟本人。当然，装束与平时截然不同——"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 19,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2g_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2g_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 19,
+                        "page_no": 4,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "これまたゲームをするイメージがないなあ",
+                      "translations": {
+                        "zh-cn": "这也是个完全看不出像是会玩游戏的人啊"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 20,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "レーヴン",
+                      "text": "ふっ、意外か、<param=playerName>よ？\n私がゲームを、しかも冒険者ギルドのマスターをしているのが。",
+                      "translations": {
+                        "zh-cn": "呵，很意外吗，<param=playerName>？\n意外于我玩游戏，而且居然还是冒险者公会的会长。"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2g_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 19,
+                        "page_no": 4,
+                        "cmd_index": 2,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "バートル先輩のサボりを叱ってるのに！",
+                      "translations": {
+                        "zh-cn": "明明平时都在训斥巴特尔前辈偷懒！"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 21,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "レーヴン",
+                      "text": "人聞きの悪いことを言うな、\n私はちゃんと己のやるべきことは終わらせてここにいる。",
+                      "translations": {
+                        "zh-cn": "休要说这般难听的话，\n我可是好好完成了自己该做的事才来这里的。"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2g_alt3",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 19,
+                        "page_no": 4,
+                        "cmd_index": 3,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "いつもジャケットだから露出が……！",
+                      "translations": {
+                        "zh-cn": "平时总穿着夹克，这一露肉……！"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 22,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "レーヴン",
+                      "text": "そんなにまじまじと見てくれるな。\n物珍しいのは分かるが、そんなに面白いものでもあるまい。",
+                      "translations": {
+                        "zh-cn": "别那么目不转睛地盯着看。\n虽说我知道这很新鲜，但也没什么好看的吧。"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "……いや、待て、何か誤解しているな？\n私の経緯は<ruby=アフラ・マズダ>そこの誰か<\/ruby>とは違うぞ？",
+              "translations": {
+                "zh-cn": "……不，等等，你们是不是误会了什么？\n我来这里的原委可跟<ruby=阿胡拉·马兹达>那边的某人<\/ruby>不同啊？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 1,
+                "cmd_index": 11,
+                "sub_index": 0
+              },
+              "speaker": "アリス",
+              "text": "レーヴン<em=・>おじさま<\/em>？　あえてそう呼ぶけれど、\nお歳の割にちいっとも、<ruby=ゲーム>お遊戯<\/ruby>のことお分かりでないのね。",
+              "translations": {
+                "zh-cn": "列文<em=・>叔叔<\/em>？我姑且这么称呼你吧，\n你都这把年纪了，对<ruby=游戏>嬉戏<\/ruby>可真是一点都不懂呢。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アリス",
+              "text": "仮にもゲームマスターの一員として、自分が居れば\n何でもすぐにカタが付く、という意識はどうにかなりません？",
+              "translations": {
+                "zh-cn": "好歹也是游戏管理员的一员，觉得自己只要出马\n就能立刻搞定一切的这种意识，就不能改改吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アリス",
+              "text": "チェスゲームで女王を置いて王様が単身で突っ込み敵陣壊滅、\nとかないでしょう？　リアルでやったことがある？　……そう。",
+              "translations": {
+                "zh-cn": "下国际象棋的时候，哪有抛下王后由国王单枪匹马杀入敌阵全灭敌人的道理？\n在现实里干过？……这样啊。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "アリス",
+              "text": "ともかく。これについては私が先輩。\nちょっとしばらく、ゲームのことをお勉強してきてなさって？",
+              "translations": {
+                "zh-cn": "总而言之。在这方面我可是前辈。\n你还是去稍微补习一阵子关于游戏的基础知识吧？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 23,
+                "page_no": 5,
+                "cmd_index": 11,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "……。",
+              "translations": {
+                "zh-cn": "……"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 23,
+                "page_no": 6,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2g2_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2g2_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 23,
+                        "page_no": 6,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "同じ穴のムジナか",
+                      "translations": {
+                        "zh-cn": "原来是一丘之貉啊"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 23,
+                        "page_no": 6,
+                        "cmd_index": 4,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "この仕事人間どもめ……！",
+                      "translations": {
+                        "zh-cn": "你们这群工作狂啊……！"
+                      }
+                    }
+                  ],
+                  "following_text": []
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2g2_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 23,
+                        "page_no": 6,
+                        "cmd_index": 5,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "消防学校長先生、歳なんだから無理しないで",
+                      "translations": {
+                        "zh-cn": "消防学校校长先生，年纪大了就别逞强了"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 24,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "レーヴン",
+                      "text": "誰が年寄りの冷や水かッ！？\n相変わらずすぐに調子に乗る……！！",
+                      "translations": {
+                        "zh-cn": "谁是逞强的老头子了！？\n你还是一如既往地容易蹬鼻子上脸……！！"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "それに……私にもやんちゃだった時代があったのだぞ？\n仲間たちとの冒険に心踊らせた少年のような時代がな。",
+              "translations": {
+                "zh-cn": "况且……我也是有过年轻气盛的时代的！\n曾经也像少年一样，为与同伴们的冒险而心潮澎湃过啊。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 1,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "……久しぶりレーヴン、前回のゲーム内<ruby=イベント>魔法大戦<\/ruby>ぶり？\n元気にしてるみたいで良かったよ。",
+              "translations": {
+                "zh-cn": "……好久不见了列文，上次见面是游戏内的<ruby=活动>魔法大战<\/ruby>吧？\n看到你精神不错真是太好了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "ヘル……お前が来たということは、\nまたしても<em=・>何かしら<\/em>問題が起きたということだな？",
+              "translations": {
+                "zh-cn": "赫尔……既然你来了，\n也就是说又出了<em=・>什么<\/em>乱子吧？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "まあ……端的に言うとそう。\n今代の大魔王を止めるために治安維持の依頼。",
+              "translations": {
+                "zh-cn": "嗯……简单来说就是这样。\n是一件为了阻止当代大魔王而维持治安的委托。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "……ならば場所を変えよう。\nあまり表向きに話せるような内容ではあるまい。",
+              "translations": {
+                "zh-cn": "……那就换个地方说吧。\n这内容确实不太适合在明面上大谈特谈。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 5,
+                "cmd_index": 11,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "手狭ですまないが、防音の魔法は張ってある。\n詳細な内容を聞こうか。",
+              "translations": {
+                "zh-cn": "地方狭小，怠慢了，不过已经布下了隔音魔法。\n说说详细情况吧。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 6,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "えっ、だ、大魔王って、マモノ族陣営側の総大将っすよね？\nまさかそんな奴と戦わせるために連れてきたんですか！？",
+              "translations": {
+                "zh-cn": "诶，大大大魔王，不就是魔物族阵营的总大将吗？\n难道你把我们带过来，就是为了让我们和那种家伙战斗！？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 25,
+                "page_no": 7,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "いや、アンタは勝手についてきただけでしょ……。\nというか仮にも勇者なんだからその運命にはあるでしょ。",
+              "translations": {
+                "zh-cn": "没有啊，你不是自己非要跟过来的嘛……\n再说你姑且算是个勇者，这本来就是你的宿命吧。"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 25,
+                "page_no": 8,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2h_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2h_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 25,
+                        "page_no": 8,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "サンゾウが勝てるわけないよ！！",
+                      "translations": {
+                        "zh-cn": "三藏怎么可能赢得了啊！！"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 26,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "サンゾウ",
+                      "text": "そーだ、そーだ！　……って、事実なんすけど、\n本人より自信満々に言うのやめてもらっていいっすかぁ！？",
+                      "translations": {
+                        "zh-cn": "就是说啊，就是说啊！……等等，虽然是事实，\n但能不能别说得比当事人还要理直气壮啊！？"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2h_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 25,
+                        "page_no": 8,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "大魔王って、どんな人なの……？",
+                      "translations": {
+                        "zh-cn": "大魔王是个怎样的人呢……？"
+                      }
+                    }
+                  ],
+                  "following_text": []
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2h_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 25,
+                        "page_no": 8,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "（レーヴンのベッドを観察する）",
+                      "translations": {
+                        "zh-cn": "（观察列文的床铺）"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 27,
+                        "page_no": 0,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "少し<ruby=しわ>皺<\/ruby>の寄っていて、使用感の感じられるベッドシーツ、\n枕元には１本、黒い羽が落ちていた。",
+                      "translations": {
+                        "zh-cn": "床单带着些许褶皱，能看出经常使用的痕迹，\n枕边还落着一根黑色的羽毛。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 27,
+                        "page_no": 1,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "レーヴン",
+                      "text": "……独り身の寝床をそうまじまじと観察しておる。\n何も面白いものなどないぞ。世話をする者もいないしな。",
+                      "translations": {
+                        "zh-cn": "……别那么目不转睛地端详单身汉的床铺。\n没什么稀罕东西，反正也没人照顾起居。"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "いい？　説明するわよ、大魔王バサレウスは強大な力を持ってるの。\nバサレウスのユニークスキルはこのゲームの運営に干渉出来るもの。",
+              "translations": {
+                "zh-cn": "听好了，我说明一下，大魔王巴萨雷乌斯拥有强大的力量。\n巴萨雷乌斯的独有技能能够干涉这款游戏的运营。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "奴の人をマモノにする「権能」がこの世界で作り出したスキル、\nそれはヒト族をマモノ族に、陣営を変えてしまうの。",
+              "translations": {
+                "zh-cn": "那家伙把人变成魔物的“权能”在这个世界创造出的技能，\n能将人类族变成魔物族，强制改变阵营。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "えー、そんなのチートスキルすぎない？\nヒト族は減ってマモノ族側のプレイヤーが増え続けるじゃん。",
+              "translations": {
+                "zh-cn": "诶——那也太超模了吧？\n这样下去人类族不就不断减少，魔物族那边的玩家不断增多了吗。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サンゾウ",
+              "text": "やばいじゃないですか！？　俺以外、全員マモノに変えられて、\n終いには俺１人でマモノ全員の相手をさせられちゃうんです？",
+              "translations": {
+                "zh-cn": "那岂不是很不妙吗！？除我以外全员都被变成魔物，\n到头来要由我一个人对付所有魔物吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "それで済めばいいけどね、負けた暁には来る日も来る日も\nマモノの群れに放り込まれてひひっ、ひひひ……。",
+              "translations": {
+                "zh-cn": "能这样收场就算好的了，输了之后可是会日复一日\n被扔进魔物群里任人摆布，嘻嘻，嘻嘻嘻……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 5,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "これ、<ruby=いたずら>悪戯<\/ruby>に未来ある若人を怖がらせるでない。\nだがゲームが――システムが許しているのなら仕方あるまい？",
+              "translations": {
+                "zh-cn": "喂，别故意吓唬有前途的年轻人。\n不过，既然是游戏——系统允许的，那也无可奈何吧？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 6,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "でもさヘル、君はマモノ族だろう？\nそれなのにどうして大魔王を止めようとするんだい？",
+              "translations": {
+                "zh-cn": "可是赫尔，你明明是魔物族的吧？\n既然如此，为什么要阻止大魔王呢？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 7,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "えーっと……それはね、バサレウスがこの冒険都市の冒険者たちを\n丸ごとマモノ族に変えようとしてるからかな～。",
+              "translations": {
+                "zh-cn": "呃……这个嘛，因为巴萨雷乌斯打算把这座冒险都市的冒险者\n全都变成魔物族啦～。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 8,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "このゲームってＰｖＰ勢以外にも沢山のプレイヤーが居るの。\nだけどそんな人もみんな巻き込まれちゃうのは流石にじゃない？",
+              "translations": {
+                "zh-cn": "这款游戏除了PvP党之外还有很多其他玩家。\n但把那些人也一网打尽卷进来，未免也太过分了吧？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 9,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "店舗経営とか、スローライフとか、そういう楽しみ方してる人まで\n無差別に巻き込むのはいちゲーマーとして見逃せないって感じ？",
+              "translations": {
+                "zh-cn": "把开店经营的、享受慢节奏生活的那群人都\n无差别地卷进来，作为一名玩家真是看不下去，懂我意思吧？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 10,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "アタシ、これでも治安維持側の奴だからさ、ひひっ。\n意外だったっしょ？　ちゃんとゲーマーの模範って感じでしょ？",
+              "translations": {
+                "zh-cn": "本小姐好歹也是维护治安这边的，嘻嘻。\n很意外吧？看起来很像模范玩家吧？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 11,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "アフラ・マズダ",
+              "text": "納得がいきました、そのために私たちを集めたのですね、\n微力ながら貴方の秩序あるゲーマー魂？　の手助けをしましょう。",
+              "translations": {
+                "zh-cn": "我明白了，原来是为了这个才把我们召集起来的。\n虽然微不足道，但我也愿为你充满秩序的玩家之魂？助上一臂之力。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 28,
+                "page_no": 12,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "まあ、ほんとはレーヴンだけのつもりだったけど、\nいつの間にかヘンテコなパーティが出来上がっちゃった。",
+              "translations": {
+                "zh-cn": "哎，本来我只打算找列文的，\n不知不觉间居然组成了这么个稀奇古怪的队伍。"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 28,
+                "page_no": 13,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2i_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2i_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 28,
+                        "page_no": 13,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "普通にゲームを楽しみたいんだが？",
+                      "translations": {
+                        "zh-cn": "我只是想普普通通地玩游戏啊？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 29,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "当たり前じゃん、アタシ言ってないもん。\n言ってたらイナリもサンゾウもついてこなかったでしょ？",
+                      "translations": {
+                        "zh-cn": "理所当然的好吧，因为我根本没说啊。\n要是说了，稻荷和三藏肯定就不跟来了吧？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 29,
+                        "page_no": 1,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "イナリ",
+                      "text": "そりゃそうだよ！　僕はそもそもこの世界でセカンドライフを、\nスローライフをしに来たんだからさ！",
+                      "translations": {
+                        "zh-cn": "那当然了！我本来就是为了在这个世界开启第二人生、\n享受慢节奏生活才来的啊！"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 29,
+                        "page_no": 2,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "サンゾウ",
+                      "text": "そーだ、そーだ！　２人ともこんな危ねえことに\n首つっこむ必要はねえっすよ、今すぐ俺らの家に帰りましょう！",
+                      "translations": {
+                        "zh-cn": "就是说啊，就是说啊！大家根本没必要\n蹚这种浑水，现在立刻回我们的家去吧！"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2i_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 28,
+                        "page_no": 13,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "レーヴンってそんなに強かったの？",
+                      "translations": {
+                        "zh-cn": "列文居然有那么强吗？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 30,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "レーヴンはこのアタシが認めたダンジョンテイカーよ。\n伝説の冒険者として名を馳せていたくらいには凄腕なの。",
+                      "translations": {
+                        "zh-cn": "列文可是连本小姐都认可的地牢攻略者哦。\n甚至曾经作为传说中的冒险者而威名远扬，身手可是相当了得的。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 30,
+                        "page_no": 1,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "レーヴン",
+                      "text": "既に引退済、だがな。私のような老骨ではなく、\n若い者たちで未来を切り開くのもよかろうよ？",
+                      "translations": {
+                        "zh-cn": "但我已经退役了。比起我这把老骨头，\n由年轻人们去开拓未来不是更好吗？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 30,
+                        "page_no": 2,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "折角セカンドライフを始めて冒険者になったのに、\n隠居するまでが早いのよ……というかクリア速すぎ。",
+                      "translations": {
+                        "zh-cn": "亏你难得开启第二人生当了冒险者，\n归隐得也太快了吧……不如说通关速度太离谱了。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 30,
+                        "page_no": 3,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "たしか、最速で敵も自陣営も<ruby=ほろ>亡<\/ruby>ぼして\n特殊エンディング条件満たして引退コースだったよね？",
+                      "translations": {
+                        "zh-cn": "我记得，是以最快速度把敌人和自家阵营全都消灭，\n满足了特殊结局条件直接走退役路线了吧？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 30,
+                        "page_no": 4,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "でも、治安維持ってＲＴＡとは対岸の概念だから。\nゲームを勉強したいんでしょ、ならいいでしょ、ね？",
+                      "translations": {
+                        "zh-cn": "不过，维护治安和速通可是完全相反的概念哦。\n你不是想多了解游戏吗，那正好合适吧？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 30,
+                        "page_no": 5,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "レーヴン",
+                      "text": "……耳が痛いな。\n分かった、現場へ復帰しよう。",
+                      "translations": {
+                        "zh-cn": "……真是句句扎心啊。\n我知道了，我重回一线便是。"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2i_alt3",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 28,
+                        "page_no": 13,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "手伝うって約束したし最後まで付き合おう",
+                      "translations": {
+                        "zh-cn": "既然答应了帮忙，就陪你到底吧"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 31,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "ありがと、<param=playerName>。\nアタシからは魔王と対峙する、刺激的なゲーム体験を約束するよ。",
+                      "translations": {
+                        "zh-cn": "谢啦，<param=playerName>。\n作为回报，本小姐向你保证会有直面魔物的刺激游戏体验。"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 32,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "といっても、別に魔王討伐しようってわけじゃない。\nあくまで話し合い、これだけの戦力なら聞かざるを得ないでしょ？",
+              "translations": {
+                "zh-cn": "虽说如此，倒也不是要去讨伐魔王啦。\n终究只是去谈谈，有了这等战力，对方也不得不听了吧？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 32,
+                "page_no": 1,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "イナリ",
+              "text": "というかヘル、レーヴン先生と知り合いってことは\n消防大学の関係者なの？",
+              "translations": {
+                "zh-cn": "说起来赫尔，既然你认识列文老师，\n难道也是消防大学相关的人吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 32,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "まさか！　大体のアンデッドは炎弱点なの、これＲＰＧの常識ね。\nまぁ生身でも炙られて平気な奴なんてあんま居ないと思うけど。",
+              "translations": {
+                "zh-cn": "怎么可能！不死生物大多弱火，这可是RPG的常识。\n不过肉身凡胎被火烤还能安然无恙的家伙本来就没几个吧。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 32,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "アタシは死者の支配・管理者だからさ、\n炎とか、出来れば避けて通りたい方って話。",
+              "translations": {
+                "zh-cn": "本小姐可是死者的支配者与管理者，\n火这种东西，能避开当然是想尽量避开的。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 32,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "アタシが通ってるのは<ruby=あきはばら>秋波原<\/ruby>学園、<em=・>電脳<\/em>側のね。\nティンダロスとか知らない？　アイツ知名度だけはあるでしょ。",
+              "translations": {
+                "zh-cn": "我念的是<ruby=秋叶原>秋波原<\/ruby>学园，<em=・>电脑<\/em>那边的。\n你知道廷达罗斯吗？那家伙别的没有，知名度倒是挺高的吧。"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 32,
+                "page_no": 5,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_summerreincarnation2026_0-2J_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2J_alt1",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 32,
+                        "page_no": 5,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "相互チャンネル登録してる仲だよ",
+                      "translations": {
+                        "zh-cn": "我们是互相关注的关系哦"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 33,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "へー……アイツが相互！？　ひひ、いーこと聞いちゃった。\nたまにはアタシがアイツのことからかってやろーっと。",
+                      "translations": {
+                        "zh-cn": "嘿～……那家伙居然和你互关！？嘻嘻，听到了个好消息。\n偶尔我也去拿这事调侃他一下好了。"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2J_alt2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 32,
+                        "page_no": 5,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "それじゃエニグマとかもクラスメイト？",
+                      "translations": {
+                        "zh-cn": "这么说恩尼格玛也是你的同班同学？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 34,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "そ、２人ともアタシのゲーム友達だよ、\nもちろん腕前はアタシが一番上だけどね？",
+                      "translations": {
+                        "zh-cn": "对啊，他们两个都是本小姐的游戏好友，\n当然技术最好的人肯定是我啦！"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2J_alt3",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 32,
+                        "page_no": 5,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "ヘルって電脳体だったの！？",
+                      "translations": {
+                        "zh-cn": "赫尔原来是电脑体吗！？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 35,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "いや？　生身で登校するなんて超非効率じゃん。\nてか学園どころか家、部屋からも出ないってのに。",
+                      "translations": {
+                        "zh-cn": "才不是呢？肉身去上学超级没效率的好吧。\n别说学园了，我连家门、甚至房门都不出的。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 35,
+                        "page_no": 1,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ヘル",
+                      "text": "基本ヒキゲーマーなんだよね。\nマジでありがたいよ、このご時世なんでも届けてくれるし。",
+                      "translations": {
+                        "zh-cn": "基本上就是个死宅玩家啦。\n真得谢天谢地，这年头什么东西都能送货上门。"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "ティンダロスもさ、絶対このゲームもやってるよ。\nだってこっちの世界の方がアイツにとってはリアルだから。",
+              "translations": {
+                "zh-cn": "廷达罗斯那家伙，肯定也在这款游戏里。\n因为对于他来说，这个世界反而更加真实。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 1,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "先の質問に答えるなら我々もゲーム友達ということになるな。\nヘルとはこちら側の世界でしか顔を合わせたことがない。",
+              "translations": {
+                "zh-cn": "若要回答刚才的问题，那我们也能算作游戏好友吧。\n我和赫尔也只有在这个世界才见过面。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "でも意外とアタシら馬が合うんだよね。\nやっぱ<em=・>終わってる<\/em>者同士にしか分からないことがあるって感じ？",
+              "translations": {
+                "zh-cn": "但意外的是我们还挺合得来的呢。\n果然有些东西只有<em=・>人生完蛋<\/em>的同类才懂，大概就是这种感觉？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "レーヴン",
+              "text": "……ふぅ、分かった、他でもない貴様の頼みだしな。\n付き合ってやる、案内するがいい、魔王のところまで。",
+              "translations": {
+                "zh-cn": "……呼，好吧，既然是你亲自开口拜托。\n就陪你走一趟吧，带路吧，去魔王那里。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "ひひ、<ruby=了解>りょ～<\/ruby>、それじゃ山越え谷越え魔王領まで……\n行く必要はないんだよね、何せこの街の近くまで来てるんだから。",
+              "translations": {
+                "zh-cn": "嘻嘻，<ruby=收到>收到～<\/ruby>。那么翻山越岭前往魔王领……\n根本不需要走那么远呢，毕竟人家已经来到这座城市附近了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 5,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "大魔王バサレウスは街を出てすぐの、<ruby=プレイヤー>人々<\/ruby>から忘れ去られた\nはじまりのダンジョンで、今も息を潜めてる――",
+              "translations": {
+                "zh-cn": "大魔王巴萨雷乌斯就在刚出城没多远、已被<ruby=玩家>人们<\/ruby>遗忘的\n初始地下城里，如今依然潜伏在那里——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 6,
+                "cmd_index": 13,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "そこは水の迷宮といった様子のダンジョン、\nかつてはルーキーたちがレベルをあげるために挑んでいた場所だ。",
+              "translations": {
+                "zh-cn": "那是一处宛如水之迷宫般的地下城，\n过去曾是新手们为了练级而前去挑战的地方。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 7,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "地面から生えるように創り出された玉座に戴く、\n骨頭の人外魔王がそこには居た。",
+              "translations": {
+                "zh-cn": "高坐于仿佛自地面生长而出的王座之上，\n一位骷髅头的异形魔王正伫立于彼处。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 8,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "低みを見下ろすように<ruby=がんか>眼窩<\/ruby>の奥で\n妖しく光る眼を入口の冒険者たちへと差し向ける。",
+              "translations": {
+                "zh-cn": "从宛如俯瞰凡尘般的深陷<ruby=眼眶>眼窝<\/ruby>之中，\n向着入口处的冒险者们投来妖异发光的双眼。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 9,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "speaker": "頭骨魔王の演技指導者？",
+              "text": "……帰還したか、我が右腕、ヘルよ。\nだが、余は貴様に都市への侵入経路を探れと命じたはずだが？",
+              "translations": {
+                "zh-cn": "……回来了吗，余的得力干将，赫尔啊。\n但是，余记得命你去探查潜入都市的路径才是？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 10,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "異世界でも魔王と称される者たちは存在する。\nその者たちに比肩するほどの威圧感を、その人物は発していた。",
+              "translations": {
+                "zh-cn": "即便在异世界，也存在被称为魔王的存在。\n而眼前之人所散发出的威压，足以与那些存在相匹敌。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 36,
+                "page_no": 11,
+                "cmd_index": 5,
+                "sub_index": 0
+              },
+              "speaker": "ヘル",
+              "text": "ただいまバサレウス、そう<ruby=にら>睨<\/ruby>まないでよ。\nアンタへの客人なんだから、アンタも戦力欲しがってたでしょ？",
+              "translations": {
+                "zh-cn": "我回来了，巴萨雷乌斯，别那么<ruby=瞪着>瞪人<\/ruby>嘛。\n我带了客人来找你呢，你不是也想要战力吗？"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 36,
+                "page_no": 12,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_summerreincarnation2026_0-2J_after2",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 36,
+                        "page_no": 12,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "ただのゲームと思ってたんだけど……",
+                      "translations": {
+                        "zh-cn": "我还以为只是个普通的游戏呢……"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 36,
+                        "page_no": 12,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "なんか、皆<ruby=マジ>本気<\/ruby>過ぎない？",
+                      "translations": {
+                        "zh-cn": "总觉得，大家是不是有点太<ruby=当真>认真<\/ruby>了？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 36,
+                        "page_no": 12,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "このゲーム、何がどうなってるの！？",
+                      "translations": {
+                        "zh-cn": "这款游戏，到底是怎么一回事啊！？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 0,
+                        "cmd_index": 11,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "一方、同時刻――\n冒険都市アラクシアの中心にそびえる宮殿内にて――",
+                      "translations": {
+                        "zh-cn": "与此同时——\n在耸立于冒险都市阿拉克西亚中心的宫殿内——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 1,
+                        "cmd_index": 5,
+                        "sub_index": 0
+                      },
+                      "speaker": "スノウ",
+                      "text": "我らが国王クロード様に拝謁いたします。\n「大魔王」に関して報告が上がりました。",
+                      "translations": {
+                        "zh-cn": "参见我们的国王克劳德大人。\n有关“大魔王”的报告送上来了。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 2,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "クロード",
+                      "text": "スノウよ、王の補佐という元来の役目を充てられたというのに\nお前はこちら側の世界でも変わらぬな。",
+                      "translations": {
+                        "zh-cn": "雪狮啊，明明赋予了你辅助君王这原本的职责，\n你在这个世界里倒还是一点都没变呢。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 3,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "スノウ",
+                      "text": "おやこれでも精一杯<ruby=ロールプレイ>RP<\/ruby>に励んでいるつもりなのですが、\nクロード様には変わり映えのないように映ってしまいますか。",
+                      "translations": {
+                        "zh-cn": "哎呀，我自认为已经拼尽全力在<ruby=角色扮演>RP<\/ruby>了，\n但在克劳德大人眼中还是毫无新意吗。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 4,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "クロード",
+                      "text": "いや、構わぬ。お前が現実でも望む形で振る舞っている\n証左なのだろう――して、その報告とは？",
+                      "translations": {
+                        "zh-cn": "不，无妨。这大概证明了你即便在现实中，\n也是按照自己所期盼的形态在行事吧——那么，是何报告？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 5,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "スノウ",
+                      "text": "ええ、城下でどうやら「大魔王」と思しきプレイヤーの目撃が、\n話によれば、自在にマモノの姿を形どっていたとか――",
+                      "translations": {
+                        "zh-cn": "是的，城下似乎有人目击到了疑似“大魔王”的玩家，\n据传闻，其能够随心所欲地化作魔物的姿态——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 6,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "スノウ",
+                      "text": "そしてそのプレイヤーたちは街の外――\nはじまりのダンジョンのある方向へ向かったと。",
+                      "translations": {
+                        "zh-cn": "而且那些玩家正朝着城外——\n初始地下城所在的方向前去。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 7,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "クロード",
+                      "text": "ほう、懐かしいなスノウ。\n我らが<ruby=ニュービー>初心者<\/ruby>であった頃によくレベル上げに赴いたものだ。",
+                      "translations": {
+                        "zh-cn": "哦，真怀念啊雪狮。\n在我们还是<ruby=菜鸟>新手<\/ruby>的时候，经常去那里练级呢。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 8,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "スノウもちょうど同じ情景を思い出してたのか、\n感じ入ったように頷く。",
+                      "translations": {
+                        "zh-cn": "雪狮似乎也刚好想起了同一片光景，\n颇有感触地点了点头。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 9,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "クロード",
+                      "text": "しかしその話が真であるのならば、たしかに\n<em=・>全<\/em>てのマモノの<em=・>王の王<\/em>、「大魔王」に相応しき力よな。",
+                      "translations": {
+                        "zh-cn": "不过若那传闻属实，那确实是\n配得上<em=・>所<\/em>有魔物的<em=・>王中之王<\/em>——“大魔王”的力量啊。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 10,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "クロード",
+                      "text": "疾く各ギルドへ情報を下ろし、兵を集めよ。\n魔法使いギルド、暗殺者ギルド、騎士ギルド――",
+                      "translations": {
+                        "zh-cn": "速速将情报下发给各公会，召集兵力。\n魔法使公会、暗杀者公会、骑士公会——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 11,
+                        "cmd_index": 9,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "クロードがスノウへ命じている最中に、\n謁見の間の扉が、突き破られたかのような勢いで開いた。",
+                      "translations": {
+                        "zh-cn": "就在克劳德向雪狮下令之时，\n觐见室的大门以仿佛被撞破般的势头猛地敞开。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 12,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "スノウ",
+                      "text": "こら、ガルム、王様への謁見を行う際のルールは\n教えたはずでしょう、まずは――",
+                      "translations": {
+                        "zh-cn": "等等，加姆，觐见国王时的规矩\n我应该教过你才对吧，首先应该——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 13,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "クロード",
+                      "text": "よい、ちょうど、貴様ら直属部隊にも命を渡すところだった。\nしかしガルムよ、そのように慌てた様子で何かあったのか？",
+                      "translations": {
+                        "zh-cn": "无妨，正好我正准备向你们直属部队下达命令。\n但是加姆啊，你如此慌慌张张的，发生何事了？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 14,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "ガルム",
+                      "text": "ごめんなさーいっ！\nでも、街でガルムの――ご主人様のニオイ――",
+                      "translations": {
+                        "zh-cn": "对不起——！\n但是，在城里闻到了加姆的——主人的气味——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 15,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "スノウ",
+                      "text": "ご主人様？　クロード様のニオイ……？\nしかし坊ちゃまは長らく城下には姿をお見せしていないはず……。",
+                      "translations": {
+                        "zh-cn": "主人？克劳德大人的气味……？\n可是少爷已经很久没有在城下露过面了……"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 16,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "クロード",
+                      "text": "ぬ、抜け出してなどおらんぞ？\n良い花婿が居ないか城下に探しになど――",
+                      "translations": {
+                        "zh-cn": "我、我可没有偷偷溜出去哦？\n比如去城下找找有没有好新郎之类的——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 37,
+                        "page_no": 17,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "ガルム",
+                      "text": "ち、違くて！\nガルムの、昔のご主人様、ヘル様のニオイが、した！！",
+                      "translations": {
+                        "zh-cn": "不、不是啦！\n是加姆以前的主人，赫尔大人的气味，闻到了！！"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "protect": [],
+  "seq_to_order": [
+    {
+      "seq": 1,
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 12,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 2,
+      "order": {
+        "label_index": 1,
+        "page_no": 1,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 3,
+      "order": {
+        "label_index": 1,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 4,
+      "order": {
+        "label_index": 1,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 5,
+      "order": {
+        "label_index": 1,
+        "page_no": 2,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 6,
+      "order": {
+        "label_index": 2,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 7,
+      "order": {
+        "label_index": 2,
+        "page_no": 1,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 8,
+      "order": {
+        "label_index": 2,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 9,
+      "order": {
+        "label_index": 2,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 10,
+      "order": {
+        "label_index": 2,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 11,
+      "order": {
+        "label_index": 2,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 12,
+      "order": {
+        "label_index": 2,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 13,
+      "order": {
+        "label_index": 2,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 14,
+      "order": {
+        "label_index": 2,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 15,
+      "order": {
+        "label_index": 2,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 16,
+      "order": {
+        "label_index": 2,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 17,
+      "order": {
+        "label_index": 2,
+        "page_no": 10,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 18,
+      "order": {
+        "label_index": 3,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 19,
+      "order": {
+        "label_index": 2,
+        "page_no": 10,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 20,
+      "order": {
+        "label_index": 4,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 21,
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 22,
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 23,
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 24,
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 12,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 25,
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 26,
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 12,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 27,
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 28,
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 29,
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 13,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 30,
+      "order": {
+        "label_index": 5,
+        "page_no": 9,
+        "cmd_index": 12,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 31,
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 32,
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 33,
+      "order": {
+        "label_index": 5,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 34,
+      "order": {
+        "label_index": 5,
+        "page_no": 13,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 35,
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 36,
+      "order": {
+        "label_index": 5,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 37,
+      "order": {
+        "label_index": 5,
+        "page_no": 16,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 38,
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 39,
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 40,
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 41,
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 42,
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 43,
+      "order": {
+        "label_index": 8,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 44,
+      "order": {
+        "label_index": 8,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 45,
+      "order": {
+        "label_index": 8,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 46,
+      "order": {
+        "label_index": 8,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 47,
+      "order": {
+        "label_index": 8,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 48,
+      "order": {
+        "label_index": 8,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 49,
+      "order": {
+        "label_index": 8,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 50,
+      "order": {
+        "label_index": 8,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 51,
+      "order": {
+        "label_index": 8,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 52,
+      "order": {
+        "label_index": 8,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 53,
+      "order": {
+        "label_index": 8,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 54,
+      "order": {
+        "label_index": 8,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 55,
+      "order": {
+        "label_index": 8,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 56,
+      "order": {
+        "label_index": 8,
+        "page_no": 13,
+        "cmd_index": 14,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 57,
+      "order": {
+        "label_index": 8,
+        "page_no": 14,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 58,
+      "order": {
+        "label_index": 8,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 59,
+      "order": {
+        "label_index": 8,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 60,
+      "order": {
+        "label_index": 8,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 61,
+      "order": {
+        "label_index": 8,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 62,
+      "order": {
+        "label_index": 8,
+        "page_no": 19,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 63,
+      "order": {
+        "label_index": 8,
+        "page_no": 20,
+        "cmd_index": 23,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 64,
+      "order": {
+        "label_index": 8,
+        "page_no": 21,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 65,
+      "order": {
+        "label_index": 8,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 66,
+      "order": {
+        "label_index": 8,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 67,
+      "order": {
+        "label_index": 8,
+        "page_no": 24,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 68,
+      "order": {
+        "label_index": 8,
+        "page_no": 25,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 69,
+      "order": {
+        "label_index": 8,
+        "page_no": 26,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 70,
+      "order": {
+        "label_index": 8,
+        "page_no": 27,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 71,
+      "order": {
+        "label_index": 9,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 72,
+      "order": {
+        "label_index": 8,
+        "page_no": 27,
+        "cmd_index": 2,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 73,
+      "order": {
+        "label_index": 10,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 74,
+      "order": {
+        "label_index": 8,
+        "page_no": 27,
+        "cmd_index": 3,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 75,
+      "order": {
+        "label_index": 11,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 76,
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 77,
+      "order": {
+        "label_index": 11,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 78,
+      "order": {
+        "label_index": 11,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 79,
+      "order": {
+        "label_index": 11,
+        "page_no": 4,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 80,
+      "order": {
+        "label_index": 12,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 81,
+      "order": {
+        "label_index": 11,
+        "page_no": 4,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 82,
+      "order": {
+        "label_index": 13,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 83,
+      "order": {
+        "label_index": 11,
+        "page_no": 4,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 84,
+      "order": {
+        "label_index": 14,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 85,
+      "order": {
+        "label_index": 15,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 86,
+      "order": {
+        "label_index": 15,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 87,
+      "order": {
+        "label_index": 15,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 88,
+      "order": {
+        "label_index": 15,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 89,
+      "order": {
+        "label_index": 15,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 90,
+      "order": {
+        "label_index": 16,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 91,
+      "order": {
+        "label_index": 15,
+        "page_no": 4,
+        "cmd_index": 6,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 92,
+      "order": {
+        "label_index": 17,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 93,
+      "order": {
+        "label_index": 17,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 94,
+      "order": {
+        "label_index": 15,
+        "page_no": 4,
+        "cmd_index": 7,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 95,
+      "order": {
+        "label_index": 18,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 96,
+      "order": {
+        "label_index": 19,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 97,
+      "order": {
+        "label_index": 19,
+        "page_no": 1,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 98,
+      "order": {
+        "label_index": 19,
+        "page_no": 2,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 99,
+      "order": {
+        "label_index": 19,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 100,
+      "order": {
+        "label_index": 19,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 101,
+      "order": {
+        "label_index": 20,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 102,
+      "order": {
+        "label_index": 19,
+        "page_no": 4,
+        "cmd_index": 2,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 103,
+      "order": {
+        "label_index": 21,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 104,
+      "order": {
+        "label_index": 19,
+        "page_no": 4,
+        "cmd_index": 3,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 105,
+      "order": {
+        "label_index": 22,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 106,
+      "order": {
+        "label_index": 23,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 107,
+      "order": {
+        "label_index": 23,
+        "page_no": 1,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 108,
+      "order": {
+        "label_index": 23,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 109,
+      "order": {
+        "label_index": 23,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 110,
+      "order": {
+        "label_index": 23,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 111,
+      "order": {
+        "label_index": 23,
+        "page_no": 5,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 112,
+      "order": {
+        "label_index": 23,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 113,
+      "order": {
+        "label_index": 23,
+        "page_no": 6,
+        "cmd_index": 4,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 114,
+      "order": {
+        "label_index": 23,
+        "page_no": 6,
+        "cmd_index": 5,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 115,
+      "order": {
+        "label_index": 24,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 116,
+      "order": {
+        "label_index": 25,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 117,
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 118,
+      "order": {
+        "label_index": 25,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 119,
+      "order": {
+        "label_index": 25,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 120,
+      "order": {
+        "label_index": 25,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 121,
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 122,
+      "order": {
+        "label_index": 25,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 123,
+      "order": {
+        "label_index": 25,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 124,
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 125,
+      "order": {
+        "label_index": 26,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 126,
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 127,
+      "order": {
+        "label_index": 25,
+        "page_no": 8,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 128,
+      "order": {
+        "label_index": 27,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 129,
+      "order": {
+        "label_index": 27,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 130,
+      "order": {
+        "label_index": 28,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 131,
+      "order": {
+        "label_index": 28,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 132,
+      "order": {
+        "label_index": 28,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 133,
+      "order": {
+        "label_index": 28,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 134,
+      "order": {
+        "label_index": 28,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 135,
+      "order": {
+        "label_index": 28,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 136,
+      "order": {
+        "label_index": 28,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 137,
+      "order": {
+        "label_index": 28,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 138,
+      "order": {
+        "label_index": 28,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 139,
+      "order": {
+        "label_index": 28,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 140,
+      "order": {
+        "label_index": 28,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 141,
+      "order": {
+        "label_index": 28,
+        "page_no": 11,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 142,
+      "order": {
+        "label_index": 28,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 143,
+      "order": {
+        "label_index": 28,
+        "page_no": 13,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 144,
+      "order": {
+        "label_index": 29,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 145,
+      "order": {
+        "label_index": 29,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 146,
+      "order": {
+        "label_index": 29,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 147,
+      "order": {
+        "label_index": 28,
+        "page_no": 13,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 148,
+      "order": {
+        "label_index": 30,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 149,
+      "order": {
+        "label_index": 30,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 150,
+      "order": {
+        "label_index": 30,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 151,
+      "order": {
+        "label_index": 30,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 152,
+      "order": {
+        "label_index": 30,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 153,
+      "order": {
+        "label_index": 30,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 154,
+      "order": {
+        "label_index": 28,
+        "page_no": 13,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 155,
+      "order": {
+        "label_index": 31,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 156,
+      "order": {
+        "label_index": 32,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 157,
+      "order": {
+        "label_index": 32,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 158,
+      "order": {
+        "label_index": 32,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 159,
+      "order": {
+        "label_index": 32,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 160,
+      "order": {
+        "label_index": 32,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 161,
+      "order": {
+        "label_index": 32,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 162,
+      "order": {
+        "label_index": 33,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 163,
+      "order": {
+        "label_index": 32,
+        "page_no": 5,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 164,
+      "order": {
+        "label_index": 34,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 165,
+      "order": {
+        "label_index": 32,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 166,
+      "order": {
+        "label_index": 35,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 167,
+      "order": {
+        "label_index": 35,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 168,
+      "order": {
+        "label_index": 36,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 169,
+      "order": {
+        "label_index": 36,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 170,
+      "order": {
+        "label_index": 36,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 171,
+      "order": {
+        "label_index": 36,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 172,
+      "order": {
+        "label_index": 36,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 173,
+      "order": {
+        "label_index": 36,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 174,
+      "order": {
+        "label_index": 36,
+        "page_no": 6,
+        "cmd_index": 13,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 175,
+      "order": {
+        "label_index": 36,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 176,
+      "order": {
+        "label_index": 36,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 177,
+      "order": {
+        "label_index": 36,
+        "page_no": 9,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 178,
+      "order": {
+        "label_index": 36,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 179,
+      "order": {
+        "label_index": 36,
+        "page_no": 11,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 180,
+      "order": {
+        "label_index": 36,
+        "page_no": 12,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 181,
+      "order": {
+        "label_index": 36,
+        "page_no": 12,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 182,
+      "order": {
+        "label_index": 36,
+        "page_no": 12,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 183,
+      "order": {
+        "label_index": 37,
+        "page_no": 0,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 184,
+      "order": {
+        "label_index": 37,
+        "page_no": 1,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 185,
+      "order": {
+        "label_index": 37,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 186,
+      "order": {
+        "label_index": 37,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 187,
+      "order": {
+        "label_index": 37,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 188,
+      "order": {
+        "label_index": 37,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 189,
+      "order": {
+        "label_index": 37,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 190,
+      "order": {
+        "label_index": 37,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 191,
+      "order": {
+        "label_index": 37,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 192,
+      "order": {
+        "label_index": 37,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 193,
+      "order": {
+        "label_index": 37,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 194,
+      "order": {
+        "label_index": 37,
+        "page_no": 11,
+        "cmd_index": 9,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 195,
+      "order": {
+        "label_index": 37,
+        "page_no": 12,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 196,
+      "order": {
+        "label_index": 37,
+        "page_no": 13,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 197,
+      "order": {
+        "label_index": 37,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 198,
+      "order": {
+        "label_index": 37,
+        "page_no": 15,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 199,
+      "order": {
+        "label_index": 37,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 200,
+      "order": {
+        "label_index": 37,
+        "page_no": 17,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    }
+  ]
+}
