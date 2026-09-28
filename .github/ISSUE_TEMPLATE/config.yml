@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 使用说明与常见问题
+    url: https://github.com/Quartewe/HousamoEmbedTrans#readme
+    about: 查看安装、连接、翻译配置、日志导出与常见问题说明。
+  - name: 下载与更新记录
+    url: https://github.com/Quartewe/HousamoEmbedTrans/releases
+    about: 查看已发布的 HET 版本、安装包与更新内容。

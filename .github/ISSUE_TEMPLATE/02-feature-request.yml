@@ -1,0 +1,41 @@
+name: 功能建议
+description: 提出新功能、操作体验改进或现有流程的改进建议。
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先搜索已有 issue，尽量围绕一个使用场景提出建议。
+        不需要提供技术实现方案，说明你希望完成什么操作即可；现有功能出现异常时请使用「故障反馈」。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 使用场景与遇到的问题
+      description: 你想完成什么？现有操作在哪一步不方便，或无法满足需求？
+      placeholder: 当我……时，需要……，目前只能……，因此……
+    validations:
+      required: true
+  - type: textarea
+    id: desired-behavior
+    attributes:
+      label: 希望增加或改进的行为
+      description: 描述期望的操作流程和结果，可以使用具体例子或示意图。
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 现有替代办法
+      description: 如果已有临时做法，请说明它哪里不够方便；没有则可留空。
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 怎样算满足需求？
+      description: 可描述一个能验证改进效果的实际场景，不要求编写测试或技术方案。
+      placeholder: 例如：完成……后，可以直接……，并且原有的……仍然保留。
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 补充资料
+      description: 可附相关 issue、参考项目链接、截图或草图；上传前请检查隐私信息。

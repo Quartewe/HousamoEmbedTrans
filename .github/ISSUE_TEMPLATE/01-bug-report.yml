@@ -1,0 +1,103 @@
+name: 故障反馈
+description: 反馈闪退、连接异常、任务失败、剧情同步或译文显示异常。
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先查看 [使用说明与常见问题](https://github.com/Quartewe/HousamoEmbedTrans#readme)，并搜索已有 issue。
+        单纯的翻译措辞、角色名或术语错误，请使用「翻译与术语纠错」表单。每个 issue 尽量描述一个问题。
+        日志和截图会公开展示，上传前请移除 API Key、Authorization、账号凭据和其他隐私信息。
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 实际发生了什么？
+      description: 描述异常现象，并附上界面中的错误文字。
+      placeholder: 在哪个页面或哪段剧情中，执行什么操作后，出现了什么异常？
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 按顺序描述触发过程；若只发生过一次，请说明当时的操作和发生频率。
+      placeholder: |
+        1. 打开 HET，确认首页的连接状态为……
+        2. 进入游戏中的……
+        3. 在 HET 或游戏中执行……
+        4. 出现……
+        发生频率：每次 / 偶尔 / 仅一次
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 期望发生什么？
+      description: 描述正常情况下应有的结果。
+    validations:
+      required: true
+  - type: input
+    id: het-version
+    attributes:
+      label: HET 版本
+      description: 填写具体版本号；自行构建时请附 commit。请勿只填写“最新版”。
+    validations:
+      required: true
+  - type: input
+    id: game-version
+    attributes:
+      label: 游戏版本与运行时资源版本
+      description: 游戏版本见系统应用信息，运行时资源版本见 HET 首页；无法获取或不适用时请说明。
+      placeholder: 游戏版本：……；HET 首页资源版本：……
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: 模块运行方式
+      options:
+        - LSPosed（root）
+        - LSPatch（非 root）
+        - 其他方式（请在下方说明）
+        - 不确定 / 不适用
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 设备与框架环境
+      description: 填写已知信息，不确定的项目可注明“不确定”。
+      placeholder: |
+        设备型号：
+        Android 版本 / 系统名称：
+        LSPosed 或 LSPatch 的版本与分支：
+        Shizuku 版本（如使用）：
+        同时作用于游戏的其他模块（如有）：
+    validations:
+      required: true
+  - type: textarea
+    id: task-context
+    attributes:
+      label: 剧情、任务与翻译配置（如相关）
+      description: 有助于将问题与日志对应。填写已有信息即可，不需要为反馈重新调用翻译 API。
+      placeholder: |
+        活动 / 章节 / Scene 名称：
+        任务请求 ID 与任务状态：
+        发生时间（含时区）：
+        翻译服务商 / 协议 / 模型 ID / 目标语言：
+        流式输出是否开启、相关自定义设置：
+        是否发生在更新、重启、暂停恢复或游戏重连后：
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 日志与截图
+      description: |
+        在 HET 设置页左上角的日志导出入口保存日志 ZIP，再拖入此处；游戏闪退可补充游戏或系统崩溃日志。
+        可粘贴相关日志片段、错误文字或上传截图。无法提供日志时，可说明原因。上传前请检查隐私信息。
+      placeholder: 拖入已检查的日志 ZIP 或截图，或粘贴相关日志片段。
+  - type: textarea
+    id: attempts
+    attributes:
+      label: 已尝试的处理与补充信息
+      description: 可填写尝试过的处理、最后正常的版本，或相关 issue 链接。

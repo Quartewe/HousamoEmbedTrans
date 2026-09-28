@@ -1,0 +1,72 @@
+name: 翻译与术语纠错
+description: 反馈剧情误译、角色名或术语不一致，以及词典缺漏。
+title: "[翻译] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请提供能定位到具体文本的信息，尽量将同一角色或术语的问题放在一个 issue 中。
+        翻译任务失败、剧情提取缺失或译文未显示，请使用「故障反馈」表单。
+        只需提供与问题相关的文本片段；截图和附件上传前请检查账号信息及其他隐私内容。
+  - type: dropdown
+    id: category
+    attributes:
+      label: 问题类型
+      options:
+        - 剧情误译或漏译
+        - 角色名 / 别名错误
+        - 术语翻译不一致
+        - 角色词典 / 术语词典缺漏
+        - 其他文本问题
+    validations:
+      required: true
+  - type: textarea
+    id: location
+    attributes:
+      label: 文本位置
+      description: 填写活动名、主线章节或关卡；若知道 Scene 名称、label、item ID 或词典条目，也请附上。
+      placeholder: |
+        活动 / 章节 / 关卡：
+        Scene 名称 / label / item ID（如有）：
+        角色 / 术语 / 词典条目（如相关）：
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: 原文或原始名称
+      description: 粘贴相关日文或其他原文；必要时补充前后文、说话人或选项分支。也可附清晰截图。
+    validations:
+      required: true
+  - type: textarea
+    id: current-translation
+    attributes:
+      label: 当前译文或词典内容
+      description: 附上实际看到的错误文本，并注明目标语言；如果是缺漏，请填写“缺失”。
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: 问题说明与建议修改
+      description: 说明哪里有误、为什么；若无法给出准确译法，只描述问题也可以。
+      placeholder: 当前译文把……理解成了……，但结合上下文……。建议改为……
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: 修改依据
+      description: 可提供官方文本、角色资料、Wiki 页面链接或其他剧情用例；请区分官方名称与个人译法建议。
+  - type: textarea
+    id: translation-context
+    attributes:
+      label: 版本与译文来源
+      description: 填写已知信息即可，不需要为反馈重新生成译文。
+      placeholder: |
+        HET 版本 / 游戏版本：
+        译文来源：HET 生成 / 内置预设 / 导入 / 手工编辑 / 不确定
+        翻译服务商 / 模型 ID / 目标语言（如适用）：
+        是否使用自定义提示词或词典：
+        任务请求 ID / 发生时间（如有）：
