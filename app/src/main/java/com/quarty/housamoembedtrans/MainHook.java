@@ -18,9 +18,13 @@ import com.quarty.housamoembedtrans.logging.Log;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 import de.robv.android.xposed.IXposedHookZygoteInit;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.net.Uri;
@@ -57,8 +61,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * 工作流程:
  *   1. LSPosed 在目标应用加载时回调 handleLoadPackage
  *   2. 确认是 Housamo (jp.co.lifewonders.housamo)
- *   3. 初始化 ShadowHook → System.loadLibrary("housamo_trans") → 触发 JNI_OnLoad
- *   4. JNI_OnLoad 中定位 libil2cpp.so → ShadowHook → 翻译管线就绪
+ *   3. Application.attach 后注册生命周期监听，等待首次 Activity resume 返回
+ *   4. 在主线程后续消息中初始化 ShadowHook → 加载 native 库 → nativeStart
+ *   5. nativeStart 的后台线程等待 libil2cpp.so，再安装游戏 Hook
  */
 
 public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
@@ -2498,9 +2503,84 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    Context context = (Context) param.args[0];
-                    initializeTarget(context, lpparam);
+                    if (param.hasThrowable()) {
+                        return;
+                    }
+                    initializeAfterFirstActivityResume(
+                        (Application) param.thisObject,
+                        lpparam
+                    );
                 }
+            }
+        );
+    }
+
+    private static void initializeAfterFirstActivityResume(
+        Application application,
+        LoadPackageParam lpparam
+    ) {
+        Log.initializeGame(application);
+        Log.game(
+            "[HousamoTrans] Application attached; waiting for first Activity resume"
+        );
+        application.registerActivityLifecycleCallbacks(
+            new Application.ActivityLifecycleCallbacks() {
+                @Override
+                public void onActivityResumed(Activity activity) {
+                    try {
+                        // Lifecycle callbacks run on the main thread. Removing
+                        // this listener makes the trigger one-shot, including
+                        // later resumes and Activity recreation.
+                        application.unregisterActivityLifecycleCallbacks(this);
+                        String activityName = activity.getClass().getName();
+                        // onActivityResumed can run inside super.onResume().
+                        // Post to let the entire current resume dispatch return;
+                        // this is not a guarantee of Unity/native readiness.
+                        boolean posted = new Handler(Looper.getMainLooper()).post(() -> {
+                            try {
+                                Log.game(
+                                    "[HousamoTrans] Starting deferred initialization after "
+                                        + "first Activity resume: " + activityName
+                                );
+                                // Retain only Application, never the Activity.
+                                initializeTarget(application, lpparam);
+                            } catch (Throwable failure) {
+                                // This Runnable no longer has Xposed's callback
+                                // exception boundary. Keep Java startup failures
+                                // from escaping into the game's main Looper.
+                                XposedBridge.log(
+                                    "[HousamoTrans] Deferred initialization failed; "
+                                        + "restart the game to retry"
+                                );
+                                XposedBridge.log(failure);
+                            }
+                        });
+                        if (!posted) {
+                            Log.game(
+                                "[HousamoTrans] Deferred initialization was not queued; "
+                                    + "the main Looper is exiting"
+                            );
+                        }
+                    } catch (Throwable failure) {
+                        XposedBridge.log(
+                            "[HousamoTrans] Could not schedule deferred initialization"
+                        );
+                        XposedBridge.log(failure);
+                    }
+                }
+
+                @Override
+                public void onActivityCreated(Activity activity, Bundle state) {}
+                @Override
+                public void onActivityStarted(Activity activity) {}
+                @Override
+                public void onActivityPaused(Activity activity) {}
+                @Override
+                public void onActivityStopped(Activity activity) {}
+                @Override
+                public void onActivitySaveInstanceState(Activity activity, Bundle state) {}
+                @Override
+                public void onActivityDestroyed(Activity activity) {}
             }
         );
     }
@@ -2524,7 +2604,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         if (applicationContext == null) {
             Log.game(
-                "[HousamoTrans] Application context is not ready during attach; "
+                "[HousamoTrans] Application context is not ready during startup; "
                     + "using the base context"
             );
         }
@@ -2550,7 +2630,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             client.bind();
 
             Log.game(
-                "[HousamoTrans] Target application attached, initializing ShadowHook..."
+                "[HousamoTrans] Deferred startup: initializing ShadowHook..."
             );
 
             String chardictJson = readPreferredModuleJson(context, CHARDICT_FILE_NAME);
@@ -2595,7 +2675,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
             s_loaded = true;
             Log.game(
-                "[HousamoTrans] Native hook setup complete. gameVersion="
+                "[HousamoTrans] Native initialization dispatched; Scene port ready. gameVersion="
                     + startup.gameVersion
                     + " targetLanguage="
                     + startup.targetLanguage
