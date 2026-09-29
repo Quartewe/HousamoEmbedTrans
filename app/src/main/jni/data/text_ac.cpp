@@ -43,10 +43,12 @@ public:
 
         int state = 0;
         for (unsigned char ch : patterns_[pattern_id].pattern) {
-            int& next_state = nodes_[state].next[ch];
+            int next_state = nodes_[state].next[ch];
             if (next_state == -1) {
                 next_state = static_cast<int>(nodes_.size());
+                // 扩容可能使节点引用失效，保留编号并在扩容后重新索引。
                 nodes_.emplace_back();
+                nodes_[state].next[ch] = next_state;
             }
             state = next_state;
         }
