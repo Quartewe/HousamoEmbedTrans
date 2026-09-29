@@ -1336,6 +1336,10 @@ public:
         }
     }
 
+    bool HasTargetOfficialTranslation() const {
+        return page_rec_has_target_official_translation_;
+    }
+
     ScenarioParseOutput Run() {
         result_.scene = scenario_.result.scene;
         result_.entry_label = scenario_.result.entry_label;
@@ -1686,7 +1690,7 @@ private:
             LOGW("[ScenarioCatcher] target lang [%s] has no official translation", g_runtime_config.target_lang.c_str());
         }
 
-        if (!page_rec_ && target_column != nullptr) {
+        if (target_column != nullptr) {
             std::string target_lang_text;
             if (!ReadNamedRowStringColumn(cmd_item, target_column, &target_lang_text)) {
                 LOGW("[ScenarioCatcher] scene=%s cannot read table header for %s",
@@ -1694,8 +1698,12 @@ private:
                 return TextStatus::header_unavailable;
             }
             if (!target_lang_text.empty()) {
-                LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
-                return TextStatus::official_translation;
+                if (!page_rec_) {
+                    LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
+                    return TextStatus::official_translation;
+                }
+                // Keep parsing the complete export; only task admission skips it.
+                page_rec_has_target_official_translation_ = true;
             }
         }
 
@@ -1940,6 +1948,7 @@ private:
     const bool page_rec_;
     bool header_logged_ = false; // Owned only by the ordered job submitter.
     int language_mask_ = 0; // PageRec parses synchronously on the hook thread.
+    bool page_rec_has_target_official_translation_ = false; // Same hook-thread ownership.
 
     std::atomic<int> abort_reason_{
         static_cast<int>(AbortReason::none)
@@ -1963,7 +1972,8 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 } // namespace
 
 bool ParsePageRecScene(void* scenario_data, const std::string& entry_label,
-                      Scene* scene, std::vector<std::string>* labels) {
+                      Scene* scene, std::vector<std::string>* labels,
+                      bool* has_target_official_translation) {
     RuntimeScenario scenario;
     if (!ParseScenarioLabels(scenario_data, entry_label, &scenario)) return false;
     BuildLabelOrder(&scenario);
@@ -1973,6 +1983,7 @@ bool ParsePageRecScene(void* scenario_data, const std::string& entry_label,
     *scene = BuildSceneDocument(std::move(output.result));
     scene->raw_lang = runner.RawLanguage();
     *labels = scenario.label_order;
+    *has_target_official_translation = runner.HasTargetOfficialTranslation();
     return true;
 }
 

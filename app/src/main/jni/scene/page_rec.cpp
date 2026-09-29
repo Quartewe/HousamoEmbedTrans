@@ -86,11 +86,17 @@ bool WriteScene(const Scene& scene, std::uint64_t epoch) {
 
 // Called under export_mutex after the export has committed. No managed objects
 // leave the hook; the normal pipeline owns an immutable Scene and its lease.
-bool SubmitExportedScene(Scene scene, std::uint64_t epoch) {
+bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
+                         bool has_target_official_translation) {
     if (!g_runtime_config.enable_page_rec_tasks) return true;
     auto& record = exported_json.at(scene.scene);
     if (record.submitted_epoch == epoch) return IsCurrent(epoch);
     if (!IsCurrent(epoch)) return false;
+    if (has_target_official_translation) {
+        LOGI("[PageRec] task skipped scene=%s reason=official_translation target=%s",
+             scene.scene.c_str(), g_runtime_config.target_lang.c_str());
+        return true;
+    }
     auto lease = EnterSceneProduction(scene.scene);
     if (!lease.allowed()) {
         LOGI("[PageRec] task deferred scene=%s reason=%d",
@@ -170,11 +176,13 @@ void ExportPageRecScenarios(
         if (!attempted.insert(name).second) return;
         Scene scene;
         std::vector<std::string> labels;
-        if (!ParsePageRecScene(data, entry, &scene, &labels) || !WriteScene(scene, epoch)) {
+        bool has_target_official_translation = false;
+        if (!ParsePageRecScene(data, entry, &scene, &labels, &has_target_official_translation)
+            || !WriteScene(scene, epoch)) {
             LOGW("[PageRec] export deferred scene=%s; retry on next lookup", name.c_str());
             return;
         }
-        if (!SubmitExportedScene(std::move(scene), epoch)) {
+        if (!SubmitExportedScene(std::move(scene), epoch, has_target_official_translation)) {
             // Keep initialized labels pending when sync/pause/admission wins.
             return;
         }

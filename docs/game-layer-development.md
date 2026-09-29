@@ -171,6 +171,8 @@ FindScenarioData 返回
 
 官方译文的列号从当前命令的 `RowData -> grid -> rows[headerRow].strings` 即读即取：`en` 对应 `English`，`zh-tw` 对应 `ChineseTraditional`，`zh-cn` 对应 `ChineseSimplified`。不缓存表头或列号，也不保留额外的游戏对象指针；缺列或该行单元格为空时，不因官方译文排除 Scene。表头不可读取时走解析失败，不能将读取失败当作语言缺失。Text 与 Selection 均遵守此规则。PageRec 复用相同的即时列名读取，保持简中、繁中、日文的逐条回退顺序。
 
+PageRec 解析时同时记录是否存在目标语言官方译文，但仍完成整份导出。开启“PageRec 剧情加入翻译任务”后，只要任一 Text 或 Selection 命中目标语言官方译文，就在正常 Scene 保存与任务入口前跳过；已有待翻译 Scene 也不补投。这个标记仅在本次解析和提交间传递，不写入 Scene JSON，也不将官方正文伪装成 HET 已完成译文。此前已生成的任务不自动取消。
+
 ### 顺序与分支
 
 `OrderKey = {label_index, page_no, cmd_index, sub_index}` 是本地对象定位与顺序键。`page_no` 来自游戏页对象，局部解析用的 `page_index` 不能替代它；不同 label 的页号相同不等于 OrderKey 重复。当前方案不重新编号游戏页号。
