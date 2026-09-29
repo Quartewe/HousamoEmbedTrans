@@ -17,24 +17,25 @@
 python tools/wiki/prepare_event_update.py --url "https://housamo.info/news/touroumatsuri2026/" --out-dir build/wiki_character_update/event-official-01
 ```
 
-阅读生成的 `official.md`，必要时对照完整 `official.html`。在同目录写 `pickups.json`。提取动作由 AI 完成，脚本不调用模型、不会把页面里所有人名当作目标。
+阅读生成的 `official.md`，必要时对照完整 `official.html`。卡片资料就是同目录 `pickups.json` 的内容，优先从官网的 pickup 名单及对应角色介绍提取。提取动作由 AI 完成，脚本不调用模型、不会把页面里所有人名当作目标。
 
 - 根据活动标题选择对应召唤的 `ピックアップ対象`，同时读完紧随列表的补充说明。不要漏掉新皮肤三星的追加 pickup，也不要混入其他复刻卡池、泳装持有者总表、掉落加成名单或 AR。
 - 清单的 `name` 使用小写罗马字／拉丁字母拼写，方便用户搜索解包资源；`ja` 保留角色日文原名，供 Wiki 查询及 CharDict 定位。已有明确资源拼写时沿用，例如 `tasaburo`、`ophion`、`tuershen`；没有资源时提供有依据的搜索用拼写，不声称已验证它是实际解包键。无需等待用户下载资源，也无需先核验 MAH 索引。
 - 一名角色不同星级／卡面分别保存；例如 `★３ ＆ ★４` 产生两条记录。用 `variant` 区分通常版与具体活动限定版，不能把限定卡属性用于该角色三星卡。
-- 保存页面明确给出的日文属性；官方没写的三星属性用 `null`，抓取 Wiki 后从通常三星的基本信息表补齐，另存 `pickups.resolved.json`，`element_source` 标明实际 Wiki URL。未知不猜，不能用 MAH 的旧值假装已经在 Wiki 核验。
+- 保存官网明确给出的属性，`element_source` 记为 `official`；官网未提供时，属性及其来源用 `null`。不为补齐卡片资料自动抓 Wiki，也不使用 MAH 的旧值填充缺失字段。
+- 读取对应角色介绍下方的「武器タイプ／武器类型」字段，将其值原样写入卡片的 `weapon_type`，并在交付的卡片明细中一同输出；页面未提供时用 `null`。
 - `official_source.json` 保存官方来源与抓取时间；不要手改抓取结果来伪装来源。
 
 `pickups.json` 格式：
 
 ```json
 {
-  "source_url": "https://housamo.info/news/touroumatsuri2026/",
+  "source_url": "https://housamo.info/news/summerreincarnation2026/",
   "cards": [
-    {"name": "tasaburo", "ja": "タサブロウ", "rarity": 3, "element": "天", "variant": "通常", "element_source": "official"},
-    {"name": "tasaburo", "ja": "タサブロウ", "rarity": 4, "element": "天", "variant": "通常", "element_source": "official"},
-    {"name": "ophion", "ja": "オピオーン", "rarity": 5, "element": "世界", "variant": "夢の島の灯籠祭", "element_source": "official"},
-    {"name": "ophion", "ja": "オピオーン", "rarity": 3, "element": null, "variant": "通常", "element_source": null}
+    {"name": "bassareus", "ja": "バサレウス", "rarity": 3, "element": "木", "weapon_type": "魔法", "variant": "通常", "element_source": "official"},
+    {"name": "bassareus", "ja": "バサレウス", "rarity": 4, "element": "木", "weapon_type": "魔法", "variant": "通常", "element_source": "official"},
+    {"name": "sanzo", "ja": "サンゾウ", "rarity": 5, "element": "英雄", "weapon_type": "斬撃", "variant": "転生したら夏のマモノでした！？", "element_source": "official"},
+    {"name": "sanzo", "ja": "サンゾウ", "rarity": 3, "element": null, "weapon_type": null, "variant": "通常", "element_source": null}
   ]
 }
 ```
@@ -51,13 +52,13 @@ python tools/wiki/prepare_character_update.py --names "タサブロウ" "オピ�
 
 AI 先定位角色通常三星卡及其标准角色键，再读取该角色页面的全部调查文件；通常版共用三星／四星或三星／五星资料不拆成两个角色。找不到三星或名字不能对应时报告，不能自动改查某张同名限定卡。
 
-新增与更新以 **CharDict 是否已有该角色键** 为准：不存在则新增、语言值留空；存在则更新有来源的字段，保留语言值和别名。星级、属性、卡面编号保存在独立卡片清单，不能加入 CharDict 角色结构。Wiki 调查文件仍为空模板时，标注缺失；可以引用本批官方已公开资料并注明来源，不可以自行补写未公开的解锁文本。
+新增与更新以 **CharDict 是否已有该角色键** 为准：不存在则新增、语言值留空；存在则更新有来源的字段，保留语言值和别名。星级、属性、武器类型、卡面编号保存在独立卡片清单，不能加入 CharDict 角色结构。Wiki 调查文件仍为空模板时，标注缺失；可以引用本批官方已公开资料并注明来源，不可以自行补写未公开的解锁文本。
 
 ### 解包资源由用户后续处理
 
 本阶段把含 `name` / `ja` 的清单交给用户，用于下载和搜索解包资源即可。不要自动访问或修改 `mah_res`，不生成资源映射、卡面编号或索引候选，不运行合并、提交或发布脚本。
 
-用户后续明确要求对接资源时，再根据实际解包文件确认标识：搜索用 `name` 不保证等于真实资源键，卡面 `01/02/03/...` 也不等于星级。此时再核对武器类型、属性枚举和资源路径，不把这些工作作为当前名单交付的前置条件。
+用户后续明确要求对接资源时，再根据实际解包文件确认标识：搜索用 `name` 不保证等于真实资源键，卡面 `01/02/03/...` 也不等于星级。此时再核对属性枚举和资源路径，不把这些工作作为当前名单交付的前置条件。
 
 ## 3. 抓取本次原始资料（直接角色名单入口）
 

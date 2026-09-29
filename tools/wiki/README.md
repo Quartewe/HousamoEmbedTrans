@@ -2,6 +2,12 @@
 
 正式操作步骤以 [WORKFLOW.md](WORKFLOW.md) 为准。使用现有 Python 3.10+ 和标准库，从仓库根目录执行。
 
+## Skill 入口
+
+- [`het-wiki`](../../.agents/skills/het-wiki/SKILL.md)：Wiki 角色原文提取、候选 JSON、预览及按授权写入，调用 `$het-wiki`。
+
+该 skill 复用本目录工具和 `WORKFLOW.md`；官方活动 pickup 名单按工作流第 2 节处理，不复制脚本或另建字段规范。
+
 ## 当前入口
 
 | 脚本 | 输入 | 输出 / 用途 |
