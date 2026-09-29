@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings_field_pending_summary_mode">同上下文前序剧情缺少摘要时</string>
-    <string name="settings_field_hint_pending_summary_mode">等待：沿用现有等待规则。不等待：只发送已有摘要。发送原文：补充当前剧情之前所有缺少摘要的完整原文。找不到原文或超过上下文上限时提示处理；不包含后续剧情。</string>
+    <string name="settings_field_hint_pending_summary_mode">所需近期摘要不全时，有手动摘要就只发送手动摘要。没有手动摘要时：等待仅等待正在排队或运行的前序任务，没有可等待任务则提示处理；不等待直接提示缺失；发送原文补充当前剧情之前所有缺少摘要的完整原文。找不到原文或超过上下文上限时提示处理；不包含后续剧情。</string>
     <string name="settings_option_summary_wait">等待</string>
     <string name="settings_option_summary_skip">不等待</string>
     <string name="settings_option_summary_original">发送所有未产生总结的完整原文</string>

@@ -215,10 +215,16 @@ public final class ContextHistoryPreparer {
             }
             JSONObject currentHistory = resolution.getPayload().toJson()
                 .optJSONObject("current_context_summary");
-            if (currentHistory != null && ("pending_originals".equals(currentHistory.optString("source"))
-                || "available_summaries".equals(currentHistory.optString("source")))) {
-                // Incomplete summary sources must not produce a compressed summary checkpoint.
-                requestContextSummary = false;
+            if (currentHistory != null) {
+                String source = currentHistory.optString("source", "");
+                JSONArray historyScenes = currentHistory.optJSONArray("scenes");
+                boolean manualOnlyFallback = "manual".equals(source)
+                    && historyScenes != null && historyScenes.length() == 0;
+                // Missing Scene summaries must not become a complete automatic checkpoint,
+                // even when ContinueAutoSummaryAfterManual is enabled.
+                if ("pending_originals".equals(source) || manualOnlyFallback) {
+                    requestContextSummary = false;
+                }
             }
             return HistoryPreparation.ready(
                 contextId,

@@ -203,7 +203,11 @@ public final class HistoryResolver {
                 HistoryPayload.of(payload)
             );
         } catch (MissingSceneException e) {
-            boolean hasProducer = options.sceneSummaryProducer != null
+            // The pending-summary setting only changes the current Context.
+            boolean mayWait = e.context != currentContext
+                || !"skip".equals(options.pendingSummaryMode);
+            boolean hasProducer = mayWait
+                && options.sceneSummaryProducer != null
                 && options.sceneSummaryProducer.hasProducer(
                     e.context,
                     e.scene,
@@ -255,7 +259,36 @@ public final class HistoryResolver {
         int currentIndex,
         Options options
     ) throws MissingSceneException, JSONException {
-        if (!"wait".equals(options.pendingSummaryMode)) {
+        JSONObject langObject = languageObject(
+            context.optJSONObject("summary"),
+            lang
+        );
+        String manual = manualText(langObject);
+        if (manual != null) {
+            JSONArray scenes;
+            try {
+                scenes = sceneSummariesAfterCutoffWithRecentWindow(
+                    context,
+                    lang,
+                    currentIndex,
+                    currentIndex,
+                    retentionK(context, options)
+                );
+            } catch (MissingSceneException e) {
+                if (e.scene.isEmpty()) {
+                    throw e;
+                }
+                // Manual history remains usable when the recent window is
+                // incomplete. Discard the entire window, not individual gaps.
+                scenes = new JSONArray();
+            }
+            return new JSONObject()
+                .put("source", "manual")
+                .put("summary", manual)
+                .put("scenes", scenes);
+        }
+
+        if ("original".equals(options.pendingSummaryMode)) {
             JSONArray entries = context.optJSONArray("scenes");
             boolean missing = false;
             for (int i = 0; entries != null && i < currentIndex; i++) {
@@ -274,7 +307,7 @@ public final class HistoryResolver {
                         SceneSummaryResolver.resolve(entry.optJSONObject("summaries"), lang);
                     if (summary != null) {
                         history.put(new JSONObject().put("scene", scene).put("summary", summary.text));
-                    } else if ("original".equals(options.pendingSummaryMode)) {
+                    } else {
                         try {
                             if (options.sceneOriginalLoader == null) {
                                 throw new IllegalStateException("Scene original loader is unavailable");
@@ -290,15 +323,10 @@ public final class HistoryResolver {
                     }
                 }
                 JSONObject output = new JSONObject()
-                    .put("source", "original".equals(options.pendingSummaryMode)
-                        ? "pending_originals" : "available_summaries")
+                    .put("source", "pending_originals")
                     .put("scenes", history);
-                JSONObject summaryLanguage = languageObject(context.optJSONObject("summary"), lang);
-                String manual = manualText(summaryLanguage);
-                if (manual != null) {
-                    output.put("summary", manual);
-                } else if (options.autoCompression && summaryLanguage != null) {
-                    JSONObject compressed = summaryLanguage.optJSONObject("current");
+                if (options.autoCompression && langObject != null) {
+                    JSONObject compressed = langObject.optJSONObject("current");
                     String cutoff = compressed == null ? "" : compressed.optString("cutoff", "");
                     int cutoffIndex = findEntryIndex(context, cutoff);
                     if (compressed != null && cutoffIndex >= 0 && cutoffIndex < currentIndex
@@ -308,28 +336,6 @@ public final class HistoryResolver {
                 }
                 return output;
             }
-        }
-        JSONObject langObject = languageObject(
-            context.optJSONObject("summary"),
-            lang
-        );
-        String manual = manualText(langObject);
-        if (manual != null) {
-            int k = retentionK(context, options);
-            // Manual text replaces only the compressed prefix.  The
-            // independent recent-window contract still carries the last K
-            // complete Scene summaries before the current Scene.
-            JSONArray scenes = sceneSummariesAfterCutoffWithRecentWindow(
-                context,
-                lang,
-                currentIndex,
-                currentIndex,
-                k
-            );
-            return new JSONObject()
-                .put("source", "manual")
-                .put("summary", manual)
-                .put("scenes", scenes);
         }
 
         JSONObject current = langObject == null
