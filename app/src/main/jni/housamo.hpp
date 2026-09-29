@@ -180,9 +180,6 @@ struct AdvCommandJumpLayoutConfig {
 
 struct TextColumnsConfig {
     int raw = 0;
-    int en = 0;
-    int zh_tw = 0;
-    int zh_cn = 0;
 };
 
 // Java层传入的配置结构体

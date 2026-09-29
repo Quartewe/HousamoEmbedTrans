@@ -1389,9 +1389,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         private static final class TextColumnsLayout {
             int raw = 0;
-            int en = 0;
-            int zhTw = 0;
-            int zhCn = 0;
         }
     }
 
@@ -1661,9 +1658,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         JSONObject textColumns = layoutConfig.getJSONObject("TextColumns");
         layout.textColumns.raw = getConfigInt(textColumns, "Raw");
-        layout.textColumns.en = getConfigInt(textColumns, "En");
-        layout.textColumns.zhTw = getConfigInt(textColumns, "ZhTw");
-        layout.textColumns.zhCn = getConfigInt(textColumns, "ZhCn");
 
         return layout;
     }

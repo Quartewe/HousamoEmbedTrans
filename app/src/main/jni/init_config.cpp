@@ -133,9 +133,6 @@ bool valid_layout_config(const LayoutConfig& config) {
     const ColumnField columns[] = {
         {"adv_command_jump.condition_column", config.adv_command_jump.condition_column},
         {"text_columns.raw", config.text_columns.raw},
-        {"text_columns.en", config.text_columns.en},
-        {"text_columns.zh_tw", config.text_columns.zh_tw},
-        {"text_columns.zh_cn", config.text_columns.zh_cn},
     };
 
     for (const ColumnField& field : columns) {
@@ -145,17 +142,6 @@ bool valid_layout_config(const LayoutConfig& config) {
         } else {
             LOGI("valid layout column: %s = %d", field.name, field.value);
         }
-    }
-
-    if (!(config.text_columns.raw < config.text_columns.en
-        && config.text_columns.en < config.text_columns.zh_tw
-        && config.text_columns.zh_tw < config.text_columns.zh_cn)) {
-        LOGE("invalid text column order: raw=%d en=%d zh_tw=%d zh_cn=%d",
-             config.text_columns.raw,
-             config.text_columns.en,
-             config.text_columns.zh_tw,
-             config.text_columns.zh_cn);
-        all_valid = false;
     }
 
     return all_valid;

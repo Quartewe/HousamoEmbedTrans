@@ -1,6 +1,6 @@
 # Frida 调查脚本
 
-保留三个观察脚本，RVA、对象字段偏移和文本列号统一读取本地 `app/src/main/assets/runtime.json`，不再内置某个版本的地址。先生成独立脚本，再交给 Frida 加载；Android 端不需要访问 Windows 文件路径。
+保留三个观察脚本，RVA、对象字段偏移和原文列号统一读取本地 `app/src/main/assets/runtime.json`，不再内置某个版本的地址。官方译文列号按当前表头名称即时查找。先生成独立脚本，再交给 Frida 加载；Android 端不需要访问 Windows 文件路径。
 
 | 脚本 | 用途 |
 | --- | --- |

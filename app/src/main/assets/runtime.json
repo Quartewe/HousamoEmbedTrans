@@ -96,10 +96,7 @@
                 "ConditionColumn": 2
             },
             "TextColumns": {
-                "Raw": 8,
-                "En": 11,
-                "ZhTw": 12,
-                "ZhCn": 13
+                "Raw": 8
             }
         }
     }

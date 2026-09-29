@@ -99,7 +99,7 @@ FindScenarioData(entry_label)
 
 | 命令 | 数据路径与用途 |
 | --- | --- |
-| `Text` | `RowData.Strings[TextColumns.Raw]` 取正文，其他语言列取官方译文 |
+| `Text` | `RowData.Strings[TextColumns.Raw]` 取原文；官方译文从当前行所属表的表头按语言名称即时查找列号 |
 | `Character` | `CharacterInfo -> NameText` 取显示说话人，不从素材/立绘列猜名字 |
 | `CharacterOff` | 清空当前说话人；空说话人表示旁白 |
 | `Selection` | RowData 取选项文本，`JumpLabel` 关联后续 label |
@@ -148,7 +148,7 @@ FindScenarioData(entry_label)
 | `AdvCommandCharacter` | `CharacterInfo=0x38`；`NameText=0x18` |
 | `AdvCommandSelection` | `JumpLabel=0x38` |
 | `AdvCommandJump` | `JumpLabel=0x38`；`ExpressionParser=0x40`；`ConditionColumn=2` |
-| `TextColumns` | `Raw=8`；`En=11`；`ZhTw=12`；`ZhCn=13` |
+| `TextColumns` | 仅保留 `Raw=8`，用于原文提取和回写；官方语言列按当前表头名称即时查找 |
 
 ## 4. 从捕获到翻译请求
 
@@ -168,6 +168,8 @@ FindScenarioData 返回
 ```
 
 解析先区分成功、官方译文跳过与失败，再提交回写目标集。按现有规则，只要任意被解析文本命中目标语言官方译文，就跳过该剧情。`CatchScenario` 还维护当前进程的 `caught_scenarios` 捕获记录；磁盘状态分流不意味着完全没有内存去重。
+
+官方译文的列号从当前命令的 `RowData -> grid -> rows[headerRow].strings` 即读即取：`en` 对应 `English`，`zh-tw` 对应 `ChineseTraditional`，`zh-cn` 对应 `ChineseSimplified`。不缓存表头或列号，也不保留额外的游戏对象指针；缺列或该行单元格为空时，不因官方译文排除 Scene。表头不可读取时走解析失败，不能将读取失败当作语言缺失。Text 与 Selection 均遵守此规则。PageRec 复用相同的即时列名读取，保持简中、繁中、日文的逐条回退顺序。
 
 ### 顺序与分支
 

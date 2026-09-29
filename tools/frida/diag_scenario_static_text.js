@@ -57,7 +57,6 @@ const OFF = {
 
 const TEXT_COL = {
   raw: runtimeNumber('Layout.TextColumns.Raw'),
-  zhCn: runtimeNumber('Layout.TextColumns.ZhCn'),
 };
 
 const MAX_TEXT_LINES = 1600;
@@ -66,6 +65,7 @@ const MAX_PAGES_PER_LABEL = 512;
 const MAX_COMMANDS_PER_PAGE = 4096;
 
 let gBase = null;
+let gridFields = null;
 let gSeq = 0;
 let gTextLines = 0;
 const dumpedScenarios = new Set();
@@ -130,6 +130,35 @@ function readRowColumn(row, column) {
   if (column < 0 || len <= column || len > 256) return '';
 
   return readStr(rp(strings, OFF.array_first + column * Process.pointerSize));
+}
+
+function readGridField(object, name, integer = false) {
+  if (!valid(object)) throw new Error('Invalid grid object');
+  const field = gridFields.findField(gridFields.objectClass(object), Memory.allocUtf8String(name));
+  if (!valid(field)) throw new Error('Missing grid field: ' + name);
+  const value = Memory.alloc(Process.pointerSize);
+  gridFields.fieldValue(object, field, value);
+  return integer ? value.readS32() : value.readPointer();
+}
+
+function readNamedRowColumn(row, columnName) {
+  try {
+    const grid = readGridField(row, 'grid');
+    const rows = readList(readGridField(grid, 'rows'));
+    const header = listElem(rows, readGridField(grid, 'headerRow', true));
+    const strings = readGridField(header, 'strings');
+    const count = ri(strings, OFF.array_len);
+    if (count <= 0 || count > 256) throw new Error('Invalid table header');
+    for (let i = 0; i < count; i++) {
+      if (readStr(rp(strings, OFF.array_first + i * Process.pointerSize)) === columnName) {
+        return readRowColumn(row, i);
+      }
+    }
+    return '';
+  } catch (error) {
+    console.log('[table_header] ' + error.message);
+    return null;
+  }
 }
 
 function labelName(labelData) {
@@ -252,9 +281,10 @@ function dumpPageText(label, pageData) {
 
     if (type === 'Text') {
       const raw = readRowColumn(row, TEXT_COL.raw);
-      const zh = readRowColumn(row, TEXT_COL.zhCn);
+      const zh = readNamedRowColumn(row, 'ChineseSimplified');
       textCount++;
-      dumpTextLine('TEXT', label, pageNo, i, speaker, raw, zh ? ' zhCn=HAS' : '');
+      dumpTextLine('TEXT', label, pageNo, i, speaker, raw,
+        zh === null ? ' zhCn=UNKNOWN' : (zh ? ' zhCn=HAS' : ''));
       continue;
     }
 
@@ -368,6 +398,11 @@ function install() {
 
   gBase = module.base;
   console.log(`[+] libil2cpp base=${gBase}`);
+  gridFields = {
+    objectClass: new NativeFunction(module.getExportByName('il2cpp_object_get_class'), 'pointer', ['pointer']),
+    findField: new NativeFunction(module.getExportByName('il2cpp_class_get_field_from_name'), 'pointer', ['pointer', 'pointer']),
+    fieldValue: new NativeFunction(module.getExportByName('il2cpp_field_get_value'), 'void', ['pointer', 'pointer', 'pointer']),
+  };
 
   hookRva('AdvDataManager.FindScenarioData', RVA.DataManagerFindScenarioData, {
     onEnter(args) {

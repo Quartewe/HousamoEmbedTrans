@@ -255,9 +255,9 @@ static std::string ReadRowStringColumn(void* cmd_item, int column_index) {
     return read_il2cpp_string(text_ptr);
 }
 
-// Resolve field names from the loaded game's metadata instead of adding
-// version-specific StringGrid offsets just for diagnostics.
-static bool ReadDiagnosticField(void* object, const char* name, void* value) {
+// Resolve field names from the loaded game's metadata. Only API entry points
+// are cached; table objects and column indices stay local to each read.
+static bool ReadGridField(void* object, const char* name, void* value) {
     struct FieldApi {
         using ObjectClass = void* (*)(void*);
         using FindField = void* (*)(void*, const char*);
@@ -289,34 +289,58 @@ static bool ReadDiagnosticField(void* object, const char* name, void* value) {
     return true;
 }
 
-static void LogStoryTableHeader(void* command, const std::string& scene) {
+static void* ReadStoryTableHeader(void* command, int* header_index) {
     void* row = read_ptr(command, g_runtime_config.layout.adv_command.row_data);
     void* grid = nullptr;
     void* rows = nullptr;
-    int header_index = -1;
-    if (!ReadDiagnosticField(row, "grid", &grid)
-        || !ReadDiagnosticField(grid, "rows", &rows)
-        || !ReadDiagnosticField(grid, "headerRow", &header_index)) {
-        LOGW("[ScenarioCatcher] table_header scene=%s unavailable: grid fields", scene.c_str());
-        return;
+    if (!ReadGridField(row, "grid", &grid)
+        || !ReadGridField(grid, "rows", &rows)
+        || !ReadGridField(grid, "headerRow", header_index)) {
+        return nullptr;
     }
     ListView row_list = ReadList(rows, 1000000);
-    void* header = ListElement(row_list, header_index);
+    void* header = ListElement(row_list, *header_index);
     void* strings = nullptr;
-    if (!ReadDiagnosticField(header, "strings", &strings) || !valid_ptr(strings)) {
-        LOGW("[ScenarioCatcher] table_header scene=%s unavailable: headerRow=%d",
-             scene.c_str(), header_index);
-        return;
+    if (!ReadGridField(header, "strings", &strings) || !valid_ptr(strings)) {
+        return nullptr;
     }
+    return strings;
+}
+
+// A missing language column is a successful empty read. An unreadable header
+// is a parse failure, never a reason to assume there is no official text.
+static bool ReadNamedRowStringColumn(
+    void* command, const char* column_name, std::string* text) {
+    text->clear();
+    int header_index = -1;
+    void* strings = ReadStoryTableHeader(command, &header_index);
+    if (!valid_ptr(strings)) return false;
     const auto& array = g_runtime_config.layout.il2cpp_array;
     int count = read_int(strings, array.length);
-    if (count < 0 || count > 4096) {
-        LOGW("[ScenarioCatcher] table_header scene=%s invalid column count=%d", scene.c_str(), count);
+    if (count <= 0 || count > 4096) return false;
+    for (int index = 0; index < count; ++index) {
+        std::string name = read_il2cpp_string(
+            read_ptr(strings, array.first_element + index * array.pointer_size));
+        if (name == column_name) {
+            *text = ReadRowStringColumn(command, index);
+            return true;
+        }
+    }
+    return true;
+}
+
+static void LogStoryTableHeader(void* command, const std::string& scene) {
+    int header_index = -1;
+    void* strings = ReadStoryTableHeader(command, &header_index);
+    const auto& array = g_runtime_config.layout.il2cpp_array;
+    int count = read_int(strings, array.length);
+    if (count <= 0 || count > 4096) {
+        LOGW("[ScenarioCatcher] table_header scene=%s unavailable: headerRow=%d count=%d",
+             scene.c_str(), header_index, count);
         return;
     }
-    const auto& columns = g_runtime_config.layout.text_columns;
-    LOGI("[ScenarioCatcher] table_header scene=%s headerRow=%d count=%d configured Raw=%d En=%d ZhTw=%d ZhCn=%d",
-         scene.c_str(), header_index, count, columns.raw, columns.en, columns.zh_tw, columns.zh_cn);
+    LOGI("[ScenarioCatcher] table_header scene=%s headerRow=%d count=%d configured Raw=%d language_columns=by_name",
+         scene.c_str(), header_index, count, g_runtime_config.layout.text_columns.raw);
     for (int index = 0; index < count; ++index) {
         std::string name = read_il2cpp_string(
             read_ptr(strings, array.first_element + index * array.pointer_size));
@@ -1365,6 +1389,7 @@ private:
         ok,
         empty,
         official_translation,
+        header_unavailable,
     };
 
     void StartWorkers() {
@@ -1649,20 +1674,25 @@ private:
             return TextStatus::empty;
         }
         const auto& columns = g_runtime_config.layout.text_columns;
-        int target_lang = 0;
+        const char* target_column = nullptr;
 
         if (g_runtime_config.target_lang == "en") {
-            target_lang = columns.en;
+            target_column = "English";
         } else if (g_runtime_config.target_lang == "zh-tw") {
-            target_lang = columns.zh_tw;
+            target_column = "ChineseTraditional";
         } else if (g_runtime_config.target_lang == "zh-cn") {
-            target_lang = columns.zh_cn;
+            target_column = "ChineseSimplified";
         } else {
             LOGW("[ScenarioCatcher] target lang [%s] has no official translation", g_runtime_config.target_lang.c_str());
         }
 
-        if (!page_rec_ && target_lang != 0) {
-            std::string target_lang_text = ReadRowStringColumn(cmd_item, target_lang);
+        if (!page_rec_ && target_column != nullptr) {
+            std::string target_lang_text;
+            if (!ReadNamedRowStringColumn(cmd_item, target_column, &target_lang_text)) {
+                LOGW("[ScenarioCatcher] scene=%s cannot read table header for %s",
+                     scenario_.result.scene.c_str(), target_column);
+                return TextStatus::header_unavailable;
+            }
             if (!target_lang_text.empty()) {
                 LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
                 return TextStatus::official_translation;
@@ -1671,10 +1701,18 @@ private:
 
         std::string raw_text;
         if (page_rec_) {
-            raw_text = ReadRowStringColumn(cmd_item, columns.zh_cn);
+            if (!ReadNamedRowStringColumn(cmd_item, "ChineseSimplified", &raw_text)) {
+                LOGW("[ScenarioCatcher] scene=%s cannot read PageRec table header",
+                     scenario_.result.scene.c_str());
+                return TextStatus::header_unavailable;
+            }
             int language = 1;
             if (raw_text.empty()) {
-                raw_text = ReadRowStringColumn(cmd_item, columns.zh_tw);
+                if (!ReadNamedRowStringColumn(cmd_item, "ChineseTraditional", &raw_text)) {
+                    LOGW("[ScenarioCatcher] scene=%s cannot read PageRec table header",
+                         scenario_.result.scene.c_str());
+                    return TextStatus::header_unavailable;
+                }
                 language = 2;
             }
             if (raw_text.empty()) {
@@ -1796,6 +1834,9 @@ private:
                 OrderKey order = {result.label_index, page_no, i, 0};
 
                 TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text, page_data);
+                if (status == TextStatus::header_unavailable) {
+                    return result;
+                }
                 if (status == TextStatus::official_translation) {
                     result.official_translation = true;
                     return result;
@@ -1820,6 +1861,9 @@ private:
                 OrderKey order = {result.label_index, page_no, i, static_cast<int>(ChoiceOptionCount(pending_choice))};
 
                 TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text, page_data);
+                if (status == TextStatus::header_unavailable) {
+                    return result;
+                }
                 if (status == TextStatus::official_translation) {
                     result.official_translation = true;
                     return result;

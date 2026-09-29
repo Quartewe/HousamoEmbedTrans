@@ -282,9 +282,6 @@ static LayoutConfig jcls_to_layoutconfig(JNIEnv* env, jobject layoutObj) {
 
     jobject text_columns = get_object_field(env, layoutObj, "textColumns", kTextColumnsSig);
     out.text_columns.raw = get_int_field(env, text_columns, "raw");
-    out.text_columns.en = get_int_field(env, text_columns, "en");
-    out.text_columns.zh_tw = get_int_field(env, text_columns, "zhTw");
-    out.text_columns.zh_cn = get_int_field(env, text_columns, "zhCn");
     if (text_columns != nullptr) env->DeleteLocalRef(text_columns);
 
     return out;

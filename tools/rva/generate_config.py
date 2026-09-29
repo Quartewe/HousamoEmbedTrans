@@ -24,12 +24,10 @@ GAME_VERSION = "5.19.0"
 INPUT_PATH = r"D:\Code\HET_RVA_GetFlow\apk\Il2CppDumper-win-v6.7.46\dump.cs"
 OUTPUT_PATH = r"D:\Code\HousamoEmbedTrans\app\src\main\assets\runtime.json"
 
-# These are table columns, not C# field offsets. Verify them after game updates.
+# The raw text column is used for extraction/writeback. Language columns are
+# resolved from each table's header at read time, not emitted as fixed indices.
 TEXT_COLUMNS = {
     "Raw": 8,
-    "En": 9,
-    "ZhTw": 10,
-    "ZhCn": 11,
 }
 
 
