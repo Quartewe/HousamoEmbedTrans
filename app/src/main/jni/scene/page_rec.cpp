@@ -16,7 +16,7 @@ namespace {
 std::mutex labels_mutex;
 std::unordered_map<std::string, std::uint64_t> pending_labels;
 std::uint64_t revision = 0;
-// Managed objects are never queued to another thread.
+// Export and task admission are serialized; only QuestWriter retains targets.
 std::mutex export_mutex;
 struct ExportRecord {
     std::string json;
@@ -84,13 +84,13 @@ bool WriteScene(const Scene& scene, std::uint64_t epoch) {
     return true;
 }
 
-// Called under export_mutex after the export has committed. No managed objects
-// leave the hook; the normal pipeline owns an immutable Scene and its lease.
+// Called under export_mutex after the export has committed. Only QuestWriter
+// receives non-owning targets; the pipeline owns an immutable Scene and its lease.
 bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
-                         bool has_target_official_translation) {
+                         bool has_target_official_translation,
+                         const QuestTargetSet& target_set) {
     if (!g_runtime_config.enable_page_rec_tasks) return true;
     auto& record = exported_json.at(scene.scene);
-    if (record.submitted_epoch == epoch) return IsCurrent(epoch);
     if (!IsCurrent(epoch)) return false;
     if (has_target_official_translation) {
         LOGI("[PageRec] task skipped scene=%s reason=official_translation target=%s",
@@ -104,11 +104,20 @@ bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
         return false;
     }
     const std::string name = scene.scene;
+    if (!IsCurrent(epoch) || !SubmitQuestTargetSet(name, target_set)) return false;
+    const auto status = GetSceneFileStatus(name);
+    // Refresh targets on every lookup. Admission dedup must not suppress an
+    // already completed Scene's display after re-entry or a missed live patch.
+    if (status != SceneFileStatus::complete && record.submitted_epoch == epoch) {
+        return IsCurrent(epoch);
+    }
+    if (!IsCurrent(epoch)) return false;
     bool admitted = false;
-    switch (GetSceneFileStatus(name)) {
+    switch (status) {
         case SceneFileStatus::complete:
-            // PageRec does not register Quest targets or enable game writeback.
-            admitted = true;
+            admitted = SubmitSceneToWriter(name, g_runtime_config.target_lang);
+            LOGI("[PageRec] completed Scene writeback queued=%d scene=%s",
+                 admitted ? 1 : 0, name.c_str());
             break;
         case SceneFileStatus::pending:
             admitted = SubmitExistingScene(name, epoch);
@@ -175,14 +184,17 @@ void ExportPageRecScenarios(
         // once on the next lookup, not once per label in the same sweep.
         if (!attempted.insert(name).second) return;
         Scene scene;
+        QuestTargetSet target_set;
         std::vector<std::string> labels;
         bool has_target_official_translation = false;
-        if (!ParsePageRecScene(data, entry, &scene, &labels, &has_target_official_translation)
+        if (!ParsePageRecScene(data, entry, &scene, &labels,
+                               &has_target_official_translation, &target_set)
             || !WriteScene(scene, epoch)) {
             LOGW("[PageRec] export deferred scene=%s; retry on next lookup", name.c_str());
             return;
         }
-        if (!SubmitExportedScene(std::move(scene), epoch, has_target_official_translation)) {
+        if (!SubmitExportedScene(std::move(scene), epoch,
+                                 has_target_official_translation, target_set)) {
             // Keep initialized labels pending when sync/pause/admission wins.
             return;
         }

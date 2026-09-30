@@ -194,7 +194,7 @@ bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config) {
     }
     LOGI("shadowhook FindScenarioData success stub=%p", StubFindScenarioData);
 
-    if (!config.enable_page_rec_debug) {
+    if (!config.enable_page_rec_debug || config.enable_page_rec_tasks) {
         void* targetPageTextChange = reinterpret_cast<void*>(
             il2cpp_base + config.rva.page_text_change
         );
@@ -239,12 +239,15 @@ bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config) {
             return false;
         }
         LOGI("shadowhook SelectionInit success stub=%p", StubSelectionInit);
+    }
 
+    if (!config.enable_page_rec_debug) {
         LOGI("[PageRec] export mode disabled");
         return true;
     }
 
-    // 纯导出模式：只安装初始化记录 hook，不安装游戏画面回写观察 hook。
+    LOGI("[PageRec] game writeback enabled=%d", config.enable_page_rec_tasks ? 1 : 0);
+    // PageRec 始终记录初始化 label；加入任务时同时启用上面的显示观察 hook。
     void* targetBase = reinterpret_cast<void*>(il2cpp_base + config.rva.init_base);
     void* targetText = reinterpret_cast<void*>(il2cpp_base + config.rva.init_text);
 

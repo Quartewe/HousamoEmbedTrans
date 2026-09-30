@@ -121,7 +121,7 @@
     <string name="settings_field_low_term_score">次要角色术语门槛</string>
     <string name="settings_field_enable_page_rec_debug">PageRec 剧情导出</string>
     <string name="settings_field_enable_page_rec_tasks">PageRec 剧情加入翻译任务</string>
-    <string name="settings_field_hint_enable_page_rec_tasks">仅在 PageRec 剧情导出开启时生效。将新导出的剧情送入正常 Scene 保存和任务提交链路，使用当前目标语言；已有完整译文不重复提交，已有 Scene 沿用现有内容。仅解析诊断仍会阻止翻译请求。可能为多个已加载剧情创建任务，需重启游戏生效。</string>
+    <string name="settings_field_hint_enable_page_rec_tasks">仅在 PageRec 剧情导出开启时生效。将导出的剧情送入正常 Scene 保存和任务链路，并开启游戏画面回写；已有目标语言官方译文的剧情跳过。已有完整译文直接回写，已有 Scene 沿用现有内容；新翻译完成后回写，流式块沿用现有回写设置。仅解析诊断仍阻止翻译请求。可能为多个已加载剧情创建任务，需重启游戏生效。</string>
     <string name="settings_field_enable_parse_only_debug">启用仅解析诊断</string>
     <string name="settings_field_enable_failed_api_response_dump">保存失败响应诊断</string>
     <string name="settings_field_hint_protocol">选择兼容的翻译服务协议。</string>

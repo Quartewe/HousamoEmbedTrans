@@ -274,6 +274,15 @@ public:
         }
         RecordCompletionReceipt(request_id, scene_name, target_lang);
         LOGI("[NativeTranslationPipeline] final result committed requestId=%s scene=%s target=%s translations=%zu", request_id.c_str(), request->scene_name.c_str(), result.target_lang.c_str(), result.translations.size());
+        if (g_runtime_config.enable_page_rec_debug && g_runtime_config.enable_page_rec_tasks) {
+            // Rebuild from the committed Scene so non-streaming results and
+            // replayed completions do not depend on a live patch/request cache.
+            // This only queues values; Unity's existing writer owns application.
+            // A display failure must not undo the durable result or its ACK.
+            const bool queued = SubmitSceneToWriter(scene_name, target_lang);
+            LOGI("[PageRec] final result writeback queued=%d requestId=%s scene=%s",
+                 queued ? 1 : 0, request_id.c_str(), scene_name.c_str());
+        }
         return true;
     }
 

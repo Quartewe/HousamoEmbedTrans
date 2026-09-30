@@ -1377,6 +1377,9 @@ public:
              total_stats_.jump,
              result_.scene_items.size());
 
+        // Export remains complete even if task-mode targets are ambiguous.
+        // An empty map prevents task/writeback admission without changing OrderKey.
+        if (page_rec_ && !page_rec_targets_valid_) target_map_.clear();
         return {ScenarioParseStatus::ok, std::move(result_), std::move(target_map_)};
     }
 
@@ -1763,8 +1766,14 @@ private:
         }
         
         if (page_rec_) {
-            // Export the original game tags, without translation placeholders
-            // or registering any write-back targets.
+            if (g_runtime_config.enable_page_rec_tasks
+                && !SubmitQuestPtrSet(order, page_data)) {
+                page_rec_targets_valid_ = false;
+                LOGW("[PageRec] writeback target unavailable scene=%s order=%d,%d,%d,%d",
+                     scenario_.result.scene.c_str(), order.label_index, order.page_no,
+                     order.cmd_index, order.sub_index);
+            }
+            // Keep original tags and export contents in both PageRec modes.
             *out = std::move(raw_text);
             return TextStatus::ok;
         }
@@ -1949,6 +1958,7 @@ private:
     bool header_logged_ = false; // Owned only by the ordered job submitter.
     int language_mask_ = 0; // PageRec parses synchronously on the hook thread.
     bool page_rec_has_target_official_translation_ = false; // Same hook-thread ownership.
+    bool page_rec_targets_valid_ = true; // Same hook-thread ownership.
 
     std::atomic<int> abort_reason_{
         static_cast<int>(AbortReason::none)
@@ -1973,7 +1983,8 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 
 bool ParsePageRecScene(void* scenario_data, const std::string& entry_label,
                       Scene* scene, std::vector<std::string>* labels,
-                      bool* has_target_official_translation) {
+                      bool* has_target_official_translation,
+                      QuestTargetSet* target_set) {
     RuntimeScenario scenario;
     if (!ParseScenarioLabels(scenario_data, entry_label, &scenario)) return false;
     BuildLabelOrder(&scenario);
@@ -1984,6 +1995,8 @@ bool ParsePageRecScene(void* scenario_data, const std::string& entry_label,
     scene->raw_lang = runner.RawLanguage();
     *labels = scenario.label_order;
     *has_target_official_translation = runner.HasTargetOfficialTranslation();
+    target_set->scenario_data_ptr = scenario_data;
+    target_set->target_map = std::move(output.target_map);
     return true;
 }
 
