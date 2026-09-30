@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.scene.sync;
 
 import com.quarty.housamoembedtrans.bridge.SceneSyncWireCodec;
+import com.quarty.housamoembedtrans.logging.Log;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 
 /** Adapts one injected SceneStore snapshot enumeration to the export seam. */
@@ -26,7 +27,16 @@ public final class GameSceneMirrorSource
             if (snapshot != null) {
                 consumer.scene(sceneName, snapshot.bytes);
             } else {
-                consumer.rejected(sceneName, mapError(error));
+                int errorCode = mapError(error);
+                // Keep the wire rejection compact; retain its cause in the
+                // game log so ordinary HET log export works without root.
+                Log.w(
+                    "HET.SceneSync",
+                    "Game Scene export rejected scene=" + sceneName
+                        + " error=" + errorCode,
+                    error
+                );
+                consumer.rejected(sceneName, errorCode);
             }
         });
     }

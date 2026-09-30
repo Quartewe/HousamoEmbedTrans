@@ -17,6 +17,7 @@ import java.util.regex.PatternSyntaxException;
 public final class JsonSchemaValidator {
 
     private static final int MAX_DEPTH = 256;
+    private static final int MAX_SCHEMA_DEPTH = 256;
 
     public static final class ValidationException extends Exception {
         public ValidationException(String message) {
@@ -40,13 +41,29 @@ public final class JsonSchemaValidator {
         String path,
         int depth
     ) throws ValidationException {
+        validateValue(value, schema, path, depth, 0);
+    }
+
+    private void validateValue(
+        Object value,
+        JSONObject schema,
+        String path,
+        int depth,
+        int schemaDepth
+    ) throws ValidationException {
         if (depth > MAX_DEPTH) {
             throw error(path, "nesting is too deep");
         }
+        if (schemaDepth > MAX_SCHEMA_DEPTH) {
+            throw error(path, "schema expansion is too deep");
+        }
 
+        // $ref and oneOf inspect the same value; only object/array children
+        // increase data depth. Bound schema expansion separately so a cyclic
+        // reference cannot recurse forever, and reset it for each child value.
         String ref = schema.optString("$ref", "");
         if (!ref.isEmpty()) {
-            validateValue(value, resolveRef(ref), path, depth + 1);
+            validateValue(value, resolveRef(ref), path, depth, schemaDepth + 1);
             return;
         }
 
@@ -60,7 +77,8 @@ public final class JsonSchemaValidator {
                         value,
                         oneOf.getJSONObject(index),
                         path,
-                        depth + 1
+                        depth,
+                        schemaDepth + 1
                     );
                     matches++;
                 } catch (ValidationException e) {
