@@ -490,6 +490,7 @@ public final class TranslationTaskExecutor {
         SceneStore historySceneStore = new SceneStore(this.context);
         this.contextHistoryPreparer = new ContextHistoryPreparer(
             sceneContextStore,
+            historySceneStore,
             (scene, language) -> {
                 SceneStore.RawSceneSnapshot raw = historySceneStore.readRawSceneSnapshot(scene);
                 JSONObject source = new JSONObject(new String(raw.bytes, StandardCharsets.UTF_8));

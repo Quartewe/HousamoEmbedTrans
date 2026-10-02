@@ -3,9 +3,11 @@ import com.quarty.housamoembedtrans.context.model.GroupContextEntry;
 import com.quarty.housamoembedtrans.context.review.ReviewTransactionJournal;
 import com.quarty.housamoembedtrans.context.schema.ContextGroupSchemaValidator;
 import com.quarty.housamoembedtrans.management.pending.PendingProcessStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.storage.json.AtomicJsonFileIo;
 
 import android.content.Context;
+import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -18,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -607,6 +610,58 @@ public final class SceneContextStore {
 
     public ContextStore getContextStore() {
         return contextStore;
+    }
+
+    /**
+     * Fills empty member caches in caller-owned Context entries from saved
+     * Scenes. Existing caches may contain newer observations than the complete
+     * Scene file, so they are never replaced. The caller owns Context commit.
+     */
+    public static boolean fillMissingSceneSummaries(
+        JSONArray scenes,
+        SceneStore sceneStore
+    ) throws Exception {
+        boolean changed = false;
+        long now = System.currentTimeMillis();
+        for (int index = 0; index < scenes.length(); index++) {
+            JSONObject entry = scenes.getJSONObject(index);
+            JSONObject summaries = entry.getJSONObject("summaries");
+            if (summaries.length() != 0) {
+                continue;
+            }
+            String sceneName = entry.getString("scene");
+            final JSONObject savedSummaries;
+            try {
+                SceneStore.ValidatedScene saved = sceneStore.readValidSceneByName(sceneName);
+                if (saved == null) {
+                    continue;
+                }
+                savedSummaries = new JSONObject(new String(
+                    saved.bytes,
+                    StandardCharsets.UTF_8
+                )).getJSONObject("summary");
+            } catch (Exception error) {
+                // Keep the existing missing-history decision (including manual
+                // and original-text modes) when this supplementary read fails.
+                Log.w("HET.SceneContextStore", "Could not load saved Scene summary scene="
+                    + sceneName, error);
+                continue;
+            }
+            Iterator<String> languages = savedSummaries.keys();
+            while (languages.hasNext()) {
+                String language = languages.next();
+                String text = savedSummaries.getString(language);
+                if (text.trim().isEmpty()) {
+                    continue;
+                }
+                summaries.put(language, new JSONObject()
+                    .put("text", text)
+                    .put("updated_at", now));
+                entry.put("updated_at", now);
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     public GroupStore getGroupStore() {

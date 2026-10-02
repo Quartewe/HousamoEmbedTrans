@@ -1115,6 +1115,10 @@ public final class ContextGroupEditorActivity extends AppCompatActivity {
         saving = true;
         ioExecutor.execute(() -> {
             try {
+                if (KIND_CONTEXT.equals(kind)) {
+                    SceneContextStore.fillMissingSceneSummaries(
+                        edited.getJSONArray("scenes"), sceneStore);
+                }
                 ContextReviewCoordinator.EditRisk risk =
                     reviewCoordinator.assessReview(allContexts, allGroups);
                 runOnUiThread(() -> {

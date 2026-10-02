@@ -4,6 +4,7 @@ import com.quarty.housamoembedtrans.provider.TranslationConfig;
 import com.quarty.housamoembedtrans.context.model.GroupContextEntry;
 import com.quarty.housamoembedtrans.context.model.HistoryMapping;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
+import com.quarty.housamoembedtrans.scene.store.SceneStore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -108,14 +109,16 @@ public final class ContextHistoryPreparer {
     }
 
     private final SceneContextStore store;
+    private final SceneStore sceneStore;
     private final HistoryResolver.SceneOriginalLoader sceneOriginalLoader;
 
 
     public ContextHistoryPreparer(SceneContextStore store) {
-        this(store, null);
+        this(store, null, null);
     }
 
     public ContextHistoryPreparer(SceneContextStore store,
+        SceneStore sceneStore,
         HistoryResolver.SceneOriginalLoader sceneOriginalLoader) {
         if (store == null) {
             throw new IllegalArgumentException(
@@ -123,6 +126,7 @@ public final class ContextHistoryPreparer {
             );
         }
         this.store = store;
+        this.sceneStore = sceneStore;
         this.sceneOriginalLoader = sceneOriginalLoader;
     }
 
@@ -162,7 +166,7 @@ public final class ContextHistoryPreparer {
             ? null
             : mapping.optString(HistoryMapping.GROUP_ID, null);
         try {
-            JSONObject context = store.getContext(contextId);
+            JSONObject context = loadHistoryContext(contextId, scene);
             if (context == null) {
                 return HistoryPreparation.blocked(
                     HistoryResolution.userActionRequired(
@@ -267,9 +271,43 @@ public final class ContextHistoryPreparer {
             if (contextId.isEmpty() || result.containsKey(contextId)) {
                 continue;
             }
-            result.put(contextId, store.getContext(contextId));
+            result.put(contextId, loadHistoryContext(contextId, null));
         }
         return result;
+    }
+
+    private JSONObject loadHistoryContext(
+        String contextId,
+        String beforeScene
+    ) throws Exception {
+        return SceneContextStore.withRootAccess(() -> {
+            JSONObject context = store.getContext(contextId);
+            JSONArray scenes = context.getJSONArray("scenes");
+            JSONArray historyScenes = new JSONArray();
+            for (int index = 0; index < scenes.length(); index++) {
+                JSONObject entry = scenes.getJSONObject(index);
+                if (entry.getString("scene").equals(beforeScene)) {
+                    break;
+                }
+                historyScenes.put(entry);
+            }
+            if (beforeScene != null && historyScenes.length() == scenes.length()) {
+                // Leave a stale mapping to the existing resolver without writes.
+                return context;
+            }
+            if (sceneStore != null
+                && SceneContextStore.fillMissingSceneSummaries(historyScenes, sceneStore)) {
+                // Commit before capturing the source hash or resolving history.
+                // The root gate serializes this with edits and live observations;
+                // updateContext preserves the existing revision/atomic-write path.
+                context = store.updateContext(
+                    contextId,
+                    context,
+                    context.getLong("revision")
+                );
+            }
+            return context;
+        });
     }
 
     private static String safeMessage(Exception error) {
