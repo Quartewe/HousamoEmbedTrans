@@ -88,7 +88,8 @@ bool WriteScene(const Scene& scene, std::uint64_t epoch) {
 // receives non-owning targets; the pipeline owns an immutable Scene and its lease.
 bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
                          bool has_target_official_translation,
-                         const QuestTargetSet& target_set) {
+                         const QuestTargetSet& target_set,
+                         const het::scene_sync::SceneProductionLease& batch) {
     if (!g_runtime_config.enable_page_rec_tasks) return true;
     auto& record = exported_json.at(scene.scene);
     if (!IsCurrent(epoch)) return false;
@@ -97,7 +98,7 @@ bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
              scene.scene.c_str(), g_runtime_config.target_lang.c_str());
         return true;
     }
-    auto lease = EnterSceneProduction(scene.scene);
+    auto lease = EnterSceneProduction(scene.scene, &batch);
     if (!lease.allowed()) {
         LOGI("[PageRec] task deferred scene=%s reason=%d",
              scene.scene.c_str(), static_cast<int>(lease.reason()));
@@ -168,6 +169,12 @@ void ExportPageRecScenarios(
     struct Reset { bool& value; ~Reset() { value = false; } } reset{exporting};
     std::lock_guard<std::mutex> export_lock(export_mutex);
     if (!IsCurrent(epoch)) return;
+    // The sweep owns one scope until every label has been considered. Each
+    // queued Scene keeps its own lease through commit and request preparation,
+    // so an automatic export cannot split this batch between two task admissions.
+    auto batch = g_runtime_config.enable_page_rec_tasks
+        ? het::scene_sync::g_scene_production_policy.TryEnterBatch()
+        : het::scene_sync::SceneProductionLease{};
     std::unordered_map<std::string, std::uint64_t> snapshot;
     {
         std::lock_guard<std::mutex> lock(labels_mutex);
@@ -194,7 +201,7 @@ void ExportPageRecScenarios(
             return;
         }
         if (!SubmitExportedScene(std::move(scene), epoch,
-                                 has_target_official_translation, target_set)) {
+                                 has_target_official_translation, target_set, batch)) {
             // Keep initialized labels pending when sync/pause/admission wins.
             return;
         }

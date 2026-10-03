@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -12,6 +13,9 @@ namespace het::scene_sync {
 
 struct SceneProductionPolicy {
     bool sync_worker_hold = false;
+    // Close new admission, but let a previously admitted capture batch drain.
+    bool sync_worker_drain = false;
+    std::uint64_t epoch = 0;
     std::unordered_set<std::string> blocked_scenes;
 };
 
@@ -22,16 +26,17 @@ enum class RejectReason : int {
     invalid_scene_name = 3,
 };
 
-/** Move-only scope covering one Scene production path. */
+/** Move-only scope covering one Scene production path or capture batch. */
 class SceneProductionLease {
 public:
     SceneProductionLease() = default;
     SceneProductionLease(
         class SceneProductionPolicyStore* owner,
         bool allowed,
-        RejectReason reason
+        RejectReason reason,
+        std::uint64_t epoch = 0
     )
-        : owner_(owner), allowed_(allowed), reason_(reason) {}
+        : owner_(owner), allowed_(allowed), reason_(reason), epoch_(epoch) {}
 
     SceneProductionLease(const SceneProductionLease&) = delete;
     SceneProductionLease& operator=(const SceneProductionLease&) = delete;
@@ -39,7 +44,8 @@ public:
     SceneProductionLease(SceneProductionLease&& other) noexcept
         : owner_(other.owner_),
           allowed_(other.allowed_),
-          reason_(other.reason_) {
+          reason_(other.reason_),
+          epoch_(other.epoch_) {
         other.owner_ = nullptr;
         other.allowed_ = false;
     }
@@ -50,6 +56,7 @@ public:
             owner_ = other.owner_;
             allowed_ = other.allowed_;
             reason_ = other.reason_;
+            epoch_ = other.epoch_;
             other.owner_ = nullptr;
             other.allowed_ = false;
         }
@@ -71,14 +78,17 @@ public:
     void Release();
 
 private:
+    friend class SceneProductionPolicyStore;
+
     class SceneProductionPolicyStore* owner_ = nullptr;
     bool allowed_ = false;
     RejectReason reason_ = RejectReason::none;
+    std::uint64_t epoch_ = 0;
 };
 
 /**
- * Native control-plane policy.  Readers use atomic shared ownership and never
- * acquire writer_mutex_; writers publish complete immutable snapshots.
+ * Native control-plane policy. Readers use immutable atomic snapshots; lease
+ * release and control writes share writer_mutex_ to finish a pending drain.
  */
 class SceneProductionPolicyStore {
 public:
@@ -93,6 +103,9 @@ public:
     /** Publishes hold=true while preserving the current blocked set. */
     bool BeginSyncHold();
 
+    /** Drains admitted batches and Scene work before publishing hold=true. */
+    bool BeginSyncDrain();
+
     /** Replaces the complete blocked set and clears sync_worker_hold. */
     bool ReplaceBlockedScenes(const std::vector<std::string>& scene_names);
 
@@ -100,7 +113,12 @@ public:
     void FailOpen();
 
     /** Two-check production admission and active-count scope creation. */
-    SceneProductionLease TryEnter(const std::string& scene_name);
+    SceneProductionLease TryEnter(
+        const std::string& scene_name,
+        const SceneProductionLease* batch = nullptr);
+
+    /** Covers the producer until it has enqueued every Scene in this sweep. */
+    SceneProductionLease TryEnterBatch();
 
     /** Test/diagnostic seam invoked after the first gate and active increment. */
 #if defined(HET_SCENE_PRODUCTION_POLICY_TEST)
@@ -119,8 +137,13 @@ private:
     friend class SceneProductionLease;
 
     void Leave();
+    SceneProductionLease TryEnterInternal(
+        const std::string* scene_name,
+        const SceneProductionLease* batch);
 
     std::shared_ptr<const SceneProductionPolicy> policy_;
+    // Prepared at drain admission; the last lease publishes it without allocation.
+    std::shared_ptr<const SceneProductionPolicy> drained_policy_;
     mutable std::mutex writer_mutex_;
     std::atomic<int> active_count_{0};
 #if defined(HET_SCENE_PRODUCTION_POLICY_TEST)

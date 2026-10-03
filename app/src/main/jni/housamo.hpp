@@ -43,10 +43,12 @@ extern std::atomic<std::uint64_t> capture_pause_epoch;
 extern std::mutex capture_transition_mutex;
 
 bool BeginSceneSyncHold();
+bool BeginSceneSyncDrain();
 bool ReplaceBlockedScenes(const std::vector<std::string>& scene_names);
 void ResetSceneProductionPolicy();
 het::scene_sync::SceneProductionLease EnterSceneProduction(
-    const std::string& scene_name);
+    const std::string& scene_name,
+    const het::scene_sync::SceneProductionLease* batch = nullptr);
 void ReportSceneProductionRejected(
     const std::string& scene_name,
     het::scene_sync::RejectReason reason);

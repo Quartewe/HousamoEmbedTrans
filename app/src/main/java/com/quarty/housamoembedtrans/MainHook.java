@@ -348,7 +348,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 }
                 boolean held;
                 try {
-                    held = nativeBeginSceneSyncHold();
+                    held = nativeBeginSceneSyncDrain();
                 } catch (UnsatisfiedLinkError e) {
                     Log.game(
                         "[HousamoTrans] Scene policy native hold "
@@ -357,10 +357,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     return false;
                 }
                 if (held) {
-                    // The native hold becomes owned by this generation at
-                    // the exact moment nativeBegin succeeds.  Deactivation
-                    // can therefore never miss the hold while acceptExport
-                    // is still wiring the session.
+                    // Own the drain reservation immediately. The export
+                    // writer waits for admitted capture batches and queued
+                    // Scene/request preparation before reading the snapshot.
+                    // Deactivation clears both a pending drain and its hold.
                     activeHoldGeneration = pendingExportGeneration;
                     activeHoldOwner = null;
                 }
@@ -2731,6 +2731,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     /** Native Scene Production Policy control-plane seam for the game port. */
     private static native boolean nativeBeginSceneSyncHold();
+
+    private static native boolean nativeBeginSceneSyncDrain();
 
     private static native void nativeWaitForSceneProductionIdle();
 

@@ -600,6 +600,18 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeWaitForSceneProductionIdle(
     jclass
 ) {
     het::scene_sync::g_scene_production_policy.WaitForActiveZero();
+    LOGI("[SceneSync] Scene/request preparation drained; snapshot may proceed");
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_quarty_housamoembedtrans_MainHook_nativeBeginSceneSyncDrain(
+    JNIEnv*,
+    jclass
+) {
+    const bool accepted = BeginSceneSyncDrain();
+    LOGI("[SceneSync] request preparation drain accepted=%d active=%d",
+         accepted ? 1 : 0, het::scene_sync::g_scene_production_policy.ActiveCount());
+    return accepted ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT jboolean JNICALL

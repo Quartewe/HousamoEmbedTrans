@@ -191,6 +191,8 @@ PageRec 解析时同时记录是否存在目标语言官方译文，但仍完成
 
 捕获暂停代次贯穿 Hook、构建和提交，提交与暂停转换共享同步边界。`stop_catch` 是暂停语义，不是让 worker 永久退出的信号。修改这里时需同时检查排队任务、在途任务以及恢复路径。
 
+运行期 Scene 导出使用 `BeginSyncDrain`：先拒绝新批次，等待已接纳的捕获和 Scene worker 排空，才建立完整 hold 并读取快照。PageRec 每轮持有生产租约，确保第一条任务触发同步后，其余候选仍可逐项进入同一条 Scene 队列；排队项各自持有租约直到落盘并生成、派发 request。队列暂时为空或 worker 已取走最后一项都不是提前同步的依据。已有冲突名单仍逐项生效；失败返回、暂停清队列会释放对应租约，断连重置会取消尚未生效的 hold，旧批次不能借新连接的策略继续放行。启动及显式强制 hold 仍立即生效。这一边界不等待 Binder 重试或模型完成。
+
 ## 5. HET 通信、保存与 ACK
 
 大 JSON 经 `ParcelFileDescriptor` 传输；Binder 负责控制信息和文件描述符。`ITranslationCallback` 区分 `onQuestPatch`、`onSceneCompleted`、`onTranslationFailed`，三者不能混为一条显示完成链。
