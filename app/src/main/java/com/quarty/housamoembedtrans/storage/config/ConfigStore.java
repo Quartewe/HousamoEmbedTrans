@@ -54,6 +54,7 @@ public final class ConfigStore {
     public static final boolean DEFAULT_AUTO_RECOVER_PREVIOUS_JOBS = false;
     public static final boolean DEFAULT_SUMMARY_AUTO_RECOVER_PREVIOUS_JOBS = false;
     public static final boolean DEFAULT_ENABLE_STARTUP_REVIEW = false;
+    public static final boolean DEFAULT_ENABLE_INTERNAL_DICTIONARY = false;
     public static final String DEFAULT_RECOVERY_SORT_ORDER = "created_asc";
     public static final String DEFAULT_THINKING_STRENGTH = "none";
     public static final int DEFAULT_CONTEXT_LENGTH = 168000;
@@ -78,6 +79,27 @@ public final class ConfigStore {
     private static final String KEY_API_KEY = "api_key";
     private static final Object CONFIG_ACCESS_LOCK = new Object();
     private JSONObject characterEditBase;
+
+    /** A callback executed while config and dictionary writes are excluded. */
+    @FunctionalInterface
+    public interface ConfigAccess<T> {
+        T run() throws Exception;
+    }
+
+    /**
+     * Runs a compound config/dictionary operation under the same process-local
+     * lock used by ConfigStore writes.  The callback may perform checked I/O;
+     * callers receive the original exception.
+     */
+    public static <T> T withConfigAccess(ConfigAccess<T> access)
+        throws Exception {
+        if (access == null) {
+            throw new IllegalArgumentException("config access callback is required");
+        }
+        synchronized (CONFIG_ACCESS_LOCK) {
+            return access.run();
+        }
+    }
 
     public static class JsonLoadResult {
         public final JSONObject json;
@@ -974,6 +996,20 @@ public final class ConfigStore {
                 "UserSettings.DebugOmitThinkingParameters must be a boolean"
             );
         }
+        JSONObject contextHistory = userSettings.optJSONObject("ContextHistory");
+        if (userSettings.has("ContextHistory") && contextHistory == null) {
+            throw new IllegalArgumentException(
+                "UserSettings.ContextHistory must be an object"
+            );
+        }
+        if (contextHistory != null
+            && contextHistory.has("EnableInternalDictionary")
+            && !(contextHistory.get("EnableInternalDictionary") instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                "UserSettings.ContextHistory.EnableInternalDictionary "
+                    + "must be a boolean"
+            );
+        }
         userSettings.getBoolean("OverwriteExistingJson");
         requireNonEmptyString(userSettings, "TargetLanguage", "UserSettings");
         getSceneWorkerCount(userSettings);
@@ -1235,6 +1271,12 @@ public final class ConfigStore {
         }
         if (!contextHistory.has("EnableAutoCompression")) {
             contextHistory.put("EnableAutoCompression", false);
+        }
+        if (!contextHistory.has("EnableInternalDictionary")) {
+            contextHistory.put(
+                "EnableInternalDictionary",
+                DEFAULT_ENABLE_INTERNAL_DICTIONARY
+            );
         }
         if (!contextHistory.has("ContinueAutoSummaryAfterManual")) {
             contextHistory.put("ContinueAutoSummaryAfterManual", false);

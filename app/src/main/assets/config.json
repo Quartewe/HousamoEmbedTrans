@@ -47,6 +47,7 @@
             "AutoRecoverPreviousJobs": false
         },
         "ContextHistory": {
+            "EnableInternalDictionary": false,
             "EnableAutoCompression": false,
             "ContinueAutoSummaryAfterManual": false,
             "EnableStartupReview": false,

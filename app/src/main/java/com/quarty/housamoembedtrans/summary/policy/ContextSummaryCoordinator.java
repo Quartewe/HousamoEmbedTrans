@@ -231,9 +231,45 @@ public final class ContextSummaryCoordinator {
                 contextSummary,
                 invalidContextSummary,
                 capturedSourceHashExcludingScene,
-                options
+                options,
+                false
             )
         );
+    }
+
+    /** Caller serializes formal-dictionary updates with this Context transaction. */
+    public ContextStore.TermsWriteResult acceptTermsAndSummary(
+        String requestId, String contextId, String scene, String targetLang,
+        org.json.JSONArray terms, Map<String, String> formalTranslations,
+        String summary, String contextSummary, String invalidContextSummary,
+        String capturedSourceHashExcludingScene, Options options
+    ) throws Exception {
+        return SceneContextStore.withRootAccess(() -> {
+            JSONObject context;
+            try {
+                context = sceneContextStore.getContext(contextId);
+            } catch (SceneContextStore.StorageException e) {
+                if (e.kind == SceneContextStore.FailureKind.NOT_FOUND) {
+                    return new ContextStore.TermsWriteResult();
+                }
+                throw e;
+            }
+            ContextStore.TermsWriteResult result = sceneContextStore.getContextStore()
+                .acceptSceneTerms(context.getString("storage_name"), scene, targetLang,
+                    terms, formalTranslations, summary);
+            if (result.targetValid && result.conflicts.length() == 0) {
+                // The single Context write above made summary and terms durable together.
+                // Derived compression remains best-effort as on the original summary path.
+                try {
+                    acceptFirstSummaryLocked(requestId, contextId, scene, targetLang,
+                        summary, contextSummary, invalidContextSummary,
+                        capturedSourceHashExcludingScene, options, true);
+                } catch (Exception e) {
+                    android.util.Log.w("ContextSummary", "Post-commit summary observation failed", e);
+                }
+            }
+            return result;
+        });
     }
 
     private WritebackResult acceptFirstSummaryLocked(
@@ -245,7 +281,8 @@ public final class ContextSummaryCoordinator {
         String contextSummary,
         String invalidContextSummary,
         String capturedSourceHashExcludingScene,
-        Options options
+        Options options,
+        boolean sceneSummaryAlreadyPersisted
     ) throws Exception {
         WritebackResult result = new WritebackResult();
         if (contextId == null || contextId.trim().isEmpty()
@@ -268,12 +305,9 @@ public final class ContextSummaryCoordinator {
         }
 
         if (summary != null && !summary.trim().isEmpty()) {
-            contextStore.writeSceneSummary(
-                storageName,
-                scene,
-                targetLang,
-                summary
-            );
+            if (!sceneSummaryAlreadyPersisted) {
+                contextStore.writeSceneSummary(storageName, scene, targetLang, summary);
+            }
             result.sceneSummaryPersisted = true;
         }
         result.released = releaseGate.release(contextId, scene, targetLang);

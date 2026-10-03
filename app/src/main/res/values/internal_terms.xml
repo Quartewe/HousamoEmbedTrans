@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_field_enable_internal_dictionary">Use Context internal dictionary</string>
+    <string name="settings_field_hint_enable_internal_dictionary">When enabled, new requests use and collect temporary terms for the current Context and target language. Turning it off keeps existing entries but stops reading, writing, and waiting on them.</string>
+
+    <string name="context_detail_internal_terms">Internal terms</string>
+    <string name="context_detail_internal_terms_count">%1$d</string>
+    <string name="context_detail_internal_terms_empty">No internal terms saved.</string>
+    <string name="context_detail_internal_terms_source">Original term</string>
+    <string name="context_detail_internal_terms_translation">Translation</string>
+    <string name="context_detail_internal_terms_edit">Edit</string>
+    <string name="context_detail_internal_terms_delete">Delete</string>
+    <string name="context_detail_internal_terms_edit_title">Edit internal term</string>
+    <string name="context_detail_internal_terms_edit_hint">Translation</string>
+    <string name="context_detail_internal_terms_save">Save</string>
+    <string name="context_detail_internal_terms_delete_title">Delete internal term?</string>
+    <string name="context_detail_internal_terms_delete_message">Remove the saved translation for “%1$s” in %2$s? Future requests may collect it again.</string>
+    <string name="context_detail_internal_terms_saved">Internal term saved.</string>
+    <string name="context_detail_internal_terms_deleted">Internal term deleted.</string>
+    <string name="context_detail_internal_terms_save_failed">Could not save the internal term: %1$s</string>
+    <string name="context_detail_internal_terms_delete_failed">Could not delete the internal term: %1$s</string>
+    <string name="context_detail_internal_terms_empty_translation">Translation cannot be empty.</string>
+</resources>

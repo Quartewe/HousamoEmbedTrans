@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.translation.request;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.math.BigDecimal;
 
@@ -18,6 +19,10 @@ public final class TranslationEventDecoder {
 
         void onTranslation(int seq, String text) throws Exception;
 
+        default void onTerms(JSONArray terms) throws Exception {
+            throw new ProtocolException("terms were not requested");
+        }
+
         void onComplete() throws Exception;
     }
 
@@ -33,12 +38,14 @@ public final class TranslationEventDecoder {
 
     private final boolean repair;
     private final boolean requireContextSummary;
+    private final boolean requireTerms;
     private final Listener listener;
     private final StringBuilder pending = new StringBuilder();
     private int objectDepth;
     private boolean inString;
     private boolean escaped;
     private boolean summaryReceived;
+    private boolean termsReceived;
     private boolean completeReceived;
     private int lastSeq;
 
@@ -47,11 +54,21 @@ public final class TranslationEventDecoder {
         boolean requireContextSummary,
         Listener listener
     ) {
+        this(repair, requireContextSummary, false, listener);
+    }
+
+    public TranslationEventDecoder(
+        boolean repair,
+        boolean requireContextSummary,
+        boolean requireTerms,
+        Listener listener
+    ) {
         if (listener == null) {
             throw new IllegalArgumentException("listener cannot be null");
         }
         this.repair = repair;
         this.requireContextSummary = requireContextSummary;
+        this.requireTerms = requireTerms && !repair;
         this.listener = listener;
     }
 
@@ -144,6 +161,9 @@ public final class TranslationEventDecoder {
             case "translation":
                 consumeTranslation(event);
                 break;
+            case "terms":
+                consumeTerms(event);
+                break;
             case "complete":
                 consumeComplete(event);
                 break;
@@ -225,7 +245,39 @@ public final class TranslationEventDecoder {
         listener.onSummary(summary, contextSummary, invalidContextSummary);
     }
 
+    private void consumeTerms(JSONObject event) throws Exception {
+        if (!requireTerms || !summaryReceived || termsReceived || lastSeq != 0) {
+            throw new ProtocolException("terms must appear once, after summary and before translations");
+        }
+        JSONArray terms = event.optJSONArray("terms");
+        if (event.length() != 2 || terms == null) {
+            throw new ProtocolException("terms event fields must be exactly [type, terms], with an array");
+        }
+        java.util.Set<String> originals = new java.util.HashSet<>();
+        for (int i = 0; i < terms.length(); i++) {
+            JSONObject entry = terms.optJSONObject(i);
+            if (entry == null || entry.length() != 2
+                || !(entry.opt("term") instanceof String)
+                || !(entry.opt("translation") instanceof String)
+                || entry.getString("term").trim().isEmpty()
+                || entry.getString("translation").trim().isEmpty()
+                || !originals.add(entry.getString("term"))) {
+                throw new ProtocolException("terms must contain unique non-empty term/translation strings");
+            }
+        }
+        // A listener failure (including a terminology conflict) aborts before any body event.
+        listener.onTerms(terms);
+        termsReceived = true;
+    }
+
+    private void requireTermsBeforeBody() throws ProtocolException {
+        if (requireTerms && !termsReceived) {
+            throw new ProtocolException("main translation stream must provide terms before body/complete");
+        }
+    }
+
     private void consumeTranslation(JSONObject event) throws Exception {
+        requireTermsBeforeBody();
         if (!repair && !summaryReceived) {
             throw new ProtocolException(
                 "translation appeared before summary"
@@ -278,6 +330,7 @@ public final class TranslationEventDecoder {
     }
 
     private void consumeComplete(JSONObject event) throws Exception {
+        requireTermsBeforeBody();
         if (!repair && !summaryReceived) {
             throw new ProtocolException(
                 "complete appeared before summary"

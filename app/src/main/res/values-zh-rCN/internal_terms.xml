@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_field_enable_internal_dictionary">使用上下文内部词典</string>
+    <string name="settings_field_hint_enable_internal_dictionary">开启后，新请求会使用并收录当前上下文、目标语言的临时术语。关闭只停止读取、写入和等待，已有词条会保留。</string>
+
+    <string name="context_detail_internal_terms">内部术语</string>
+    <string name="context_detail_internal_terms_count">%1$d 个</string>
+    <string name="context_detail_internal_terms_empty">暂无内部术语。</string>
+    <string name="context_detail_internal_terms_source">原文术语</string>
+    <string name="context_detail_internal_terms_translation">译名</string>
+    <string name="context_detail_internal_terms_edit">编辑</string>
+    <string name="context_detail_internal_terms_delete">删除</string>
+    <string name="context_detail_internal_terms_edit_title">编辑内部术语</string>
+    <string name="context_detail_internal_terms_edit_hint">译名</string>
+    <string name="context_detail_internal_terms_save">保存</string>
+    <string name="context_detail_internal_terms_delete_title">删除内部术语？</string>
+    <string name="context_detail_internal_terms_delete_message">删除 %2$s 中“%1$s”的保存译名？后续请求仍可重新收录。</string>
+    <string name="context_detail_internal_terms_saved">内部术语已保存。</string>
+    <string name="context_detail_internal_terms_deleted">内部术语已删除。</string>
+    <string name="context_detail_internal_terms_save_failed">无法保存内部术语：%1$s</string>
+    <string name="context_detail_internal_terms_delete_failed">无法删除内部术语：%1$s</string>
+    <string name="context_detail_internal_terms_empty_translation">译名不能为空。</string>
+</resources>

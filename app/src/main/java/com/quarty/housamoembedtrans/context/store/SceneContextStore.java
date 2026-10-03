@@ -5207,6 +5207,11 @@ public final class SceneContextStore {
         put(target, "storage_name", source.optString("storage_name"));
         put(target, "display_name", source.optString("display_name"));
         put(target, "created_at", existing.optLong("created_at", 0L));
+        // Terms have their own atomic edit/translation path. A stale metadata
+        // draft must neither erase nor replace terms learned since it was opened.
+        if (existing.has("internal_terms")) {
+            put(target, "internal_terms", existing.optJSONObject("internal_terms"));
+        }
         put(target,
             "retention",
             source.has("retention")

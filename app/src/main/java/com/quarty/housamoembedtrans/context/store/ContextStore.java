@@ -176,22 +176,114 @@ public final class ContextStore {
         requireNonEmpty(text, "scene summary");
         return mutate(storageName, context -> {
             JSONObject entry = requireSceneEntry(context, scene);
-            JSONObject summaries = entry.optJSONObject("summaries");
-            if (summaries == null) {
-                summaries = new JSONObject();
-                entry.put("summaries", summaries);
+            putSceneSummary(context, entry, targetLang, text);
+            return context;
+        });
+    }
+
+    private static void putSceneSummary(JSONObject context, JSONObject entry,
+                                        String targetLang, String text)
+        throws org.json.JSONException {
+        JSONObject summaries = entry.optJSONObject("summaries");
+        if (summaries == null) {
+            summaries = new JSONObject();
+            entry.put("summaries", summaries);
+        }
+        long now = System.currentTimeMillis();
+        summaries.put(targetLang, new JSONObject().put("text", text).put("updated_at", now));
+        entry.put("updated_at", now);
+        context.put("updated_at", now);
+    }
+
+    /** A detached language map, never a separately persisted request snapshot. */
+    public JSONObject getInternalTerms(String storageName, String targetLang)
+        throws IOException, ContextGroupSchemaValidator.ValidationException,
+        org.json.JSONException {
+        requireNonEmpty(targetLang, "target_lang");
+        JSONObject container = read(storageName).optJSONObject("internal_terms");
+        JSONObject language = container == null ? null : container.optJSONObject(targetLang);
+        return language == null ? new JSONObject() : new JSONObject(language.toString());
+    }
+
+    /** UI edits use expected values so a stale dialog cannot overwrite a newer translation. */
+    public void updateInternalTerm(String storageName, String targetLang, String term,
+                                   String expectedTranslation, String replacement)
+        throws IOException, ContextGroupSchemaValidator.ValidationException,
+        org.json.JSONException {
+        requireNonEmpty(targetLang, "target_lang");
+        requireNonEmpty(term, "term");
+        if (replacement != null) requireNonEmpty(replacement, "translation");
+        mutate(storageName, context -> {
+            JSONObject container = context.optJSONObject("internal_terms");
+            JSONObject language = container == null ? null : container.optJSONObject(targetLang);
+            if (language == null || expectedTranslation == null
+                || !expectedTranslation.equals(language.opt(term))) {
+                throw new IOException("词条已修改或删除，请刷新后重试");
             }
-            JSONObject languageSummary = summaries.optJSONObject(targetLang);
-            if (languageSummary == null) {
-                languageSummary = new JSONObject();
-            }
-            languageSummary.put("text", text);
-            languageSummary.put("updated_at", System.currentTimeMillis());
-            summaries.put(targetLang, languageSummary);
-            entry.put("updated_at", System.currentTimeMillis());
+            if (replacement == null) language.remove(term);
+            else language.put(term, replacement);
             context.put("updated_at", System.currentTimeMillis());
             return context;
         });
+    }
+
+    public static final class TermsWriteResult {
+        public boolean targetValid;
+        public final JSONArray conflicts = new JSONArray();
+    }
+
+    /**
+     * The entity mutation is the commit point for both terms and the Scene summary.
+     * Caller holds ROOT_ACCESS_LOCK followed by the formal-dictionary lock; UI
+     * edits and membership changes therefore cannot interleave comparison/write.
+     */
+    public TermsWriteResult acceptSceneTerms(String storageName, String scene,
+                                            String targetLang, JSONArray candidates,
+                                            java.util.Map<String, String> formalTranslations,
+                                            String summary)
+        throws IOException, ContextGroupSchemaValidator.ValidationException,
+        org.json.JSONException {
+        requireNonEmpty(scene, "scene");
+        requireNonEmpty(targetLang, "target_lang");
+        requireNonEmpty(summary, "summary");
+        TermsWriteResult result = new TermsWriteResult();
+        fileStore.withLockedFile(storageName, file -> {
+            if (!fileStore.existsFile(file)) return null;
+            JSONObject context = fileStore.readUnlocked(storageName, file);
+            JSONObject entry = null;
+            JSONArray scenes = context.getJSONArray("scenes");
+            for (int i = 0; i < scenes.length(); i++) {
+                JSONObject candidate = scenes.getJSONObject(i);
+                if (scene.equals(candidate.optString("scene"))) { entry = candidate; break; }
+            }
+            if (entry == null) return null;
+            JSONObject container = context.optJSONObject("internal_terms");
+            if (container == null) { container = new JSONObject(); context.put("internal_terms", container); }
+            JSONObject language = container.optJSONObject(targetLang);
+            if (language == null) { language = new JSONObject(); container.put(targetLang, language); }
+            for (int i = 0; i < candidates.length(); i++) {
+                JSONObject candidate = candidates.getJSONObject(i);
+                String term = candidate.getString("term");
+                String translation = candidate.getString("translation");
+                String current = formalTranslations.get(term);
+                if (current == null || current.trim().isEmpty()) current = language.optString(term, "");
+                if (!current.trim().isEmpty()) {
+                    if (!current.equals(translation)) {
+                        result.conflicts.put(new JSONObject().put("term", term)
+                            .put("expected", current).put("actual", translation));
+                    }
+                } else {
+                    language.put(term, translation);
+                }
+            }
+            // Partial terms survive a conflict; its summary never becomes visible.
+            if (result.conflicts.length() == 0) putSceneSummary(context, entry, targetLang, summary);
+            context.put("updated_at", System.currentTimeMillis());
+            fileStore.writeUnlocked(storageName, file, context);
+            result.targetValid = true;
+            return null;
+        });
+        return result;
     }
 
     /**

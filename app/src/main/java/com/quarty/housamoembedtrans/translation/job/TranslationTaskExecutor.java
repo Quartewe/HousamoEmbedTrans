@@ -14,6 +14,8 @@ import com.quarty.housamoembedtrans.translation.request.TranslationGradientPlann
 import com.quarty.housamoembedtrans.translation.request.TranslationRequestFactory;
 import com.quarty.housamoembedtrans.translation.request.SceneTranslationRequestBuilder;
 import com.quarty.housamoembedtrans.translation.request.TranslationResultValidator;
+import com.quarty.housamoembedtrans.translation.request.FormalDictionaryMatcher;
+import com.quarty.housamoembedtrans.context.store.ContextStore;
 
 import com.quarty.housamoembedtrans.context.model.HistoryMapping;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
@@ -2021,6 +2023,11 @@ public final class TranslationTaskExecutor {
         private int gradientCount;
         private String summary;
         private String contextSummary;
+        private boolean internalTermsEnabled;
+        private String stagedSummary;
+        private String stagedContextSummary;
+        private String stagedInvalidContextSummary;
+        private int termConflictRestarts;
         private int highestMainSeqSeen;
         private int mainResultRestarts;
         private int sceneRepairRounds;
@@ -2333,18 +2340,46 @@ public final class TranslationTaskExecutor {
             }
         }
 
-        private void runMainStream() throws Exception {
+        private boolean internalDictionaryEnabledNow() throws Exception {
+            if (context == null || contextId == null || contextSummaryCoordinator == null) return false;
+            JSONObject settings = new ConfigStore(context).load().config.getJSONObject("UserSettings");
+            JSONObject history = settings.optJSONObject("ContextHistory");
+            return history != null && history.optBoolean("EnableInternalDictionary", false);
+        }
+
+        /** Called under ROOT then config access; no mutable dictionary survives this build. */
+        private JSONObject currentInternalTerms(boolean enabled) throws Exception {
+            if (!enabled) return null;
+            SceneContextStore store = contextSummaryCoordinator.getSceneContextStore();
+            JSONObject owner;
+            try {
+                owner = store.getContext(contextId);
+            } catch (SceneContextStore.StorageException e) {
+                if (e.kind == SceneContextStore.FailureKind.NOT_FOUND) return null;
+                throw e;
+            }
+            String storageName = owner.getString("storage_name");
+            if (store.getContextStore().findSceneEntryId(storageName, requestInfo.getScene()) == null) return null;
+            return store.getContextStore().getInternalTerms(storageName, requestInfo.getTargetLanguage());
+        }
+
+        private PreparedApiRequest prepareMainRequest() throws Exception {
             JSONObject requestScene = request;
             if (requestContextSummary) {
                 requestScene = new JSONObject(request.toString());
                 requestScene.put("request_context_summary", true);
             }
-            PreparedApiRequest prepared = TranslationRequestFactory
-                .buildMainRequest(
-                    config,
-                    requestScene,
-                    historyPayload
-                );
+            final JSONObject source = requestScene;
+            return SceneContextStore.withRootAccess(() -> ConfigStore.withConfigAccess(() -> {
+                JSONObject terms = currentInternalTerms(internalDictionaryEnabledNow());
+                internalTermsEnabled = terms != null;
+                return TranslationRequestFactory.buildMainRequest(
+                    context, config, source, historyPayload, terms, internalTermsEnabled);
+            }));
+        }
+
+        private void runMainStream() throws Exception {
+            PreparedApiRequest prepared = prepareMainRequest();
             PreflightResult preflightResult = preflight(
                 mappingResolution,
                 historyResolution,
@@ -2362,7 +2397,7 @@ public final class TranslationTaskExecutor {
                 }
             }
             JSONObject apiRequest = prepared.getProviderRequest();
-            final String frozenBody = apiRequest.toString();
+            String frozenBody = apiRequest.toString();
             int networkRetriesUsed = 0;
             try {
                 while (true) {
@@ -2397,6 +2432,7 @@ public final class TranslationTaskExecutor {
                                 decoder[0] = new TranslationEventDecoder(
                                     false,
                                     requestContextSummary,
+                                    internalTermsEnabled,
                                     new MainEventListener()
                                 );
                                 Log.i(
@@ -2491,6 +2527,7 @@ public final class TranslationTaskExecutor {
                             // previous request's network attempts.
                             networkRetriesUsed = 0;
                             mainResultRestarts++;
+                            if (isTermConflict(e)) termConflictRestarts++;
                             notifyApiRetry(R.string.notification_api_format_phase, e,
                                 mainResultRestarts, config.getResultRepairCount());
                             if (!streamingRepairEnabled) {
@@ -2527,6 +2564,16 @@ public final class TranslationTaskExecutor {
                     if (!retryResult) {
                         return;
                     }
+                    if (isTermConflict(e)) {
+                        // A semantic conflict must use the terms just committed by onTerms.
+                        prepared = prepareMainRequest();
+                        PreflightResult nextPreflight = preflight(mappingResolution, historyResolution, prepared);
+                        if (nextPreflight.isBlocked()) {
+                            applyPreflightBlock(nextPreflight);
+                            return;
+                        }
+                        frozenBody = prepared.getProviderRequest().toString();
+                    }
                     if (isRetryableNetworkAttemptFailure(e)) {
                         if (isCancellationRequested()) {
                             return;
@@ -2562,6 +2609,9 @@ public final class TranslationTaskExecutor {
                     seq,
                     0
                 );
+                // A term-conflict restart consumes one result-repair allowance
+                // for the whole body, including later per-item streaming repair.
+                item.repairAttempts = Math.max(item.repairAttempts, termConflictRestarts);
                 items.put(seq, item);
             }
             repairQueue.clear();
@@ -2584,6 +2634,13 @@ public final class TranslationTaskExecutor {
             lateMainStreamComplete = false;
             lateRepairResults = null;
             lateRepairStreamComplete = false;
+            stagedSummary = null;
+            stagedContextSummary = null;
+            stagedInvalidContextSummary = null;
+            if (internalTermsEnabled) {
+                summary = null;
+                contextSummary = null;
+            }
         }
 
         private final class MainEventListener
@@ -2604,6 +2661,12 @@ public final class TranslationTaskExecutor {
                         if (incomingContextSummary != null) {
                             lateContextSummary = incomingContextSummary;
                         }
+                        return;
+                    }
+                    if (internalTermsEnabled) {
+                        stagedSummary = incomingSummary;
+                        stagedContextSummary = incomingContextSummary;
+                        stagedInvalidContextSummary = invalidContextSummary;
                         return;
                     }
                     summary = incomingSummary;
@@ -2642,6 +2705,33 @@ public final class TranslationTaskExecutor {
                             );
                         }
                     }
+                }
+            }
+
+            @Override
+            public void onTerms(JSONArray terms) throws Exception {
+                synchronized (JobCoordinator.this) {
+                    if (cancelRequested) return;
+                    ContextStore.TermsWriteResult result = SceneContextStore.withRootAccess(() ->
+                        ConfigStore.withConfigAccess(() -> {
+                            ConfigStore dictionaries = new ConfigStore(context);
+                            Map<String, String> formal = FormalDictionaryMatcher.currentFormalTranslations(
+                                dictionaries.loadJson(ConfigStore.CHARDICT_FILE_NAME).json,
+                                dictionaries.loadJson(ConfigStore.GAMETERMS_FILE_NAME).json,
+                                requestInfo.getTargetLanguage());
+                            return contextSummaryCoordinator.acceptTermsAndSummary(
+                                requestId, contextId, requestInfo.getScene(), requestInfo.getTargetLanguage(),
+                                terms, formal, stagedSummary, stagedContextSummary, stagedInvalidContextSummary,
+                                capturedSourceHashExcludingScene, contextSummaryOptions);
+                        }));
+                    if (result.conflicts.length() != 0) {
+                        throw new TermConflictException(result.conflicts.toString());
+                    }
+                    // A deleted/moved Context cannot receive terms; the body still
+                    // follows the existing Scene result-save contract.
+                    summary = stagedSummary;
+                    contextSummary = stagedContextSummary;
+                    checkpointLocked();
                 }
             }
 
@@ -2989,7 +3079,9 @@ public final class TranslationTaskExecutor {
             boolean[] localRepairStreamComplete = {false};
             try {
                 PreparedApiRequest prepared =
+                    SceneContextStore.withRootAccess(() -> ConfigStore.withConfigAccess(() ->
                     TranslationRequestFactory.buildRepairRequest(
+                        context,
                         config,
                         request,
                         blocksForSeqs(requestedSeqs),
@@ -2997,8 +3089,9 @@ public final class TranslationTaskExecutor {
                         validator,
                         summary,
                         useFullSceneForRepair,
-                        historyPayload
-                    );
+                        historyPayload,
+                        currentInternalTerms(internalDictionaryEnabledNow())
+                    )));
                 PreflightResult preflightResult = preflight(
                     mappingResolution,
                     historyResolution,
@@ -3599,6 +3692,7 @@ public final class TranslationTaskExecutor {
                 .put("main_complete", mainFinished)
                 .put("highest_main_seq", highestMainSeqSeen)
                 .put("main_result_restarts", mainResultRestarts)
+                .put("term_conflict_restarts", termConflictRestarts)
                 .put("scene_repair_rounds", sceneRepairRounds)
                 .put("patch_version", patchVersion);
             if (summary != null) {
@@ -3656,6 +3750,7 @@ public final class TranslationTaskExecutor {
         }
 
         private void restore(JSONObject progress) {
+            termConflictRestarts = progress.optInt("term_conflict_restarts", 0);
             summary = nullableString(progress, "summary");
             contextSummary = nullableString(progress, "context_summary");
             mainFinished = progress.optBoolean("main_complete", false);
@@ -4051,6 +4146,17 @@ public final class TranslationTaskExecutor {
         }
         return error instanceof IOException
             && TranslationApiClient.isRetryableNetworkException(error);
+    }
+
+    private static final class TermConflictException extends Exception {
+        TermConflictException(String detail) { super("术语译名冲突: " + detail); }
+    }
+
+    private static boolean isTermConflict(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof TermConflictException) return true;
+        }
+        return false;
     }
 
     private static boolean isRepairableMainResultFailure(

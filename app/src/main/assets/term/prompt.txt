@@ -19,8 +19,9 @@ The hyphenated `target_lang` codes and underscored `i18n` keys intentionally use
 - `target_lang = zh-cn` maps to `i18n.zh_cn`.
 - `target_lang = zh-tw` maps to `i18n.zh_tw`.
 - `target_lang = en` maps to `i18n.en`.
+- A custom `target_lang` maps only to the `i18n` key with exactly that same spelling, if HET supplies it for this request. Such a value is a translation in that custom target language; never treat it as one of the three language codes above.
 
-When the mapped `i18n` value is non-empty, prefer it for the corresponding name or term. When it is empty or no mapping exists for a custom language code, translate from the source in the exact requested language and regional variant. Never select a non-matching `i18n` field merely because it is non-empty; in particular, never use `i18n.zh_tw` as the output form for `target_lang = zh-cn`, or vice versa.
+When the mapped `i18n` value is non-empty, prefer it for the corresponding name or term. When it is empty or the exact key is absent for a custom language code, translate from the source in the exact requested language and regional variant. Never select a non-matching `i18n` field merely because it is non-empty; in particular, never use `i18n.zh_tw` as the output form for `target_lang = zh-cn`, or vice versa.
 
 ## Evidence priority
 

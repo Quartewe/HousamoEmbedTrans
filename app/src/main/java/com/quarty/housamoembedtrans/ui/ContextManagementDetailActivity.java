@@ -10,13 +10,16 @@ import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.content.ContextCompat;
@@ -44,7 +47,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Read-only detail surface for one persisted Context or Group document. */
+/** Detail surface for one persisted Context or Group document. */
 public final class ContextManagementDetailActivity extends AppCompatActivity {
     public static final String EXTRA_KIND =
         "com.quarty.housamoembedtrans.ui.EXTRA_CONTEXT_GROUP_KIND";
@@ -66,11 +69,13 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     private static final String LAYER_MEMBERS = "members";
     private static final String LAYER_CHARACTERS = "characters";
     private static final String LAYER_TERMS = "terms";
+    private static final String LAYER_INTERNAL_TERMS = "internal_terms";
     private static final String LAYER_SUMMARIES = "summaries";
     private static final String LAYER_MANUAL = "manual";
 
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private final Set<String> expandedSections = new LinkedHashSet<>();
+    private final List<MaterialButton> internalTermActions = new ArrayList<>();
 
     private NestedScrollView scrollView;
     private MaterialToolbar toolbar;
@@ -189,6 +194,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         final List<ContextMember> members;
         final List<SceneLink> scenes;
         final AggregateData aggregate;
+        final Map<String, JSONObject> internalTerms;
         final String activeContextId;
         final String activeGroupId;
         final SceneContextStore.ManualClosureState closureState;
@@ -199,6 +205,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             List<ContextMember> members,
             List<SceneLink> scenes,
             AggregateData aggregate,
+            Map<String, JSONObject> internalTerms,
             String activeContextId,
             String activeGroupId,
             SceneContextStore.ManualClosureState closureState
@@ -208,6 +215,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             this.members = members;
             this.scenes = scenes;
             this.aggregate = aggregate;
+            this.internalTerms = internalTerms;
             this.activeContextId = activeContextId;
             this.activeGroupId = activeGroupId;
             this.closureState = closureState;
@@ -415,6 +423,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                 new ArrayList<AggregateTerm>(),
                 0
             ),
+            new LinkedHashMap<String, JSONObject>(),
             "",
             "",
             null
@@ -429,6 +438,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         loadedData = null;
         closureState = null;
         editingAllowed = false;
+        internalTermActions.clear();
         content.removeAllViews();
         clearPageActions();
         status.setVisibility(View.VISIBLE);
@@ -440,6 +450,9 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                 JSONObject document = isContext()
                     ? store.getContext(objectId)
                     : store.getGroup(objectId);
+                Map<String, JSONObject> internalTerms = isContext()
+                    ? readInternalTerms(store, objectId)
+                    : Collections.emptyMap();
                 List<GroupLink> groups = isContext()
                     ? findGroups(store, objectId)
                     : Collections.emptyList();
@@ -482,6 +495,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                     members,
                     sceneLoad.sceneLinks,
                     sceneLoad.aggregate,
+                    internalTerms,
                     store.getActiveContextId(),
                     store.getActiveGroupId(),
                     loadedClosure
@@ -504,6 +518,49 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                     ));
                 });
             }
+        });
+    }
+
+    /**
+     * Reads the current Context identity and internal dictionaries as one
+     * root-scoped operation.  The storage name is deliberately never taken
+     * from the Activity's earlier snapshot: a deleted Context must not be
+     * recreated by a late management action.
+     */
+    private Map<String, JSONObject> readInternalTerms(
+        SceneContextStore store,
+        String contextId
+    ) throws Exception {
+        return SceneContextStore.withRootAccess(() -> {
+            JSONObject current = store.getContext(contextId);
+            String storageName = current.optString("storage_name", "").trim();
+            if (storageName.isEmpty()) {
+                throw new IllegalStateException(
+                    "context storage_name is missing: " + contextId
+                );
+            }
+            JSONObject languages = current.optJSONObject("internal_terms");
+            Map<String, JSONObject> result = new LinkedHashMap<>();
+            if (languages == null) {
+                return result;
+            }
+            List<String> languageKeys = new ArrayList<>();
+            Iterator<String> iterator = languages.keys();
+            while (iterator.hasNext()) {
+                languageKeys.add(iterator.next());
+            }
+            Collections.sort(languageKeys);
+            for (String language : languageKeys) {
+                JSONObject terms = store.getContextStore().getInternalTerms(
+                    storageName,
+                    language
+                );
+                if (terms == null || terms.length() == 0) {
+                    continue;
+                }
+                result.put(language, new JSONObject(terms.toString()));
+            }
+            return result;
         });
     }
 
@@ -812,6 +869,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
     }
 
     private void renderDocument() {
+        internalTermActions.clear();
         clearPageActions();
         if (loadedData == null || loadedData.document == null) {
             showFailure(getString(R.string.context_detail_missing));
@@ -838,6 +896,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             || LAYER_MEMBERS.equals(layer)
             || LAYER_CHARACTERS.equals(layer)
             || LAYER_TERMS.equals(layer)
+            || LAYER_INTERNAL_TERMS.equals(layer)
             || LAYER_SUMMARIES.equals(layer)
             || LAYER_MANUAL.equals(layer)) {
             return layer;
@@ -944,6 +1003,12 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                     + " · " + loadedData.aggregate.terms.size(),
                 aggregateTermPreview(),
                 () -> openDetailLayer(LAYER_TERMS)
+            );
+            addPrototypeSummaryCard(
+                getString(R.string.context_detail_internal_terms)
+                    + " · " + internalTermsCount(),
+                internalTermsPreview(),
+                () -> openDetailLayer(LAYER_INTERNAL_TERMS)
             );
             addPrototypeSummaryCard(
                 getString(R.string.context_detail_manual_descriptions),
@@ -1163,6 +1228,8 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             label = getString(R.string.detail_proto_characters);
         } else if (LAYER_TERMS.equals(detailLayer)) {
             label = getString(R.string.detail_proto_context_terms);
+        } else if (LAYER_INTERNAL_TERMS.equals(detailLayer)) {
+            label = getString(R.string.context_detail_internal_terms);
         } else if (LAYER_SUMMARIES.equals(detailLayer)) {
             label = getString(R.string.detail_proto_context_summary);
         } else if (LAYER_MANUAL.equals(detailLayer)) {
@@ -1188,6 +1255,8 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             renderPrototypeCharacters(content);
         } else if (LAYER_TERMS.equals(detailLayer)) {
             renderPrototypeTerms(content);
+        } else if (LAYER_INTERNAL_TERMS.equals(detailLayer)) {
+            renderInternalTerms(content);
         } else if (LAYER_SUMMARIES.equals(detailLayer)) {
             renderPrototypeSummaries(content);
         } else if (LAYER_MANUAL.equals(detailLayer)) {
@@ -1335,6 +1404,319 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
                 true
             );
         }
+    }
+
+    private void renderInternalTerms(LinearLayout parent) {
+        if (!isContext() || loadedData.internalTerms == null
+            || loadedData.internalTerms.isEmpty()) {
+            addPrototypeText(
+                parent,
+                getString(R.string.context_detail_internal_terms_empty),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                0,
+                6
+            );
+            return;
+        }
+        for (String language : internalTermLanguages()) {
+            JSONObject terms = loadedData.internalTerms.get(language);
+            if (terms == null || terms.length() == 0) {
+                continue;
+            }
+            addPrototypeSectionHeading(parent, internalTermLanguageLabel(language));
+            List<String> keys = new ArrayList<>();
+            Iterator<String> iterator = terms.keys();
+            while (iterator.hasNext()) {
+                keys.add(iterator.next());
+            }
+            Collections.sort(keys);
+            for (String term : keys) {
+                String translation = terms.optString(term, "");
+                addInternalTermRow(parent, language, term, translation);
+            }
+        }
+        if (parent.getChildCount() == 0) {
+            addPrototypeText(
+                parent,
+                getString(R.string.context_detail_internal_terms_empty),
+                R.style.TextAppearance_HET_DetailPrototype_Metadata,
+                0,
+                6
+            );
+        }
+    }
+
+    private void addInternalTermRow(
+        LinearLayout parent,
+        String language,
+        String term,
+        String translation
+    ) {
+        MaterialCardView card = prototypeCard(6);
+        LinearLayout body = prototypeCardBody(card);
+        addField(
+            body,
+            getString(R.string.context_detail_internal_terms_source),
+            term
+        );
+        addField(
+            body,
+            getString(R.string.context_detail_internal_terms_translation),
+            translation
+        );
+        LinearLayout actions = new LinearLayout(this);
+        actions.setGravity(Gravity.END);
+        MaterialButton edit = prototypeButton(
+            getString(R.string.context_detail_internal_terms_edit),
+            false
+        );
+        MaterialButton delete = prototypeButton(
+            getString(R.string.context_detail_internal_terms_delete),
+            true
+        );
+        final String expectedTranslation = translation;
+        edit.setOnClickListener(view -> editInternalTerm(
+            language,
+            term,
+            expectedTranslation
+        ));
+        delete.setOnClickListener(view -> confirmDeleteInternalTerm(
+            language,
+            term,
+            expectedTranslation
+        ));
+        internalTermActions.add(edit);
+        internalTermActions.add(delete);
+        edit.setEnabled(canEditInternalTerms());
+        delete.setEnabled(canEditInternalTerms());
+        actions.addView(edit, wrapButtonParams(0));
+        LinearLayout.LayoutParams deleteParams = wrapButtonParams(0);
+        deleteParams.leftMargin = dp(6);
+        actions.addView(delete, deleteParams);
+        body.addView(actions, fullWidthParams(0));
+        parent.addView(card);
+    }
+
+    private void confirmDeleteInternalTerm(
+        String language,
+        String term,
+        String expectedTranslation
+    ) {
+        if (!canEditInternalTerms()) {
+            return;
+        }
+        new UiMaterialAlertDialogBuilder(this)
+            .setTitle(R.string.context_detail_internal_terms_delete_title)
+            .setMessage(getString(
+                R.string.context_detail_internal_terms_delete_message,
+                term,
+                internalTermLanguageLabel(language)
+            ))
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.context_detail_internal_terms_delete,
+                (dialog, which) -> mutateInternalTerm(
+                    language,
+                    term,
+                    expectedTranslation,
+                    null,
+                    true
+                )
+            )
+            .show();
+    }
+
+    private void editInternalTerm(
+        String language,
+        String term,
+        String expectedTranslation
+    ) {
+        if (!canEditInternalTerms()) {
+            return;
+        }
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        input.setHint(R.string.context_detail_internal_terms_edit_hint);
+        input.setText(expectedTranslation);
+        input.setSelection(input.length());
+        input.setPadding(dp(24), dp(8), dp(24), 0);
+        new UiMaterialAlertDialogBuilder(this)
+            .setTitle(R.string.context_detail_internal_terms_edit_title)
+            .setView(input)
+            .setNegativeButton(R.string.cancel_action, null)
+            .setPositiveButton(
+                R.string.context_detail_internal_terms_save,
+                (dialog, which) -> {
+                    String replacement = input.getText() == null
+                        ? ""
+                        : input.getText().toString().trim();
+                    if (replacement.isEmpty()) {
+                        Toast.makeText(
+                            this,
+                            R.string.context_detail_internal_terms_empty_translation,
+                            Toast.LENGTH_SHORT
+                        ).show();
+                        return;
+                    }
+                    mutateInternalTerm(
+                        language,
+                        term,
+                        expectedTranslation,
+                        replacement,
+                        false
+                    );
+                }
+            )
+            .show();
+    }
+
+    private boolean canEditInternalTerms() {
+        return isContext()
+            && !stylePreview
+            && loadedData != null
+            && editingAllowed
+            && !pendingMoveBusy
+            && isSupportedRequest();
+    }
+
+    private void mutateInternalTerm(
+        String language,
+        String term,
+        String expectedTranslation,
+        String replacement,
+        boolean deleting
+    ) {
+        if (!canEditInternalTerms()) {
+            return;
+        }
+        setPendingMoveBusy(true);
+        ioExecutor.execute(() -> {
+            String failure = null;
+            try {
+                SceneContextStore store = new SceneContextStore(this);
+                SceneContextStore.withRootAccess(() -> {
+                    JSONObject current = store.getContext(objectId);
+                    String storageName = current.optString(
+                        "storage_name",
+                        ""
+                    ).trim();
+                    if (storageName.isEmpty()) {
+                        throw new IllegalStateException(
+                            "context storage_name is missing: " + objectId
+                        );
+                    }
+                    store.getContextStore().updateInternalTerm(
+                        storageName,
+                        language,
+                        term,
+                        expectedTranslation,
+                        replacement
+                    );
+                    return null;
+                });
+            } catch (Exception error) {
+                failure = safeMessage(error);
+            }
+            final String message = failure;
+            runOnUiThread(() -> {
+                if (destroyed || isFinishing() || isDestroyed()) {
+                    return;
+                }
+                setPendingMoveBusy(false);
+                if (message != null) {
+                    Toast.makeText(
+                        this,
+                        getString(
+                            deleting
+                                ? R.string.context_detail_internal_terms_delete_failed
+                                : R.string.context_detail_internal_terms_save_failed,
+                            message
+                        ),
+                        Toast.LENGTH_LONG
+                    ).show();
+                } else {
+                    Toast.makeText(
+                        this,
+                        deleting
+                            ? R.string.context_detail_internal_terms_deleted
+                            : R.string.context_detail_internal_terms_saved,
+                        Toast.LENGTH_SHORT
+                    ).show();
+                }
+                if (lifecycleStarted) {
+                    loadAsync();
+                }
+            });
+        });
+    }
+
+    private String safeMessage(Throwable error) {
+        if (error == null) {
+            return "";
+        }
+        String message = error.getMessage();
+        return message == null || message.trim().isEmpty()
+            ? error.getClass().getSimpleName()
+            : message;
+    }
+
+    private List<String> internalTermLanguages() {
+        if (loadedData == null || loadedData.internalTerms == null) {
+            return Collections.emptyList();
+        }
+        List<String> languages = new ArrayList<>(
+            loadedData.internalTerms.keySet()
+        );
+        Collections.sort(languages);
+        return languages;
+    }
+
+    private int internalTermsCount() {
+        if (loadedData == null || loadedData.internalTerms == null) {
+            return 0;
+        }
+        int count = 0;
+        for (JSONObject terms : loadedData.internalTerms.values()) {
+            if (terms != null) {
+                count += terms.length();
+            }
+        }
+        return count;
+    }
+
+    private String internalTermsPreview() {
+        if (internalTermsCount() == 0) {
+            return getString(R.string.context_detail_internal_terms_empty);
+        }
+        List<String> previews = new ArrayList<>();
+        for (String language : internalTermLanguages()) {
+            JSONObject terms = loadedData.internalTerms.get(language);
+            if (terms == null) {
+                continue;
+            }
+            List<String> keys = new ArrayList<>();
+            Iterator<String> iterator = terms.keys();
+            while (iterator.hasNext()) {
+                keys.add(iterator.next());
+            }
+            Collections.sort(keys);
+            for (String term : keys) {
+                previews.add(
+                    internalTermLanguageLabel(language)
+                        + ": "
+                        + term
+                        + " → "
+                        + terms.optString(term, "")
+                );
+                if (previews.size() >= 3) {
+                    return TextUtils.join("、", previews);
+                }
+            }
+        }
+        return previews.isEmpty()
+            ? getString(R.string.context_detail_internal_terms_empty)
+            : TextUtils.join("、", previews);
     }
 
     private void renderPrototypeSummaries(LinearLayout parent) {
@@ -1989,6 +2371,12 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
         if (editAction != null) editAction.setEnabled(enabled);
         if (moveAction != null) moveAction.setEnabled(enabled && !stylePreview);
         if (activeAction != null) activeAction.setEnabled(enabled && !stylePreview);
+        boolean termEnabled = canEditInternalTerms();
+        for (MaterialButton action : internalTermActions) {
+            if (action != null) {
+                action.setEnabled(termEnabled);
+            }
+        }
     }
 
     private void openEditor() {
@@ -2280,6 +2668,13 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
             : name;
     }
 
+    private String internalTermLanguageLabel(String language) {
+        String label = languageName(language);
+        return getString(R.string.context_detail_other_language).equals(label)
+            ? (language == null || language.trim().isEmpty() ? label : language)
+            : label;
+    }
+
     private String formatTime(Object value) {
         String formatted = formatTimeIfPresent(value);
         return TextUtils.isEmpty(formatted)
@@ -2377,6 +2772,7 @@ public final class ContextManagementDetailActivity extends AppCompatActivity {
 
     private void showFailure(String message) {
         editingAllowed = false;
+        internalTermActions.clear();
         clearPageActions();
         if (status != null) {
             status.setVisibility(View.VISIBLE);

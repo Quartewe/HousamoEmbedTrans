@@ -1,7 +1,10 @@
 package com.quarty.housamoembedtrans.translation.request;
+import android.content.Context;
+
 import com.quarty.housamoembedtrans.context.history.HistoryPayload;
 import com.quarty.housamoembedtrans.provider.PreparedApiRequest;
 import com.quarty.housamoembedtrans.provider.TranslationConfig;
+import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -32,10 +35,59 @@ public final class TranslationRequestFactory {
         JSONObject originalScene,
         HistoryPayload historyPayload
     ) throws Exception {
-        boolean requestContextSummary = originalScene != null
-            && originalScene.optBoolean("request_context_summary", false);
-        JSONObject userPayload = augmentScene(
+        return buildMainRequestInternal(
+            null,
+            config,
             originalScene,
+            historyPayload,
+            null,
+            false
+        );
+    }
+
+    /**
+     * Builds a new main request from the latest formal dictionaries.  The
+     * caller fixes {@code requestTerms} for this request; it controls only
+     * the optional internal-term input and its main-request prompt clause.
+     */
+    public static PreparedApiRequest buildMainRequest(
+        Context context,
+        TranslationConfig config,
+        JSONObject originalScene,
+        HistoryPayload historyPayload,
+        JSONObject internalTerms,
+        boolean requestTerms
+    ) throws Exception {
+        return buildMainRequestInternal(
+            context,
+            config,
+            originalScene,
+            historyPayload,
+            internalTerms,
+            requestTerms
+        );
+    }
+
+    private static PreparedApiRequest buildMainRequestInternal(
+        Context context,
+        TranslationConfig config,
+        JSONObject originalScene,
+        HistoryPayload historyPayload,
+        JSONObject internalTerms,
+        boolean requestTerms
+    ) throws Exception {
+        JSONObject matchedScene = prepareScene(
+            context,
+            originalScene,
+            internalTerms,
+            requestTerms
+        );
+        boolean requestContextSummary = matchedScene.optBoolean(
+            "request_context_summary",
+            false
+        );
+        JSONObject userPayload = augmentScene(
+            matchedScene,
             historyPayload,
             requestContextSummary
         );
@@ -43,7 +95,8 @@ public final class TranslationRequestFactory {
             config,
             userPayload.toString(),
             null,
-            historyPayload
+            historyPayload,
+            requestTerms
         );
     }
 
@@ -57,6 +110,7 @@ public final class TranslationRequestFactory {
         boolean useFullScene
     ) throws Exception {
         return buildRepairRequest(
+            null,
             config,
             originalScene,
             contextBlocks,
@@ -64,7 +118,8 @@ public final class TranslationRequestFactory {
             validator,
             summary,
             useFullScene,
-            HistoryPayload.empty()
+            HistoryPayload.empty(),
+            null
         );
     }
 
@@ -77,6 +132,37 @@ public final class TranslationRequestFactory {
         String summary,
         boolean useFullScene,
         HistoryPayload historyPayload
+    ) throws Exception {
+        return buildRepairRequest(
+            null,
+            config,
+            originalScene,
+            contextBlocks,
+            failures,
+            validator,
+            summary,
+            useFullScene,
+            historyPayload,
+            null
+        );
+    }
+
+    /**
+     * Builds a body-repair request using the same current dictionary match
+     * seam as a main request.  Repair never enables the terms protocol or
+     * appends the internal-dictionary prompt.
+     */
+    public static PreparedApiRequest buildRepairRequest(
+        Context context,
+        TranslationConfig config,
+        JSONObject originalScene,
+        List<TranslationGradientPlanner.Block> contextBlocks,
+        Map<Integer, TranslationResultValidator.Result> failures,
+        TranslationResultValidator validator,
+        String summary,
+        boolean useFullScene,
+        HistoryPayload historyPayload,
+        JSONObject internalTerms
     ) throws Exception {
         if (summary == null || summary.trim().isEmpty()) {
             throw new IllegalArgumentException(
@@ -123,8 +209,14 @@ public final class TranslationRequestFactory {
                 )
             );
 
-        JSONObject userPayload = augmentScene(
+        JSONObject matchedScene = prepareScene(
+            context,
             new JSONObject(stableContext),
+            internalTerms,
+            internalTerms != null
+        );
+        JSONObject userPayload = augmentScene(
+            matchedScene,
             historyPayload,
             false
         );
@@ -134,7 +226,8 @@ public final class TranslationRequestFactory {
             config,
             userContent,
             instruction.toString(),
-            historyPayload
+            historyPayload,
+            false
         );
     }
 
@@ -173,6 +266,52 @@ public final class TranslationRequestFactory {
         return result;
     }
 
+    /**
+     * Reads the three current resources and matches a request while the
+     * ConfigStore access lock is held.  A null Context is reserved for the
+     * existing host seam and deliberately preserves the supplied Scene.
+     */
+    private static JSONObject prepareScene(
+        Context context,
+        JSONObject originalScene,
+        JSONObject internalTerms,
+        boolean useInternalTerms
+    ) throws Exception {
+        if (originalScene == null) {
+            throw new IllegalArgumentException("scene cannot be null");
+        }
+        if (context == null) {
+            return new JSONObject(originalScene.toString());
+        }
+
+        return ConfigStore.withConfigAccess(() -> {
+            ConfigStore store = new ConfigStore(context);
+            JSONObject currentConfig = store.loadJson(
+                ConfigStore.CONFIG_FILE_NAME
+            ).json;
+            JSONObject currentCharacters = store.loadJson(
+                ConfigStore.CHARDICT_FILE_NAME
+            ).json;
+            JSONObject currentTerms = store.loadJson(
+                ConfigStore.GAMETERMS_FILE_NAME
+            ).json;
+            JSONObject weights = null;
+            JSONObject userSettings = currentConfig.optJSONObject(
+                "UserSettings"
+            );
+            if (userSettings != null) {
+                weights = userSettings.optJSONObject("CharacterWeight");
+            }
+            return FormalDictionaryMatcher.matchScene(
+                originalScene,
+                currentCharacters,
+                currentTerms,
+                useInternalTerms ? internalTerms : null,
+                weights
+            );
+        });
+    }
+
     private static JSONObject augmentScene(
         JSONObject originalScene,
         HistoryPayload historyPayload,
@@ -195,7 +334,8 @@ public final class TranslationRequestFactory {
         TranslationConfig config,
         String userContent,
         String repairInstruction,
-        HistoryPayload historyPayload
+        HistoryPayload historyPayload,
+        boolean includeInternalTermsPrompt
     ) throws Exception {
         if (repairInstruction != null) {
             userContent +=
@@ -204,12 +344,17 @@ public final class TranslationRequestFactory {
                     + "\n</internal_repair_instruction>";
         }
 
+        String systemPrompt = config.getSystemPrompt();
+        if (includeInternalTermsPrompt && repairInstruction == null) {
+            systemPrompt = InternalTermsPrompt.appendTo(systemPrompt);
+        }
+
         JSONObject providerRequest;
         if ("openai".equals(config.getProtocol())) {
             JSONArray messages = new JSONArray()
                 .put(new JSONObject()
                     .put("role", "system")
-                    .put("content", config.getSystemPrompt()))
+                    .put("content", systemPrompt))
                 .put(new JSONObject()
                     .put("role", "user")
                     .put("content", userContent));
@@ -234,7 +379,7 @@ public final class TranslationRequestFactory {
                 .put("model", config.getModel())
                 .put("max_tokens", config.getMaxTokens())
                 .put("stream", config.isStreamingResponseEnabled())
-                .put("system", config.getSystemPrompt())
+                .put("system", systemPrompt)
                 .put("messages", messages);
             if (config.shouldSendThinkingParameters()) {
                 providerRequest.put("thinking", new JSONObject()
