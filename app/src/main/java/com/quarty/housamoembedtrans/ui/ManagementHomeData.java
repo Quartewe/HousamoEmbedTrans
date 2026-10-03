@@ -72,6 +72,7 @@ public final class ManagementHomeData {
             scenes.add(scene);
             scenesByName.put(scene.name, scene);
         }
+        scenes.sort((left, right) -> compareSceneNames(left.name, right.name));
 
         SceneContextStore contextStore = new SceneContextStore(safeContext);
         List<JSONObject> contextDocuments = contextStore.listContexts();
@@ -281,6 +282,7 @@ public final class ManagementHomeData {
                     scenesByName.put(displayName, scene);
                 }
             }
+            scenes.sort((left, right) -> compareSceneNames(left.name, right.name));
 
             List<ContextItem> contexts = new ArrayList<>();
             Map<String, ContextItem> contextsById = new LinkedHashMap<>();
@@ -1050,6 +1052,49 @@ public final class ManagementHomeData {
             ));
         }
         return result;
+    }
+
+    /** Display order only; Context member order remains the persisted story order. */
+    private static int compareSceneNames(String left, String right) {
+        int leftIndex = 0;
+        int rightIndex = 0;
+        while (leftIndex < left.length() && rightIndex < right.length()) {
+            char leftChar = left.charAt(leftIndex);
+            char rightChar = right.charAt(rightIndex);
+            if (isSceneDigit(leftChar) && isSceneDigit(rightChar)) {
+                int leftEnd = leftIndex;
+                int rightEnd = rightIndex;
+                while (leftEnd < left.length() && isSceneDigit(left.charAt(leftEnd))) leftEnd++;
+                while (rightEnd < right.length() && isSceneDigit(right.charAt(rightEnd))) rightEnd++;
+                while (leftIndex < leftEnd && left.charAt(leftIndex) == '0') leftIndex++;
+                while (rightIndex < rightEnd && right.charAt(rightIndex) == '0') rightIndex++;
+                // Compare significant digits without integer parsing or overflow.
+                int lengthOrder = Integer.compare(leftEnd - leftIndex, rightEnd - rightIndex);
+                if (lengthOrder != 0) return lengthOrder;
+                while (leftIndex < leftEnd) {
+                    int digitOrder = Character.compare(
+                        left.charAt(leftIndex++), right.charAt(rightIndex++));
+                    if (digitOrder != 0) return digitOrder;
+                }
+                leftIndex = leftEnd;
+                rightIndex = rightEnd;
+            } else {
+                int textOrder = Character.compare(leftChar, rightChar);
+                if (textOrder != 0) return textOrder;
+                leftIndex++;
+                rightIndex++;
+            }
+        }
+        int remainingOrder = Integer.compare(
+            left.length() - leftIndex, right.length() - rightIndex);
+        if (remainingOrder != 0) return remainingOrder;
+        // Keep distinct zero-padded identifiers in a deterministic order.
+        int lengthOrder = Integer.compare(left.length(), right.length());
+        return lengthOrder != 0 ? lengthOrder : left.compareTo(right);
+    }
+
+    private static boolean isSceneDigit(char value) {
+        return value >= '0' && value <= '9';
     }
 
     private static String firstNonEmpty(String... values) {
