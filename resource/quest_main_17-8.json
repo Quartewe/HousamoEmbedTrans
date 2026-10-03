@@ -1,0 +1,6018 @@
+{
+  "scene": "quest_main_17-8",
+  "game_version": "5.19.0",
+  "raw_lang": "ja",
+  "translated": {
+    "zh-cn": true
+  },
+  "character": {
+    "mc": {
+      "name": "mc",
+      "aliases": [],
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "school": [
+        "神宿学園"
+      ],
+      "guild": [
+        "新宿サモナーズ"
+      ],
+      "origin_world": [],
+      "relationships": [],
+      "info": "竜の尾より断ち離された神剣の「神器」を手にした、異界からの転光生。全属性を併せ持つ刃に宿る「離断」の権能は「支配」と「力」を分断し、その代償として「流者」は故郷から追放される。23の異界と接続した東京での出会いを経て、切り離されていた記憶の一部を受け容れ、神器の真価をより引き出せるようになった。",
+      "description": "",
+      "speech_style": ""
+    },
+    "high_weight": [
+      {
+        "name": "全の例外処理ソロモン",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "石英結晶の怪物？",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "アンゴルモワ1999",
+        "aliases": [],
+        "i18n": {
+          "en": "Angolmois 1999",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "エクスターズ"
+        ],
+        "origin_world": [
+          "オールドワンズ"
+        ],
+        "relationships": [
+          {
+            "target": "ブレイク",
+            "type": "好意"
+          }
+        ],
+        "info": "外宇宙から1999年の東京に落下した隕石の正体である知性体「転光生」。捕食した過去の「記憶」を貪って生殖し、喰った骸のいくつかを合わせ表出させた姿を取る。原子価4の非炭素物で構成され、片目の記号は火星を示すマークに類似。捕食者として特定の相手へ食欲および繁殖欲を強く抱く。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "マサカド",
+        "aliases": [],
+        "i18n": {
+          "en": "Masakado",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [
+          "不死見学園"
+        ],
+        "guild": [
+          "無所属"
+        ],
+        "origin_world": [
+          "ワノクニ"
+        ],
+        "relationships": [
+          {
+            "target": "エルダー・サロモニス666",
+            "type": "苦手"
+          }
+        ],
+        "info": "複数の時代の大戦を潜り抜けた不死者の「転光生」で、片手の生首に意識の主導権が宿る。平面の「神器」は描かれた信仰を立体として機能させ、北辰妙見尊星と同一化し死ぬことができない。東京以外のみやこを滅ぼす大願を掲げ、地上に疑似的な星を生み出さんと企む。旧公安外事課の関係者でもある。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "？？？の声",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "モノチェーロ",
+        "aliases": [],
+        "i18n": {
+          "en": "Monaciello",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [
+          "王子坊学園"
+        ],
+        "guild": [
+          "荒川ワンダラーズ"
+        ],
+        "origin_world": [
+          "ティルナノグ"
+        ],
+        "relationships": [
+          {
+            "target": "ジャージーデビル",
+            "type": "好意"
+          },
+          {
+            "target": "ユルグ",
+            "type": "好意"
+          }
+        ],
+        "info": "ティルナノグ出身の幸運と不運の妖精の片割れで、王子坊学園に通う「転光生」。修道士マントをまとった無邪気なガキ大将気質で、都市地下動脈の掘削スペシャリスト。地下資源を掘り当て困っている人に分け与えるがそれは善意ではなく、クナップシャフト鉱業労働組合の名誉メンバーとして地下で過ごす日々が多い。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "メフィストフェレス",
+        "aliases": [],
+        "i18n": {
+          "en": "Mephistopheles",
+          "zh_tw": "梅菲斯托費勒斯",
+          "zh_cn": "梅菲斯托费勒斯"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "練馬ウォーモンガーズ"
+        ],
+        "origin_world": [
+          "ゲヘナ"
+        ],
+        "relationships": [
+          {
+            "target": "シヴァ",
+            "type": "好意"
+          },
+          {
+            "target": "スノウ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ゲヘナ出身の数少ない純粋な悪魔で、鏡と契約書の二つの「神器」を持つ「転光生」。光を返す鏡と精神を縛る契約書で、影の内閣を差配し行政の中枢にありながら表舞台には立たない。契約した人間の忠実な奴隷として堕落させることを好み、ゲヘナの堕落より逃れたただ一人の人間を堕とすことを渇望する。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "マルコシアス",
+        "aliases": [],
+        "i18n": {
+          "en": "Marchosias",
+          "zh_tw": "馬可西亞斯",
+          "zh_cn": "马可西亚斯"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "歌舞伎町アウトローズ"
+        ],
+        "origin_world": [
+          "エデン",
+          "ゲヘナ"
+        ],
+        "relationships": [
+          {
+            "target": "オルグス",
+            "type": "好意"
+          },
+          {
+            "target": "エリイ",
+            "type": "苦手"
+          }
+        ],
+        "info": "地獄より召喚された騎士で、致命傷を負った男が遺児を託した契約に応じ、幼子を襲う者たちと戦い続けている。彼は「誠実な願いへ誠実に答える」という誓いを背負い、幼子が受け継いだ遺品と真実が東京を揺るがすことをまだ知らない。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "マサカドの部下",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ジャージーデビル",
+        "aliases": [],
+        "i18n": {
+          "en": "Jersey Devil",
+          "zh_tw": "泥鬼",
+          "zh_cn": "泥鬼"
+        },
+        "school": [
+          "世耕農業・林業学園"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "グレイトスピリット",
+          "オールドワンズ"
+        ],
+        "relationships": [
+          {
+            "target": "シーワンムウ",
+            "type": "好意"
+          }
+        ],
+        "info": "アメリカの都市伝説より生まれた未確認生物の「転光生」で、ニュージャージーの森に出没するとされる有翼の怪人。コウモリのような翼と蹄を持つ異形だが、実際は迫害された者たちを匿い護ってきた森の守護者であり、偏見や噂だけで人を判断することを何より嫌う。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "マルコシアスの連れ子",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ウィドワー",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "サロモンくん",
+        "aliases": [],
+        "i18n": {
+          "en": "Lil' Salomon",
+          "zh_tw": "沙羅門",
+          "zh_cn": "沙罗门"
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "ゲーム初期の案内役兼マスコットで、東京へ転移した主人公のスマホにいつの間にか着任していた使い魔の悪魔。基本的に主人公以外には姿を認識されず、執事検定3級や使い魔教科書など怪しげな資格や参考書を多数持つ。主人公の例外処理として、数十の追放者と竜蛇を束ねる力に関わり、光の六芒星を持つ者を「お父様」と呼ぶ。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "アルク",
+        "aliases": [],
+        "i18n": {
+          "en": "Arc",
+          "zh_tw": "阿爾克",
+          "zh_cn": "阿鲁克"
+        },
+        "school": [
+          "不死見学園"
+        ],
+        "guild": [
+          "大手町ジェノサイダーズ"
+        ],
+        "origin_world": [
+          "東京"
+        ],
+        "relationships": [
+          {
+            "target": "アザトース",
+            "type": "好意"
+          },
+          {
+            "target": "キリト",
+            "type": "好意"
+          },
+          {
+            "target": "mc",
+            "type": "苦手"
+          }
+        ],
+        "info": "大手町ギルド・ジェノサイダーズのギルドマスターで、日本人とフランス人の血を引き、家族を深く慈しむ一方で激しい感情を内に秘めている。鎖の神器は罪の意識によって相手を捕らえ罪を焼き尽くす権能を持ち、使い方によっては誰かを引き留める力にもなる。身内や大切な者を害する相手を許さない姿勢が、童話になぞらえた装いにも重ねられている。",
+        "description": "",
+        "speech_style": ""
+      }
+    ],
+    "low_weight": []
+  },
+  "mentioned_characters": [],
+  "game_terms": [
+    {
+      "term": "結合",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": "结合"
+      },
+      "description": "アルクの鎖と、それに対応する例外処理に関わる力。第8章では複数の例外処理を鎖でつなぐ。"
+    },
+    {
+      "term": "ラボラトリ",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": "拉博拉托利"
+      },
+      "description": "人工天才児たちを生み出した研究組織・実験施設に関わる呼称。どのような生命の在り方も受け入れ、永続する仕組みとしての新しい生命を目指す。"
+    },
+    {
+      "term": "神器",
+      "i18n": {
+        "en": "Sacred Artifacts",
+        "zh_tw": "神器",
+        "zh_cn": "神器"
+      },
+      "description": "持つべき役割を持った者だけが振るえる神の器。特定の権能を世界へ押し付け、物理法則を書き換えて通常ではあり得ない現象を起こす。東京には23の異世界、24の神話に由来する多様な神器があり、召喚には対応する役割と権能の宣言が必要。"
+    },
+    {
+      "term": "サロモンくん",
+      "i18n": {
+        "en": "Lil' Salomon",
+        "zh_tw": "沙羅門",
+        "zh_cn": "沙罗门"
+      },
+      "description": "ゲーム初期の案内役兼マスコットで、東京へ転移した主人公のスマホにいつの間にか着任していた使い魔の悪魔。基本的に主人公以外には姿を認識されず、執事検定3級など怪しげな資格を多数持つ。主人公の例外処理や数十の追放者・竜蛇を束ねる力に関わる。"
+    },
+    {
+      "term": "権能",
+      "i18n": {
+        "en": "Rule",
+        "zh_tw": "權能",
+        "zh_cn": "权能"
+      },
+      "description": "神器より溢れる「神の力」の一端で、神器の能力や性質を表すルール。神器召喚時に宣言される。同じ権能を持つ者はいても役割との組み合わせまで同一の例はなく、同系統の効果は重ねがけできない。矛盾する権能が衝突すると例外処理につながる。"
+    },
+    {
+      "term": "ティルナノグ",
+      "i18n": {
+        "en": "Tir Na Nog",
+        "zh_tw": "提爾納諾",
+        "zh_cn": "提尔纳诺"
+      },
+      "description": "ティルナノグはケルト神話と欧州民間伝承を基にした妖精郷。世界代行者はバロール、追放者はルー。妖精たちは傷や老いを他者へ移す「取り替え子」の信仰で永遠の若さを保つ。王は民の負担を背負い、後継者へ王座と運命を渡す儀式が重い意味を持つ。"
+    },
+    {
+      "term": "転光生",
+      "i18n": {
+        "en": "Transient",
+        "zh_tw": "轉光生",
+        "zh_cn": "转光生"
+      },
+      "description": "23の異世界から東京へやって来た存在の総称。肉体ごと召喚された者も、魂だけが別の身体へ宿った者も含まれる。多くは神器と権能を持ち、東京のアプリバトルやギルド抗争の中心に関わる。"
+    },
+    {
+      "term": "世界代行者",
+      "i18n": {
+        "en": "World Representative",
+        "zh_tw": "世界代理人",
+        "zh_cn": "世界代理人"
+      },
+      "description": "東京と繋がる23の世界の「勝利者たち」。23の異世界、各々の「信仰」を共にする多数の意志を代行し、「役割」と「権能」 を現す者。\n\n9章以降ではオールドワンズとユグドラシルの代行者を除く21人はそれぞれの目的の為、7人ずつ3つのギルドに分かれていることが発覚した。"
+    },
+    {
+      "term": "ゲヘナ",
+      "i18n": {
+        "en": "Gehenna",
+        "zh_tw": "欣嫩谷",
+        "zh_cn": "欣嫩子谷"
+      },
+      "description": "ゲヘナはアブラハムの聖典や関連オカルト文献の悪魔を基にした異世界。世界代行者はメフィストフェレス、追放者はファウスト。多数決に基づく持続的なシステムを持ち、エデンと開かれたゲートでつながっている。"
+    },
+    {
+      "term": "エクスターズ",
+      "i18n": {
+        "en": "Exters",
+        "zh_tw": "外部之星",
+        "zh_cn": "外部之星"
+      },
+      "description": "エクスターズは、ゲームの範囲外における適応力を認められた者たちの特殊ギルド。ギルドマスターは未整理。主な特徴は、アプリ上で独自の地位を持つことと、通常のギルド分類から外れた例外的な性質。"
+    },
+    {
+      "term": "？？？",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "オールドワンズ",
+      "i18n": {
+        "en": "Old Ones",
+        "zh_tw": "舊日支配者",
+        "zh_cn": "旧支配者"
+      },
+      "description": "オールドワンズはクトゥルフ神話を基にした星々の異世界。世界代行者はアザトース、追放者はクー・リトルリトル。夢は小世界の創造と見なされ、世界そのものもアザトースの夢とされる。狂気と終焉を永遠に繰り返す壊れた世界で、閉鎖領域外でも権能を使える特権を持つ。"
+    },
+    {
+      "term": "無所属",
+      "i18n": {
+        "en": "Independent",
+        "zh_tw": "無隸屬",
+        "zh_cn": "无隶属"
+      },
+      "description": "特定のギルドに完全には従属せず、独自の動機や仕事によって行動する者たちを指す分類。ギルドと関係を持つことはあっても、自分自身の目的を優先する。\n\n例として、他ギルドから報酬を得て働く独立請負人や、状況に応じてギルドへ加入・離脱する者が含まれる。"
+    },
+    {
+      "term": "不死見学園",
+      "i18n": {
+        "en": "Fujimi Academy",
+        "zh_tw": "不死見學園",
+        "zh_cn": "不死见学园"
+      },
+      "description": "不死見学園は、表向きは個性ある子供や転光生を受け入れる教育機関。主な特徴は、不死の観測を目的とした非人道的な記憶継承実験と、「アプリゲーム」のプロトタイプ実験。関連人物はアルク。"
+    },
+    {
+      "term": "ワノクニ",
+      "i18n": {
+        "en": "Land of Wa",
+        "zh_tw": "和國",
+        "zh_cn": "和国"
+      },
+      "description": "ワノクニは日本の伝説・民話・歴史・文学を基にした異世界。世界代行者はヨリトモ、追放者はヨシツネ。人間、獣人、鬼などが暮らすが、人ならざる存在への恐れと偏見が強く、異種族間の恋愛や婚姻、その子供も蔑視されている。"
+    },
+    {
+      "term": "荒川ワンダラーズ",
+      "i18n": {
+        "en": "Arakawa Wanderers",
+        "zh_tw": "荒川流浪者",
+        "zh_cn": "荒川流浪者"
+      },
+      "description": "荒川ワンダラーズは、荒川区から足立区、荒川沿いを活動域とする放浪者のギルド。ギルドマスターはボヘミオ、不在時はバーゲストが代理を務める。主な特徴は、定住地を持たないことと、生存確認としての密な連絡網。"
+    },
+    {
+      "term": "王子坊学園",
+      "i18n": {
+        "en": "Ojimachi Academy",
+        "zh_tw": "王子坊學園",
+        "zh_cn": "王子坊学园"
+      },
+      "description": "王子坊学園は、詳細未整理の教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "練馬ウォーモンガーズ",
+      "i18n": {
+        "en": "Nerima Warmongers",
+        "zh_tw": "練馬好戰者",
+        "zh_cn": "练马好战者"
+      },
+      "description": "練馬ウォーモンガーズは、練馬区・光が丘を拠点とする戦争と政変の真の三大ギルド。ギルドマスターはベルトロ。主な特徴は、過去ループの戦争記憶の武器化と、軍・行政・地下組織への強い影響力。"
+    },
+    {
+      "term": "歌舞伎町アウトローズ",
+      "i18n": {
+        "en": "Kabukicho Outlaws",
+        "zh_tw": "歌舞伎町亡命之徒",
+        "zh_cn": "歌舞伎町法外者"
+      },
+      "description": "歌舞伎町アウトローズは、新宿区・歌舞伎町を拠点とするはぐれ者たちのギルド。ギルドマスターはエリー、不在時はツクヨミが代理を務める。主な特徴は、他ギルドからの干渉回避、孤立主義、居場所を失った者の受け入れ。"
+    },
+    {
+      "term": "エデン",
+      "i18n": {
+        "en": "Eden",
+        "zh_tw": "伊甸",
+        "zh_cn": "伊甸"
+      },
+      "description": "エデンはアブラハムの宗教を基にした異世界。世界代行者はミカイール、追放者はシャイターン。疑いなき信仰と儀礼的清浄を基準に完全な世界を目指し、基準を満たさない者は壁の外やゲヘナへ追放される。清浄さが崩れると大洪水でリセットされる。"
+    },
+    {
+      "term": "未所属",
+      "i18n": {
+        "en": "Unaffiliated",
+        "zh_tw": "未隸屬",
+        "zh_cn": "未隶属"
+      },
+      "description": "特定のギルドに所属していない者たちを指す分類。ゲーム内の所属表示としては、明確な公会メンバーではないキャラクターに用いられる。"
+    },
+    {
+      "term": "世耕農業・林業学園",
+      "i18n": {
+        "en": "Setagaya Agriculture and Forestry Academy",
+        "zh_tw": "世耕農業林業學園",
+        "zh_cn": "世耕农业林业学园"
+      },
+      "description": "世耕農業・林業学園は、詳細未整理の農業・林業系教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "グレイトスピリット",
+      "i18n": {
+        "en": "Great Spirit",
+        "zh_tw": "偉大之靈",
+        "zh_cn": "伟大奥秘"
+      },
+      "description": "グレイトスピリットは北米先住民神話と民間伝承を基にした異世界。世界代行者はワカン・タンカ∞、追放者はハオカー。すべての生命を平等とし、物質的所有を手放すほど力を持つ非物質主義の世界。ハオカーは多数派に抗う少数派の役割を担う。"
+    },
+    {
+      "term": "大手町ジェノサイダーズ",
+      "i18n": {
+        "en": "Otemachi Genociders",
+        "zh_tw": "大手町屠殺者",
+        "zh_cn": "大手町屠戮者"
+      },
+      "description": "大手町ジェノサイダーズは、千代田区・大手町を拠点とする破壊志向のギルド。ギルドマスターはアルク。主な特徴は、東京そのものの恒久的破壊を慈悲と見なす思想と、世界代行者の構造への敵意。"
+    },
+    {
+      "term": "東京",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    }
+  ],
+  "provider": {
+    "zh-cn": "openai"
+  },
+  "model": {
+    "zh-cn": "gemini-3.8-flash"
+  },
+  "summary": {
+    "zh-cn": "在一场激烈交锋之后，原将门的一名手下从昏迷中醒来，发现自己身处石英结晶丛生的地狱荒原，并在结晶引发的幻觉中与逝去之人的幻影相拥，随后被水晶贯穿，其过去的珍贵记忆和情感被捕食殆尽。据拉博拉托利的研究，这正是名为“安哥尔摩亚1999”的恒星际级知性捕食者，以无处不在的晶体作为繁殖器官，吞噬知性体的经历记忆。战场上，泥鬼、阿鲁克和马可西亚斯相继被晶体吞噬。梅菲斯托费勒斯指出晶体并非怀抱敌意，而是捕食本能。莫纳切洛识破了拟态成自己兄长的怪物，怪物随即展现出融合多种兽类的嵌合体姿态并召唤出海量结晶封锁去路。危急关头，莫纳切洛凭着钻探能力在地下开辟退路，而梅菲斯托费勒斯回想起过去轮回中与主人公的前世（浮士德）结下的因缘，决意单方面撕毁契约以精神强制力将主人公的灵魂送出绝境，自己则甘愿留在原地被结晶吞噬。"
+  },
+  "scene_items": [
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "あの激突からしばらくして、マサカドの\n部下であったひとりが気絶から目を覚ます。",
+      "translations": {
+        "zh-cn": "在那场激烈冲突过去不久后，原先身为将门\n部下的其中一人从昏迷中苏醒了过来。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "ぐっ、ここは……同志たちは何処だ。\nマサカド様は何処に……なんだ、これは？",
+      "translations": {
+        "zh-cn": "呃……这里是……同志们都在哪儿？\n将门大人又在何处……这、这到底是什么？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "周囲を見回せど、視界には石英の水晶が\n無数に生えた、地獄の荒野が広がるばかり。",
+      "translations": {
+        "zh-cn": "环顾四周，映入眼帘的唯有一片\n长满无数石英水晶的地狱般荒野。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "計画は……成功したのか。\nそれとも、失敗したのだろうか、おーい！",
+      "translations": {
+        "zh-cn": "计划……是成功了吗？\n还是说，失败了……喂——！有人在吗！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "仲間を呼びながら荒野を彷徨う。\nその中で一本の水晶の柱にふと、目を止めた。",
+      "translations": {
+        "zh-cn": "他一边呼唤着同伴，一边在荒野中彷徨四顾。\n其间，他的视线偶然落在了一根水晶柱上。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 5,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "水晶が共鳴するような大気の波が、\n男の五感から、そして脳裏の奥へと響く。",
+      "translations": {
+        "zh-cn": "大气的波动宛如水晶的共鸣，\n自男人的五感扩散开来，并深深回荡在他的脑海深处。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 6,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "まるで心の奥底へ響き渡るような\nその不思議な<ruby=おと>声<\/ruby>に男は一瞬、我を忘れた。",
+      "translations": {
+        "zh-cn": "那道仿佛能穿透心底的奇异<ruby=声>声音<\/ruby>，\n让男人有一瞬间忘却了自我。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 7,
+        "cmd_index": 14,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "体のキズに、心の<ruby=キズ>間隙<\/ruby>にしみこむように\n音が、光が、熱が、《世界》が男を閉じ込めてゆく。",
+      "translations": {
+        "zh-cn": "声音、光芒、热量，乃至《世界》本身，\n都犹如渗入身体的伤痕与内心的<ruby=裂痕>间隙<\/ruby>般，将男人彻底封锁吞没。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 8,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "……はっ？",
+      "translations": {
+        "zh-cn": "……咦？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "気付けば、男はかつて過ごした\n懐かしい、我が家の中に立っていた。",
+      "translations": {
+        "zh-cn": "回过神来，男人发现自己正站在\n昔日生活过的那座令人怀念的家中。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 10,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "speaker": "？？？の声",
+      "text": "お帰り……どうしたんだ？\n何か悪い夢でも、見ていたみたいな顔じゃないか。",
+      "translations": {
+        "zh-cn": "你回来啦……怎么了？\n你的表情，就好像刚刚做了场噩梦一样。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "男は、あまりの衝撃に、手の中へ大事に、\nずっと大事に抱えていた遺影を取り落とす。",
+      "translations": {
+        "zh-cn": "男人受到极大的震撼，\n失手掉落了手中一直珍藏着、紧紧抱着的遗照。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 12,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "ど、どうして……？\nお前、ここに、なんで――",
+      "translations": {
+        "zh-cn": "怎、怎么会……？\n你……为什么会在这里——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 13,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "男は震えながら、手を伸ばす。\n指先から返って来た熱は、感触はあの頃のまま。",
+      "translations": {
+        "zh-cn": "男人颤抖着伸出了手。\n指尖传来的温度与触感，都与当年别无二致。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "耳をすます、その声を覚えている。\n鼻でかぐ、そのにおいは昔のままだ。",
+      "translations": {
+        "zh-cn": "侧耳倾听，那是自己铭记于心的声音。\n鼻间轻嗅，那是与昔日如出一辙的气息。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 15,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "目が、舌が、そう言っている。そして何より\n己の心が、記憶が――これは本物だと言っている。",
+      "translations": {
+        "zh-cn": "双眼、舌尖都在如此诉说。更重要的是，\n自己的心灵与记忆——都在诉说着这就是货真价实的真人。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 16,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "男は思う。ああ、そうか。\nきっと、オレたちの大願が成ったのだ。",
+      "translations": {
+        "zh-cn": "男人心想。啊啊，原来如此。\n一定是……我们的大愿达成了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 17,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "？？？の声",
+      "text": "なにか随分、嬉しそうだな。\n俺が居ない間に、何があったんだい？",
+      "translations": {
+        "zh-cn": "你看起来好像很高兴啊。\n我不在的这段时间里，发生什么事了吗？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "……何でもないよ。\nお前に会いたかった、ずっと会いたかったんだ――",
+      "translations": {
+        "zh-cn": "……没什么。\n我只是好想见你，一直都好想见你啊——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 19,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "相手の手がゆっくりと喪服の<ruby=ベール>被衣<\/ruby>を持ち上げる。\nその奥には他の誰にも見せた事のない、求愛の表情。",
+      "translations": {
+        "zh-cn": "对方的手缓缓掀起丧服的<ruby=面纱>头纱<\/ruby>。\n在那之下，浮现出从未向任何人展示过的求爱表情。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 20,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "オレの心も、体もお前だけのものだから。\n男はそう言いながら目の前の相手を受け入れる。",
+      "translations": {
+        "zh-cn": "我的心、我的身躯全都是属于你的。\n男人一面诉说着，一面接纳了眼前的存在。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 21,
+        "cmd_index": 21,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ただ、生物としての歓喜が男の身も心も\n満たしてゆく。原始時代の獣のように叫ぶ。",
+      "translations": {
+        "zh-cn": "作为生物的纯粹欢悦充盈了男人的身心。\n他如原始时代的野兽般发出呐喊。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 22,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "長い間、自分の中に秘めていた思いが\n熱を持って、今にも外へと飛び出そうだ。",
+      "translations": {
+        "zh-cn": "长久以来深藏在心底的情愫\n裹挟着灼热，此刻仿佛随时都要满溢喷薄而出。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 23,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "……？\n何の、音だろう。",
+      "translations": {
+        "zh-cn": "……？\n这是……什么声音？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 24,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ふと、気付く。\nなんだろう、この音は。",
+      "translations": {
+        "zh-cn": "他猛然察觉到了异样。\n这是什么声音？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 25,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "昔、こんな音を動物園で聞いたことがある。\nそうだ、肉食獣がエサを貪る前の舌なめずりだ。",
+      "translations": {
+        "zh-cn": "从前，他在动物园里听到过这种声音。\n对了……那是肉食猛兽在享用猎物前舔舐舌头的声音。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 26,
+        "cmd_index": 24,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "……？\nあっ――ああ、ああああああっ！？",
+      "translations": {
+        "zh-cn": "……？\n啊——啊、啊啊啊啊啊！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 27,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "speaker": "？？？の声",
+      "text": "……………。",
+      "translations": {
+        "zh-cn": "………………"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 28,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "おま……お前は、誰だ！？\nあいつじゃない、お前は――！！",
+      "translations": {
+        "zh-cn": "你……你这家伙到底是谁！？\n你不是他，你到底是什么东西——！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 29,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "男は、必死に身をよじる。\n取り落とした遺影の顔と、視線を合わす。",
+      "translations": {
+        "zh-cn": "男人拼命扭动身躯想要挣脱。\n他的视线与掉落在地的遗照对上。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 30,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マサカドの部下",
+      "text": "違う、これは違うんだっ！\nゆる、許してく――ああああああッ！？",
+      "translations": {
+        "zh-cn": "不对，不是这样的！\n原、原谅我——啊啊啊啊啊啊！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 31,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "水晶の槍が、輝くと同時に\n男の中に、何かが生みつけられてゆく。",
+      "translations": {
+        "zh-cn": "就在水晶之枪闪烁光芒的同时，\n某种东西被播撒、孕育进了男人的体内。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 32,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "見えない何かが胎内で何かと結合する。\nそして、体の中から強制的に排泄されてゆく。",
+      "translations": {
+        "zh-cn": "某种无形之物在腹中与什么结合在了一起。\n随后，又被强制从体内排泄了出去。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 33,
+        "cmd_index": 17,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "何が起こっているのか分からない、ただ\n自分の中から何かが失われていくのだけが分かる。",
+      "translations": {
+        "zh-cn": "他完全无法理解正在发生什么，唯独能\n清晰地感知到，自己体内有什么东西正在被彻底剥夺。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 34,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "あいつと過ごした過去の記憶が、\n悲喜こもごもの感情が、奪われていくのが分かる。",
+      "translations": {
+        "zh-cn": "那是与他一同度过的往昔记忆，\n连同那些喜怒哀乐的情感，全都在被残忍地剥夺。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 35,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "零れ出したエネルギーが、喰らわれてゆく。\n「記憶」の熱が、失われる恐怖に――男は叫んだ。",
+      "translations": {
+        "zh-cn": "溢出的能量正在被一口口吞噬。\n面对“记忆”的热量逐渐流失的恐惧——男人发出了绝望的惨叫。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 36,
+        "cmd_index": 27,
+        "sub_index": 0
+      },
+      "speaker": "石英結晶の怪物？",
+      "text": "――学習、進行。",
+      "translations": {
+        "zh-cn": "——学习，进行中。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 37,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "マサカドの部下であったその男は、地面から\n突き立つ水晶柱の内部へと閉じ込められていた。",
+      "translations": {
+        "zh-cn": "那名曾是将门部下的男人，\n已被彻底禁锢在拔地而起的水晶柱内部。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 38,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "その後、時間が経つにつれ男は自分の心の中の\n「記憶」の熱をゆっくりと食いつくされるだろう。",
+      "translations": {
+        "zh-cn": "此后，随着时间的推移，男人心中\n“记忆”的热量将被一点点彻底蚕食殆尽吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 39,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そして、食いつくされた後に、\n外へ排出されることになるだろう。",
+      "translations": {
+        "zh-cn": "而在被吞噬殆尽之后，\n他大概会被当作残渣排出体外吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 40,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "過去の実感を、伴った感情を失って、まるで\n読書の内容を覚えているだけのようになるだろう。",
+      "translations": {
+        "zh-cn": "失去伴随往昔实感的情感之后，他大概只会落得\n像仅记得书本上所写文字内容一样的状态吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 41,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ただ「そういうことがあった」という\n情報だけを抱えて、その先を生きてゆくだろう。",
+      "translations": {
+        "zh-cn": "仅仅抱着“曾发生过那样的事”这冰冷的情报，\n麻木地度过往后的人生吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 42,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "これより後の「ラボラトリ」の研究によれば\nその存在の<em=・>生態<\/em>は以下のように仮説づけられている。",
+      "translations": {
+        "zh-cn": "根据后来“拉博拉托利”的研究，\n对于该存在的<em=・>生态<\/em>做出了如下假说："
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 43,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "それは、過去を貪る絶対的「アルファ」、即ち最上位種。\nこの宇宙の知性体にとっての最重要資源の捕食者である。",
+      "translations": {
+        "zh-cn": "那是贪食过去的绝对“阿尔法”，即最上位种。\n是以这片宇宙的知性体最重要资源为食的捕食者。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 44,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "宇宙の質量27パーセント前後を占める\nダークマターによって構成された<em=・>恒星間<\/em>級知性体構造物。",
+      "translations": {
+        "zh-cn": "它是由占据宇宙质量约27%的\n暗物质所构成的<em=・>恒星际<\/em>级知性体结构。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 45,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "理論上、最大体長はメートル単位ですらなく\nおそらく、光年単位で数えるしかないような怪物。",
+      "translations": {
+        "zh-cn": "理论上，它的最大体长甚至无法用米为单位衡量，\n恐怕只能用光年作为计量单位，是真正的庞然怪物。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 46,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "本来、この星へ<em=・>飛来する必要さえない<\/em>。\n既に星々の間を己の構成要素が満たしているからだ。",
+      "translations": {
+        "zh-cn": "按理说，它<em=・>甚至根本无需飞来<\/em>这颗星球。\n因为它的构成要素早已充斥于繁星之间。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 47,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ただし、その発生には実際に\n小規模の隕石の落下が確認されている。",
+      "translations": {
+        "zh-cn": "然而，在它的生成过程中，\n确实曾观测到小规模陨石的坠落。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 48,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "推測でしかないが、それは移動のためというよりも\n衝撃石英を形成し後述の器官を構築するための行為かもしれない。",
+      "translations": {
+        "zh-cn": "虽然仅为推测，但这与其说是为了移动，\n或许更多是为了形成柯石英并构建后述器官的行为。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 49,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "いずれにせよ本体は、人間のサイズを遥かに超える。\n我々に見えるのは、その触覚の一部分のみに過ぎない。",
+      "translations": {
+        "zh-cn": "无论如何，其本体都远远超越人类的尺度。\n我们所能见到的，仅仅是其触角极其微小的一部分。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 50,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "つまり、目の前の<em=・>これ<\/em>は、人間で\n言う所の体毛の一本程度のものであるらしい。",
+      "translations": {
+        "zh-cn": "也就是说，眼前的<em=・>这个东西<\/em>，按人类的比例\n来算，充其量不过等同于一根毫毛罢了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 51,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「鉱床：アンゴルモワ1999」、落下年を取って\n「ラボラトリ」の研究者たちからそれはそう呼ばれる。",
+      "translations": {
+        "zh-cn": "“矿床：安哥尔摩亚1999”——取自其坠落的年份，\n“拉博拉托利”的研究员们如此称呼它。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 52,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "生物の規模ではない、ひとつの世界そのもの。\nラボラトリストたちは、報告書にそう記載している。",
+      "translations": {
+        "zh-cn": "这并非生物的规模，而是宛如一整个世界本身。\n拉博拉托利的研究人员们在报告书中这样写道。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 53,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「ラボラトリ」曰く、人間は脳から出られない。\nあらゆる知的活動は、脳内で発生するものであるから。",
+      "translations": {
+        "zh-cn": "“拉博拉托利”指出：人类无法脱离大脑。\n因为一切知性活动，皆发生于大脑之中。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 54,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "感覚器と<ruby=のう>思考装置<\/ruby>を肉体の内部に\n持つ知性体は、己の居る世界を疑えないから。",
+      "translations": {
+        "zh-cn": "将感觉器官与<ruby=大脑>思考装置<\/ruby>置于肉体内部的\n知性体，是无法去怀疑自身所处的世界的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 55,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "自分の居る世界がどんな形をしているか、\n外から見て、真偽を疑うことは叶わない。",
+      "translations": {
+        "zh-cn": "自己所处的世界究竟是何种形状，\n从外部去审视、去质疑其真伪是无法做到的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 56,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "それは疑うことさえ含めて、生物の\nあらゆる感覚器と知能活動を包むのだ。",
+      "translations": {
+        "zh-cn": "而它则会将生物包括怀疑在内的\n一切感知器官与知能活动，全盘包裹其中。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 57,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "故に、アンゴルモワ1999の《世界》は絶対。\nどんな強大な生物であろうと、逃れられない。",
+      "translations": {
+        "zh-cn": "因此，安哥尔摩亚1999的《世界》是绝对的。\n不论多么强大的生物，都绝不可能逃脱。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 58,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "これに包まれ、これを乗り越えようとした生命は、\nその源泉となる感情のエネルギーを捕食されるだろう。",
+      "translations": {
+        "zh-cn": "被其包裹、并试图超越它的生命，\n其作为源泉的情感能量必将被捕食殆尽。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 59,
+        "cmd_index": 49,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "20世紀時点における「ラボラトリ」さえ\n実際に到来するまでその生態を理解していなかった。",
+      "translations": {
+        "zh-cn": "即便是在20世纪时的“拉博拉托利”，\n在其真正降临之前也完全未能理解其生态。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 60,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "アンゴルモワ1999は「記憶」を喰らう。\nその知性体が持つ記憶情報の実感を消費する。",
+      "translations": {
+        "zh-cn": "安哥尔摩亚1999会吞噬“记忆”。\n它消耗着该知性体所拥有的记忆信息中的实感。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 61,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "無理やり既存科学になぞらえるなら、エピソード記憶の\n情報構造を解体捕食、意味記憶に変え注入し戻している。",
+      "translations": {
+        "zh-cn": "若勉强以现有科学来类比，它会将情景记忆的\n信息结构解体捕食，将其转化为语义记忆后再注回体内。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 62,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "一部の昆虫が、生物の血を吸った後に\n管から麻酔物質を注入する行為と類似する。",
+      "translations": {
+        "zh-cn": "这与部分昆虫在吸食生物血液后，\n通过管道注入麻醉物质的行为十分相似。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 63,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そしてアンゴルモワ1999にとって\nそれは、ただの生殖活動であるらしかった。",
+      "translations": {
+        "zh-cn": "而对于安哥尔摩亚1999而言，\n这一切似乎不过只是单纯的生殖活动罢了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 64,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "石油という過去の情報凝縮体を消費して\n人類が発展することとマクロ的には何も変わらない。",
+      "translations": {
+        "zh-cn": "从宏观上看，这与人类消耗石油这种\n凝缩了过去信息的产物来谋求发展并无二致。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 65,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ある砂漠のタッシリ・ナジェール洞窟と呼ばれる\n壁画に、それに類似した存在の絵が描かれている。",
+      "translations": {
+        "zh-cn": "在某处沙漠中被称为塔西里·阿杰尔洞窟的\n壁画上，描绘着与该存在极为相似的图画。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 66,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "頭と肘にツノが生えた\n白く、そして大きな巨人の壁画であった。",
+      "translations": {
+        "zh-cn": "那是一幅头部与手肘长着角、\n通体雪白的巨大巨人的壁画。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 67,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "その巨人の肖像はある伝承によれば、\n宇宙より来たりしマルスと呼ばれているそうである。",
+      "translations": {
+        "zh-cn": "根据某种传承，那名巨人的肖像\n似乎被称为来自宇宙的玛尔斯。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 68,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "もしかしたら、その壁画を描いた何処かの\n民族はそれの姿を見たことがあるのかもしれない。",
+      "translations": {
+        "zh-cn": "或许，绘制那幅壁画的某个古代部族，\n曾经亲眼见识过它的身姿也说不定。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 69,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "触覚たるクリスタルの突起をもって\nそれは他の世界を貫き、情報資源を喰らい続ける。",
+      "translations": {
+        "zh-cn": "它凭借着作为触角的水晶突起\n贯穿其他世界，持续吞噬着情报资源。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 70,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "あえて後世の「神器」のカテゴリにそれを当てはめるなら\nそれはとある神話において「マルスの槍」と呼ばれた代物。",
+      "translations": {
+        "zh-cn": "若硬要将其归入后世所谓“神器”的范畴，\n那便是某种神话中被称为“玛尔斯之枪”的产物。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 71,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "世界を宇宙へ縫い留める釘。\nこの星の生物学でいうところの繁殖器官。",
+      "translations": {
+        "zh-cn": "是将世界钉死在宇宙中的钉子。\n也是用这颗星球的生物学概念来说的繁殖器官。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 72,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "アンゴルモワ1999が無数の世界を侵犯する\nそのために生やされた、無数の槍である、と。",
+      "translations": {
+        "zh-cn": "那是为了让安哥尔摩亚1999能够侵犯无尽世界\n而生长出的，数不胜数的长枪——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 73,
+        "cmd_index": 22,
+        "sub_index": 0
+      },
+      "speaker": "ジャージーデビル",
+      "text": "……マ、マ？",
+      "translations": {
+        "zh-cn": "……妈、妈妈？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 74,
+        "cmd_index": 19,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "足元から無数に生えたクリスタルの中に\nジャージーデビルが体ごと呑み込まれてゆく。",
+      "translations": {
+        "zh-cn": "自脚下丛生而出的无数水晶，\n将泥鬼连同整个身躯一并吞噬了进去。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 75,
+        "cmd_index": 12,
+        "sub_index": 0
+      },
+      "speaker": "アルク",
+      "text": "キミ、は――",
+      "translations": {
+        "zh-cn": "你……是——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 76,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ジャージーデビルを見ていたアルクはとっさに\n鎖を<ruby=らせん>螺旋<\/ruby>の形へと変え体の周囲へ回し、防御を試みる。",
+      "translations": {
+        "zh-cn": "正注视着泥鬼的阿鲁克当机立断，\n将锁链化作<ruby=螺旋>螺旋<\/ruby>状缠绕在周身，试图进行防御。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 77,
+        "cmd_index": 39,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "しかし、地中より生えた無数のクリスタルは\n鎖の「神器」防御ごとアルクを呑み込んでしまう。",
+      "translations": {
+        "zh-cn": "然而，从地下破土而出的无数水晶\n竟连同锁链的“神器”防御一起，将阿鲁克彻底吞没。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 78,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "speaker": "マルコシアス",
+      "text": "ジュピトフ、我が主君……\nいや、違う、違う違う違うッ！！",
+      "translations": {
+        "zh-cn": "朱庇托夫，我的主君……\n不、不对，不对不对不对！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 79,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "マルコシアスは己へと必死に言い聞かせる。\nしかしその隙はどうしようもなく致命的だった。",
+      "translations": {
+        "zh-cn": "马可西亚斯拼命地告诫着自己。\n然而那一瞬间的破绽，却无可挽回地成为了致命伤。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 80,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マルコシアス",
+      "text": "……逃げろ、我が子よ！\nあれは、お前の父ではないっ！！",
+      "translations": {
+        "zh-cn": "……快逃，我的孩子！\n那不是你的父亲！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 81,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "マルコシアスはそう言って、\n子供だけでも逃がそうとする、だが。",
+      "translations": {
+        "zh-cn": "马可西亚斯大喊着，\n试图至少让孩子能够逃脱，然而——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 82,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マルコシアスの連れ子",
+      "text": "そうだよ、今は――ううん。\nもうずっと、マルコシアスがおとうさんだよ……！",
+      "translations": {
+        "zh-cn": "就是啊，现在——不对。\n一直以来，马可西亚斯才是我爸爸啊……！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 83,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マルコシアスの連れ子",
+      "text": "……どうして。\nどうして、分かってくれないの？",
+      "translations": {
+        "zh-cn": "……为什么。\n为什么你就是不明白呢？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 1,
+        "page_no": 84,
+        "cmd_index": 29,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そしてマルコシアスは翼を拡げ連れ子を\n守る態勢のまま、無数のクリスタルに呑み込まれた。",
+      "translations": {
+        "zh-cn": "接着，马可西亚斯展开双翼，\n在保持着护住身旁孩子的姿态下，被无数水晶吞没了进去。"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 1,
+        "page_no": 85,
+        "cmd_index": 18,
+        "sub_index": 0
+      },
+      "merge_label": "",
+      "branches": [
+        {
+          "target_label": "quest_main17-8_a_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 85,
+                "cmd_index": 18,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "何が起こってる？",
+              "translations": {
+                "zh-cn": "到底发生什么事了？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 85,
+                "cmd_index": 19,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "こいつは、敵なのか？",
+              "translations": {
+                "zh-cn": "这家伙是敌人吗？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 1,
+                "page_no": 85,
+                "cmd_index": 20,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "これは、攻撃なのか！？",
+              "translations": {
+                "zh-cn": "这是在发动攻击吗！？"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "サロモンくん",
+              "text": "あうっ、えーとえーと、主様。\nさ、３級魔導書にはこんなの書かれてないですぅっ！？",
+              "translations": {
+                "zh-cn": "呜哇，这个这个，主人。\n三、三级魔导书里根本没有记载过这种东西啊！？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "メフィストフェレス",
+              "text": "……<param=playerName>様。\nこれはおそらく、敵対行動でさえございません。",
+              "translations": {
+                "zh-cn": "……<param=playerName>大人。\n这恐怕，甚至算不上是敌对行动。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "メフィストフェレスは己の「神器」である\n契約書を手に、何かの反応を確かめながらそう言った。",
+              "translations": {
+                "zh-cn": "梅菲斯托费勒斯手握作为自身“神器”的\n契约书，一边确认着某种反应，一边这般说道。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "メフィストフェレス",
+              "text": "この行為には、罪の意識がほぼありません。\n少なくとも僕めの「神器」はそう述べております。",
+              "translations": {
+                "zh-cn": "这一行为中，几乎感受不到任何罪恶感。\n至少在下的“神器”是这般表明的。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "メフィストフェレスの「神器」である契約書は\n罪の重さによって魂を縛る「権能」を帯びている。",
+              "translations": {
+                "zh-cn": "作为梅菲斯托费勒斯“神器”的契约书，\n蕴含着根据罪孽深重程度来束缚灵魂的“权能”。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 5,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "メフィストフェレス",
+              "text": "この罪の意識の重さ……おそらくは人間の皆様が\n己の胎内へ大腸菌などを取り込むのと大差ありますまい。",
+              "translations": {
+                "zh-cn": "这等罪恶感的沉重程度……大概与诸位人类\n将大肠杆菌等摄入自身腹中并无多大区别吧。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 2,
+                "page_no": 6,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "メフィストフェレスはそう言うと、続けて\n己の推測を<param=playerName>へと説明してゆく。",
+              "translations": {
+                "zh-cn": "梅菲斯托费勒斯说完，紧接着\n继续向<param=playerName>阐述自己的推测。"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 2,
+                "page_no": 7,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "merge_label": "",
+              "branches": [
+                {
+                  "target_label": "quest_main17-8_b_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 2,
+                        "page_no": 7,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "過去を食べる「神器」？",
+                      "translations": {
+                        "zh-cn": "吞食过去的“神器”？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 2,
+                        "page_no": 7,
+                        "cmd_index": 2,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "「記憶」を喰らう、怪物？",
+                      "translations": {
+                        "zh-cn": "吞噬“记忆”的怪物？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 3,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "メフィストフェレス",
+                      "text": "ええ、捕食対象が自ら取り込まれたくなるような\n欲望を現出させ、「自ら地獄へ呑み込まれにゆかせる」。",
+                      "translations": {
+                        "zh-cn": "是的，它显现出能让捕食对象自愿被其吸纳的\n欲望，以此“让猎物自投罗网步入地狱”。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 3,
+                        "page_no": 1,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "メフィストフェレス",
+                      "text": "なるほど、宇宙からの来訪者はこうして生命と\n魂を分離するのですか、実にエレガントな回答です。",
+                      "translations": {
+                        "zh-cn": "原来如此，来自宇宙的访客就是这般将生命与\n灵魂剥离开来的吗，真是不落窠臼的优雅解答呢。"
+                      }
+                    },
+                    {
+                      "type": "choice",
+                      "order": {
+                        "label_index": 3,
+                        "page_no": 2,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "merge_label": "",
+                      "branches": [
+                        {
+                          "target_label": "quest_main17-8_c_after",
+                          "options": [
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 3,
+                                "page_no": 2,
+                                "cmd_index": 2,
+                                "sub_index": 0
+                              },
+                              "speaker": "mc",
+                              "text": "メフィストフェレス？",
+                              "translations": {
+                                "zh-cn": "梅菲斯托费勒斯？"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 3,
+                                "page_no": 2,
+                                "cmd_index": 3,
+                                "sub_index": 1
+                              },
+                              "speaker": "mc",
+                              "text": "どうして、怒っているの",
+                              "translations": {
+                                "zh-cn": "你为什么这么生气？"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 3,
+                                "page_no": 2,
+                                "cmd_index": 4,
+                                "sub_index": 2
+                              },
+                              "speaker": "mc",
+                              "text": "（メフィストフェレスの感情を伺う）",
+                              "translations": {
+                                "zh-cn": "（观察梅菲斯托费勒斯的情绪）"
+                              }
+                            }
+                          ],
+                          "following_text": [
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 4,
+                                "page_no": 0,
+                                "cmd_index": 1,
+                                "sub_index": 0
+                              },
+                              "speaker": "メフィストフェレス",
+                              "text": "怒っている？　……僕めは執事の鑑ですよ。\n不愉快を表に出すなどと、あってはなりません。",
+                              "translations": {
+                                "zh-cn": "在下很生气？……在下可是执事的典范哦。\n将不悦表露于外这种事，是绝不该发生的。"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 4,
+                                "page_no": 1,
+                                "cmd_index": 15,
+                                "sub_index": 0
+                              },
+                              "speaker": "モノチェーロ",
+                              "text": "……あん、ちゃん？",
+                              "translations": {
+                                "zh-cn": "……大、大哥？"
+                              }
+                            },
+                            {
+                              "type": "choice",
+                              "order": {
+                                "label_index": 4,
+                                "page_no": 2,
+                                "cmd_index": 2,
+                                "sub_index": 0
+                              },
+                              "merge_label": "",
+                              "branches": [
+                                {
+                                  "target_label": "quest_main17-8_d_after",
+                                  "options": [
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 4,
+                                        "page_no": 2,
+                                        "cmd_index": 2,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "mc",
+                                      "text": "……そっくりだ",
+                                      "translations": {
+                                        "zh-cn": "……长得一模一样"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 4,
+                                        "page_no": 2,
+                                        "cmd_index": 3,
+                                        "sub_index": 1
+                                      },
+                                      "speaker": "mc",
+                                      "text": "モノチェーロのきょうだい？",
+                                      "translations": {
+                                        "zh-cn": "莫纳切洛的兄弟？"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 4,
+                                        "page_no": 2,
+                                        "cmd_index": 4,
+                                        "sub_index": 2
+                                      },
+                                      "speaker": "mc",
+                                      "text": "違うぞっ、そいつは――！！",
+                                      "translations": {
+                                        "zh-cn": "不对！那家伙是——！！"
+                                      }
+                                    }
+                                  ],
+                                  "following_text": [
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 5,
+                                        "page_no": 0,
+                                        "cmd_index": 3,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "モノチェーロ",
+                                      "text": "……違う。\nお前は、おれのあんちゃんじゃない！！",
+                                      "translations": {
+                                        "zh-cn": "……不对。\n你才不是我的大哥！！"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 5,
+                                        "page_no": 1,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "",
+                                      "text": "首に下げたゴーグルを目に当てながら\nモノチェーロはそう叫び、身を躍らせる。",
+                                      "translations": {
+                                        "zh-cn": "莫纳切洛一把将挂在脖子上的护目镜扣在眼前，\n一边大声呼喊，一边纵身跃起。"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 5,
+                                        "page_no": 2,
+                                        "cmd_index": 39,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "アンゴルモワ1999",
+                                      "text": "……。",
+                                      "translations": {
+                                        "zh-cn": "…………"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 5,
+                                        "page_no": 3,
+                                        "cmd_index": 7,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "",
+                                      "text": "その姿は、まるで複数の獣の特徴を\n無理やりに、合成したかのようだった。",
+                                      "translations": {
+                                        "zh-cn": "那副身姿，宛如将数种野兽的特征\n强行拼凑缝合在一起一般。"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 5,
+                                        "page_no": 4,
+                                        "cmd_index": 0,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "",
+                                      "text": "一部は牡猪、一部は牡羊、一部は牡牛。\nいくつかの神話で言う所の、キメラのようだった。",
+                                      "translations": {
+                                        "zh-cn": "部分是雄野猪，部分是公羊，部分是公牛。\n正如若干神话中所描绘的奇美拉一般。"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 5,
+                                        "page_no": 5,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "アンゴルモワ1999",
+                                      "text": "――学習、進行。\nお前たちには我々が、こんな姿に見えるのだな。",
+                                      "translations": {
+                                        "zh-cn": "——学习，进行中。\n在你们眼中，我们看起来是这副模样啊。"
+                                      }
+                                    },
+                                    {
+                                      "type": "choice",
+                                      "order": {
+                                        "label_index": 5,
+                                        "page_no": 6,
+                                        "cmd_index": 2,
+                                        "sub_index": 0
+                                      },
+                                      "merge_label": "quest_main17-8_e_after",
+                                      "branches": [
+                                        {
+                                          "target_label": "quest_main17-8_e_after",
+                                          "options": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 5,
+                                                "page_no": 6,
+                                                "cmd_index": 2,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "mc",
+                                              "text": "なんだあれは？",
+                                              "translations": {
+                                                "zh-cn": "那到底是什么？"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 5,
+                                                "page_no": 6,
+                                                "cmd_index": 3,
+                                                "sub_index": 1
+                                              },
+                                              "speaker": "mc",
+                                              "text": "<ruby=キメラ>嵌合体<\/ruby>の怪物？",
+                                              "translations": {
+                                                "zh-cn": "<ruby=奇美拉>嵌合体<\/ruby>怪物？"
+                                              }
+                                            }
+                                          ],
+                                          "following_text": []
+                                        },
+                                        {
+                                          "target_label": "quest_main17-8_e_alt1",
+                                          "options": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 5,
+                                                "page_no": 6,
+                                                "cmd_index": 4,
+                                                "sub_index": 2
+                                              },
+                                              "speaker": "mc",
+                                              "text": "最高にカッコいい……！！",
+                                              "translations": {
+                                                "zh-cn": "太帅气了吧……！！"
+                                              }
+                                            }
+                                          ],
+                                          "following_text": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 6,
+                                                "page_no": 0,
+                                                "cmd_index": 3,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "",
+                                              "text": "その発言を聞いた怪物は、\nかすかに動揺したような動きを見せる。",
+                                              "translations": {
+                                                "zh-cn": "听到这番发言，怪物\n微微表现出了一丝动摇般的举动。"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 7,
+                                        "page_no": 0,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "アンゴルモワ1999",
+                                      "text": "「アンゴルモワ1999」。\nお前たちが、そう呼んだ。",
+                                      "translations": {
+                                        "zh-cn": "“安哥尔摩亚1999”。\n你们是这样称呼的。"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 7,
+                                        "page_no": 1,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "アンゴルモワ1999",
+                                      "text": "我々はその「アンゴルモワ1999」が取り込んだ\n「生物たちの過去」を映す無数の触覚、その一部。",
+                                      "translations": {
+                                        "zh-cn": "我们只是那个“安哥尔摩亚1999”所吸纳的、\n倒映着“生物们的过去”的无数触角中的一部分。"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 7,
+                                        "page_no": 2,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "アンゴルモワ1999",
+                                      "text": "――学習、再進行。\nお前たちは何故、我らの《世界》に溺れない？",
+                                      "translations": {
+                                        "zh-cn": "——学习，再度进行。\n你们为何没有沉沦于我们的《世界》之中？"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 7,
+                                        "page_no": 3,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "",
+                                      "text": "その声色に、誰も敵意を感じられない。\nただ深く、蠱惑的に心へ語り掛けて来る声だった。",
+                                      "translations": {
+                                        "zh-cn": "从那语调中，谁也感受不到半点敌意。\n那声音只是深沉而极具蛊惑力地向心灵发起叩问。"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 7,
+                                        "page_no": 4,
+                                        "cmd_index": 0,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "",
+                                      "text": "思わず己を預けたくなるような深い知性、\n吸い込まれるような圧倒的な存在感がそこにはあった。",
+                                      "translations": {
+                                        "zh-cn": "那是一种令人不由自主想要将自我托付其中的深邃知性，\n以及仿佛要将人吸扯进去的压倒性存在感。"
+                                      }
+                                    },
+                                    {
+                                      "type": "choice",
+                                      "order": {
+                                        "label_index": 7,
+                                        "page_no": 5,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "merge_label": "",
+                                      "branches": [
+                                        {
+                                          "target_label": "quest_main17-8_f_after",
+                                          "options": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 7,
+                                                "page_no": 5,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "mc",
+                                              "text": "《世界》……？",
+                                              "translations": {
+                                                "zh-cn": "《世界》……？"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 7,
+                                                "page_no": 5,
+                                                "cmd_index": 2,
+                                                "sub_index": 1
+                                              },
+                                              "speaker": "mc",
+                                              "text": "そのちゃちな幻覚のことか",
+                                              "translations": {
+                                                "zh-cn": "是指那种蹩脚的幻觉吗"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 7,
+                                                "page_no": 5,
+                                                "cmd_index": 3,
+                                                "sub_index": 2
+                                              },
+                                              "speaker": "mc",
+                                              "text": "（モノチェーロへ視線を送る）",
+                                              "translations": {
+                                                "zh-cn": "（看向莫纳切洛）"
+                                              }
+                                            }
+                                          ],
+                                          "following_text": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 0,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "モノチェーロ",
+                                              "text": "……おれのこのゴーグルは、もうこの世のどこにも居ない、\nあんちゃんから貰ったもんなんだ。",
+                                              "translations": {
+                                                "zh-cn": "……我的这副护目镜，是从已经不在这个世上的\n大哥那里得到的宝物。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 1,
+                                                "cmd_index": 15,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "モノチェーロ",
+                                              "text": "ティルナノグの「転光生」モノチェーロが持つ\nゴーグルの「神器」は不幸と幸運を見分けるもの。",
+                                              "translations": {
+                                                "zh-cn": "来自提尔纳诺的“转光生”莫纳切洛所持有的\n护目镜“神器”，拥有辨别不幸与幸运的功效。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 2,
+                                                "cmd_index": 0,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "",
+                                              "text": "すなわち、不幸と幸運の妖精小人である\nラウリエッドゥとモノチェーロとを見分けられる。",
+                                              "translations": {
+                                                "zh-cn": "换言之，它能够分辨出身为不幸与幸运妖精小人的\n劳里埃杜与莫纳切洛。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 3,
+                                                "cmd_index": 0,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "",
+                                              "text": "このゴーグルを通じて見える世界は\n彼のきょうだいが見る視界に外ならない。",
+                                              "translations": {
+                                                "zh-cn": "透过这副护目镜所看到的世界，\n无非正是他的手足所看到的视野。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 4,
+                                                "cmd_index": 11,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "",
+                                              "text": "もし目前の相手が本物のきょうだいで\nあったなら、自分の姿が見えているはず。",
+                                              "translations": {
+                                                "zh-cn": "如果眼前的对手真的是自己的手足，\n那视野中理应能映照出自己的身影才对。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 5,
+                                                "cmd_index": 0,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "",
+                                              "text": "だが、そこには何も映っていなかった。\nならば――目の前の相手はきょうだいではない。",
+                                              "translations": {
+                                                "zh-cn": "然而，那里什么都没有映出来。\n既然如此——眼前的家伙就绝不可能是大哥。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 6,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "アンゴルモワ1999",
+                                              "text": "――学習、進行。そうか、理解した。\nこの世界の外側に視座を持っているから、なのだな。",
+                                              "translations": {
+                                                "zh-cn": "——学习，进行中。原来如此，我明白了。\n是因为你们拥有立足于这个世界之外的视点啊。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 7,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "",
+                                              "text": "アンゴルモワ1999は満足げに笑う。\n脅威というものを感じているようには見えない。",
+                                              "translations": {
+                                                "zh-cn": "安哥尔摩亚1999露出了满意的笑容。\n丝毫看不出它感受到了任何威胁。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 8,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "メフィストフェレス",
+                                              "text": "……。",
+                                              "translations": {
+                                                "zh-cn": "…………"
+                                              }
+                                            },
+                                            {
+                                              "type": "choice",
+                                              "order": {
+                                                "label_index": 8,
+                                                "page_no": 9,
+                                                "cmd_index": 3,
+                                                "sub_index": 0
+                                              },
+                                              "merge_label": "",
+                                              "branches": [
+                                                {
+                                                  "target_label": "quest_main17-8_g_after",
+                                                  "options": [
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 8,
+                                                        "page_no": 9,
+                                                        "cmd_index": 3,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "mc",
+                                                      "text": "世界の外の視座？",
+                                                      "translations": {
+                                                        "zh-cn": "世界之外的视点？"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 8,
+                                                        "page_no": 9,
+                                                        "cmd_index": 4,
+                                                        "sub_index": 1
+                                                      },
+                                                      "speaker": "mc",
+                                                      "text": "何の話をしている？",
+                                                      "translations": {
+                                                        "zh-cn": "你在说什么？"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 8,
+                                                        "page_no": 9,
+                                                        "cmd_index": 5,
+                                                        "sub_index": 2
+                                                      },
+                                                      "speaker": "mc",
+                                                      "text": "……………",
+                                                      "translations": {
+                                                        "zh-cn": "………………"
+                                                      }
+                                                    }
+                                                  ],
+                                                  "following_text": [
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 9,
+                                                        "page_no": 0,
+                                                        "cmd_index": 1,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "アンゴルモワ1999",
+                                                      "text": "――ならば、こうだ。\n着床、拡大。学習、反映。",
+                                                      "translations": {
+                                                        "zh-cn": "——那么，便这样吧。\n着床，扩大。学习，反映。"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 9,
+                                                        "page_no": 1,
+                                                        "cmd_index": 1,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "",
+                                                      "text": "次の瞬間、前後左右の視界を\n覆い尽くすように更にクリスタルが突き立つ。",
+                                                      "translations": {
+                                                        "zh-cn": "下一瞬间，更多的水晶突刺而出，\n仿佛要将前后左右的整片视野彻底覆盖吞没。"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 9,
+                                                        "page_no": 2,
+                                                        "cmd_index": 49,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "メフィストフェレス",
+                                                      "text": "水晶が七分に大地が三分……圧倒的、物量ですね？\nまったく、これでは四方どこにも逃げ場はございません。",
+                                                      "translations": {
+                                                        "zh-cn": "水晶占了七分，大地仅存三分……这真是压倒性的物量呢？\n哎呀呀，这样一来四面八方可就全无退路了。"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 9,
+                                                        "page_no": 3,
+                                                        "cmd_index": 1,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "メフィストフェレス",
+                                                      "text": "……勝てませんねえ。\nいえ、勝つ勝たないの次元ではない。",
+                                                      "translations": {
+                                                        "zh-cn": "……赢不了呢。\n不，这已经不是赢不赢得了的层面了。"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 9,
+                                                        "page_no": 4,
+                                                        "cmd_index": 1,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "メフィストフェレス",
+                                                      "text": "他の「世界代行者」たちが可愛く思えてしまう程です。\n世界ひとつを相手にするとはこういうことなのですねえ？",
+                                                      "translations": {
+                                                        "zh-cn": "甚至让人觉得其他的“世界代理人”们都显得可爱起来了。\n与一整个世界为敌，原来就是这么一回事吗？"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "choice",
+                                                      "order": {
+                                                        "label_index": 9,
+                                                        "page_no": 5,
+                                                        "cmd_index": 2,
+                                                        "sub_index": 0
+                                                      },
+                                                      "merge_label": "",
+                                                      "branches": [
+                                                        {
+                                                          "target_label": "quest_main17-8_h_after",
+                                                          "options": [
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 9,
+                                                                "page_no": 5,
+                                                                "cmd_index": 2,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "mc",
+                                                              "text": "言ってる場合か、下がれ！",
+                                                              "translations": {
+                                                                "zh-cn": "现在是说风凉话的时候吗，快退后！"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 9,
+                                                                "page_no": 5,
+                                                                "cmd_index": 3,
+                                                                "sub_index": 1
+                                                              },
+                                                              "speaker": "mc",
+                                                              "text": "危ない、モノチェーロ！！",
+                                                              "translations": {
+                                                                "zh-cn": "危险，莫纳切洛！！"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 9,
+                                                                "page_no": 5,
+                                                                "cmd_index": 4,
+                                                                "sub_index": 2
+                                                              },
+                                                              "speaker": "mc",
+                                                              "text": "後ろに隠れろ、メフィストフェレス！！",
+                                                              "translations": {
+                                                                "zh-cn": "躲到我身后去，梅菲斯托费勒斯！！"
+                                                              }
+                                                            }
+                                                          ],
+                                                          "following_text": [
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 10,
+                                                                "page_no": 0,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "メフィストフェレス",
+                                                              "text": "おやおやおや……貴方様の\nそういうところでございますよ。",
+                                                              "translations": {
+                                                                "zh-cn": "哎呀呀……您这种地方，\n真是一点都没变呢。"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 10,
+                                                                "page_no": 1,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "",
+                                                              "text": "メフィストフェレスはぽつり、と\n誰にも聞こえないくらいの声で、そう漏らす。",
+                                                              "translations": {
+                                                                "zh-cn": "梅菲斯托费勒斯用轻细到\n任何人都无法听清的声音，喃喃自语道。"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 10,
+                                                                "page_no": 2,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "メフィストフェレス",
+                                                              "text": "僕めは、あくまで執事ですので。\nただ契約に則った関係だけにございます。",
+                                                              "translations": {
+                                                                "zh-cn": "在下终究只是一名执事。\n与您不过是依据契约建立的关系罢了。"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 10,
+                                                                "page_no": 3,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "メフィストフェレス",
+                                                              "text": "契約とあらば、地獄へとて着いてゆく。\n契約のため、ただそれだけのことだというのに！",
+                                                              "translations": {
+                                                                "zh-cn": "既然定有契约，哪怕是地狱在下也会相随到底。\n明明只是一心为了契约，仅此而已！"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 10,
+                                                                "page_no": 4,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "メフィストフェレス",
+                                                              "text": "なのにいつも、貴方様ときたら。\nいったい何を勘違いされてなさいますやら。",
+                                                              "translations": {
+                                                                "zh-cn": "可您这家伙总是这副样子。\n到底都在自顾自地误会些什么啊。"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "choice",
+                                                              "order": {
+                                                                "label_index": 10,
+                                                                "page_no": 5,
+                                                                "cmd_index": 2,
+                                                                "sub_index": 0
+                                                              },
+                                                              "merge_label": "",
+                                                              "branches": [
+                                                                {
+                                                                  "target_label": "quest_main17-8_i_after",
+                                                                  "options": [
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 10,
+                                                                        "page_no": 5,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "mc",
+                                                                      "text": "<param=playerName>の名において銘ず！",
+                                                                      "translations": {
+                                                                        "zh-cn": "以<param=playerName>之名下令！"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 10,
+                                                                        "page_no": 5,
+                                                                        "cmd_index": 3,
+                                                                        "sub_index": 1
+                                                                      },
+                                                                      "speaker": "mc",
+                                                                      "text": "（剣の「神器」の召喚を試みる）",
+                                                                      "translations": {
+                                                                        "zh-cn": "（尝试召唤剑之“神器”）"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 10,
+                                                                        "page_no": 5,
+                                                                        "cmd_index": 4,
+                                                                        "sub_index": 2
+                                                                      },
+                                                                      "speaker": "mc",
+                                                                      "text": "（メフィストフェレスたちの前に出る）",
+                                                                      "translations": {
+                                                                        "zh-cn": "（挡在梅菲斯托费勒斯等人身前）"
+                                                                      }
+                                                                    }
+                                                                  ],
+                                                                  "following_text": [
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 11,
+                                                                        "page_no": 0,
+                                                                        "cmd_index": 20,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "モノチェーロ",
+                                                                      "text": "おい、役立たずが無理すんなよな。\nいいからとっとと先に逃げてろよ、子分っ。",
+                                                                      "translations": {
+                                                                        "zh-cn": "喂，没用的家伙就别在那逞强了。\n少废话，快点给我先逃走啦，小弟！"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "choice",
+                                                                      "order": {
+                                                                        "label_index": 11,
+                                                                        "page_no": 1,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "merge_label": "",
+                                                                      "branches": [
+                                                                        {
+                                                                          "target_label": "quest_main17-8_j_after",
+                                                                          "options": [
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 11,
+                                                                                "page_no": 1,
+                                                                                "cmd_index": 2,
+                                                                                "sub_index": 0
+                                                                              },
+                                                                              "speaker": "mc",
+                                                                              "text": "何を言って……！",
+                                                                              "translations": {
+                                                                                "zh-cn": "你在说什么啊……！"
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 11,
+                                                                                "page_no": 1,
+                                                                                "cmd_index": 3,
+                                                                                "sub_index": 1
+                                                                              },
+                                                                              "speaker": "mc",
+                                                                              "text": "子供のくせに……！",
+                                                                              "translations": {
+                                                                                "zh-cn": "明明只是个小鬼……！"
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 11,
+                                                                                "page_no": 1,
+                                                                                "cmd_index": 4,
+                                                                                "sub_index": 2
+                                                                              },
+                                                                              "speaker": "mc",
+                                                                              "text": "止めろ、モノチェーロ！！",
+                                                                              "translations": {
+                                                                                "zh-cn": "住手，莫纳切洛！！"
+                                                                              }
+                                                                            }
+                                                                          ],
+                                                                          "following_text": [
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 12,
+                                                                                "page_no": 0,
+                                                                                "cmd_index": 0,
+                                                                                "sub_index": 0
+                                                                              },
+                                                                              "speaker": "",
+                                                                              "text": "彼は思い出す。いつも、あんちゃんが言っていた。\nだから、おれも……同じようにそう言ってやるのだ。",
+                                                                              "translations": {
+                                                                                "zh-cn": "他回想起来了。以前大哥总是这么说的。\n所以，我也……要像大哥那样大声说出来。"
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 12,
+                                                                                "page_no": 1,
+                                                                                "cmd_index": 2,
+                                                                                "sub_index": 0
+                                                                              },
+                                                                              "speaker": "モノチェーロ",
+                                                                              "text": "おれは、モノチェーロ。\nソテラネア地下動脈の、妖精小人！",
+                                                                              "translations": {
+                                                                                "zh-cn": "老子是莫纳切洛！\n是索特拉尼亚地下动脉的妖精小人！"
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 12,
+                                                                                "page_no": 2,
+                                                                                "cmd_index": 1,
+                                                                                "sub_index": 0
+                                                                              },
+                                                                              "speaker": "モノチェーロ",
+                                                                              "text": "<em=・>ここが地下でこの地盤が生きているなら<\/em>、\nそいつはおれらの独擅場だって、言ってんだよぉ！！",
+                                                                              "translations": {
+                                                                                "zh-cn": "老子是在说，<em=・>只要这里是地下，只要这地层还活着<\/em>，\n那就是我们大显身手的地盘啦啊啊！！"
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 12,
+                                                                                "page_no": 3,
+                                                                                "cmd_index": 5,
+                                                                                "sub_index": 0
+                                                                              },
+                                                                              "speaker": "",
+                                                                              "text": "かつて、あんちゃんがそう言っていた。\nだから、おれも同じように言ってやるのだ。",
+                                                                              "translations": {
+                                                                                "zh-cn": "从前，大哥曾这样说过。\n所以，我也要原原本本地说出来。"
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 12,
+                                                                                "page_no": 4,
+                                                                                "cmd_index": 3,
+                                                                                "sub_index": 0
+                                                                              },
+                                                                              "speaker": "モノチェーロ",
+                                                                              "text": "おれの子分をいじめるヤツは\nどこの誰が相手だろうが――許さねえっ。",
+                                                                              "translations": {
+                                                                                "zh-cn": "敢欺负老子小弟的家伙，\n管他是何方神圣——老子都绝不轻饶！"
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 12,
+                                                                                "page_no": 5,
+                                                                                "cmd_index": 1,
+                                                                                "sub_index": 0
+                                                                              },
+                                                                              "speaker": "モノチェーロ",
+                                                                              "text": "追いつけるもんなら、おいついてみろ。\nあんちゃん以外は……だよなぁ、あんちゃん！！",
+                                                                              "translations": {
+                                                                                "zh-cn": "有本事追得上的话，就尽管追过来试试看啊！\n除了大哥以外……我说得对吧，大哥！！"
+                                                                              }
+                                                                            },
+                                                                            {
+                                                                              "type": "text",
+                                                                              "order": {
+                                                                                "label_index": 12,
+                                                                                "page_no": 6,
+                                                                                "cmd_index": 2,
+                                                                                "sub_index": 0
+                                                                              },
+                                                                              "speaker": "",
+                                                                              "text": "ここが地獄の底とは思わない。\nその先がある、おれはずっとそこを追うのだ。",
+                                                                              "translations": {
+                                                                                "zh-cn": "老子可不认为这里就是地狱的最底层。\n后面还有路呢，老子会一直追逐着前方冲过去的！"
+                                                                              }
+                                                                            }
+                                                                          ]
+                                                                        }
+                                                                      ]
+                                                                    }
+                                                                  ]
+                                                                }
+                                                              ]
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 0,
+        "cmd_index": 17,
+        "sub_index": 0
+      },
+      "speaker": "メフィストフェレス",
+      "text": "いつか、何処かのループにて。\n僕めは２回、貴方様と添い遂げました。",
+      "translations": {
+        "zh-cn": "在不知何时、何处的轮回之中。\n在下曾有两次，与您相伴相随直至终结。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 1,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "１回は、魔王としてこの東京という\n地獄に君臨した貴方の、忠実なる僕として。",
+      "translations": {
+        "zh-cn": "其中一次，是作为魔王君临于\n东京这片地狱的您的忠实仆从。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 2,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "もう１回は……最後までただの人間として\nつまらない一生を終えた、貴方の<ruby=しもべ>僕<\/ruby>として。",
+      "translations": {
+        "zh-cn": "而另一次……则是作为直到最后都以普通人类的身份\n度过了无聊一生的您的<ruby=仆人>仆从<\/ruby>。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ええ、当然として契約のためです。\n貴方様が満足するまで……それが約束でしたから。",
+      "translations": {
+        "zh-cn": "是的，理所当然全是为了契约。\n直到您满足为止……因为那是我们之间的约定。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 4,
+        "cmd_index": 14,
+        "sub_index": 0
+      },
+      "speaker": "メフィストフェレス",
+      "text": "かつての僕は、貴方の魂が欲しかった。\nだけど、それは決して叶いませんでした。",
+      "translations": {
+        "zh-cn": "曾经的我，渴望得到您的灵魂。\n然而，那份心愿却从未能够实现。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 5,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「ファウスト」。\nそれが貴方の……人間としての前世の名前。",
+      "translations": {
+        "zh-cn": "“浮士德”。\n那便是您……作为人类时的前世之名。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 6,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "この僕の知る限り、どんな強大な天使でも\n縛られるゲヘナの契約から逃れ得た、ただの人間。",
+      "translations": {
+        "zh-cn": "是在我所知的一切之中，唯一一个能够摆脱连\n何等强大的天使都会被束缚的欣嫩子谷契约的区区人类。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "僕は、貴方の欲望を満たす。\nその代わりに貴方は魂を渡す、そんな契約。",
+      "translations": {
+        "zh-cn": "我来满足您的欲望。\n作为代价您将灵魂交付于我——就是这样的契约。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "しかし契約は、破棄された。\n契約に忠実な僕には、それが許せない。",
+      "translations": {
+        "zh-cn": "然而契约却被废弃了。\n对于忠于契约的我而言，这是绝不可原谅的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "だから今度こそ、貴方の魂を求め――\n僕は、遠くゲヘナからやって来たのです。",
+      "translations": {
+        "zh-cn": "因此这一次我定要索求您的灵魂——\n我才千里迢迢从欣嫩子谷赶来此地。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 10,
+        "cmd_index": 18,
+        "sub_index": 0
+      },
+      "speaker": "全の例外処理ソロモン",
+      "text": "ゲヘナからこの東京という「システム」へ\n転光するにあたり、僕はある特別な契約を交わしました。",
+      "translations": {
+        "zh-cn": "从欣嫩子谷转光来到东京这个“系统”之际，\n我曾立下过一份特别的契约。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 11,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "それは己を２つに分かつこと。\nそして……その１つを運営へ貸与すること。",
+      "translations": {
+        "zh-cn": "那就是将自我一分为二。\n并且……将其中之一借予运营方。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 12,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "その「システム」は「ゲーム」を行い、\n人間の限界を試すのだと言っていました。",
+      "translations": {
+        "zh-cn": "那个“系统”曾说，要举办一场“游戏”，\n用以试炼人类的极限。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 13,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "僕らは、その「ゲーム」に乗りました。\n悪魔として……あくまで執事の僕として。",
+      "translations": {
+        "zh-cn": "我们参与了那场“游戏”。\n作为恶魔……作为忠于职守的执事。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "元々、僕めは、この「ゲーム」の「賞品」の\nその半分にしかまったく興味がございませんしねえ？",
+      "translations": {
+        "zh-cn": "毕竟原本在下对于这场“游戏”的“奖品”，\n就仅仅对其中一半抱有兴趣罢了呢？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 15,
+        "cmd_index": 22,
+        "sub_index": 0
+      },
+      "speaker": "メフィストフェレス",
+      "text": "そうだ僕は、魂が欲しかった。\n貴方の魂だけが、欲しかった。",
+      "translations": {
+        "zh-cn": "没错，我渴望的是灵魂。\n我想要的，仅仅是您的灵魂而已。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 16,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "なのに、貴方が死んでどうする。\n貴方は、僕めをかばって死んだ。",
+      "translations": {
+        "zh-cn": "可你死掉算怎么回事啊。\n你竟然为了保护在下而牺牲了自己。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 17,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "何故、満足気に笑っているのだ。\n貴方の魂だけが目当てだった悪魔相手に。",
+      "translations": {
+        "zh-cn": "为什么到了最后，还能露出满足的微笑呢。\n面对一个眼里只有你灵魂的恶魔。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 18,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "この超感覚的で肉欲まみれの求婚者めが！\n小悪魔ひとりに鼻面を引き回されて馬鹿ではないか！！",
+      "translations": {
+        "zh-cn": "你这个沉溺于超感官与肉欲的求婚狂！\n被区区一个小恶魔牵着鼻子团团转，难道不觉得自己蠢透了吗！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 19,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "手には、一枚の果たされなかった契約書。\n主と自分の名前が書かれたそれを悪魔は憎々しげに握りしめる。",
+      "translations": {
+        "zh-cn": "手中握着一张未能履行的契约书。\n恶魔咬牙切齿地紧紧攥着那张写有主人与自己名字的纸页。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 20,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "……僕が、欲しかったのでしょう？\nなのに、貴方は僕めを連れてゆかなかった。",
+      "translations": {
+        "zh-cn": "……你想要的，明明是我吧？\n可你到头来，却没有将在下带走。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 21,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "魂だけが欲しかった。貴方の命など、僕は要らない。\nこんな契約は、僕の誇りにかけて無効としてやる――",
+      "translations": {
+        "zh-cn": "我只想要你的灵魂。你的性命，我根本不稀罕。\n赌上我的骄傲，这种契约就由我来宣布作废吧——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 22,
+        "cmd_index": 70,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "モノチェーロはドリルを担ぎ、\nシリコン鉱床を縦横無尽に掘り返す。",
+      "translations": {
+        "zh-cn": "莫纳切洛扛着钻头，\n在硅质矿床中纵横驰骋地挖掘开路。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 13,
+        "page_no": 23,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "メフィストフェレス",
+      "text": "退路が、出来ましたねえ。\nでは――何処へなりとお逃げなさい。",
+      "translations": {
+        "zh-cn": "退路已经打通了呢。\n那么——请您爱逃去哪里就逃去哪里吧。"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 13,
+        "page_no": 24,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "",
+      "branches": [
+        {
+          "target_label": "quest_main17-8_afterBattle_a_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 13,
+                "page_no": 24,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "え？",
+              "translations": {
+                "zh-cn": "诶？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 13,
+                "page_no": 24,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "何だって？",
+              "translations": {
+                "zh-cn": "你说什么？"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 13,
+                "page_no": 24,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "（メフィストフェレスの顔を見る）",
+              "translations": {
+                "zh-cn": "（看向梅菲斯托费勒斯的面容）"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 0,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "speaker": "メフィストフェレス",
+              "text": "逃げなさい、と申しましたよ。\nここでお別れです、<param=playerName>様。",
+              "translations": {
+                "zh-cn": "在下已经说过了，让您快逃。\n我们就在这里永别了，<param=playerName>大人。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "気付くとメフィストフェレスの足元は既に、\n石英水晶に侵食され、がっちり固められていた。",
+              "translations": {
+                "zh-cn": "回过神时，梅菲斯托费勒斯的脚下早已被\n石英水晶侵蚀，牢牢地固死在了原地。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 2,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "地獄の専門家、メフィストフェレスには\nこれが、どれだけの窮地か分かっている。",
+              "translations": {
+                "zh-cn": "作为地狱专家的梅菲斯托费勒斯很清楚，\n眼下的处境究竟凶险到了何种地步。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 3,
+                "cmd_index": 0,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "相手は「ゲーム」の参加者ではない。\n喰われれば、やり直しなど効かないだろう。",
+              "translations": {
+                "zh-cn": "对手并非“游戏”的参与者。\n一旦被吞噬，恐怕就再也没有重来的机会了。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 4,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "speaker": "メフィストフェレス",
+              "text": "剣も握れない貴方がここに残って\nいったい、何が出来ると言うのです？",
+              "translations": {
+                "zh-cn": "连剑都无法握紧的您留在这里，\n到底又能做得了什么呢？"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 14,
+                "page_no": 5,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "",
+              "branches": [
+                {
+                  "target_label": "quest_main17-8_afterBattle_b_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 14,
+                        "page_no": 5,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "どうして逃がす？",
+                      "translations": {
+                        "zh-cn": "为什么要放我走？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 14,
+                        "page_no": 5,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "理由がさっぱり分からない",
+                      "translations": {
+                        "zh-cn": "我完全不明白你的理由"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 14,
+                        "page_no": 5,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "（メフィストフェレスの顔を見る）",
+                      "translations": {
+                        "zh-cn": "（注视梅菲斯托费勒斯的面容）"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 0,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "メフィストフェレス",
+                      "text": "おやおや、まったく貴方ときたら。\n自分が世界の中心だとでもお思いで？",
+                      "translations": {
+                        "zh-cn": "哎呀呀，您这家伙真是的。\n真以为自己是世界的中心了吗？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 1,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "メフィストフェレス",
+                      "text": "自分が知らないことを騒いでいれば何でも\n教えてもらえると思ったら大間違いでございますよ。",
+                      "translations": {
+                        "zh-cn": "如果您以为只要对自己不知道的事情大吵大闹，\n别人就什么都会告诉您的话，那可就大错特错了哦。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 2,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "メフィストフェレス",
+                      "text": "……<param=playerName>様。\nお手を、失礼。",
+                      "translations": {
+                        "zh-cn": "……<param=playerName>大人。\n失礼了，请把手借在下一用。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 3,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "メフィストフェレスは半ば強引に\n<param=playerName>の手を取り、何かを唱える。",
+                      "translations": {
+                        "zh-cn": "梅菲斯托费勒斯半强硬地\n握住<param=playerName>的手，低声咏唱起什么。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 4,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "メフィストフェレスの手に持つ、古びた契約書のページの一枚に、\n<param=playerName>のサインが新しく書き上げられる。",
+                      "translations": {
+                        "zh-cn": "在梅菲斯托费勒斯手中的其中一页古旧契约书上，\n重新浮现并书写上了<param=playerName>的签名。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 5,
+                        "cmd_index": 9,
+                        "sub_index": 0
+                      },
+                      "speaker": "メフィストフェレス",
+                      "text": "契約<em=・>更新<\/em>……<param=playerName>様。\n今より僕めは、貴方様との<em=・>以前よりの<\/em>契約を破棄致します。",
+                      "translations": {
+                        "zh-cn": "契约<em=・>更新<\/em>……<param=playerName>大人。\n从现在起，在下将废除与您<em=・>以往的<\/em>一切契约。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 6,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "メフィストフェレス",
+                      "text": "何処までもお伴します、といつか貴方へ申し上げました。\nですが、この辺りでお暇を頂きたく――<em=・>短い間でしたが<\/em>お別れです。",
+                      "translations": {
+                        "zh-cn": "无论天涯海角在下都会相随到底，曾经在下确实对您这般说过。\n不过，在下就此告退了——<em=・>虽为期短暂<\/em>，但永别了。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 7,
+                        "cmd_index": 5,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "そう言ってメフィストフェレスは両手で文字の\n浮かび上がった契約書を摘み、真っ二つに割いてゆく。",
+                      "translations": {
+                        "zh-cn": "说完，梅菲斯托费勒斯用双手捏住那张\n浮现出文字的契约书，干脆利落地撕成了两半。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 8,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "メフィストフェレスの契約書は精神に強制執行力を持つ。\nそんな「貴方と共にある」と誓ったものを破棄したならば。",
+                      "translations": {
+                        "zh-cn": "梅菲斯托费勒斯的契约书对精神具有强制执行力。\n若是将这份立誓“与您常伴”的契约撕毁的话——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 9,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "質量を持つ<ruby=うつわ>肉体<\/ruby>があるならばともかく、\n魂だけの存在など、遠くへ吹き飛ばされることだろう。",
+                      "translations": {
+                        "zh-cn": "若是有着具备质量的<ruby=容器>肉体<\/ruby>倒也罢了，\n但仅仅是灵魂的存在，必将被猛烈地震飞到遥远的彼方。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 10,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "ただし、メフィストフェレスはもう動けない。\nならば――遠くへ飛ばされるのは契約相手の方となる。",
+                      "translations": {
+                        "zh-cn": "然而，梅菲斯托费勒斯已经动弹不得。\n既然如此——被震飞到远方的，便只有身为契约对象的另一方了。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 11,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "メフィストフェレス",
+                      "text": "今生で貴方と二度と会うことはないでしょう。\n何処か、僕の知らない場所へ飛んでゆかれなさい。",
+                      "translations": {
+                        "zh-cn": "在这一世，大概再也无法与您相见了吧。\n请飞向某个在下所不知道的远方去吧。"
+                      }
+                    },
+                    {
+                      "type": "choice",
+                      "order": {
+                        "label_index": 15,
+                        "page_no": 12,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "merge_label": "",
+                      "branches": [
+                        {
+                          "target_label": "quest_main17-8_afterBattle_c_after",
+                          "options": [
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 15,
+                                "page_no": 12,
+                                "cmd_index": 2,
+                                "sub_index": 0
+                              },
+                              "speaker": "mc",
+                              "text": "何でそこまで？",
+                              "translations": {
+                                "zh-cn": "为什么要做得这么绝？"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 15,
+                                "page_no": 12,
+                                "cmd_index": 3,
+                                "sub_index": 1
+                              },
+                              "speaker": "mc",
+                              "text": "そんなに憎かったのか？",
+                              "translations": {
+                                "zh-cn": "你就这么恨我吗？"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 15,
+                                "page_no": 12,
+                                "cmd_index": 4,
+                                "sub_index": 2
+                              },
+                              "speaker": "mc",
+                              "text": "もしかして好かれてた？",
+                              "translations": {
+                                "zh-cn": "难道说……你其实喜欢我？"
+                              }
+                            }
+                          ],
+                          "following_text": [
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 16,
+                                "page_no": 0,
+                                "cmd_index": 3,
+                                "sub_index": 0
+                              },
+                              "speaker": "メフィストフェレス",
+                              "text": "僕は貴方という人間が嫌いでしたよ。\n今も……昔も、ずっと、ずうっと。",
+                              "translations": {
+                                "zh-cn": "我很讨厌身为人类的您哦。\n不论是现在……还是过去，一直、一直都很讨厌。"
+                              }
+                            },
+                            {
+                              "type": "choice",
+                              "order": {
+                                "label_index": 16,
+                                "page_no": 1,
+                                "cmd_index": 10,
+                                "sub_index": 0
+                              },
+                              "merge_label": "",
+                              "branches": [
+                                {
+                                  "target_label": "quest_main17-8_afterBattle_d_after",
+                                  "options": [
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 16,
+                                        "page_no": 1,
+                                        "cmd_index": 10,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "mc",
+                                      "text": "なら何故救う！",
+                                      "translations": {
+                                        "zh-cn": "那为什么要救我！"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 16,
+                                        "page_no": 1,
+                                        "cmd_index": 11,
+                                        "sub_index": 1
+                                      },
+                                      "speaker": "mc",
+                                      "text": "どうして逃がす？",
+                                      "translations": {
+                                        "zh-cn": "为什么要放我走？"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 16,
+                                        "page_no": 1,
+                                        "cmd_index": 12,
+                                        "sub_index": 2
+                                      },
+                                      "speaker": "mc",
+                                      "text": "お前のことが分からない",
+                                      "translations": {
+                                        "zh-cn": "我越来越不懂你了"
+                                      }
+                                    }
+                                  ],
+                                  "following_text": [
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 17,
+                                        "page_no": 0,
+                                        "cmd_index": 3,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "メフィストフェレス",
+                                      "text": "貴方には分からなくてもいいことです。\nそれでは……精々、この先もお元気で。",
+                                      "translations": {
+                                        "zh-cn": "这种事，您无需明白。\n那么……祝您在今后也尽可能活得健康安好吧。"
+                                      }
+                                    },
+                                    {
+                                      "type": "choice",
+                                      "order": {
+                                        "label_index": 17,
+                                        "page_no": 1,
+                                        "cmd_index": 9,
+                                        "sub_index": 0
+                                      },
+                                      "merge_label": "",
+                                      "branches": [
+                                        {
+                                          "target_label": "quest_main17-8_afterBattle_e_after",
+                                          "options": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 17,
+                                                "page_no": 1,
+                                                "cmd_index": 9,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "mc",
+                                              "text": "モノチェーロ！",
+                                              "translations": {
+                                                "zh-cn": "莫纳切洛！"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 17,
+                                                "page_no": 1,
+                                                "cmd_index": 10,
+                                                "sub_index": 1
+                                              },
+                                              "speaker": "mc",
+                                              "text": "メフィストフェレス！",
+                                              "translations": {
+                                                "zh-cn": "梅菲斯托费勒斯！"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 17,
+                                                "page_no": 1,
+                                                "cmd_index": 11,
+                                                "sub_index": 2
+                                              },
+                                              "speaker": "mc",
+                                              "text": "皆……みんな！！",
+                                              "translations": {
+                                                "zh-cn": "大家……各位！！"
+                                              }
+                                            }
+                                          ],
+                                          "following_text": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 18,
+                                                "page_no": 0,
+                                                "cmd_index": 63,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "",
+                                              "text": "メフィストフェレスの契約書が破られ、そして\n<param=playerName>の魂は、流星の様にその場を離れ飛んで行く。",
+                                              "translations": {
+                                                "zh-cn": "梅菲斯托费勒斯的契约书被彻底撕碎，紧接着\n<param=playerName>的灵魂如流星般脱离了这片空间，向着远方飞逝而去。"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "protect": [],
+  "seq_to_order": [
+    {
+      "seq": 1,
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 2,
+      "order": {
+        "label_index": 1,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 3,
+      "order": {
+        "label_index": 1,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 4,
+      "order": {
+        "label_index": 1,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 5,
+      "order": {
+        "label_index": 1,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 6,
+      "order": {
+        "label_index": 1,
+        "page_no": 5,
+        "cmd_index": 8,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 7,
+      "order": {
+        "label_index": 1,
+        "page_no": 6,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 8,
+      "order": {
+        "label_index": 1,
+        "page_no": 7,
+        "cmd_index": 14,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 9,
+      "order": {
+        "label_index": 1,
+        "page_no": 8,
+        "cmd_index": 13,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 10,
+      "order": {
+        "label_index": 1,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 11,
+      "order": {
+        "label_index": 1,
+        "page_no": 10,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 12,
+      "order": {
+        "label_index": 1,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 13,
+      "order": {
+        "label_index": 1,
+        "page_no": 12,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 14,
+      "order": {
+        "label_index": 1,
+        "page_no": 13,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 15,
+      "order": {
+        "label_index": 1,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 16,
+      "order": {
+        "label_index": 1,
+        "page_no": 15,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 17,
+      "order": {
+        "label_index": 1,
+        "page_no": 16,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 18,
+      "order": {
+        "label_index": 1,
+        "page_no": 17,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 19,
+      "order": {
+        "label_index": 1,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 20,
+      "order": {
+        "label_index": 1,
+        "page_no": 19,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 21,
+      "order": {
+        "label_index": 1,
+        "page_no": 20,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 22,
+      "order": {
+        "label_index": 1,
+        "page_no": 21,
+        "cmd_index": 21,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 23,
+      "order": {
+        "label_index": 1,
+        "page_no": 22,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 24,
+      "order": {
+        "label_index": 1,
+        "page_no": 23,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 25,
+      "order": {
+        "label_index": 1,
+        "page_no": 24,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 26,
+      "order": {
+        "label_index": 1,
+        "page_no": 25,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 27,
+      "order": {
+        "label_index": 1,
+        "page_no": 26,
+        "cmd_index": 24,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 28,
+      "order": {
+        "label_index": 1,
+        "page_no": 27,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 29,
+      "order": {
+        "label_index": 1,
+        "page_no": 28,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 30,
+      "order": {
+        "label_index": 1,
+        "page_no": 29,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 31,
+      "order": {
+        "label_index": 1,
+        "page_no": 30,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 32,
+      "order": {
+        "label_index": 1,
+        "page_no": 31,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 33,
+      "order": {
+        "label_index": 1,
+        "page_no": 32,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 34,
+      "order": {
+        "label_index": 1,
+        "page_no": 33,
+        "cmd_index": 17,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 35,
+      "order": {
+        "label_index": 1,
+        "page_no": 34,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 36,
+      "order": {
+        "label_index": 1,
+        "page_no": 35,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 37,
+      "order": {
+        "label_index": 1,
+        "page_no": 36,
+        "cmd_index": 27,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 38,
+      "order": {
+        "label_index": 1,
+        "page_no": 37,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 39,
+      "order": {
+        "label_index": 1,
+        "page_no": 38,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 40,
+      "order": {
+        "label_index": 1,
+        "page_no": 39,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 41,
+      "order": {
+        "label_index": 1,
+        "page_no": 40,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 42,
+      "order": {
+        "label_index": 1,
+        "page_no": 41,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 43,
+      "order": {
+        "label_index": 1,
+        "page_no": 42,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 44,
+      "order": {
+        "label_index": 1,
+        "page_no": 43,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 45,
+      "order": {
+        "label_index": 1,
+        "page_no": 44,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 46,
+      "order": {
+        "label_index": 1,
+        "page_no": 45,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 47,
+      "order": {
+        "label_index": 1,
+        "page_no": 46,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 48,
+      "order": {
+        "label_index": 1,
+        "page_no": 47,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 49,
+      "order": {
+        "label_index": 1,
+        "page_no": 48,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 50,
+      "order": {
+        "label_index": 1,
+        "page_no": 49,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 51,
+      "order": {
+        "label_index": 1,
+        "page_no": 50,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 52,
+      "order": {
+        "label_index": 1,
+        "page_no": 51,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 53,
+      "order": {
+        "label_index": 1,
+        "page_no": 52,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 54,
+      "order": {
+        "label_index": 1,
+        "page_no": 53,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 55,
+      "order": {
+        "label_index": 1,
+        "page_no": 54,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 56,
+      "order": {
+        "label_index": 1,
+        "page_no": 55,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 57,
+      "order": {
+        "label_index": 1,
+        "page_no": 56,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 58,
+      "order": {
+        "label_index": 1,
+        "page_no": 57,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 59,
+      "order": {
+        "label_index": 1,
+        "page_no": 58,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 60,
+      "order": {
+        "label_index": 1,
+        "page_no": 59,
+        "cmd_index": 49,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 61,
+      "order": {
+        "label_index": 1,
+        "page_no": 60,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 62,
+      "order": {
+        "label_index": 1,
+        "page_no": 61,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 63,
+      "order": {
+        "label_index": 1,
+        "page_no": 62,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 64,
+      "order": {
+        "label_index": 1,
+        "page_no": 63,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 65,
+      "order": {
+        "label_index": 1,
+        "page_no": 64,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 66,
+      "order": {
+        "label_index": 1,
+        "page_no": 65,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 67,
+      "order": {
+        "label_index": 1,
+        "page_no": 66,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 68,
+      "order": {
+        "label_index": 1,
+        "page_no": 67,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 69,
+      "order": {
+        "label_index": 1,
+        "page_no": 68,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 70,
+      "order": {
+        "label_index": 1,
+        "page_no": 69,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 71,
+      "order": {
+        "label_index": 1,
+        "page_no": 70,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 72,
+      "order": {
+        "label_index": 1,
+        "page_no": 71,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 73,
+      "order": {
+        "label_index": 1,
+        "page_no": 72,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 74,
+      "order": {
+        "label_index": 1,
+        "page_no": 73,
+        "cmd_index": 22,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 75,
+      "order": {
+        "label_index": 1,
+        "page_no": 74,
+        "cmd_index": 19,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 76,
+      "order": {
+        "label_index": 1,
+        "page_no": 75,
+        "cmd_index": 12,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 77,
+      "order": {
+        "label_index": 1,
+        "page_no": 76,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 78,
+      "order": {
+        "label_index": 1,
+        "page_no": 77,
+        "cmd_index": 39,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 79,
+      "order": {
+        "label_index": 1,
+        "page_no": 78,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 80,
+      "order": {
+        "label_index": 1,
+        "page_no": 79,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 81,
+      "order": {
+        "label_index": 1,
+        "page_no": 80,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 82,
+      "order": {
+        "label_index": 1,
+        "page_no": 81,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 83,
+      "order": {
+        "label_index": 1,
+        "page_no": 82,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 84,
+      "order": {
+        "label_index": 1,
+        "page_no": 83,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 85,
+      "order": {
+        "label_index": 1,
+        "page_no": 84,
+        "cmd_index": 29,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 86,
+      "order": {
+        "label_index": 1,
+        "page_no": 85,
+        "cmd_index": 18,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 87,
+      "order": {
+        "label_index": 1,
+        "page_no": 85,
+        "cmd_index": 19,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 88,
+      "order": {
+        "label_index": 1,
+        "page_no": 85,
+        "cmd_index": 20,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 89,
+      "order": {
+        "label_index": 2,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 90,
+      "order": {
+        "label_index": 2,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 91,
+      "order": {
+        "label_index": 2,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 92,
+      "order": {
+        "label_index": 2,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 93,
+      "order": {
+        "label_index": 2,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 94,
+      "order": {
+        "label_index": 2,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 95,
+      "order": {
+        "label_index": 2,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 96,
+      "order": {
+        "label_index": 2,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 97,
+      "order": {
+        "label_index": 2,
+        "page_no": 7,
+        "cmd_index": 2,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 98,
+      "order": {
+        "label_index": 3,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 99,
+      "order": {
+        "label_index": 3,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 100,
+      "order": {
+        "label_index": 3,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 101,
+      "order": {
+        "label_index": 3,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 102,
+      "order": {
+        "label_index": 3,
+        "page_no": 2,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 103,
+      "order": {
+        "label_index": 4,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 104,
+      "order": {
+        "label_index": 4,
+        "page_no": 1,
+        "cmd_index": 15,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 105,
+      "order": {
+        "label_index": 4,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 106,
+      "order": {
+        "label_index": 4,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 107,
+      "order": {
+        "label_index": 4,
+        "page_no": 2,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 108,
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 109,
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 110,
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 39,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 111,
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 112,
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 113,
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 114,
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 115,
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 116,
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 117,
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 118,
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 119,
+      "order": {
+        "label_index": 7,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 120,
+      "order": {
+        "label_index": 7,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 121,
+      "order": {
+        "label_index": 7,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 122,
+      "order": {
+        "label_index": 7,
+        "page_no": 4,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 123,
+      "order": {
+        "label_index": 7,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 124,
+      "order": {
+        "label_index": 7,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 125,
+      "order": {
+        "label_index": 7,
+        "page_no": 5,
+        "cmd_index": 3,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 126,
+      "order": {
+        "label_index": 8,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 127,
+      "order": {
+        "label_index": 8,
+        "page_no": 1,
+        "cmd_index": 15,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 128,
+      "order": {
+        "label_index": 8,
+        "page_no": 2,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 129,
+      "order": {
+        "label_index": 8,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 130,
+      "order": {
+        "label_index": 8,
+        "page_no": 4,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 131,
+      "order": {
+        "label_index": 8,
+        "page_no": 5,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 132,
+      "order": {
+        "label_index": 8,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 133,
+      "order": {
+        "label_index": 8,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 134,
+      "order": {
+        "label_index": 8,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 135,
+      "order": {
+        "label_index": 8,
+        "page_no": 9,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 136,
+      "order": {
+        "label_index": 8,
+        "page_no": 9,
+        "cmd_index": 4,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 137,
+      "order": {
+        "label_index": 8,
+        "page_no": 9,
+        "cmd_index": 5,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 138,
+      "order": {
+        "label_index": 9,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 139,
+      "order": {
+        "label_index": 9,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 140,
+      "order": {
+        "label_index": 9,
+        "page_no": 2,
+        "cmd_index": 49,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 141,
+      "order": {
+        "label_index": 9,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 142,
+      "order": {
+        "label_index": 9,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 143,
+      "order": {
+        "label_index": 9,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 144,
+      "order": {
+        "label_index": 9,
+        "page_no": 5,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 145,
+      "order": {
+        "label_index": 9,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 146,
+      "order": {
+        "label_index": 10,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 147,
+      "order": {
+        "label_index": 10,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 148,
+      "order": {
+        "label_index": 10,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 149,
+      "order": {
+        "label_index": 10,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 150,
+      "order": {
+        "label_index": 10,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 151,
+      "order": {
+        "label_index": 10,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 152,
+      "order": {
+        "label_index": 10,
+        "page_no": 5,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 153,
+      "order": {
+        "label_index": 10,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 154,
+      "order": {
+        "label_index": 11,
+        "page_no": 0,
+        "cmd_index": 20,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 155,
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 156,
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 157,
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 158,
+      "order": {
+        "label_index": 12,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 159,
+      "order": {
+        "label_index": 12,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 160,
+      "order": {
+        "label_index": 12,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 161,
+      "order": {
+        "label_index": 12,
+        "page_no": 3,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 162,
+      "order": {
+        "label_index": 12,
+        "page_no": 4,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 163,
+      "order": {
+        "label_index": 12,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 164,
+      "order": {
+        "label_index": 12,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 165,
+      "order": {
+        "label_index": 13,
+        "page_no": 0,
+        "cmd_index": 17,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 166,
+      "order": {
+        "label_index": 13,
+        "page_no": 1,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 167,
+      "order": {
+        "label_index": 13,
+        "page_no": 2,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 168,
+      "order": {
+        "label_index": 13,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 169,
+      "order": {
+        "label_index": 13,
+        "page_no": 4,
+        "cmd_index": 14,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 170,
+      "order": {
+        "label_index": 13,
+        "page_no": 5,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 171,
+      "order": {
+        "label_index": 13,
+        "page_no": 6,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 172,
+      "order": {
+        "label_index": 13,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 173,
+      "order": {
+        "label_index": 13,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 174,
+      "order": {
+        "label_index": 13,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 175,
+      "order": {
+        "label_index": 13,
+        "page_no": 10,
+        "cmd_index": 18,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 176,
+      "order": {
+        "label_index": 13,
+        "page_no": 11,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 177,
+      "order": {
+        "label_index": 13,
+        "page_no": 12,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 178,
+      "order": {
+        "label_index": 13,
+        "page_no": 13,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 179,
+      "order": {
+        "label_index": 13,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 180,
+      "order": {
+        "label_index": 13,
+        "page_no": 15,
+        "cmd_index": 22,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 181,
+      "order": {
+        "label_index": 13,
+        "page_no": 16,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 182,
+      "order": {
+        "label_index": 13,
+        "page_no": 17,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 183,
+      "order": {
+        "label_index": 13,
+        "page_no": 18,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 184,
+      "order": {
+        "label_index": 13,
+        "page_no": 19,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 185,
+      "order": {
+        "label_index": 13,
+        "page_no": 20,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 186,
+      "order": {
+        "label_index": 13,
+        "page_no": 21,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 187,
+      "order": {
+        "label_index": 13,
+        "page_no": 22,
+        "cmd_index": 70,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 188,
+      "order": {
+        "label_index": 13,
+        "page_no": 23,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 189,
+      "order": {
+        "label_index": 13,
+        "page_no": 24,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 190,
+      "order": {
+        "label_index": 13,
+        "page_no": 24,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 191,
+      "order": {
+        "label_index": 13,
+        "page_no": 24,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 192,
+      "order": {
+        "label_index": 14,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 193,
+      "order": {
+        "label_index": 14,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 194,
+      "order": {
+        "label_index": 14,
+        "page_no": 2,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 195,
+      "order": {
+        "label_index": 14,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 196,
+      "order": {
+        "label_index": 14,
+        "page_no": 4,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 197,
+      "order": {
+        "label_index": 14,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 198,
+      "order": {
+        "label_index": 14,
+        "page_no": 5,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 199,
+      "order": {
+        "label_index": 14,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 200,
+      "order": {
+        "label_index": 15,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 201,
+      "order": {
+        "label_index": 15,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 202,
+      "order": {
+        "label_index": 15,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 203,
+      "order": {
+        "label_index": 15,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 204,
+      "order": {
+        "label_index": 15,
+        "page_no": 4,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 205,
+      "order": {
+        "label_index": 15,
+        "page_no": 5,
+        "cmd_index": 9,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 206,
+      "order": {
+        "label_index": 15,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 207,
+      "order": {
+        "label_index": 15,
+        "page_no": 7,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 208,
+      "order": {
+        "label_index": 15,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 209,
+      "order": {
+        "label_index": 15,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 210,
+      "order": {
+        "label_index": 15,
+        "page_no": 10,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 211,
+      "order": {
+        "label_index": 15,
+        "page_no": 11,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 212,
+      "order": {
+        "label_index": 15,
+        "page_no": 12,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 213,
+      "order": {
+        "label_index": 15,
+        "page_no": 12,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 214,
+      "order": {
+        "label_index": 15,
+        "page_no": 12,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 215,
+      "order": {
+        "label_index": 16,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 216,
+      "order": {
+        "label_index": 16,
+        "page_no": 1,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 217,
+      "order": {
+        "label_index": 16,
+        "page_no": 1,
+        "cmd_index": 11,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 218,
+      "order": {
+        "label_index": 16,
+        "page_no": 1,
+        "cmd_index": 12,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 219,
+      "order": {
+        "label_index": 17,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 220,
+      "order": {
+        "label_index": 17,
+        "page_no": 1,
+        "cmd_index": 9,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 221,
+      "order": {
+        "label_index": 17,
+        "page_no": 1,
+        "cmd_index": 10,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 222,
+      "order": {
+        "label_index": 17,
+        "page_no": 1,
+        "cmd_index": 11,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 223,
+      "order": {
+        "label_index": 18,
+        "page_no": 0,
+        "cmd_index": 63,
+        "sub_index": 0
+      }
+    }
+  ]
+}
