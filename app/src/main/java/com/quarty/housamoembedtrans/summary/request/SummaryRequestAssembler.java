@@ -5,12 +5,14 @@ import com.quarty.housamoembedtrans.summary.policy.GroupCompressionCoordinator;
 
 import com.quarty.housamoembedtrans.context.model.GroupContextEntry;
 import com.quarty.housamoembedtrans.context.history.ManualDescriptionResolver;
+import com.quarty.housamoembedtrans.context.history.SceneEntryOrdering;
 import com.quarty.housamoembedtrans.context.history.SceneSummaryResolver;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -199,9 +201,16 @@ public final class SummaryRequestAssembler {
             );
         }
 
+        // Keep the existing physical cutoff membership, then order only the
+        // covered entries for provider input. The cutoff entry_id and its
+        // source_hash remain unchanged for old and in-flight jobs.
+        List<JSONObject> orderedEntries = SceneEntryOrdering.sortedEntries(
+            scenes,
+            0,
+            cutoffIndex + 1
+        );
         JSONArray entries = new JSONArray();
-        for (int index = 0; index <= cutoffIndex; index++) {
-            JSONObject entry = scenes.optJSONObject(index);
+        for (JSONObject entry : orderedEntries) {
             String scene = entry.optString("scene", "");
             String text = sceneSummaryText(entry, targetLang, scene);
             entries.put(new JSONObject()
@@ -225,8 +234,7 @@ public final class SummaryRequestAssembler {
         }
 
         JSONArray entries = new JSONArray();
-        for (int index = 0; index < scenes.length(); index++) {
-            JSONObject entry = scenes.optJSONObject(index);
+        for (JSONObject entry : SceneEntryOrdering.sortedEntries(scenes)) {
             String scene = entry.optString("scene", "");
             String text = sceneSummaryText(entry, targetLang, scene);
             entries.put(new JSONObject()

@@ -10,7 +10,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.LinkedHashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Deep Context/Group module for preparing immutable History input before a
@@ -183,7 +186,8 @@ public final class ContextHistoryPreparer {
                         targetLang
                     );
             boolean requestContextSummary = autoCompression
-                && !manualSuppressed;
+                && !manualSuppressed
+                && hasSameInlineSummaryCoverage(context.getJSONArray("scenes"), scene);
             String capturedHash = autoCompression
                 ? store.getContextStore().computeContextSourceHashExcludingScene(
                     storageName,
@@ -249,6 +253,33 @@ public final class ContextHistoryPreparer {
         }
     }
 
+    /**
+     * Inline compression sees natural predecessors, but its persisted cutoff
+     * still describes a physical prefix. If those member sets differ, let the
+     * existing snapshot job assemble that physical range instead.
+     */
+    private static boolean hasSameInlineSummaryCoverage(JSONArray entries, String scene) {
+        List<JSONObject> ordered = SceneEntryOrdering.sortedEntries(entries);
+        int naturalIndex = SceneEntryOrdering.indexOfScene(ordered, scene);
+        if (naturalIndex < 0) {
+            return false;
+        }
+        Set<String> expected = new HashSet<>();
+        for (int index = 0; index <= naturalIndex; index++) {
+            expected.add(ordered.get(index).optString("entry_id", ""));
+        }
+        for (int index = 0; index < entries.length(); index++) {
+            JSONObject entry = entries.optJSONObject(index);
+            if (entry == null || !expected.remove(entry.optString("entry_id", ""))) {
+                return false;
+            }
+            if (scene.equals(entry.optString("scene", ""))) {
+                return expected.isEmpty();
+            }
+        }
+        return false;
+    }
+
     /** Loads only group entries before the selected current Context. */
     private Map<String, JSONObject> loadPredecessorContexts(
         JSONObject group,
@@ -284,8 +315,12 @@ public final class ContextHistoryPreparer {
             JSONObject context = store.getContext(contextId);
             JSONArray scenes = context.getJSONArray("scenes");
             JSONArray historyScenes = new JSONArray();
-            for (int index = 0; index < scenes.length(); index++) {
-                JSONObject entry = scenes.getJSONObject(index);
+            for (JSONObject entry : SceneEntryOrdering.sortedEntries(scenes)) {
+                if (entry == null) {
+                    throw new IllegalStateException(
+                        "context contains a null scene entry"
+                    );
+                }
                 if (entry.getString("scene").equals(beforeScene)) {
                     break;
                 }

@@ -9,8 +9,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Pure Java coordinator that expands a Scene Context / Context Group into the
@@ -271,7 +274,6 @@ public final class HistoryResolver {
                     context,
                     lang,
                     currentIndex,
-                    currentIndex,
                     retentionK(context, options)
                 );
             } catch (MissingSceneException e) {
@@ -289,19 +291,56 @@ public final class HistoryResolver {
         }
 
         if ("original".equals(options.pendingSummaryMode)) {
-            JSONArray entries = context.optJSONArray("scenes");
+            List<JSONObject> entries = SceneEntryOrdering.sortedEntries(
+                context.optJSONArray("scenes")
+            );
             boolean missing = false;
-            for (int i = 0; entries != null && i < currentIndex; i++) {
-                JSONObject entry = entries.getJSONObject(i);
+            for (int i = 0; i < currentIndex; i++) {
+                JSONObject entry = entries.get(i);
+                if (entry == null) {
+                    throw new MissingSceneException(
+                        "scene entry is missing at index " + i,
+                        context,
+                        "",
+                        lang
+                    );
+                }
                 if (SceneSummaryResolver.resolve(entry.optJSONObject("summaries"), lang) == null) {
                     missing = true;
                     break;
                 }
             }
             if (missing) {
+                Set<String> compressedCoverage = null;
+                JSONObject compressed = null;
+                if (options.autoCompression && langObject != null) {
+                    compressed = langObject.optJSONObject("current");
+                    String cutoff = compressed == null
+                        ? ""
+                        : compressed.optString("cutoff", "");
+                    compressedCoverage = currentCoverageBeforeCurrent(
+                        context,
+                        cutoff,
+                        currentIndex
+                    );
+                    if (compressedCoverage != null
+                        && !isCurrentRecordApplicable(
+                            context,
+                            lang,
+                            compressed,
+                            cutoff,
+                            options
+                        )) {
+                        compressedCoverage = null;
+                    }
+                }
                 JSONArray history = new JSONArray();
                 for (int i = 0; i < currentIndex; i++) {
-                    JSONObject entry = entries.getJSONObject(i);
+                    JSONObject entry = entries.get(i);
+                    if (compressedCoverage != null
+                        && compressedCoverage.contains(sceneEntryKey(entry))) {
+                        continue;
+                    }
                     String scene = entry.getString("scene");
                     SceneSummaryResolver.Resolved summary =
                         SceneSummaryResolver.resolve(entry.optJSONObject("summaries"), lang);
@@ -325,14 +364,8 @@ public final class HistoryResolver {
                 JSONObject output = new JSONObject()
                     .put("source", "pending_originals")
                     .put("scenes", history);
-                if (options.autoCompression && langObject != null) {
-                    JSONObject compressed = langObject.optJSONObject("current");
-                    String cutoff = compressed == null ? "" : compressed.optString("cutoff", "");
-                    int cutoffIndex = findEntryIndex(context, cutoff);
-                    if (compressed != null && cutoffIndex >= 0 && cutoffIndex < currentIndex
-                        && isCurrentRecordApplicable(context, lang, compressed, cutoff, options)) {
-                        output.put("summary", compressed.optString("text", ""));
-                    }
+                if (compressedCoverage != null && compressed != null) {
+                    output.put("summary", compressed.optString("text", ""));
                 }
                 return output;
             }
@@ -342,26 +375,25 @@ public final class HistoryResolver {
             ? null
             : langObject.optJSONObject("current");
         String cutoff = current == null ? "" : current.optString("cutoff", "");
-        int cutoffIndex = findEntryIndex(context, cutoff);
-        int boundaryIndex = currentIndex - 1;
+        Set<String> currentCoverage = currentCoverageBeforeCurrent(
+            context,
+            cutoff,
+            currentIndex
+        );
         if (options.autoCompression
             && current != null
-            && cutoffIndex >= 0
-            && cutoffIndex <= boundaryIndex
+            && currentCoverage != null
             && isCurrentRecordApplicable(
                 context, lang, current, cutoff, options)) {
-            int k = retentionK(context, options);
-            // A current snapshot may lag behind the request boundary.  Keep
-            // the normal recent-K window, but also include every Scene
-            // Summary after the snapshot cutoff.  The two ranges can overlap
-            // (and the retention window may begin before the cutoff), so
-            // assemble them by context position and emit each entry once.
-            JSONArray scenes = sceneSummariesAfterCutoffWithRecentWindow(
+            // The persisted cutoff covers a physical prefix.  The current
+            // request boundary is natural-order based, so emit every natural
+            // predecessor that is outside that physical coverage.
+            JSONArray scenes = sceneSummariesOutsideCoverage(
                 context,
                 lang,
-                cutoffIndex + 1,
                 currentIndex,
-                k
+                currentCoverage,
+                retentionK(context, options)
             );
             return new JSONObject()
                 .put("source", "current")
@@ -581,23 +613,24 @@ public final class HistoryResolver {
             ? null
             : langObject.optJSONObject("current");
         String cutoff = current == null ? "" : current.optString("cutoff", "");
-        int cutoffIndex = findEntryIndex(context, cutoff);
-        JSONArray contextScenes = context.optJSONArray("scenes");
-        int endIndex = contextScenes == null ? 0 : contextScenes.length();
+        List<JSONObject> contextScenes = SceneEntryOrdering.sortedEntries(
+            context.optJSONArray("scenes")
+        );
+        int endIndex = contextScenes.size();
+        Set<String> currentCoverage = coverageThroughCutoff(context, cutoff);
         if (options.autoCompression
             && current != null
-            && cutoffIndex >= 0
-            && cutoffIndex < endIndex
+            && currentCoverage != null
             && isCurrentRecordApplicable(
                 context, lang, current, cutoff, options)) {
             entry.put("source", "current");
             entry.put("summary", current.optString("text", ""));
-            JSONArray scenes = sceneSummaries(
+            JSONArray scenes = sceneSummariesOutsideCoverage(
                 context,
                 lang,
-                cutoffIndex + 1,
                 endIndex,
-                options
+                currentCoverage,
+                0
             );
             entry.put("scenes", scenes);
             putManualDescription(entry, "manual_description", context, lang);
@@ -622,42 +655,58 @@ public final class HistoryResolver {
     private static JSONArray sceneSummariesAfterCutoffWithRecentWindow(
         JSONObject context,
         String lang,
-        int cutoffStart,
         int currentIndex,
         int k
     ) throws MissingSceneException, JSONException {
         JSONArray scenes = context.optJSONArray("scenes");
-        int endExclusive = Math.min(
-            currentIndex,
-            scenes == null ? 0 : scenes.length()
-        );
+        List<JSONObject> orderedScenes = SceneEntryOrdering.sortedEntries(scenes);
+        int endExclusive = Math.min(currentIndex, orderedScenes.size());
         if (endExclusive <= 0) {
             return new JSONArray();
         }
 
-        boolean[] included = new boolean[endExclusive];
-        int gapStart = Math.max(0, Math.min(cutoffStart, endExclusive));
-        for (int index = gapStart; index < endExclusive; index++) {
-            included[index] = true;
-        }
-
         int recentStart = Math.max(0, endExclusive - Math.max(0, k));
-        for (int index = recentStart; index < endExclusive; index++) {
-            included[index] = true;
-        }
-
         JSONArray result = new JSONArray();
-        for (int index = 0; index < endExclusive; index++) {
-            if (!included[index]) {
-                continue;
-            }
+        for (int index = recentStart; index < endExclusive; index++) {
             appendSceneSummary(
                 result,
-                scenes.optJSONObject(index),
+                orderedScenes.get(index),
                 context,
                 lang,
                 index
             );
+        }
+        return result;
+    }
+
+    private static JSONArray sceneSummariesOutsideCoverage(
+        JSONObject context,
+        String lang,
+        int endExclusive,
+        Set<String> coveredEntryIds,
+        int recentCount
+    ) throws MissingSceneException, JSONException {
+        JSONArray result = new JSONArray();
+        List<JSONObject> scenes = SceneEntryOrdering.sortedEntries(
+            context.optJSONArray("scenes")
+        );
+        int end = Math.min(Math.max(0, endExclusive), scenes.size());
+        int recentStart = Math.max(0, end - Math.max(0, recentCount));
+        for (int index = 0; index < end; index++) {
+            JSONObject entry = scenes.get(index);
+            if (entry == null) {
+                throw new MissingSceneException(
+                    "scene entry is missing at index " + index,
+                    context,
+                    "",
+                    lang
+                );
+            }
+            if (index < recentStart && coveredEntryIds != null
+                && coveredEntryIds.contains(sceneEntryKey(entry))) {
+                continue;
+            }
+            appendSceneSummary(result, entry, context, lang, index);
         }
         return result;
     }
@@ -670,12 +719,14 @@ public final class HistoryResolver {
         Options options
     ) throws MissingSceneException, JSONException {
         JSONArray result = new JSONArray();
-        JSONArray scenes = context.optJSONArray("scenes");
-        if (scenes == null) {
+        List<JSONObject> scenes = SceneEntryOrdering.sortedEntries(
+            context.optJSONArray("scenes")
+        );
+        if (scenes.isEmpty()) {
             return result;
         }
         for (int index = start; index < endExclusive; index++) {
-            JSONObject entry = scenes.optJSONObject(index);
+            JSONObject entry = scenes.get(index);
             if (entry == null) {
                 throw new MissingSceneException(
                     "scene entry is missing at index " + index,
@@ -841,29 +892,102 @@ public final class HistoryResolver {
             return true;
         }
         String sourceHash = currentRecord.optString("source_hash", "");
+        // The caller may pair this record with a natural-order boundary, but
+        // the persisted hash deliberately keeps ContextContentHash's physical
+        // member-array semantics so existing current summaries remain valid.
         return !sourceHash.isEmpty()
             && sourceHash.equals(
                 ContextContentHash.computeToCutoff(context, lang, cutoff)
             );
     }
 
+    /**
+     * Returns the physical-prefix coverage for a current summary only when
+     * that coverage is wholly before the natural current-scene boundary.
+     *
+     * <p>The cutoff is persisted as an entry id in the physical Scene array.
+     * The request boundary is resolved in natural Scene order. Keeping these
+     * two notions separate preserves old summaries while preventing a summary
+     * whose physical prefix contains the current or a future natural Scene
+     * from leaking into the request.</p>
+     */
+    private static Set<String> currentCoverageBeforeCurrent(
+        JSONObject context,
+        String cutoff,
+        int currentIndex
+    ) {
+        List<JSONObject> ordered = SceneEntryOrdering.sortedEntries(
+            context.optJSONArray("scenes")
+        );
+        int naturalCutoffIndex = findEntryIndex(context, cutoff);
+        if (naturalCutoffIndex < 0 || naturalCutoffIndex >= currentIndex) {
+            return null;
+        }
+
+        Set<String> coverage = coverageThroughCutoff(context, cutoff);
+        if (coverage == null) {
+            return null;
+        }
+        for (int index = currentIndex; index < ordered.size(); index++) {
+            JSONObject entry = ordered.get(index);
+            if (entry != null && coverage.contains(sceneEntryKey(entry))) {
+                return null;
+            }
+        }
+        return coverage;
+    }
+
+    /** Returns the entries covered by the persisted physical cutoff prefix. */
+    private static Set<String> coverageThroughCutoff(
+        JSONObject context,
+        String cutoff
+    ) {
+        int physicalCutoffIndex = findPhysicalEntryIndex(context, cutoff);
+        if (physicalCutoffIndex < 0) {
+            return null;
+        }
+        JSONArray scenes = context.optJSONArray("scenes");
+        Set<String> coverage = new HashSet<>();
+        for (int index = 0; index <= physicalCutoffIndex; index++) {
+            JSONObject entry = scenes.optJSONObject(index);
+            if (entry == null) {
+                return null;
+            }
+            coverage.add(sceneEntryKey(entry));
+        }
+        return coverage;
+    }
+
+    private static String sceneEntryKey(JSONObject entry) {
+        if (entry == null) {
+            return "";
+        }
+        String entryId = entry.optString("entry_id", "");
+        return entryId.isEmpty()
+            ? "scene:" + entry.optString("scene", "")
+            : "entry:" + entryId;
+    }
+
     // ── Index helpers ───────────────────────────────────────────────────
 
     private static int findSceneIndex(JSONObject context, String scene) {
-        JSONArray scenes = context.optJSONArray("scenes");
-        if (scenes == null) {
-            return -1;
-        }
-        for (int index = 0; index < scenes.length(); index++) {
-            JSONObject entry = scenes.optJSONObject(index);
-            if (entry != null && scene.equals(entry.optString("scene", ""))) {
-                return index;
-            }
-        }
-        return -1;
+        return SceneEntryOrdering.indexOfScene(
+            SceneEntryOrdering.sortedEntries(context.optJSONArray("scenes")),
+            scene
+        );
     }
 
     private static int findEntryIndex(JSONObject context, String entryId) {
+        return SceneEntryOrdering.indexOfEntryId(
+            SceneEntryOrdering.sortedEntries(context.optJSONArray("scenes")),
+            entryId
+        );
+    }
+
+    private static int findPhysicalEntryIndex(
+        JSONObject context,
+        String entryId
+    ) {
         if (entryId == null || entryId.isEmpty()) {
             return -1;
         }
