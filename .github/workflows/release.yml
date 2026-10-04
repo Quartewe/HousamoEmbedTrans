@@ -31,15 +31,19 @@ jobs:
           python3 - <<'PY'
           import os, re
           tag = os.environ['RELEASE_TAG']
-          match = re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', tag)
+          match = re.fullmatch(
+              r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+              r'(?:-((?:alpha|beta)(?:[.-]?[0-9]+)?))?', tag, re.IGNORECASE)
           if not match:
-              raise SystemExit('Tag must use vMAJOR.MINOR.PATCH, for example v1.0.0')
-          major, minor, patch = map(int, match.groups())
+              raise SystemExit('Tag must use vMAJOR.MINOR.PATCH with an optional alpha/beta suffix, for example v1.0.0-beta.1')
+          major, minor, patch = map(int, match.groups()[:3])
+          prerelease = match.group(4) is not None
           code = major * 1000000 + minor * 1000 + patch
           if minor > 999 or patch > 999 or not 1 <= code <= 2100000000:
               raise SystemExit('Version exceeds the supported Android versionCode range')
           with open(os.environ['GITHUB_ENV'], 'a') as output:
               output.write(f'HET_VERSION_NAME={tag[1:]}\nHET_VERSION_CODE={code}\n')
+              output.write(f'HET_PRERELEASE={str(prerelease).lower()}\n')
               output.write(f'APK_NAME=HousamoEmbedTrans-{tag}-arm64-v8a.apk\n')
           PY
 
@@ -131,6 +135,7 @@ jobs:
             const fs = require('node:fs');
             const { owner, repo } = context.repo;
             const tag = context.ref.slice('refs/tags/'.length);
+            const prerelease = process.env.HET_PRERELEASE === 'true';
             const name = process.env.APK_NAME;
             const releases = await github.paginate(github.rest.repos.listReleases, {
               owner, repo, per_page: 100
@@ -139,7 +144,7 @@ jobs:
             if (!release) {
               ({ data: release } = await github.rest.repos.createRelease({
                 owner, repo, tag_name: tag, name: tag,
-                draft: true, generate_release_notes: true
+                draft: true, prerelease, generate_release_notes: true
               }));
             }
             const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
@@ -158,9 +163,10 @@ jobs:
             } else {
               core.info('Release asset already exists; keeping the published APK');
             }
-            if (release.draft) {
+            if (release.draft || release.prerelease !== prerelease) {
               await github.rest.repos.updateRelease({
-                owner, repo, release_id: release.id, draft: false, make_latest: 'legacy'
+                owner, repo, release_id: release.id, draft: false, prerelease,
+                make_latest: prerelease ? 'false' : 'legacy'
               });
             }
             await core.summary.addLink(`Release ${tag}`, release.html_url).write();
