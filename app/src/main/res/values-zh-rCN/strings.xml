@@ -9,7 +9,7 @@
     <string name="notification_api_timeout">请求超时</string>
     <string name="notification_api_network_error">连接异常</string>
     <string name="task_action_delete">删除任务</string>
-    <string name="task_delete_message">永久删除此任务及其请求、进度和响应文件？正在翻译的任务会先取消，待投递结果将停止后续投递。保留已保存的 Scene、译文和摘要。已经发出的 API 请求仍可能计费。</string>
+    <string name="task_delete_message">永久删除此任务及其请求、进度和响应文件？正在翻译的任务会先取消，待投递结果将停止后续投递。保留已保存的剧情、译文和摘要。已经发出的 API 请求仍可能计费。</string>
     <string name="task_delete_delivery_busy">游戏正在应用此结果，请在投递结束后重试删除。</string>
     <string name="app_name">Housamo Embed Trans</string>
     <string name="xposed_description">东京放课后召唤师 AI 翻译预取模块</string>
@@ -110,19 +110,19 @@
     <string name="summary_auto_recover_previous_jobs_hint">与翻译恢复相互独立。关闭时，遗留摘要任务会等待你逐项恢复或废弃。</string>
     <string name="manage_rejected_api_results">查看被拒收的 API 结果</string>
     <string name="rejected_api_results_title">被拒收的 API 结果</string>
-    <string name="rejected_api_results_intro">失去写回资格的 API 返回内容会集中归档在这里，不会被自动清理；请手动删除记录。</string>
+    <string name="rejected_api_results_intro">无法再回写的 API 结果保留在这里，不会自动清理，可手动删除。</string>
     <string name="rejected_api_results_count">已归档 %1$d 条记录</string>
-    <string name="rejected_api_results_empty">当前没有已归档的被拒收 API 结果。</string>
+    <string name="rejected_api_results_empty">暂无被拒收的 API 结果。</string>
     <string name="rejected_api_results_load_failed">无法读取被拒收的 API 结果：%1$s</string>
     <string name="rejected_api_result_kind_line">%1$s · %2$s</string>
-    <string name="rejected_api_result_request_line">request：%1$s</string>
+    <string name="rejected_api_result_request_line">请求：%1$s</string>
     <string name="rejected_api_result_reason_line">原因：%1$s</string>
-    <string name="rejected_api_result_view_payload">查看原始 payload</string>
-    <string name="rejected_api_result_empty_payload">（空 payload）</string>
+    <string name="rejected_api_result_view_payload">查看原始内容</string>
+    <string name="rejected_api_result_empty_payload">（内容为空）</string>
     <string name="rejected_api_result_truncated">显示已截断；存储记录未改变</string>
     <string name="rejected_api_result_delete">删除</string>
     <string name="rejected_api_result_delete_title">删除这条记录？</string>
-    <string name="rejected_api_result_delete_message">原始 API payload 将被永久删除，无法撤销。</string>
+    <string name="rejected_api_result_delete_message">将永久删除原始 API 内容，无法撤销。</string>
     <string name="rejected_api_result_deleted">记录已删除。</string>
 
     <string name="scene_sync_settings">场景同步</string>
@@ -133,20 +133,20 @@
     <string name="scene_conflict_resolution_mode_hint">选择游戏优先、HET 优先，或逐个场景手动处理。</string>
 
     <string name="user_action_required_title">需要处理的翻译任务</string>
-    <string name="user_action_required_summary">有 %1$d 个翻译任务被挂起，直到你修复映射、上下文或上下文长度。</string>
+    <string name="user_action_required_summary">%1$d 个翻译任务已暂停，请修复映射、上下文或上下文长度后重试。</string>
     <string name="user_action_required_empty">当前没有等待人工处理的翻译任务。</string>
     <string name="user_action_required_retry">修复后重试</string>
-    <string name="user_action_required_retry_queued">已重新入队该被挂起的翻译任务。</string>
+    <string name="user_action_required_retry_queued">任务已重新加入队列。</string>
     <string name="user_action_required_not_found">该挂起任务已不存在，请刷新后重试。</string>
     <string name="user_action_enable_auto_compression">开启自动压缩</string>
-    <string name="user_action_enable_auto_compression_queued">已开启自动压缩，并重新入队该被挂起的翻译任务。</string>
+    <string name="user_action_enable_auto_compression_queued">已开启自动压缩，任务已重新加入队列。</string>
     <string name="user_action_enable_auto_compression_not_found">已开启自动压缩，但该挂起的翻译任务已不存在，请刷新任务页。</string>
 
     <string name="summary_recovery_title">摘要任务恢复</string>
-    <string name="summary_recovery_summary">有 %1$d 个遗留摘要任务等待处理。选择要恢复的任务；未选择的会被废弃。</string>
+    <string name="summary_recovery_summary">%1$d 个摘要任务等待恢复。请选择要恢复的任务，未选任务会被废弃。</string>
     <string name="summary_recovery_empty">没有等待处理的遗留摘要任务。</string>
-    <string name="summary_recovery_submit">应用摘要恢复决定</string>
-    <string name="summary_recovery_confirm_title">应用摘要恢复决定？</string>
+    <string name="summary_recovery_submit">确认恢复</string>
+    <string name="summary_recovery_confirm_title">确认恢复摘要任务？</string>
     <string name="summary_recovery_confirm_message">将恢复 %1$d 个摘要任务，并废弃 %2$d 个未选择的任务？</string>
     <string name="summary_recovery_changed">摘要恢复列表已变化，请重新检查并确认。</string>
     <string name="summary_recovery_result">已恢复 %1$d 个摘要任务，废弃 %2$d 个。</string>
@@ -160,10 +160,10 @@
     <string name="summary_failed_detail">%1$s · %2$s · %3$s · %4$s · %5$s</string>
 
     <string name="translation_queue_title">等待翻译的任务</string>
-    <string name="translation_queue_intro">按照期望执行顺序点击任务。带编号的任务会按顺序入队；未选择的启动遗留任务会取消，未选择的失败候选会继续保留为失败。</string>
+    <string name="translation_queue_intro">按执行顺序点击任务，编号即入队顺序。未选的启动遗留任务会取消，未选的失败任务仍保留为失败。</string>
     <string name="translation_queue_open_pending_management">查看待处理内容</string>
     <string name="translation_queue_empty">没有等待用户排列的启动遗留任务。</string>
-    <string name="translation_queue_repairing">正在尝试修复损坏的文件…</string>
+    <string name="translation_queue_repairing">正在修复损坏的任务文件…</string>
     <string name="translation_queue_count">有 %1$d 个启动遗留任务正在等待</string>
     <string name="translation_queue_target_language">目标语言：%1$s</string>
     <string name="translation_queue_created_at">创建时间：%1$s</string>
@@ -178,7 +178,7 @@
     <string name="translation_queue_selection_number">%1$d</string>
     <string name="translation_queue_submit_mixed_result">已排队 %1$d 个启动任务，重跑 %2$d 个失败任务，取消 %3$d 个未选择的启动任务。</string>
     <string name="translation_job_management_title">翻译任务管理</string>
-    <string name="translation_job_failed_count">保留 %1$d 个失败任务，其中 %2$d 个可重跑</string>
+    <string name="translation_job_failed_count">%1$d 个失败任务，%2$d 个可重跑</string>
     <string name="translation_job_failed_empty">没有保留的翻译失败任务。</string>
     <string name="translation_job_failed_at">失败时间：%1$s</string>
     <string name="translation_job_status">状态：%1$s</string>
@@ -186,7 +186,7 @@
     <string name="translation_job_status_delivery_pending">失败；等待回传</string>
     <string name="translation_job_status_acknowledged">失败；回传已确认</string>
     <string name="translation_job_retry">重跑</string>
-    <string name="translation_job_retry_queued">已重置保留请求并重新排队。</string>
+    <string name="translation_job_retry_queued">已重置保留的请求，并重新加入队列。</string>
     <string name="translation_job_already_settled">该失败回传已经结算。</string>
     <string name="translation_job_details">详情</string>
     <string name="translation_job_sync_scene">先同步或修复剧情</string>
@@ -678,12 +678,12 @@
     <string name="scene_context_immediate_summary">保存新建上下文后立即生成最终摘要</string>
     <string name="scene_context_immediate_summary_result">立即最终摘要：创建 %1$d 个任务，跳过 %2$d 个（已是最新、正在进行或无场景事实），失败 %3$d 个。</string>
     <string name="task_page_title">任务</string>
-    <string name="task_page_intro">在统一任务页查看进行中、已完成和等待处理的工作。</string>
+    <string name="task_page_intro">查看进行中、已完成和等待处理的任务。</string>
     <string name="task_search_icon_description">搜索任务</string>
     <string name="task_search_clear">清除任务搜索</string>
     <string name="task_search_tasks_hint">搜索任务主题、类型或状态</string>
     <string name="task_search_waiting_hint">搜索主题、对象类型、原因或语言</string>
-    <string name="task_search_no_results">没有匹配搜索条件的任务。</string>
+    <string name="task_search_no_results">没有匹配的任务。</string>
     <string name="task_tab_all">全部</string>
     <string name="task_tab_translation">翻译任务</string>
     <string name="task_tab_summary">摘要任务</string>
@@ -707,15 +707,15 @@
     <string name="task_status_delivery_pending">等待游戏同步</string>
     <string name="task_status_local_save_pending">等待保存到 HET</string>
     <string name="task_status_local_only">已保存到 HET</string>
-    <string name="task_reason_local_only">译文已保存到 HET。此任务的游戏投递已被设为无需投递，不代表游戏已确认保存。</string>
-    <string name="task_reason_local_save_pending">翻译结果已保留，尚未写入 HET 剧情。系统将重试本地保存，不重新请求翻译；若数据冲突或缺失，请先处理原因。</string>
+    <string name="task_reason_local_only">译文已保存到 HET，此任务无需投递游戏；这不表示游戏已确认保存。</string>
+    <string name="task_reason_local_save_pending">译文已保留，尚未保存到 HET 剧情。会重试保存，不会重新翻译；有数据缺失或冲突时，请先处理。</string>
     <string name="task_status_scene_damaged">剧情不可用</string>
     <string name="task_status_failed">失败</string>
     <string name="task_status_management_pending">等待管理处理</string>
     <string name="task_reason_queued">等待恢复顺序。</string>
     <string name="task_reason_running">翻译服务正在处理此任务。</string>
     <string name="task_reason_delivery">译文已保存到 HET 剧情，游戏连接并允许同步后自动投递。</string>
-    <string name="task_reason_completed">HET 译文已保存，游戏侧已确认保存结果；不代表当前剧情画面已刷新。</string>
+    <string name="task_reason_completed">译文已保存到 HET，游戏也已确认保存；不代表当前剧情画面已刷新。</string>
     <string name="task_reason_summary_recovery">等待恢复决定。</string>
     <string name="task_action_ordered">第 %1$d 项</string>
     <string name="task_action_add_order">加入顺序</string>
@@ -730,7 +730,7 @@
     <string name="task_detail_request">请求 ID</string>
     <string name="task_detail_time">时间</string>
     <string name="task_detail_actions">可执行操作</string>
-    <string name="task_detail_no_actions">当前没有可执行的用户操作。</string>
+    <string name="task_detail_no_actions">暂无可执行操作。</string>
     <string name="task_detail_unavailable">该任务已不在当前任务列表中。</string>
     <string name="task_detail_history">任务事件记录</string>
     <string name="task_history_unavailable">暂无事件记录。</string>
@@ -752,7 +752,7 @@
     <string name="task_recovery_empty">当前没有可恢复的翻译任务。</string>
     <string name="task_recovery_title">设置恢复顺序</string>
     <string name="task_recovery_message">有 %1$d 项任务可恢复；现有队列顺序决定任务提交顺序。</string>
-    <string name="task_waiting_no_results">没有匹配搜索条件的等待处理记录。</string>
+    <string name="task_waiting_no_results">没有匹配的待处理记录。</string>
     <string name="task_waiting_title">等待处理</string>
     <string name="task_waiting_count">%1$d 条记录</string>
     <string name="task_waiting_count_zero">0 条记录</string>
@@ -788,7 +788,7 @@
     <string name="task_reason_game_save_fallback">HET 没有对应的原始剧情，将在游戏连接后尝试写入游戏剧情。翻译结果已保留，不重新请求翻译。</string>
     <string name="task_reason_game_saved_fallback">HET 没有对应的原始剧情，游戏已确认保存译文；翻译结果仍保留在此任务中。</string>
     <string name="task_reason_scene_missing_both">HET 和游戏均没有对应的原始剧情，无法保存译文。翻译结果已保留，请恢复原始剧情后重试投递，无需重新翻译。</string>
-    <string name="task_reason_api_queued">等待 API 调度或可用的并发名额。</string>
+    <string name="task_reason_api_queued">等待 API 调度或空闲请求名额。</string>
     <string name="chardict_conflicts_title">角色词典更新冲突</string>
     <string name="chardict_conflicts_intro">无冲突改动已自动合并。展开角色可对比两侧版本，选择只影响冲突字段，其他合并内容保留。处理前，冲突字段沿用用户值。</string>
     <string name="chardict_conflicts_count">%1$d 个角色存在更新冲突</string>
@@ -799,4 +799,8 @@
     <string name="chardict_conflict_choose_bundled">采用内置值</string>
     <string name="chardict_conflict_choose_user">保留用户值</string>
     <string name="chardict_conflict_failed">无法加载或应用词典冲突，数据可能已经变化。请重新打开此页后重试。</string>
+    <string name="task_unnamed">未命名对象</string>
+    <string name="task_status_read_failed">无法读取状态</string>
+    <string name="task_type_translation">翻译任务</string>
+    <string name="task_type_summary">摘要任务</string>
 </resources>

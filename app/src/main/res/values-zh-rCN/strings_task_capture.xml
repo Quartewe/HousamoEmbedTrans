@@ -2,8 +2,8 @@
 <resources>
     <string name="capture_control_pause">暂停剧情捕获</string>
     <string name="capture_control_resume">开启剧情捕获</string>
-    <string name="capture_control_pause_title">确认暂停剧情捕获</string>
-    <string name="capture_control_pause_message">暂停后，当前应用将不再捕获新进入的剧情；已经捕获的剧情、已创建的任务和正在进行的请求不会停止。之后可随时重新开启。</string>
+    <string name="capture_control_pause_title">暂停剧情捕获？</string>
+    <string name="capture_control_pause_message">暂停后不再捕获新进入的剧情；已捕获的剧情、已创建的任务和正在进行的请求不受影响。可随时重新开启。</string>
     <string name="capture_control_pause_action">暂停捕获</string>
     <string name="capture_control_pause_saved">已保存暂停剧情捕获设置</string>
     <string name="capture_control_resume_saved">已保存开启剧情捕获设置</string>

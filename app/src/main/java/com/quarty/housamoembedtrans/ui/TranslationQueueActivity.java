@@ -320,6 +320,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         final Object source;
 
         UiTask(
+            android.content.Context context,
             UiTaskKind kind,
             String requestId,
             String title,
@@ -335,10 +336,10 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         ) {
             this.kind = kind;
             this.requestId = requestId == null ? "" : requestId;
-            this.title = title == null || title.isEmpty() ? "（未命名对象）" : title;
+            this.title = title == null || title.isEmpty() ? context.getString(R.string.task_unnamed) : title;
             this.objectType = objectType == null ? "" : objectType;
             this.language = language == null ? "" : language;
-            this.status = status == null ? "读取状态失败" : status;
+            this.status = status == null ? context.getString(R.string.task_status_read_failed) : status;
             this.reason = reason == null ? "" : reason;
             this.timestamp = timestamp;
             this.translation = translation;
@@ -351,8 +352,9 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             return !completed && kind != UiTaskKind.CANCELED;
         }
 
-        String typeLabel() {
-            return translation ? "翻译任务" : "摘要任务";
+        String typeLabel(android.content.Context context) {
+            return context.getString(translation
+                ? R.string.task_type_translation : R.string.task_type_summary);
         }
     }
 
@@ -700,7 +702,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                     statusResource = R.string.task_status_queued;
                     reasonResource = R.string.task_reason_queued;
                 }
-                stylePreviewTasks.add(new UiTask(
+                stylePreviewTasks.add(new UiTask(TranslationQueueActivity.this,
                     taskKind,
                     value.optString("request_id", "preview-" + index),
                     value.optString("scene", "Preview object"),
@@ -2106,7 +2108,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 || !requestIds.add(job.getRequestId())) {
                 continue;
             }
-            result.add(new UiTask(
+            result.add(new UiTask(TranslationQueueActivity.this,
                 UiTaskKind.HELD,
                 job.getRequestId(),
                 job.getScene(),
@@ -2128,7 +2130,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 continue;
             }
             boolean queued = TranslationJobStatus.QUEUED.wireValue().equals(job.getStatus());
-            result.add(new UiTask(
+            result.add(new UiTask(TranslationQueueActivity.this,
                 UiTaskKind.ACTIVE,
                 job.getRequestId(),
                 job.getScene(),
@@ -2155,7 +2157,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             boolean actionNeeded = job.getKind() == TerminalOutcome.Kind.FAILED
                 || (!job.isSavedToEitherScene()
                     && (!job.isLocalSceneMissing() || job.isGameSceneMissing()));
-            result.add(new UiTask(
+            result.add(new UiTask(TranslationQueueActivity.this,
                 UiTaskKind.TERMINAL,
                 job.getRequestId(),
                 job.getScene(),
@@ -2181,7 +2183,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             boolean actionNeeded = job.getKind() == TerminalOutcome.Kind.FAILED
                 || (!job.isSavedToEitherScene()
                     && (!job.isLocalSceneMissing() || job.isGameSceneMissing()));
-            result.add(new UiTask(
+            result.add(new UiTask(TranslationQueueActivity.this,
                 UiTaskKind.TERMINAL,
                 job.getRequestId(),
                 job.getScene(),
@@ -2200,7 +2202,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             if (canceledIds.contains(job.getRequestId()) || !requestIds.add(job.getRequestId())) {
                 continue;
             }
-            result.add(new UiTask(
+            result.add(new UiTask(TranslationQueueActivity.this,
                 UiTaskKind.USER_ACTION,
                 job.getRequestId(),
                 job.getScene(),
@@ -2219,13 +2221,13 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             if (!requestIds.add(job.getRequestId())) {
                 continue;
             }
-            result.add(new UiTask(UiTaskKind.CANCELED, job.getRequestId(), job.getScene(),
+            result.add(new UiTask(TranslationQueueActivity.this, UiTaskKind.CANCELED, job.getRequestId(), job.getScene(),
                 getString(R.string.task_object_scene), "",
                 getString(R.string.task_status_canceled),
                 getString(R.string.task_reason_canceled), 0L, true, false, false, job));
         }
         for (SummaryJobStore.RecoveryJob job : summaryJobs) {
-            result.add(new UiTask(
+            result.add(new UiTask(TranslationQueueActivity.this,
                 UiTaskKind.SUMMARY_RECOVERY,
                 job.getRequestId(),
                 summaryOwnerName(job),
@@ -2243,7 +2245,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             ));
         }
         for (SummaryJobStore.FailedJob job : failedSummaryJobs) {
-            result.add(new UiTask(
+            result.add(new UiTask(TranslationQueueActivity.this,
                 UiTaskKind.SUMMARY_FAILED,
                 job.getRequestId(),
                 summaryOwnerName(job),
@@ -2499,7 +2501,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         title.setMaxLines(1);
         title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         TextView meta = taskText(
-            task.typeLabel() + " · " + task.objectType,
+            task.typeLabel(this) + " · " + task.objectType,
             10,
             R.color.het_on_surface_muted
         );
@@ -2866,7 +2868,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 ? R.drawable.ic_task_translate
                 : R.drawable.ic_task_summary,
             task.title,
-            task.typeLabel() + " · " + task.objectType,
+            task.typeLabel(this) + " · " + task.objectType,
             task.status,
             statusColor(task)
         );

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="translation_stop_section_title">正在翻译</string>
-    <string name="translation_stop_count">有 %1$d 个翻译任务正在运行</string>
+    <string name="translation_stop_count">%1$d 个翻译任务正在运行</string>
     <string name="translation_stop_status_running">运行中</string>
     <string name="translation_stop_details">详情</string>
     <string name="translation_stop_details_message">状态：%1$s</string>
     <string name="translation_stop_action">停止翻译</string>
     <string name="translation_stop_confirm_title">停止此翻译？</string>
-    <string name="translation_stop_confirm_message">将取消服务商请求。完整的晚到结果会保留到“等待处理”，不完整结果会丢弃，任务不会自动重试；已经产生的用量仍可能计费。</string>
-    <string name="translation_stop_result_running">已停止运行中的翻译；当前尝试正在退出。</string>
+    <string name="translation_stop_confirm_message">将取消服务商请求，不再自动重试。之后收到的完整结果会保留到“等待处理”，不完整结果会丢弃。已产生的用量仍可能计费。</string>
+    <string name="translation_stop_result_running">已停止翻译，当前执行正在退出。</string>
     <string name="translation_stop_result_queued">该翻译已进入队列，现已取消。</string>
     <string name="translation_stop_result_already_canceled">该翻译已经取消。</string>
     <string name="translation_stop_result_not_found">该翻译任务已不存在。</string>

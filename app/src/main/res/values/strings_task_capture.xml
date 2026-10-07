@@ -2,8 +2,8 @@
 <resources>
     <string name="capture_control_pause">Pause story capture</string>
     <string name="capture_control_resume">Enable story capture</string>
-    <string name="capture_control_pause_title">Pause story capture?</string>
-    <string name="capture_control_pause_message">After pausing, the current app will stop capturing newly entered story content; already captured stories, created tasks, and requests in progress will not stop. You can enable capture again at any time.</string>
+    <string name="capture_control_pause_title">Pause scene capture?</string>
+    <string name="capture_control_pause_message">Stop capturing newly entered scenes. Existing scenes, tasks, and requests continue unaffected. You can resume capture at any time.</string>
     <string name="capture_control_pause_action">Pause capture</string>
     <string name="capture_control_pause_saved">Saved: pause story capture.</string>
     <string name="capture_control_resume_saved">Saved: enable story capture.</string>

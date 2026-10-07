@@ -121,19 +121,19 @@
     <string name="summary_auto_recover_previous_jobs_hint">Independent of Translation recovery. When disabled, legacy summary jobs wait for you to restore or discard them.</string>
     <string name="manage_rejected_api_results">View rejected API results</string>
     <string name="rejected_api_results_title">Rejected API results</string>
-    <string name="rejected_api_results_intro">API results that lost write-back eligibility are archived here. They are never auto-cleaned; delete records manually.</string>
+    <string name="rejected_api_results_intro">API results that can no longer be written back are kept here until you delete them.</string>
     <string name="rejected_api_results_count">%1$d archived record(s)</string>
-    <string name="rejected_api_results_empty">No rejected API results are archived.</string>
+    <string name="rejected_api_results_empty">No rejected API results.</string>
     <string name="rejected_api_results_load_failed">Could not load rejected API results: %1$s</string>
     <string name="rejected_api_result_kind_line">%1$s · %2$s</string>
-    <string name="rejected_api_result_request_line">request: %1$s</string>
+    <string name="rejected_api_result_request_line">Request: %1$s</string>
     <string name="rejected_api_result_reason_line">Reason: %1$s</string>
-    <string name="rejected_api_result_view_payload">View raw payload</string>
-    <string name="rejected_api_result_empty_payload">(empty payload)</string>
+    <string name="rejected_api_result_view_payload">View original content</string>
+    <string name="rejected_api_result_empty_payload">(Empty content)</string>
     <string name="rejected_api_result_truncated">output truncated for display; the stored record is unchanged</string>
     <string name="rejected_api_result_delete">Delete</string>
     <string name="rejected_api_result_delete_title">Delete this record?</string>
-    <string name="rejected_api_result_delete_message">The raw API payload will be permanently removed. This action cannot be undone.</string>
+    <string name="rejected_api_result_delete_message">Permanently delete the original API content. This cannot be undone.</string>
     <string name="rejected_api_result_deleted">Record deleted.</string>
 
     <string name="scene_sync_settings">Scene sync</string>
@@ -144,22 +144,22 @@
     <string name="scene_conflict_resolution_mode_hint">Choose which side wins automatically, or review each scene manually.</string>
 
     <string name="user_action_required_title">Translation jobs needing action</string>
-    <string name="user_action_required_summary">%1$d translation job(s) are held until you fix the mapping, context, or context length.</string>
+    <string name="user_action_required_summary">%1$d translations are on hold. Fix mappings, context or context length before retrying.</string>
     <string name="user_action_required_empty">No translation jobs are waiting for a user action.</string>
     <string name="user_action_required_retry">Retry after fixing</string>
-    <string name="user_action_required_retry_queued">The held translation job was re-queued.</string>
+    <string name="user_action_required_retry_queued">Task queued again.</string>
     <string name="user_action_required_not_found">The held job is no longer available; refresh and try again.</string>
     <string name="user_action_enable_auto_compression">Enable auto compression</string>
-    <string name="user_action_enable_auto_compression_queued">Auto compression was enabled and the held translation job was re-queued.</string>
+    <string name="user_action_enable_auto_compression_queued">Automatic compression enabled; task queued again.</string>
     <string name="user_action_enable_auto_compression_not_found">Auto compression was enabled, but the held translation job is no longer available; refresh the task page.</string>
 
     <string name="summary_recovery_title">Summary recovery</string>
-    <string name="summary_recovery_summary">%1$d legacy summary job(s) waiting. Select the jobs to restore; unselected jobs will be discarded.</string>
+    <string name="summary_recovery_summary">%1$d summary tasks await recovery. Choose which to restore; unselected tasks will be discarded.</string>
     <string name="summary_recovery_empty">No legacy summary jobs are waiting for a decision.</string>
     <string name="summary_recovery_preparing">Summary recovery is preparing. Please try again shortly.</string>
     <string name="summary_recovery_unavailable">Summary recovery is unavailable. Return to the queue page to retry.</string>
-    <string name="summary_recovery_submit">Apply summary recovery decision</string>
-    <string name="summary_recovery_confirm_title">Apply summary recovery decision?</string>
+    <string name="summary_recovery_submit">Confirm recovery</string>
+    <string name="summary_recovery_confirm_title">Confirm summary recovery?</string>
     <string name="summary_recovery_confirm_message">Restore %1$d summary job(s) and discard %2$d unselected job(s)?</string>
     <string name="summary_recovery_changed">The summary recovery list changed. Review it and confirm again.</string>
     <string name="summary_recovery_result">Restored %1$d summary job(s); discarded %2$d.</string>
@@ -173,10 +173,10 @@
     <string name="summary_failed_detail">%1$s · %2$s · %3$s · %4$s · %5$s</string>
 
     <string name="translation_queue_title">Queued translations</string>
-    <string name="translation_queue_intro">Tap tasks in the order they should run. Numbered tasks are queued in that order; unselected startup tasks are canceled, while unselected failed candidates remain failed.</string>
+    <string name="translation_queue_intro">Tap tasks in execution order; numbers show queue order. Unselected startup tasks are canceled; unselected failed tasks remain failed.</string>
     <string name="translation_queue_open_pending_management">View pending work</string>
     <string name="translation_queue_empty">No startup translation tasks are waiting for an order.</string>
-    <string name="translation_queue_repairing">Trying to repair damaged translation-job files…</string>
+    <string name="translation_queue_repairing">Repairing damaged task files…</string>
     <string name="translation_queue_count">%1$d startup task(s) are waiting</string>
     <string name="translation_queue_target_language">Target language: %1$s</string>
     <string name="translation_queue_created_at">Created: %1$s</string>
@@ -191,7 +191,7 @@
     <string name="translation_queue_selection_number">%1$d</string>
     <string name="translation_queue_submit_mixed_result">Queued %1$d startup task(s), reran %2$d failed task(s), canceled %3$d unselected startup task(s).</string>
     <string name="translation_job_management_title">Translation job management</string>
-    <string name="translation_job_failed_count">%1$d failed task(s) retained; %2$d can be rerun</string>
+    <string name="translation_job_failed_count">%1$d failed tasks; %2$d can be rerun</string>
     <string name="translation_job_failed_empty">No retained translation failures.</string>
     <string name="translation_job_failed_at">Failed: %1$s</string>
     <string name="translation_job_status">Status: %1$s</string>
@@ -199,7 +199,7 @@
     <string name="translation_job_status_delivery_pending">failed; delivery pending</string>
     <string name="translation_job_status_acknowledged">failed; delivery acknowledged</string>
     <string name="translation_job_retry">Rerun</string>
-    <string name="translation_job_retry_queued">The retained request was reset and queued.</string>
+    <string name="translation_job_retry_queued">Saved request reset and queued again.</string>
     <string name="translation_job_already_settled">This failure delivery is already settled.</string>
     <string name="translation_job_details">Details</string>
     <string name="translation_job_sync_scene">Sync or repair Scene first</string>
@@ -697,12 +697,12 @@
     <string name="error_high_less_than_mid">High relevance must be greater than or equal to mid relevance</string>
     <string name="error_low_less_than_mentioned">Low text score must be greater than or equal to mentioned text score</string>
     <string name="task_page_title">Tasks</string>
-    <string name="task_page_intro">Review active, completed, and waiting work from one task surface.</string>
+    <string name="task_page_intro">View active, completed and pending tasks.</string>
     <string name="task_search_icon_description">Search tasks</string>
     <string name="task_search_clear">Clear task search</string>
     <string name="task_search_tasks_hint">Search task subject, type, or status</string>
     <string name="task_search_waiting_hint">Search subject, object type, reason, or language</string>
-    <string name="task_search_no_results">No tasks match this search.</string>
+    <string name="task_search_no_results">No matching tasks.</string>
     <string name="task_tab_all">All</string>
     <string name="task_tab_translation">Translation</string>
     <string name="task_tab_summary">Summary</string>
@@ -726,15 +726,15 @@
     <string name="task_status_delivery_pending">Waiting for game sync</string>
     <string name="task_status_local_save_pending">Waiting to save in HET</string>
     <string name="task_status_local_only">Saved in HET</string>
-    <string name="task_reason_local_only">The translation is saved in HET. Game delivery is marked as not required for this task; this is not a game acknowledgement.</string>
-    <string name="task_reason_local_save_pending">The translation result is retained but has not been saved into the HET Scene. Local saving will retry without another translation request. Resolve any missing data or conflict first.</string>
+    <string name="task_reason_local_only">Translation saved to HET. Game delivery is not required for this task; this is not a game save acknowledgement.</string>
+    <string name="task_reason_local_save_pending">Translation retained but not yet saved to the HET scene. Saving will retry without translating again. Resolve any missing data or conflict first.</string>
     <string name="task_status_scene_damaged">Scene unavailable</string>
     <string name="task_status_failed">Failed</string>
     <string name="task_status_management_pending">Waiting for management</string>
     <string name="task_reason_queued">Waiting for recovery order.</string>
     <string name="task_reason_running">The translation service is processing this task.</string>
     <string name="task_reason_delivery">The translation is saved in the HET Scene. Delivery resumes when the game connects and synchronization is allowed.</string>
-    <string name="task_reason_completed">The translation is saved in HET and acknowledged as saved by the game. This does not confirm that the current story screen has refreshed.</string>
+    <string name="task_reason_completed">Translation saved in HET and confirmed saved by the game. The current scene may not have refreshed yet.</string>
     <string name="task_reason_summary_recovery">Waiting for a recovery decision.</string>
     <string name="task_action_ordered">Order %1$d</string>
     <string name="task_action_add_order">Add to order</string>
@@ -749,7 +749,7 @@
     <string name="task_detail_request">Request ID</string>
     <string name="task_detail_time">Time</string>
     <string name="task_detail_actions">Available actions</string>
-    <string name="task_detail_no_actions">No user action is available for this task.</string>
+    <string name="task_detail_no_actions">No actions available.</string>
     <string name="task_detail_unavailable">This task is no longer available in the task list.</string>
     <string name="task_detail_history">Task event history</string>
     <string name="task_history_unavailable">No event records are available.</string>
@@ -771,7 +771,7 @@
     <string name="task_recovery_empty">No recoverable translation tasks are available.</string>
     <string name="task_recovery_title">Set recovery order</string>
     <string name="task_recovery_message">%1$d task(s) are available for recovery. The existing queue order controls which tasks are submitted.</string>
-    <string name="task_waiting_no_results">No waiting records match this search.</string>
+    <string name="task_waiting_no_results">No matching pending records.</string>
     <string name="task_waiting_title">Waiting</string>
     <string name="task_waiting_count">%1$d record(s)</string>
     <string name="task_waiting_count_zero">0 records</string>
@@ -807,7 +807,7 @@
     <string name="task_reason_game_save_fallback">HET has no source Scene. The retained result will be written to the game Scene when connected; no new translation request is needed.</string>
     <string name="task_reason_game_saved_fallback">HET had no source Scene. The game confirmed saving the translation; the result remains retained in this task.</string>
     <string name="task_reason_scene_missing_both">Neither HET nor the game has the source Scene. The translation result is retained, but cannot be saved. Restore the source Scene before retrying delivery; do not translate again.</string>
-    <string name="task_reason_api_queued">Waiting for API scheduling or an available concurrency slot.</string>
+    <string name="task_reason_api_queued">Waiting for API scheduling or a free request slot.</string>
     <string name="chardict_conflicts_title">Character dictionary conflicts</string>
     <string name="chardict_conflicts_intro">Non-conflicting changes are merged automatically. Expand a character to compare versions. Your choice affects only conflicting fields; other merged changes stay. Conflicts use your values until resolved.</string>
     <string name="chardict_conflicts_count">%1$d character conflicts</string>
@@ -818,4 +818,8 @@
     <string name="chardict_conflict_choose_bundled">Use bundled values</string>
     <string name="chardict_conflict_choose_user">Keep user values</string>
     <string name="chardict_conflict_failed">Could not load or apply dictionary conflicts. The data may have changed. Reopen this page and try again.</string>
+    <string name="task_unnamed">Unnamed object</string>
+    <string name="task_status_read_failed">Unable to read status</string>
+    <string name="task_type_translation">Translation task</string>
+    <string name="task_type_summary">Summary task</string>
 </resources>
