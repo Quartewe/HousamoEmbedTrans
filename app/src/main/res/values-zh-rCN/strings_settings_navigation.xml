@@ -20,7 +20,7 @@
     <string name="management_home_title">管理</string>
     <string name="management_home_intro">选择要维护的剧情、上下文、角色、术语或导入数据。</string>
     <string name="management_home_scene_files">剧情文件</string>
-    <string name="management_home_contexts">剧情上下文与分组</string>
+    <string name="management_home_contexts">剧情上下文与分类</string>
     <string name="management_home_characters">角色词典</string>
     <string name="management_home_terms">游戏术语</string>
     <string name="management_home_import">导入或导出数据</string>

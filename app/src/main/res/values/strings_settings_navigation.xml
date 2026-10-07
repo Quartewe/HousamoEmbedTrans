@@ -20,7 +20,7 @@
     <string name="management_home_title">Management</string>
     <string name="management_home_intro">Manage scenes, contexts, characters and terms, or import data.</string>
     <string name="management_home_scene_files">Scene files</string>
-    <string name="management_home_contexts">剧情上下文与分组</string>
+    <string name="management_home_contexts">Contexts and groups</string>
     <string name="management_home_characters">Character dictionary</string>
     <string name="management_home_terms">Game terms</string>
     <string name="management_home_import">Import or export data</string>

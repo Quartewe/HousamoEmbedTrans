@@ -796,36 +796,38 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
 
         addPrototypeLanguageActions();
         addPrototypeSummaryCard(
-            getString(R.string.detail_proto_source) + " · " + sceneData.sourceItems.size() + " 条",
+            getString(R.string.detail_proto_source_count,
+                getString(R.string.detail_proto_source), sceneData.sourceItems.size()),
             sourcePreview(),
             () -> openPage(PAGE_SOURCE, null)
         );
         addPrototypeSummaryCard(
-            getString(R.string.detail_proto_main_character) + " · "
-                + (sceneData.mainCharacter == null ? 0 : 1) + " 人",
+            getString(R.string.detail_proto_scene_character_group_count,
+                getString(R.string.detail_proto_main_character), (sceneData.mainCharacter == null ? 0 : 1)),
             sceneCharacterPreview(singletonOrEmpty(sceneData.mainCharacter)),
             () -> openPage(PAGE_CHARACTERS, CHARACTER_SECTION_MC)
         );
         addPrototypeSummaryCard(
-            getString(R.string.detail_proto_primary_characters) + " · "
-                + sceneData.highWeightCharacters.size() + " 人",
+            getString(R.string.detail_proto_scene_character_group_count,
+                getString(R.string.detail_proto_primary_characters), sceneData.highWeightCharacters.size()),
             sceneCharacterPreview(sceneData.highWeightCharacters),
             () -> openPage(PAGE_CHARACTERS, CHARACTER_SECTION_HIGH)
         );
         addPrototypeSummaryCard(
-            getString(R.string.detail_proto_secondary_characters) + " · "
-                + sceneData.lowWeightCharacters.size() + " 人",
+            getString(R.string.detail_proto_scene_character_group_count,
+                getString(R.string.detail_proto_secondary_characters), sceneData.lowWeightCharacters.size()),
             sceneCharacterPreview(sceneData.lowWeightCharacters),
             () -> openPage(PAGE_CHARACTERS, CHARACTER_SECTION_LOW)
         );
         addPrototypeSummaryCard(
-            getString(R.string.detail_proto_mentioned_characters) + " · "
-                + sceneData.mentionedCharacters.size() + " 人",
+            getString(R.string.detail_proto_scene_character_group_count,
+                getString(R.string.detail_proto_mentioned_characters), sceneData.mentionedCharacters.size()),
             mentionedCharacterPreview(sceneData.mentionedCharacters),
             () -> openPage(PAGE_CHARACTERS, CHARACTER_SECTION_MENTIONED)
         );
         addPrototypeSummaryCard(
-            getString(R.string.detail_proto_terms) + " · " + sceneData.terms.size() + " 个",
+            getString(R.string.detail_proto_context_layer_terms,
+                getString(R.string.detail_proto_terms), sceneData.terms.size()),
             termPreview(),
             () -> openPage(PAGE_TERMS, null)
         );

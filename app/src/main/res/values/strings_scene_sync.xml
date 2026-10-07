@@ -5,7 +5,7 @@
     <string name="scene_sync_scope_online">Online sync with the game</string>
     <string name="scene_sync_scope_local">Local scene list only; the game is offline</string>
     <string name="scene_sync_scope_service_unavailable">Scene Sync service is unavailable</string>
-    <string name="scene_sync_scope_description">Scene Sync compares the game and HET scene candidates, keeps complete conflicts together, and reports the latest runtime result below.</string>
+    <string name="scene_sync_scope_description">Compare game and HET scene versions, retain complete conflicts, and show the latest sync results below.</string>
 
     <string name="scene_sync_policy_title">Conflict policy</string>
     <string name="scene_sync_policy_current">Current policy: %1$s</string>
@@ -56,8 +56,8 @@ Saved languages: zh-cn, en</string>
     <string name="scene_sync_result_refreshing_local">Refreshing the local scene list…</string>
     <string name="scene_sync_result_started">Scene Sync started</string>
     <string name="scene_sync_result_busy">Another Scene operation is active</string>
-    <string name="scene_sync_result_deferred">Scene Sync is waiting for the sync gate</string>
-    <string name="scene_sync_result_queued">Scene Sync is queued behind the startup gate</string>
+    <string name="scene_sync_result_deferred">Scene sync is waiting to proceed</string>
+    <string name="scene_sync_result_queued">Scene sync queued until startup preparation finishes</string>
     <string name="scene_sync_result_local_refreshed">Local scene list refreshed</string>
     <string name="scene_sync_result_succeeded">Scene Sync completed</string>
     <string name="scene_sync_result_needs_attention">Scene Sync needs attention</string>

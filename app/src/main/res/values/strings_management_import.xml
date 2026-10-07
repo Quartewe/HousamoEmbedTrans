@@ -6,11 +6,11 @@
     <string name="management_import_preview_eyebrow">Import preview</string>
     <string name="management_import_pending_eyebrow">Import recovery</string>
     <string name="management_import_source_title">Choose import files</string>
-    <string name="management_import_source_description">Select one or more HET JSON files and review each file before continuing.</string>
-    <string name="management_import_preflight_description">Review detected conflicts and active translation tasks, then choose how the import should be applied.</string>
-    <string name="management_import_preview_description">Inspect the planned operation for each source file before handing the session to the shared storage coordinator.</string>
+    <string name="management_import_source_description">Choose one or more HET JSON files and review each before continuing.</string>
+    <string name="management_import_preflight_description">Review conflicts and active translation tasks, then choose how to import.</string>
+    <string name="management_import_preview_description">Review the planned changes for each file, then confirm the import.</string>
     <string name="management_import_pending_title">Import submission pending</string>
-    <string name="management_import_pending_description">The previous session is retained until the service confirms its result. Retry the same session to finish safely.</string>
+    <string name="management_import_pending_description">The original import session stays until the service confirms the result. Retry it to avoid duplicate submissions.</string>
     <string name="management_import_add">+</string>
     <string name="management_import_add_description">Add files</string>
     <string name="management_import_remove_mode">−</string>
@@ -19,7 +19,7 @@
     <string name="management_import_remove_selected">Remove selected (%1$d)</string>
     <string name="management_import_confirm_files">Confirm files and continue</string>
     <string name="management_import_generate_preview">Generate import preview</string>
-    <string name="management_import_apply">Apply import</string>
+    <string name="management_import_apply">Confirm import</string>
     <string name="management_import_empty">Choose one or more JSON files.</string>
     <string name="management_import_reading">Reading…</string>
     <string name="management_import_ready">Ready: %1$s, %2$d object(s)</string>
@@ -44,13 +44,13 @@
     <string name="management_import_tasks_cancel">Confirm canceling active tasks (%1$d)</string>
     <string name="management_import_preview_title">Import preview</string>
     <string name="management_import_preview_stale">Management data changed. Return to preflight and generate the preview again.</string>
-    <string name="management_import_apply_result">The import preview is ready for the shared storage coordinator.</string>
+    <string name="management_import_apply_result">Import preview ready; waiting to save.</string>
     <string name="management_import_applied">Import applied.</string>
     <string name="management_import_recovery_pending">Import submitted. The service will finish it during recovery.</string>
-    <string name="management_import_pending_submission">The previous import has an unknown submission result. Retry the original session; no new import session will be created until the service finishes.</string>
+    <string name="management_import_pending_submission">The previous import result is unknown. Retry its original session; a new session will not be created until completion is confirmed.</string>
     <string name="management_import_no_preview">Generate an import preview first.</string>
     <string name="management_import_cancelled">Import canceled.</string>
-    <string name="management_import_unknown">This file has no recognized data type.</string>
+    <string name="management_import_unknown">Unrecognized import file type.</string>
     <string name="management_import_action_overwrite">Overwrite existing object</string>
     <string name="management_import_action_copy">Create a copy</string>
     <string name="management_import_action_skip">Skip</string>
@@ -64,4 +64,7 @@
     <string name="management_import_preview_file_meta">%1$s · %2$d planned operation(s)</string>
     <string name="management_import_preview_summary">%1$d file(s) · %2$d planned operation(s) · %3$d conflict(s)</string>
     <string name="management_import_conflict_existing">Existing object: %1$s</string>
+    <string name="management_import_snapshot_invalid">Unable to read the management snapshot</string>
+    <string name="management_import_not_applied">Import was not applied</string>
+    <string name="management_import_result_unknown">Import result is not yet confirmed</string>
 </resources>

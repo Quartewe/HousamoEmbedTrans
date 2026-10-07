@@ -781,7 +781,7 @@ public final class ManagementImportModel {
                 output.add(parseArrayDocument(sourceName, kind, root, array));
             }
             if (output.isEmpty()) {
-                throw failure(sourceName, "IMPORT_UNKNOWN_TYPE", "无法识别正式导入类型");
+                throw failure(sourceName, "IMPORT_UNKNOWN_TYPE", "无法识别导入类型");
             }
             return output;
         }
@@ -842,7 +842,7 @@ public final class ManagementImportModel {
                 parseDictionaryDocument(sourceName, KIND_TERM, root)
             );
         }
-        throw failure(sourceName, "IMPORT_UNKNOWN_TYPE", "无法识别正式导入类型");
+        throw failure(sourceName, "IMPORT_UNKNOWN_TYPE", "无法识别导入类型");
     }
 
     private static List<Document> parseItemsEnvelope(

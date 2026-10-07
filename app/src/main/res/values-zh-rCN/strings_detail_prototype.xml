@@ -61,4 +61,5 @@
     <string name="detail_proto_context_layer_terms">%1$s · %2$d 个</string>
     <string name="detail_proto_context_layer_summary">%1$s · %2$d 片段</string>
     <string name="detail_proto_context_layer_description">由当前对象的已保存关系聚合展示</string>
+    <string name="detail_proto_source_count">%1$s · %2$d 条</string>
 </resources>

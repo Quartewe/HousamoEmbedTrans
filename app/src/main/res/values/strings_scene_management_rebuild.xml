@@ -11,7 +11,7 @@
     <string name="scene_management_editor_identity">Scene source (read-only)</string>
     <string name="scene_management_editor_scene_name">Scene name</string>
     <string name="scene_management_editor_metadata">Metadata</string>
-    <string name="scene_management_editor_source_note">Captured name and source text are supplied by synchronization; this editor does not rewrite source.</string>
+    <string name="scene_management_editor_source_note">Names and source text come from scene sync. Source text cannot be edited here.</string>
     <string name="scene_management_editor_languages">Translated languages</string>
     <string name="scene_management_editor_move_language">Move %1$s to waiting</string>
     <string name="scene_management_editor_move_scene">Move scene to waiting</string>
@@ -54,7 +54,7 @@
     <string name="scene_management_editor_done_translation">Done</string>
     <string name="scene_management_editor_translation_missing">No translation for this language.</string>
     <string name="scene_management_editor_translation_restore_conflict">%1$d translation draft(s) need review because the source changed.</string>
-    <string name="scene_management_editor_translation_restore_copy_hint">The source changed while this draft was open. Copy any text you need below, then use Restore default to discard the stale draft before saving.</string>
+    <string name="scene_management_editor_translation_restore_copy_hint">Source text changed during editing. Copy any draft text you need, then use Restore default to discard the old draft before saving again.</string>
     <string name="scene_management_editor_translation_save_partial">Translations were saved, but the remaining scene changes failed: %1$s. You can safely retry the save.</string>
     <string name="scene_management_editor_source_item">#%1$s · %2$s</string>
     <string name="scene_management_editor_narration">Narration</string>

@@ -6,7 +6,7 @@
     <string name="character_editor_draft_hint">Edit the fields used by the dictionary. Optional arrays can be expanded when needed.</string>
     <string name="game_term_editor_draft_hint">Edit the translations and description used by the dictionary.</string>
     <string name="dictionary_editor_move_pending_hint">This record will be kept in the waiting list until it is restored.</string>
-    <string name="dictionary_editor_move_pending_dirty_hint">Save your changes, or discard the draft and reopen this record, before moving it to pending.</string>
+    <string name="dictionary_editor_move_pending_dirty_hint">Save changes, or discard the draft and reopen the record, before moving it to pending.</string>
     <string name="dictionary_editor_move_pending">Move to waiting</string>
     <string name="dictionary_editor_label_original_name">Original name</string>
     <string name="dictionary_editor_label_simplified_chinese">Simplified Chinese</string>

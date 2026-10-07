@@ -12,12 +12,12 @@
     <string name="context_detail_record">Saved %1$s</string>
     <string name="context_detail_relations">Scenes and Groups</string>
     <string name="context_detail_relations_count">%1$d scenes · %2$d groups</string>
-    <string name="context_detail_missing_scenes">%1$d linked scenes are unavailable and were skipped from aggregation.</string>
-    <string name="context_detail_partial_members">Some Contexts are unavailable; aggregation below includes readable data only.</string>
+    <string name="context_detail_missing_scenes">%1$d linked scenes are unavailable and excluded from the combined view.</string>
+    <string name="context_detail_partial_members">Some contexts are unavailable. Only readable content is shown below.</string>
     <string name="context_detail_group_scenes_entry">Aggregated scenes</string>
     <string name="context_detail_group_scenes_title">Aggregated scenes</string>
     <string name="context_detail_group_scenes_count">%1$d scenes</string>
-    <string name="context_detail_group_scenes_hint">Scenes follow saved Context order; duplicates keep their first position.</string>
+    <string name="context_detail_group_scenes_hint">Uses saved context order; each scene appears only at its first position.</string>
     <string name="context_detail_group_scenes_empty">No linked scenes.</string>
     <string name="context_detail_scenes">Scenes</string>
     <string name="context_detail_scenes_count">%1$d</string>
@@ -31,7 +31,7 @@
     <string name="context_detail_secondary_characters_count">%1$d</string>
     <string name="context_detail_terms">Game terms</string>
     <string name="context_detail_terms_count">%1$d</string>
-    <string name="context_detail_aggregate_scene_hint">Aggregated from %1$d valid scenes in saved order; dictionary hits remain read-only.</string>
+    <string name="context_detail_aggregate_scene_hint">Combines %1$d valid scenes in saved order. Matched dictionary entries are read-only.</string>
     <string name="context_detail_summaries">Summaries</string>
     <string name="context_detail_summary_count">%1$d languages</string>
     <string name="context_detail_manual_descriptions">Manual descriptions</string>

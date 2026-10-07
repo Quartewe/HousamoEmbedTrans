@@ -386,7 +386,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
             statusView.setText(
                 getString(
                     R.string.management_import_failed,
-                    "管理快照无法解析"
+                    getString(R.string.management_import_snapshot_invalid)
                 )
             );
         }
@@ -1625,10 +1625,10 @@ public final class ManagementImportActivity extends AppCompatActivity {
             } else {
                 String rejectionMessage = result.optString(
                     "message",
-                    "导入未应用"
+                    getString(R.string.management_import_not_applied)
                 );
                 if (rejectionMessage.trim().isEmpty()) {
-                    rejectionMessage = "导入未应用";
+                    rejectionMessage = getString(R.string.management_import_not_applied);
                 }
                 preflightNotice = rejectionMessage;
                 if (batch != null) {
@@ -1639,7 +1639,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 }
                 showError(new IOException(result.optString(
                     "message",
-                    "导入未应用"
+                    getString(R.string.management_import_not_applied)
                 )));
             }
         } else {
@@ -1649,7 +1649,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
             pendingSubmissionRestored = true;
             statusView.setText(getString(
                 R.string.management_import_failed,
-                result.optString("message", "导入结果未知")
+                result.optString("message", getString(R.string.management_import_result_unknown))
             ));
             applyButton.setEnabled(true);
         }

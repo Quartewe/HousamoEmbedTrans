@@ -55,7 +55,7 @@
     <string name="scene_detail_move_language_pending">将语言“%1$s”移入等待处理</string>
     <string name="scene_detail_move_scene_pending">将此剧情移入等待处理</string>
     <string name="scene_context_scene_members">剧情成员</string>
-    <string name="scene_context_group_members">分组中的上下文</string>
+    <string name="scene_context_group_members">分类中的上下文</string>
     <string name="scene_context_members_count">%1$s · %2$d 个</string>
     <string name="scene_context_expand_members">展开%1$s</string>
     <string name="scene_context_collapse_members">收起%1$s</string>

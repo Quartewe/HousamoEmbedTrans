@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="management_transfer_export_result">已导出 %1$d 个文件，失败 %2$d 个。各文件已独立写入。</string>
+    <string name="management_transfer_export_result">已分别导出 %1$d 个文件，失败 %2$d 个。</string>
     <string name="management_transfer_export_preview_toolbar_title">数据操作</string>
     <string name="management_transfer_export_eyebrow">文件导出</string>
     <string name="management_transfer_export_preview_title">导出预览</string>
-    <string name="management_transfer_export_description">每个选中对象都会以独立 JSON 文件展示。可以单独下载文件，也可以选择目录导出完整集合。</string>
+    <string name="management_transfer_export_description">每个选中对象对应一个 JSON 文件。可单独下载，也可选择目录全部导出。</string>
     <string name="management_transfer_export_file_summary">%1$d 个独立文件；不包含等待处理和无关对象。</string>
     <string name="management_transfer_export_download">下载 JSON</string>
     <string name="management_transfer_export_downloaded">已导出 %1$s。</string>
@@ -16,8 +16,8 @@
     <string name="management_transfer_import_terms">导入术语</string>
     <string name="management_transfer_import_save_first">请先保存当前编辑，再导入。</string>
     <string name="management_transfer_import_title">导入词典条目</string>
-    <string name="management_transfer_import_message">现在导入 %1$d 个条目？</string>
-    <string name="management_transfer_import_conflict_message">已选择 %1$d 个条目。现有键只有在确认后才会替换：
+    <string name="management_transfer_import_message">导入 %1$d 个条目？</string>
+    <string name="management_transfer_import_conflict_message">已选 %1$d 个条目。确认后才会替换以下现有键：
 
 %2$s</string>
     <string name="management_transfer_import_keep">保留同名并导入其他</string>

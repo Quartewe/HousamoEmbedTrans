@@ -21,7 +21,7 @@
     <string name="context_group_editor_add_member">Add member</string>
     <string name="context_group_editor_empty_members">No members.</string>
     <string name="context_group_editor_ordered_members">Ordered members</string>
-    <string name="context_group_editor_groups">所属分类</string>
+    <string name="context_group_editor_groups">Groups</string>
     <string name="context_group_editor_group_count">%1$d groups</string>
     <string name="context_group_editor_selected_groups">Selected groups</string>
     <string name="context_group_editor_add_group">Add group</string>
@@ -53,10 +53,10 @@
     <string name="context_group_editor_closure_retry">Retry summary</string>
     <string name="context_group_editor_closure_reopen">Reopen closure</string>
     <string name="context_group_editor_closure_end_title">End manual closure?</string>
-    <string name="context_group_editor_closure_end_message">The current facts will be closed and submitted for summary.</string>
+    <string name="context_group_editor_closure_end_message">End this round and submit its content for a summary.</string>
     <string name="context_group_editor_closure_reopen_title">Reopen manual closure?</string>
     <string name="context_group_editor_closure_reopen_message">Reopening starts a new manual closure round.</string>
-    <string name="context_group_editor_closure_no_facts">There are no facts to summarize.</string>
+    <string name="context_group_editor_closure_no_facts">No content to summarize.</string>
     <string name="context_group_editor_unsaved_title">Discard unsaved changes?</string>
     <string name="context_group_editor_unsaved_message">Your Context or Group edits have not been saved.</string>
     <string name="context_group_editor_discard">Discard changes</string>
