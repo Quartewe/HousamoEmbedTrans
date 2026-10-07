@@ -113,28 +113,29 @@ final class ObbResourceDialog implements AutoCloseable {
         if (closed || running) return;
         running = true;
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
-        showProgress("正在连接 HET 服务…", 0, -1);
+        showProgress(activity.getString(R.string.obb_resource_connecting), 0, -1);
         download = new ObbResourceDownload(activity);
         final ObbResourceDownload operation = download;
         try {
             client.bind();
         } catch (RuntimeException error) {
             operation.close();
-            complete("无法连接 HET 服务：" + error.getMessage());
+            complete(activity.getString(R.string.obb_resource_connect_failed, error.getMessage()));
             return;
         }
         worker.execute(() -> {
             String message;
             try {
                 if (!client.awaitConnected(10_000)) {
-                    throw new IllegalStateException("连接 HET 服务超时，请重试");
+                    throw new IllegalStateException(activity.getString(R.string.obb_resource_connect_timeout));
                 }
                 message = operation.run(client.getGameObbPort(), (status, received, total) ->
                     main.post(() -> showProgress(status, received, total)));
             } catch (Exception error) {
                 Log.w("HET-OBB", "Resource check/download failed", error);
-                message = "资源检查未完成：\n" + (error.getMessage() == null
-                    ? error.getClass().getSimpleName() : error.getMessage());
+                message = activity.getString(R.string.obb_resource_failed,
+                    error.getMessage() == null
+                        ? error.getClass().getSimpleName() : error.getMessage());
             } finally {
                 operation.close();
             }

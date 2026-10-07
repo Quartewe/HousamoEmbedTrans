@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="obb_resource_title">OBB 配置</string>
-    <string name="obb_resource_action">检查并补齐 OBB</string>
-    <string name="obb_resource_close">关闭</string>
-    <string name="obb_resource_exit_title">停止 OBB 处理并退出？</string>
-    <string name="obb_resource_exit_message">检查或下载尚未完成。退出会取消当前操作并清理下载临时文件；已保存的 OBB 会保留，已经开始的游戏端保存会继续完成。</string>
-    <string name="obb_resource_continue">继续处理</string>
-    <string name="obb_resource_exit">停止并退出</string>
-    <string name="obb_resource_working">处理中…</string>
-    <string name="obb_resource_percent">%1$d%%（当前文件）</string>
-    <string name="obb_resource_description">先启动游戏并启用 HET 模块，再检查 OBB。按游戏版本查找同版本 Release（例如 5.19.0 对应 v5.19.0），只下载缺失的 OBB，已有文件不覆盖，不做内容校验。\n\n下载可能消耗较多流量，请保持此窗口打开。关闭窗口会取消检查和下载；已开始的游戏端保存会完成。</string>
+    <string name="obb_resource_title">OBB resources</string>
+    <string name="obb_resource_action">Check and download missing OBB files</string>
+    <string name="obb_resource_close">Close</string>
+    <string name="obb_resource_exit_title">Stop OBB processing and exit?</string>
+    <string name="obb_resource_exit_message">Exiting cancels checks and downloads and removes temporary downloads. Saved OBB files are kept. Saves already started in the game will finish.</string>
+    <string name="obb_resource_continue">Continue</string>
+    <string name="obb_resource_exit">Stop and exit</string>
+    <string name="obb_resource_working">Working…</string>
+    <string name="obb_resource_percent">%1$d%% (current file)</string>
+    <string name="obb_resource_description">Enable the HET module and start the game, then check OBB files. HET uses the matching release (for example, v5.19.0 for game version 5.19.0) and downloads missing files only. Existing files are neither overwritten nor checked.\n\nDownloads may use substantial data. Keep this window open. Closing it cancels checks and downloads; saves already started in the game will finish.</string>
+    <string name="obb_resource_connecting">Connecting to the HET service…</string>
+    <string name="obb_resource_connect_failed">Unable to connect to the HET service: %1$s</string>
+    <string name="obb_resource_connect_timeout">Connection to the HET service timed out. Please retry.</string>
+    <string name="obb_resource_failed">Resource check did not finish:\n%1$s</string>
 </resources>

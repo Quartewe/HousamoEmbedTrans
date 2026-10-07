@@ -8,8 +8,8 @@
     <string name="style_preview_eyebrow">Debug / style check</string>
     <string name="style_preview_title">Choose a page or notification to review</string>
     <string name="style_preview_description">Pages use in-memory samples; notification tests post real system notifications. Neither changes saved tasks or Scenes.</string>
-    <string name="style_preview_read_only_title">In-memory read-only preview</string>
-    <string name="style_preview_read_only_body">The sample is passed through the Activity intent. Store writes, deletion, translation requests, and import or export commits are disabled.</string>
+    <string name="style_preview_read_only_title">Read-only preview</string>
+    <string name="style_preview_read_only_body">Previews use in-memory samples. They do not save or delete data, request translation, or import or export files.</string>
     <string name="style_preview_tasks">Task page</string>
     <string name="style_preview_management_home">Management home</string>
     <string name="style_preview_scene_sync">Scene Sync</string>

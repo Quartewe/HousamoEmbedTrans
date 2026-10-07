@@ -202,7 +202,7 @@ public final class HomeActivity extends AppCompatActivity {
         resourceEntry.setOnClickListener(view -> {
             if (stylePreview) return;
             resourceEntry.setEnabled(false);
-            Toast.makeText(this, "正在校验 RVA 资源版本…", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.home_resource_checking, Toast.LENGTH_SHORT).show();
             ((HousamoApplication) getApplication()).getRuntimeResourceUpdater()
                 .requestCheck(message -> {
                     if (isFinishing() || isDestroyed()) return;

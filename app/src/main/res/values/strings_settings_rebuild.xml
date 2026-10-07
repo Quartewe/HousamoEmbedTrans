@@ -58,7 +58,7 @@ A direct hit scores ≥ TextMentionedScore. A primary character\'s guild, school
     <string name="settings_rebuild_diagnostics_title">Diagnostics</string>
     <string name="settings_rebuild_diagnostics_body">Records capture, parsing and failed responses without changing task data. Failed responses may contain sensitive content; enable only when needed.</string>
     <string name="settings_style_preview_title">Style check</string>
-    <string name="settings_style_preview_body">Open the real task and management pages with in-memory samples to review their visual states. The preview does not write stores or send requests.</string>
+    <string name="settings_style_preview_body">Check task and management pages with in-memory samples. No data is saved or requests sent.</string>
     <string name="settings_style_preview_action">Open style check</string>
     <string name="settings_rebuild_prompt_translation_title">Translation prompt</string>
     <string name="settings_rebuild_prompt_summary_title">Summary prompt</string>

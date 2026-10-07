@@ -43,4 +43,5 @@
 
     <string name="home_github_title">GitHub</string>
     <string name="home_github_content_description">打开 HousamoEmbedTrans GitHub 项目</string>
+    <string name="home_resource_checking">正在检查 RVA 资源版本…</string>
 </resources>

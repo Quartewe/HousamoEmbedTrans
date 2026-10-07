@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="obb_resource_title">OBB 资源</string>
+    <string name="obb_resource_action">检查并补齐 OBB</string>
+    <string name="obb_resource_close">关闭</string>
+    <string name="obb_resource_exit_title">停止处理 OBB 并退出？</string>
+    <string name="obb_resource_exit_message">退出会取消检查和下载，并清理下载临时文件。已保存的 OBB 会保留，游戏端已开始的保存会继续完成。</string>
+    <string name="obb_resource_continue">继续处理</string>
+    <string name="obb_resource_exit">停止并退出</string>
+    <string name="obb_resource_working">处理中…</string>
+    <string name="obb_resource_percent">%1$d%%（当前文件）</string>
+    <string name="obb_resource_description">先启用 HET 模块并启动游戏，再检查 OBB。按游戏版本查找同版本 Release（如 5.19.0 对应 v5.19.0），只下载缺失文件，不覆盖或校验已有文件。\n\n下载可能消耗较多流量。请保持窗口打开；关闭会取消检查和下载，游戏端已开始的保存会继续完成。</string>
+    <string name="obb_resource_connecting">正在连接 HET 服务…</string>
+    <string name="obb_resource_connect_failed">无法连接 HET 服务：%1$s</string>
+    <string name="obb_resource_connect_timeout">连接 HET 服务超时，请重试</string>
+    <string name="obb_resource_failed">资源检查未完成：\n%1$s</string>
+</resources>
