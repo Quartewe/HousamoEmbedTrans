@@ -511,6 +511,7 @@ public final class SettingsActivity extends AppCompatActivity {
             R.id.tv_settings_category_summary
         );
         summary.setText(SettingsCategory.summary(
+            this,
             definition,
             userSettings,
             apiKey

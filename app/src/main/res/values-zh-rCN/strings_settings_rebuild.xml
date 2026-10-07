@@ -2,7 +2,7 @@
 <resources>
     <string name="settings_rebuild_toolbar_title">设置</string>
     <string name="settings_rebuild_export_logs">导出运行日志</string>
-    <string name="settings_rebuild_export_logs_description">将今天及此前 13 天的 HET 和已连接游戏的日志导出为 ZIP 压缩包。两端日志分别按日期保存在各自的内部目录，API 正文仅在开启正文记录时保存。导出时请保持游戏连接，以便一并读取游戏日志。</string>
+    <string name="settings_rebuild_export_logs_description">导出今天及此前 13 天的 HET 和游戏日志为 ZIP。日志按日保存在两端各自的内部目录；仅开启正文记录时才保存 API 正文。请保持游戏连接，以便一并导出游戏日志。</string>
     <string name="settings_rebuild_export_logs_choose">选择文件</string>
     <string name="settings_rebuild_export_logs_in_progress">正在打包运行日志…</string>
     <string name="settings_rebuild_export_logs_empty">最近 14 天没有可导出的 HET 日志文件。</string>
@@ -12,7 +12,7 @@
     <string name="settings_rebuild_config_source_unknown">当前配置来源暂不可读。</string>
     <string name="settings_rebuild_close">知道了</string>
     <string name="settings_rebuild_theme_title">主题模式</string>
-    <string name="settings_rebuild_theme_hint">立即应用到当前应用界面；系统模式跟随设备设置。</string>
+    <string name="settings_rebuild_theme_hint">立即切换界面主题；“跟随系统”使用设备设置。</string>
     <string name="settings_rebuild_theme_system">跟随系统</string>
     <string name="settings_rebuild_theme_light">浅色</string>
     <string name="settings_rebuild_theme_dark">深色</string>
@@ -28,7 +28,7 @@
     <string name="settings_rebuild_model_query_idle">查询服务支持的模型；不会发送翻译请求。</string>
     <string name="settings_rebuild_base_url_placeholder">https://api.openai.com/v1</string>
     <string name="settings_rebuild_model_placeholder">gpt-4o-mini</string>
-    <string name="settings_rebuild_model_query_success">已找到 %1$d 个模型，请选择要使用的模型。</string>
+    <string name="settings_rebuild_model_query_success">找到 %1$d 个模型，请选择。</string>
     <string name="settings_rebuild_model_query_failure">查询失败：%1$s</string>
     <string name="settings_rebuild_model_query_empty">服务没有返回可用模型。</string>
     <string name="settings_rebuild_matching_rules_title">匹配规则说明（点击展开）</string>
@@ -56,7 +56,7 @@ density = (speakerScore + showScore + textScore) / sqrt(sceneItemCount)。
 4. 游戏术语
 直接命中分数 ≥ TextMentionedScore；主要角色的 guild、school、origin_world 直接加入；次要角色关联的同类术语在至少 LowTermScore 个次要角色共享时加入。</string>
     <string name="settings_rebuild_diagnostics_title">诊断提示</string>
-    <string name="settings_rebuild_diagnostics_body">诊断开关只记录捕获、解析和失败响应信息，不改变正式任务数据。失败响应可能包含敏感内容，请按需开启。</string>
+    <string name="settings_rebuild_diagnostics_body">仅记录捕获、解析和失败响应，不修改正式任务数据。失败响应可能包含敏感内容，请按需开启。</string>
     <string name="settings_style_preview_title">样式核对</string>
     <string name="settings_style_preview_body">使用内存样例打开真实任务页和管理页，核对各个视觉状态。预览不会写入 Store，也不会发送请求。</string>
     <string name="settings_style_preview_action">打开样式核对</string>

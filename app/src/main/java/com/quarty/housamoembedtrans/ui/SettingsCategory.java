@@ -1,5 +1,7 @@
 package com.quarty.housamoembedtrans.ui;
 
+import android.content.Context;
+
 import com.quarty.housamoembedtrans.R;
 
 import org.json.JSONObject;
@@ -99,6 +101,7 @@ public final class SettingsCategory {
 
     /** Human-readable summary for the home card, derived from current config. */
     public static String summary(
+        Context uiContext,
         Definition definition,
         JSONObject userSettings,
         String apiKey
@@ -115,77 +118,75 @@ public final class SettingsCategory {
         if (TRANSLATION_SERVICE.equals(definition.id)) {
             String protocol = "anthropic".equalsIgnoreCase(
                 translationApi == null ? "" : translationApi.optString("Protocol")
-            ) ? "Anthropic" : "OpenAI 兼容";
+            ) ? uiContext.getString(R.string.settings_option_anthropic)
+                : uiContext.getString(R.string.settings_option_openai);
             String model = translationApi == null
                 ? ""
                 : translationApi.optString("Model", "");
             String target = userSettings.optString("TargetLanguage", "zh-cn");
             return protocol
                 + " · "
-                + (model.isEmpty() ? "模型未填写" : model)
+                + (model.isEmpty() ? uiContext.getString(R.string.settings_summary_model_empty) : model)
                 + " · "
-                + targetLabel(target)
+                + targetLabel(uiContext, target)
                 + " · "
                 + (apiKey == null || apiKey.isEmpty()
-                    ? "API key 未设置"
-                    : "API key 已设置");
+                    ? uiContext.getString(R.string.settings_category_api_key_empty)
+                    : uiContext.getString(R.string.settings_category_api_key_set));
         }
         if (TRANSLATION_REPAIR.equals(definition.id)) {
-            return (translationApi == null
-                ? 0
-                : translationApi.optInt("ResultRepairCount", 0))
-                + " 次结果修复 · 流式翻译"
-                + (translationApi != null
+            return uiContext.getString(
+                R.string.settings_summary_repair,
+                translationApi == null ? 0 : translationApi.optInt("ResultRepairCount", 0),
+                uiContext.getString(translationApi != null
                     && translationApi.optBoolean("EnableStreamingResponse", true)
-                    ? "开启"
-                    : "关闭");
+                    ? R.string.settings_summary_on : R.string.settings_summary_off)
+            );
         }
         if (CAPTURE_SYNC.equals(definition.id)) {
             String mode = sceneSync == null
                 ? "manual"
                 : sceneSync.optString("ConflictResolutionMode", "manual");
-            return userSettings.optInt("SceneWorkerCount", 1)
-                + " 个剧情线程 · "
-                + ("game".equals(mode)
-                    ? "以游戏为准"
-                    : "het".equals(mode) ? "以本地翻译为准" : "每次询问冲突");
+            return uiContext.getString(
+                R.string.settings_summary_capture,
+                userSettings.optInt("SceneWorkerCount", 1),
+                uiContext.getString("game".equals(mode)
+                    ? R.string.settings_option_conflict_game
+                    : "het".equals(mode) ? R.string.settings_option_conflict_het
+                        : R.string.settings_option_conflict_manual)
+            );
         }
         if (CONTEXT_SUMMARY.equals(definition.id)) {
-            return "自动压缩"
-                + (context != null
+            return uiContext.getString(
+                R.string.settings_summary_context,
+                uiContext.getString(context != null
                     && context.optBoolean("EnableAutoCompression", false)
-                    ? "开启"
-                    : "关闭")
-                + " · 最近 "
-                + (context == null
-                    ? 30
-                    : context.optInt("DefaultRecentPercent", 30))
-                + "% · "
-                + (context == null
-                    ? 10
-                    : context.optInt("DefaultRecentSceneLimit", 10))
-                + " 段剧情";
+                    ? R.string.settings_summary_on : R.string.settings_summary_off),
+                context == null ? 30 : context.optInt("DefaultRecentPercent", 30),
+                context == null ? 10 : context.optInt("DefaultRecentSceneLimit", 10)
+            );
         }
         if (TASK_RECOVERY.equals(definition.id)) {
-            return "翻译"
-                + (queue != null
+            return uiContext.getString(
+                R.string.settings_summary_recovery,
+                uiContext.getString(queue != null
                     && queue.optBoolean("AutoRecoverPreviousJobs", false)
-                    ? "自动恢复"
-                    : "手动恢复")
-                + " · 摘要"
-                + (userSettings.optJSONObject("SummaryQueue") != null
+                    ? R.string.settings_summary_recovery_auto
+                    : R.string.settings_summary_recovery_manual),
+                uiContext.getString(userSettings.optJSONObject("SummaryQueue") != null
                     && userSettings.optJSONObject("SummaryQueue")
                         .optBoolean("AutoRecoverPreviousJobs", false)
-                    ? "自动恢复"
-                    : "手动恢复");
+                    ? R.string.settings_summary_recovery_auto
+                    : R.string.settings_summary_recovery_manual)
+            );
         }
         if (CHARACTER_MATCHING.equals(definition.id)) {
-            return "高 "
-                + (weights == null ? 4.0 : weights.optDouble("HighRelevance", 4.0))
-                + " · 中 "
-                + (weights == null ? 3.0 : weights.optDouble("MidRelevance", 3.0))
-                + " · 相关角色 "
-                + (weights == null ? 1 : weights.optInt("RelatedNum", 1));
+            return uiContext.getString(
+                R.string.settings_summary_matching,
+                Double.toString(weights == null ? 4.0 : weights.optDouble("HighRelevance", 4.0)),
+                Double.toString(weights == null ? 3.0 : weights.optDouble("MidRelevance", 3.0)),
+                weights == null ? 1 : weights.optInt("RelatedNum", 1)
+            );
         }
         return userSettings.optBoolean("EnablePageRecDebug", false)
                 || userSettings.optBoolean("EnablePageRecTasks", false)
@@ -193,20 +194,20 @@ public final class SettingsCategory {
                 || userSettings.optBoolean("EnableFailedApiResponseDump", false)
                 || userSettings.optBoolean("EnableApiBodyLogging", false)
                 || userSettings.optBoolean("DebugOmitThinkingParameters", true)
-            ? "部分调试选项已开启"
-            : "调试选项已关闭";
+            ? uiContext.getString(R.string.settings_summary_debug_on)
+            : uiContext.getString(R.string.settings_summary_debug_off);
     }
 
-    private static String targetLabel(String target) {
+    private static String targetLabel(Context uiContext, String target) {
         if ("zh-cn".equalsIgnoreCase(target)) {
-            return "简体中文";
+            return uiContext.getString(R.string.settings_option_zh_cn);
         }
         if ("zh-tw".equalsIgnoreCase(target)) {
-            return "繁体中文";
+            return uiContext.getString(R.string.settings_option_zh_tw);
         }
         if ("en".equalsIgnoreCase(target)) {
-            return "English";
+            return uiContext.getString(R.string.settings_option_en);
         }
-        return target == null || target.trim().isEmpty() ? "自定义语言" : target;
+        return target == null || target.trim().isEmpty() ? uiContext.getString(R.string.settings_summary_custom_language) : target;
     }
 }

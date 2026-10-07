@@ -84,13 +84,13 @@
     <string name="api_key">API key</string>
     <string name="api_key_storage_hint">Stored separately and never written to config.json.</string>
     <string name="model">Model</string>
-    <string name="model_input_hint">Enter a model ID manually, or query the current provider and select one.</string>
+    <string name="model_input_hint">Enter a model ID, or query the provider’s models and choose one.</string>
     <string name="thinking_strength">Thinking strength</string>
     <string name="thinking_strength_hint">Used by both Translation and Summary requests. \'none\' disables thinking; other values are passed to OpenAI-compatible providers as reasoning_effort and mapped to an Anthropic thinking budget.</string>
     <string name="context_length">Context length (tokens)</string>
-    <string name="context_length_hint">Conservative local token budget for the complete provider input, including system prompt and user content. Default: 160000.</string>
+    <string name="context_length_hint">Conservative local token budget for system prompt and user content combined. Default: 160000.</string>
     <string name="api_concurrency">API concurrency limit</string>
-    <string name="api_concurrency_hint">Maximum concurrent Translation and Summary API requests. Valid range: 1 to 8.</string>
+    <string name="api_concurrency_hint">Shared limit for concurrent translation and summary API requests: 1–8.</string>
     <string name="network_retry_count">Network retry count</string>
     <string name="network_retry_count_hint">Additional attempts after connection failures, timeouts, or retryable HTTP statuses. 0 disables network retries; allowed range: 0–5.</string>
     <string name="result_repair_count">Result repair count</string>
@@ -138,7 +138,7 @@
 
     <string name="scene_sync_settings">Scene sync</string>
     <string name="expand_scene_sync_section">Expand scene sync settings</string>
-    <string name="scene_worker_count">Scene worker count</string>
+    <string name="scene_worker_count">Scene processing threads</string>
     <string name="scene_worker_count_hint">Used for the next game process launch only. Valid range: 1 to 4.</string>
     <string name="scene_conflict_resolution_mode">Conflict resolution</string>
     <string name="scene_conflict_resolution_mode_hint">Choose which side wins automatically, or review each scene manually.</string>
@@ -371,7 +371,7 @@
     <string name="capture_settings">Capture and output</string>
     <string name="overwrite_existing_json">Overwrite existing scene JSON</string>
     <string name="overwrite_existing_json_hint">When disabled, an existing local scene file is preserved.</string>
-    <string name="enable_parse_only_debug">Parse only; would not send to API </string>
+    <string name="enable_parse_only_debug">Parse only, without API requests</string>
     <string name="enable_parse_only_debug_hint">Captures and writes a pending scene JSON without making an API request. Disable this option, restart the game, and revisit the scene to submit it.</string>
     <string name="enable_failed_api_response_dump">Save failed API responses</string>
     <string name="enable_failed_api_response_dump_hint">Debug option. When a request ultimately fails after retries, saves the last response to scenes/failed/api_failed_&lt;scene&gt;.json. Request headers and the API key are never written.</string>
@@ -521,7 +521,7 @@
     <string name="expand_scene_context_section">Expand scene context settings</string>
     <string name="collapse_scene_context_section">Collapse scene context settings</string>
     <string name="enable_startup_review">Review contexts/groups at startup</string>
-    <string name="enable_startup_review_hint">When enabled, HET pauses before recovery so you can edit Scene Context membership and Active pointers.</string>
+    <string name="enable_startup_review_hint">Pause startup before task recovery to edit context members and active selections.</string>
     <string name="manage_scene_contexts">Manage scene contexts</string>
     <string name="notification_action_review_contexts">Review contexts/groups</string>
 

@@ -73,13 +73,13 @@
     <string name="api_key">API Key</string>
     <string name="api_key_storage_hint">单独保存，不会写入 config.json。</string>
     <string name="model">模型</string>
-    <string name="model_input_hint">可手动填写模型标识，也可查询当前服务商后选择。</string>
+    <string name="model_input_hint">填写模型 ID，或查询服务商的模型列表后选择。</string>
     <string name="thinking_strength">思考档位</string>
     <string name="thinking_strength_hint">Translation 与 Summary 请求共用。\'none\' 关闭思考；其他档位会以 reasoning_effort 传给 OpenAI 兼容服务，并映射为 Anthropic thinking budget。</string>
     <string name="context_length">上下文长度（tokens）</string>
-    <string name="context_length_hint">对完整 Provider 输入（system prompt + user content）的本地保守 token 预算。默认 160000。</string>
+    <string name="context_length_hint">完整模型输入的本地保守 token 预算，包含 system prompt 和 user content。默认 160000。</string>
     <string name="api_concurrency">API 并发上限</string>
-    <string name="api_concurrency_hint">Translation 与 Summary API 请求的最大并发数。有效范围：1 到 8。</string>
+    <string name="api_concurrency_hint">翻译和摘要 API 请求共用的并发上限，范围 1–8。</string>
     <string name="network_retry_count">网络重试次数</string>
     <string name="network_retry_count_hint">连接失败、超时或可重试 HTTP 状态后的额外请求次数。0 表示不重试，可填写 0–5。</string>
     <string name="result_repair_count">结果修复次数</string>
@@ -127,7 +127,7 @@
 
     <string name="scene_sync_settings">场景同步</string>
     <string name="expand_scene_sync_section">展开场景同步设置</string>
-    <string name="scene_worker_count">场景 worker 数量</string>
+    <string name="scene_worker_count">剧情处理线程数</string>
     <string name="scene_worker_count_hint">仅在下一次游戏进程启动时生效。有效范围：1 到 4。</string>
     <string name="scene_conflict_resolution_mode">冲突处理</string>
     <string name="scene_conflict_resolution_mode_hint">选择游戏优先、HET 优先，或逐个场景手动处理。</string>
@@ -358,7 +358,7 @@
     <string name="capture_settings">捕获与输出</string>
     <string name="overwrite_existing_json">覆盖已有剧情 JSON</string>
     <string name="overwrite_existing_json_hint">关闭后，会保留本地已经存在的剧情文件。</string>
-    <string name="enable_parse_only_debug">仅解析，不发送到 API </string>
+    <string name="enable_parse_only_debug">仅解析，不请求 API</string>
     <string name="enable_parse_only_debug_hint">仍会捕获并写入待翻译的 scene JSON，但不会发起 API 请求。关闭此选项并重启游戏后，再次进入对应剧情即可发送。</string>
     <string name="enable_failed_api_response_dump">保存失败的 API 响应</string>
     <string name="enable_failed_api_response_dump_hint">调试选项。请求经过重试后仍失败时，将最后一次响应保存到 scenes/failed/api_failed_&lt;scene&gt;.json；不会写入请求头或 API Key。</string>
@@ -501,8 +501,8 @@
     <string name="scene_context_settings">场景上下文</string>
     <string name="expand_scene_context_section">展开场景上下文设置</string>
     <string name="collapse_scene_context_section">收起场景上下文设置</string>
-    <string name="enable_startup_review">启动时审阅上下文/分组</string>
-    <string name="enable_startup_review_hint">开启后，HET 会在恢复任务前暂停，让你编辑 Scene Context 成员关系与活动指针。</string>
+    <string name="enable_startup_review">启动时审阅上下文/分类</string>
+    <string name="enable_startup_review_hint">恢复任务前暂停启动，供你编辑上下文成员和活动设置。</string>
     <string name="manage_scene_contexts">管理场景上下文</string>
     <string name="notification_action_review_contexts">审阅上下文/分组</string>
 

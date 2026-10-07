@@ -2,7 +2,7 @@
 <resources>
     <string name="settings_rebuild_toolbar_title">Settings</string>
     <string name="settings_rebuild_export_logs">Export runtime logs</string>
-    <string name="settings_rebuild_export_logs_description">Export HET and connected game logs from today and the preceding 13 days as a ZIP archive. Logs are saved daily in each app’s internal storage. API bodies are included only when body logging is enabled. Keep the game connected to include its logs.</string>
+    <string name="settings_rebuild_export_logs_description">Export today’s logs and the preceding 13 days from HET and the game as a ZIP. Each app stores its logs by date. API bodies are saved only when body logging is enabled. Keep the game connected to include its logs.</string>
     <string name="settings_rebuild_export_logs_choose">Choose file</string>
     <string name="settings_rebuild_export_logs_in_progress">Packing runtime logs...</string>
     <string name="settings_rebuild_export_logs_empty">No HET log files are available for the last 14 days.</string>
@@ -12,7 +12,7 @@
     <string name="settings_rebuild_config_source_unknown">The config source is currently unavailable.</string>
     <string name="settings_rebuild_close">OK</string>
     <string name="settings_rebuild_theme_title">Theme mode</string>
-    <string name="settings_rebuild_theme_hint">Applies immediately to this app; system mode follows the device setting.</string>
+    <string name="settings_rebuild_theme_hint">Changes the theme immediately. System mode follows device settings.</string>
     <string name="settings_rebuild_theme_system">System default</string>
     <string name="settings_rebuild_theme_light">Light</string>
     <string name="settings_rebuild_theme_dark">Dark</string>
@@ -28,7 +28,7 @@
     <string name="settings_rebuild_model_query_idle">Query supported service models; no translation request is sent.</string>
     <string name="settings_rebuild_base_url_placeholder">https://api.openai.com/v1</string>
     <string name="settings_rebuild_model_placeholder">gpt-4o-mini</string>
-    <string name="settings_rebuild_model_query_success">Found %1$d models. Choose the model to use.</string>
+    <string name="settings_rebuild_model_query_success">Found %1$d models. Choose one.</string>
     <string name="settings_rebuild_model_query_failure">Model query failed: %1$s</string>
     <string name="settings_rebuild_model_query_empty">The service returned no usable models.</string>
     <string name="settings_rebuild_matching_rules_title">Matching rules (tap to expand)</string>
@@ -56,7 +56,7 @@ Attach only aliases that actually hit. Alias total score must be ≥ TextMention
 4. Game terms
 A direct hit scores ≥ TextMentionedScore. A primary character\'s guild, school, and origin_world terms are direct context. Related terms for secondary characters are included when at least LowTermScore secondary characters share them.</string>
     <string name="settings_rebuild_diagnostics_title">Diagnostics</string>
-    <string name="settings_rebuild_diagnostics_body">Diagnostic switches record capture, parsing, and failed-response details only; they do not change formal task data. Failed responses may contain sensitive content, so enable them only when needed.</string>
+    <string name="settings_rebuild_diagnostics_body">Records capture, parsing and failed responses without changing task data. Failed responses may contain sensitive content; enable only when needed.</string>
     <string name="settings_style_preview_title">Style check</string>
     <string name="settings_style_preview_body">Open the real task and management pages with in-memory samples to review their visual states. The preview does not write stores or send requests.</string>
     <string name="settings_style_preview_action">Open style check</string>
