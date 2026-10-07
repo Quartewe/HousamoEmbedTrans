@@ -1,21 +1,36 @@
 package com.quarty.housamoembedtrans.ui;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.card.MaterialCardView;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.runtime.NotificationStylePreview;
+
+import java.util.List;
 
 /** Selects a real HET page and opens it with an in-memory style sample. */
 public final class StylePreviewActivity extends AppCompatActivity {
+    public static final String EXTRA_NOTIFICATION_PREVIEW = "notification_style_preview";
+    public static final String EXTRA_NOTIFICATION_PROPOSED = "notification_style_proposed";
+    private static final String KIND_NOTIFICATIONS = "notifications";
+    private static final int NOTIFICATION_PERMISSION_REQUEST = 100;
+    private AlertDialog notificationDialog;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -27,9 +42,86 @@ public final class StylePreviewActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(view -> finish());
 
         LinearLayout options = findViewById(R.id.style_preview_options);
+        options.addView(createOption(KIND_NOTIFICATIONS));
         for (String kind : StylePreview.kinds()) {
             options.addView(createOption(kind));
         }
+        openNotificationIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        openNotificationIntent(intent);
+    }
+
+    private void openNotificationIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra(EXTRA_NOTIFICATION_PREVIEW, false)) {
+            showNotificationSamples(intent.getBooleanExtra(EXTRA_NOTIFICATION_PROPOSED, false));
+        }
+    }
+
+    private void showNotificationGroups() {
+        new UiMaterialAlertDialogBuilder(this)
+            .setTitle(R.string.notification_preview_title)
+            .setItems(new CharSequence[] {
+                getString(R.string.notification_preview_existing),
+                getString(R.string.notification_preview_proposed)
+            }, (dialog, which) -> showNotificationSamples(which == 1))
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
+    }
+
+    private void showNotificationSamples(boolean proposed) {
+        if (notificationDialog != null) notificationDialog.dismiss();
+        List<NotificationStylePreview.Sample> samples = NotificationStylePreview.samples(proposed);
+        CharSequence[] labels = new CharSequence[samples.size()];
+        for (int index = 0; index < samples.size(); index++) {
+            labels[index] = getString(samples.get(index).label);
+        }
+        notificationDialog = new UiMaterialAlertDialogBuilder(this)
+            .setTitle(proposed ? R.string.notification_preview_proposed_title
+                : R.string.notification_preview_existing_title)
+            .setSingleChoiceItems(labels, -1, (dialog, which) -> postNotificationSample(samples.get(which)))
+            .setNegativeButton(R.string.notification_preview_close, null)
+            .setNeutralButton(R.string.notification_preview_clear, null)
+            .setPositiveButton(R.string.notification_preview_settings, (dialog, which) ->
+                startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())))
+            .create();
+        notificationDialog.setOnShowListener(dialog ->
+            notificationDialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
+                NotificationStylePreview.clear(this);
+                Toast.makeText(this, R.string.notification_preview_cleared, Toast.LENGTH_SHORT).show();
+            }));
+        notificationDialog.show();
+    }
+
+    private void postNotificationSample(NotificationStylePreview.Sample sample) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_PERMISSION_REQUEST);
+            Toast.makeText(this, R.string.notification_preview_grant_then_retry, Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            NotificationStylePreview.post(this, sample);
+            Toast.makeText(this, getString(R.string.notification_preview_posted, getString(sample.label)),
+                Toast.LENGTH_SHORT).show();
+        } catch (RuntimeException error) {
+            new UiMaterialAlertDialogBuilder(this)
+                .setTitle(R.string.notification_preview_post_failed)
+                .setMessage(error.getMessage())
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (notificationDialog != null) notificationDialog.dismiss();
+        super.onDestroy();
     }
 
     private View createOption(String kind) {
@@ -92,6 +184,10 @@ public final class StylePreviewActivity extends AppCompatActivity {
         body.addView(arrow, new LinearLayout.LayoutParams(dp(30), dp(42)));
 
         card.setOnClickListener(view -> {
+            if (KIND_NOTIFICATIONS.equals(kind)) {
+                showNotificationGroups();
+                return;
+            }
             if (StylePreview.KIND_HELD_ARRANGEMENT.equals(kind)) {
                 HeldTaskArrangementDialog.showPreview(this);
                 return;
@@ -103,6 +199,7 @@ public final class StylePreviewActivity extends AppCompatActivity {
     }
 
     private int labelFor(String kind) {
+        if (KIND_NOTIFICATIONS.equals(kind)) return R.string.notification_preview_title;
         if (StylePreview.KIND_HELD_ARRANGEMENT.equals(kind)) return R.string.style_preview_held_arrangement;
         if (StylePreview.KIND_HOME.equals(kind)) return R.string.style_preview_home;
         if (StylePreview.KIND_TASKS.equals(kind)) return R.string.style_preview_tasks;
@@ -124,6 +221,7 @@ public final class StylePreviewActivity extends AppCompatActivity {
     }
 
     private int descriptionFor(String kind) {
+        if (KIND_NOTIFICATIONS.equals(kind)) return R.string.notification_preview_description;
         if (StylePreview.KIND_HELD_ARRANGEMENT.equals(kind)) return R.string.style_preview_held_arrangement_description;
         if (StylePreview.KIND_HOME.equals(kind)) return R.string.style_preview_home_description;
         if (StylePreview.KIND_TASKS.equals(kind)) return R.string.style_preview_tasks_description;

@@ -6,8 +6,8 @@
     <string name="style_preview_home_description">连接状态、版本更新提示和主页入口。</string>
     <string name="style_preview_toolbar_title">样式核对</string>
     <string name="style_preview_eyebrow">调试 / 样式核对</string>
-    <string name="style_preview_title">选择要预览的页面</string>
-    <string name="style_preview_description">使用少量内存样例打开真实 HET 页面，用于视觉核对；不会触碰已保存数据。</string>
+    <string name="style_preview_title">选择页面或通知进行核对</string>
+    <string name="style_preview_description">页面使用内存样例；通知测试会发送真实系统通知。两者均不修改已保存的任务和剧情。</string>
     <string name="style_preview_read_only_title">内存只读预览</string>
     <string name="style_preview_read_only_body">样例通过 Activity Intent 传入。预览期间不会写入 Store、删除数据、请求翻译，也不会提交导入或导出。</string>
     <string name="style_preview_tasks">任务页</string>
