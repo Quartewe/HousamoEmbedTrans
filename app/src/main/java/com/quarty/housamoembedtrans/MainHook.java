@@ -1415,6 +1415,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         SceneSyncStartupSnapshot sceneSyncSnapshot;
         boolean enablePageRecDebug;
         boolean enablePageRecTasks;
+        boolean enableRubyTranslation;
         boolean enableParseOnlyDebug;
         boolean overwriteExistingJson;
         String targetLanguage;
@@ -1760,6 +1761,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         config.sceneWorkerCount = config.sceneSyncSnapshot.getSceneWorkerCount();
         config.enablePageRecDebug = Init_EnablePageRecDebug(userConfig);
         config.enablePageRecTasks = Init_EnablePageRecTasks(userConfig);
+        config.enableRubyTranslation = ConfigStore.isRubyTranslationEnabled(userSettings);
         config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(userConfig);
         config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
         config.targetLanguage = Init_TargetLanguage(userConfig);
@@ -1815,6 +1817,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Init_CharacterWeight(json);
         Init_EnablePageRecDebug(json);
         Init_EnablePageRecTasks(json);
+        ConfigStore.isRubyTranslationEnabled(json.getJSONObject("UserSettings"));
         Init_EnableParseOnlyDebug(json);
         Init_OverwriteExistingJson(json);
         Init_TargetLanguage(json);
@@ -2655,6 +2658,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 startup.sceneWorkerCount,
                 startup.enablePageRecDebug,
                 startup.enablePageRecTasks,
+                startup.enableRubyTranslation,
                 startup.enableParseOnlyDebug,
                 startup.overwriteExistingJson,
                 startup.targetLanguage,
@@ -2721,6 +2725,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         int sceneWorkerCount,
         boolean enablePageRecDebug,
         boolean enablePageRecTasks,
+        boolean enableRubyTranslation,
         boolean enableParseOnlyDebug,
         boolean overwriteExistingJson,
         String targetLanguage,

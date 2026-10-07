@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_field_enable_ruby_translation">翻译正文上方的小字</string>
+    <string name="settings_field_hint_enable_ruby_translation">有些文字上方会用小字标注读音或补充说明。开启后，这些小字也会参与翻译；关闭时保留原文。正文仍会正常翻译，其他文字格式保持不变。此设置也适用于 PageRec 捕获的剧情。修改后需重启游戏，仅对之后新捕获的剧情生效，已有剧情和任务不变。</string>
+</resources>

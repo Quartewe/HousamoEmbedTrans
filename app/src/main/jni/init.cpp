@@ -517,6 +517,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jint sceneWorkerCount,
     jboolean enablePageRecDebug,
     jboolean enablePageRecTasks,
+    jboolean enableRubyTranslation,
     jboolean enableParseOnlyDebug,
     jboolean overwriteExistingJson,
     jstring targetLanguage,
@@ -550,6 +551,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
             target_lang,
             enablePageRecDebug == JNI_TRUE,
             enablePageRecTasks == JNI_TRUE,
+            enableRubyTranslation == JNI_TRUE,
             enableParseOnlyDebug == JNI_TRUE,
             overwriteExistingJson == JNI_TRUE,
             base_dir,
@@ -558,6 +560,9 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     }
 
     g_runtime_config = config;
+
+    LOGI("Ruby translation enabled=%d (capture-time tag protection)",
+         config.enable_ruby_translation ? 1 : 0);
 
     LOGI("Received RVA config from Java: FindScenarioData=0x%" PRIxPTR
          ", InitBase=0x%" PRIxPTR ", InitText=0x%" PRIxPTR

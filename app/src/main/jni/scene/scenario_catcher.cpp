@@ -360,7 +360,7 @@ static bool IsTagStart(const std::string& raw, size_t index) {
 
 static std::string CatchTextLabel(
     const std::string& raw,
-    bool replace_mode,
+    bool translate_ruby,
     OrderKey order,
     std::vector<ProtectedToken>& protect,
     int& protect_index) {
@@ -388,11 +388,18 @@ static std::string CatchTextLabel(
         }
 
         if (c == '>') {
-            if (replace_mode) {
+            const std::string origin = raw.substr(label_start, i - label_start + 1);
+            const bool is_ruby = origin == "</ruby>" || origin == "<ruby>"
+                || origin.compare(0, 6, "<ruby=") == 0;
+            if (translate_ruby && is_ruby) {
+                // Only Ruby markup is exposed to the model. Its body remains
+                // ordinary text in both modes; other tags keep exact origins.
+                out += origin;
+            } else {
                 ProtectedToken token;
                 token.order = order;
                 token.label = "__HET__PT_" + std::to_string(order.label_index) + "_" + std::to_string(order.page_no) + "_" + std::to_string(protect_index++) + "__";
-                token.origin = raw.substr(label_start, i - label_start + 1);
+                token.origin = origin;
                 out += token.label;
                 protect.push_back(std::move(token));
             }
@@ -1773,11 +1780,7 @@ private:
                      scenario_.result.scene.c_str(), order.label_index, order.page_no,
                      order.cmd_index, order.sub_index);
             }
-            // Keep original tags and export contents in both PageRec modes.
-            *out = std::move(raw_text);
-            return TextStatus::ok;
-        }
-        if (!SubmitQuestPtrSet(order, page_data)) {
+        } else if (!SubmitQuestPtrSet(order, page_data)) {
             LOGW("[ScenarioCatcher] SubmitQuestPtrSet failed for order: label_index=%d page_no=%d cmd_index=%d sub_index=%d",
                 order.label_index, order.page_no, order.cmd_index, order.sub_index);
             return TextStatus::empty;
@@ -1785,7 +1788,7 @@ private:
 
         *out = CatchTextLabel(
             raw_text,
-            true,
+            g_runtime_config.enable_ruby_translation,
             order,
             result.protect,
             protect_index);

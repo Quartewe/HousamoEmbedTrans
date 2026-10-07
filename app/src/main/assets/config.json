@@ -3,6 +3,7 @@
     "UserSettings": {
         "EnablePageRecDebug": false,
         "EnablePageRecTasks": false,
+        "EnableRubyTranslation": false,
         "EnableParseOnlyDebug": false,
         "EnableFailedApiResponseDump": false,
         "EnableApiBodyLogging": false,

@@ -133,6 +133,8 @@ HET Scene 写入同时受管理状态、冲突和删除意图约束。`SceneDele
 
 新翻译任务自动同步由 `UserSettings.SceneSync.AutoSyncOnNewTranslation` 控制。关闭它只影响后续新任务触发，不关闭连接同步、手动同步或已保留结果的本地保存恢复。同步完成可以唤醒本地保存，不应再创建一次模型请求。
 
+“翻译与修复”中的“翻译正文上方的小字”控制后续捕获时的保护方式，默认关闭，修改后需重启游戏。开启时 Ruby 标签原样进入请求，关闭时按完整标签建立保护占位符；普通捕获与 PageRec 均适用。它不在任务执行时重写旧请求，也不迁移已有 Scene，详见游戏层开发文档的捕获说明。
+
 任务接纳仍可登记自动同步请求，并由协调器合并忙碌期间的触发；实际游戏快照须等待本轮捕获批次及 Scene 队列完成 request 准备。等待由游戏侧既有导出门禁承担，不增加 AIDL 批次字段，不阻塞已接纳任务的模型执行。此阶段的 `FULL_SYNC` 表示同步操作已调度，不能仅凭该状态推断游戏侧已经关闭本轮生产或开始读取快照。
 
 Context/Group 决定历史关联与摘要路由，`active` 是未来路由指针，不是任务运行状态。角色词典更新入口在 [CharacterDictionaryUpdates.java](../app/src/main/java/com/quarty/housamoembedtrans/storage/config/CharacterDictionaryUpdates.java)；修改配置、词典合并或管理动作时应沿其存储入口操作，避免只改界面或 bundled assets。

@@ -156,6 +156,7 @@ bool make_runtime_config(
     const std::string& target_lang,
     bool enable_page_rec_debug,
     bool enable_page_rec_tasks,
+    bool enable_ruby_translation,
     bool parse_only_debug,
     bool overwrite_existing,
     const std::string& base_dir,
@@ -193,6 +194,7 @@ bool make_runtime_config(
     out->target_lang = target_lang;
     out->enable_page_rec_debug = enable_page_rec_debug;
     out->enable_page_rec_tasks = enable_page_rec_tasks;
+    out->enable_ruby_translation = enable_ruby_translation;
     out->parse_only_debug = parse_only_debug;
     out->overwrite_existing = overwrite_existing;
     out->base_dir = base_dir;

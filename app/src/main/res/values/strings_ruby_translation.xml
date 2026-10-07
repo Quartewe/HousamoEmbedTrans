@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_field_enable_ruby_translation">Translate small text above words</string>
+    <string name="settings_field_hint_enable_ruby_translation">Some words have small text above them to show pronunciation or add meaning. Enable this to translate that text too, or leave it off to keep the original. Main text is still translated, and other text formatting stays unchanged. This also applies to stories captured with PageRec. Restart the game after changing this setting. Only newly captured stories are affected; existing stories and tasks stay unchanged.</string>
+</resources>

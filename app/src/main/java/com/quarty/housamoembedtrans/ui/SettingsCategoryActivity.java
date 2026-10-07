@@ -1561,6 +1561,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
         }
         if (SettingsCategory.TRANSLATION_REPAIR.equals(categoryId)) {
             return Arrays.asList(
+                bool("enable-ruby-translation", R.string.settings_field_enable_ruby_translation, R.string.settings_field_hint_enable_ruby_translation, new String[] {"EnableRubyTranslation"}),
                 slider("result-repair-count", R.string.settings_field_result_repair_count, R.string.settings_field_hint_result_repair_count, new String[] {"TranslationApi", "ResultRepairCount"}, 0, 5, 1, true),
                 select("pending-summary-mode", R.string.settings_field_pending_summary_mode, R.string.settings_field_hint_pending_summary_mode,
                     new String[] {"wait", "skip", "original"}, new int[] {R.string.settings_option_summary_wait, R.string.settings_option_summary_skip, R.string.settings_option_summary_original}, new String[] {"TranslationApi", "PendingSummaryMode"}),

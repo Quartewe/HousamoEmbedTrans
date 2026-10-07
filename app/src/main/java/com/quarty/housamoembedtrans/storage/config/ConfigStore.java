@@ -961,10 +961,21 @@ public final class ConfigStore {
         }
     }
 
+    public static boolean isRubyTranslationEnabled(JSONObject userSettings) throws Exception {
+        if (userSettings.has("EnableRubyTranslation")
+            && !(userSettings.get("EnableRubyTranslation") instanceof Boolean)) {
+            throw new IllegalArgumentException(
+                "UserSettings.EnableRubyTranslation must be a boolean"
+            );
+        }
+        return userSettings.optBoolean("EnableRubyTranslation", false);
+    }
+
     private static void validateConfig(JSONObject config) throws Exception {
         requireNonEmptyString(config, "Version", "config");
 
         JSONObject userSettings = config.getJSONObject("UserSettings");
+        isRubyTranslationEnabled(userSettings);
         userSettings.getBoolean("EnablePageRecDebug");
         if (userSettings.has("EnablePageRecTasks")
             && !(userSettings.get("EnablePageRecTasks") instanceof Boolean)) {
@@ -1165,6 +1176,9 @@ public final class ConfigStore {
         );
         if (!userSettings.has("DebugOmitThinkingParameters")) {
             userSettings.put("DebugOmitThinkingParameters", true);
+        }
+        if (!userSettings.has("EnableRubyTranslation")) {
+            userSettings.put("EnableRubyTranslation", false);
         }
         if (translationApi != null) {
             if (!translationApi.has("PendingSummaryMode")) {

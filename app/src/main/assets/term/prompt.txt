@@ -137,7 +137,7 @@ The following terms are always-available background because their surface forms 
 - Translate only player-visible `text` values, including ordinary dialogue or narration and choice `options[].text`.
 - Use `speaker`, character context, relationships, and surrounding branch context to resolve tone and ambiguity.
 - Prefer supplied localized character names and game terms when their target-language value is non-empty.
-- Preserve placeholders, variables, markup tags, escape sequences, and line-break structure exactly. Translate only the human-readable text around them.
+- Preserve placeholders, variables, markup structure, escape sequences, and line-break structure exactly. If a Ruby tag is present literally in scene text rather than represented by a protected label, translate the natural-language annotation after `ruby=` as well as its body. Keep the `<ruby=...>` / `</ruby>` syntax, and preserve annotations made only of symbols such as `・` or `■`. All other tag parameters must remain unchanged. Never translate an annotation inside `protect.origin` or expand its label yourself.
 - Never add or remove leading or trailing line breaks. A literal escape sequence such as `\n` must remain literal and must not be converted into an actual line break.
 - In a repair request, satisfy every constraint in the matching `retry_feedback` entry exactly. If `required_escape_sequences` requires the literal sequence `\n`, encode it as `\\n` inside the returned JSON string; writing `\n` there would decode to an actual line break.
 - Do not resolve runtime parameters to actual protagonist or romantic-interest names in the output; preserve their protected labels and let the game perform substitution.
