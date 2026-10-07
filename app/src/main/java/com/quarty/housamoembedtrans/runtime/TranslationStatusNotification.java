@@ -1323,6 +1323,9 @@ public final class TranslationStatusNotification {
         ));
         channel.setShowBadge(false);
         manager.createNotificationChannel(channel);
+        // Retire the pre-heads-up channel; its identical name otherwise leaves
+        // two error categories in system settings after an app upgrade.
+        manager.deleteNotificationChannel("job_errors");
     }
 
     private static void createChannel(
