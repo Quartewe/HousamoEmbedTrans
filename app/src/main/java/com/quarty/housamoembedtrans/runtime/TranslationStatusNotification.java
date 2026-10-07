@@ -28,6 +28,10 @@ import android.text.format.DateUtils;
 import com.quarty.housamoembedtrans.logging.Log;
 
 import org.json.JSONObject;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /** Owns the persistent translation status notification in the HET app process. */
 public final class TranslationStatusNotification {
@@ -49,6 +53,9 @@ public final class TranslationStatusNotification {
     // Accessed only on the notification (main) thread. Avoid re-posting a
     // dismissed alert on every API/progress snapshot.
     private static int notifiedSceneConflictCount;
+    // Main-thread-only alert deduplication, independent of the quiet foreground notification.
+    private static final Map<String, AttentionNotice> notifiedAttention = new HashMap<>();
+    private static final String ATTENTION_TAG_PREFIX = "het-attention:";
     private static final int SUMMARY_ERROR_NOTIFICATION_BASE = 0x534D;
     private static final int REJECTED_API_RESULT_NOTIFICATION_BASE = 0x524A;
     private static final int SCENE_REJECTION_NOTIFICATION_BASE = 0x534E;
@@ -284,21 +291,14 @@ public final class TranslationStatusNotification {
         String message
     ) {
         Context appContext = context.getApplicationContext();
-        String title = ownerId == null || ownerId.trim().isEmpty()
-            ? appContext.getString(R.string.notification_summary_failed_title)
-            : ownerId;
-        String text = message == null || message.trim().isEmpty()
-            ? appContext.getString(R.string.notification_summary_failed_generic)
-            : message;
+        String title = summaryFailureTitle(appContext, ownerType);
+        String text = failureText(appContext, message, R.string.notification_summary_failed_generic);
         postJobErrorNotification(
             appContext,
             requestId,
             title,
             text,
-            appContext.getString(
-                R.string.notification_summary_failed_subtitle,
-                ownerType == null ? "" : ownerType
-            ),
+            ownerId,
             SUMMARY_ERROR_NOTIFICATION_BASE,
             "summary"
         );
@@ -312,20 +312,14 @@ public final class TranslationStatusNotification {
         String message
     ) {
         Context appContext = context.getApplicationContext();
-        String title = scene == null || scene.trim().isEmpty()
-            ? appContext.getString(R.string.notification_translation_failed_title)
-            : scene;
-        String text = message == null || message.trim().isEmpty()
-            ? appContext.getString(R.string.notification_translation_failed_generic)
-            : message;
+        String title = appContext.getString(R.string.notification_translation_failed_title);
+        String text = failureText(appContext, message, R.string.notification_translation_failed_generic);
         postJobErrorNotification(
             appContext,
             requestId,
             title,
             text,
-            appContext.getString(
-                R.string.notification_translation_failed_subtitle
-            ),
+            scene,
             SUMMARY_ERROR_NOTIFICATION_BASE + 1000,
             "translation"
         );
@@ -365,18 +359,7 @@ public final class TranslationStatusNotification {
                 }
                 String text = app.getString(R.string.notification_api_retry_text,
                     phase, reason, retry, limit);
-                Notification notification = new Notification.Builder(app, JOB_ERROR_CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_notification)
-                    .setContentTitle(app.getString(R.string.notification_api_retry_title, scene))
-                    .setContentText(text)
-                    .setStyle(new Notification.BigTextStyle().bigText(text))
-                    .setContentIntent(queuePendingIntent(app, requestId, "translation"))
-                    .setAutoCancel(true)
-                    .setOnlyAlertOnce(true)
-                    .setTimeoutAfter(60_000L)
-                    .setCategory(Notification.CATEGORY_ERROR)
-                    .setVisibility(Notification.VISIBILITY_PRIVATE)
-                    .build();
+                Notification notification = buildRetryNotification(app, scene, text, queuePendingIntent(app, requestId, "translation"));
                 manager.notify("api-retry:" + requestId + ":" + phase, 1, notification);
             } catch (RuntimeException e) {
                 Log.w(TAG, "Could not post API retry notification", e);
@@ -409,25 +392,7 @@ public final class TranslationStatusNotification {
             return;
         }
 
-        Notification notification = new Notification.Builder(
-            context,
-            JOB_ERROR_CHANNEL_ID
-        )
-            .setSmallIcon(R.drawable.ic_notification)
-            .setColor(context.getColor(R.color.het_primary))
-            .setContentTitle(title)
-            .setContentText(text)
-            .setSubText(subText)
-            .setContentIntent(queuePendingIntent(
-                context,
-                requestId,
-                failureType
-            ))
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(Notification.CATEGORY_ERROR)
-            .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .build();
+        Notification notification = buildJobErrorNotification(context, title, text, subText, queuePendingIntent(context, requestId, failureType));
 
         int notificationId = notificationIdBase
             + (requestId == null
@@ -471,35 +436,8 @@ public final class TranslationStatusNotification {
 
         String jobKind = record.optString("job_kind", "API");
         String requestId = record.optString("request_id", "");
-        String reason = record.optString("reason", "unknown");
-        String text = appContext.getString(
-            R.string.notification_rejected_api_result_text,
-            jobKind,
-            requestId,
-            reason
-        );
-        Notification notification = new Notification.Builder(
-            appContext,
-            JOB_ERROR_CHANNEL_ID
-        )
-            .setSmallIcon(R.drawable.ic_notification)
-            .setColor(appContext.getColor(R.color.het_primary))
-            .setContentTitle(appContext.getString(
-                R.string.notification_rejected_api_result_title
-            ))
-            .setContentText(text)
-            .setSubText(appContext.getString(
-                R.string.notification_rejected_api_result_subtitle
-            ))
-            .setContentIntent(rejectedApiResultsPendingIntent(
-                appContext,
-                record.optString("record_id", requestId)
-            ))
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(Notification.CATEGORY_ERROR)
-            .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .build();
+        String text = rejectedResultText(appContext, jobKind);
+        Notification notification = buildRejectedResultNotification(appContext, text, rejectedApiResultsPendingIntent(appContext, record.optString("record_id", requestId)));
         try {
             manager.notify(
                 stableNotificationId(
@@ -554,22 +492,7 @@ public final class TranslationStatusNotification {
             textResource = R.string.notification_scene_rejected_not_synced;
             contentIntent = sceneFilesPendingIntent(appContext);
         }
-        Notification notification = new Notification.Builder(
-            appContext,
-            JOB_ERROR_CHANNEL_ID
-        )
-            .setSmallIcon(R.drawable.ic_notification)
-            .setColor(appContext.getColor(R.color.het_primary))
-            .setContentTitle(appContext.getString(
-                R.string.notification_scene_rejected_title
-            ))
-            .setContentText(appContext.getString(textResource, sceneName))
-            .setContentIntent(contentIntent)
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(Notification.CATEGORY_ERROR)
-            .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .build();
+        Notification notification = buildSceneRejectionNotification(appContext, sceneName, textResource, contentIntent);
         try {
             manager.notify(
                 stableNotificationId(
@@ -581,6 +504,160 @@ public final class TranslationStatusNotification {
         } catch (SecurityException e) {
             Log.w(TAG, "Could not post Scene production rejection notification", e);
         }
+    }
+
+    static String summaryFailureTitle(Context context, String ownerType) {
+        return context.getString("context".equals(ownerType)
+            ? R.string.notification_context_summary_failed_title
+            : "group".equals(ownerType) ? R.string.notification_group_summary_failed_title
+            : R.string.notification_summary_failed_title);
+    }
+
+    static String rejectedResultText(Context context, String jobKind) {
+        return context.getString("translation".equals(jobKind)
+            ? R.string.notification_rejected_translation_text
+            : "summary".equals(jobKind) ? R.string.notification_rejected_summary_text
+            : R.string.notification_rejected_api_result_text);
+    }
+
+    // Presentation only: retain the original error in the job store and logs.
+    // Some callers pass error.message, others pass the serialized error envelope.
+    static String failureText(Context context, String message, int fallbackResource) {
+        String detail = message == null ? "" : message.trim();
+        String type = "";
+        int status = 0;
+        try {
+            if (detail.startsWith("{")) {
+                JSONObject error = new JSONObject(detail);
+                if (error.optJSONObject("error") != null) error = error.optJSONObject("error");
+                type = error.optString("type", "");
+                status = error.optInt("status", 0);
+                detail = error.optString("message", "");
+            }
+        } catch (org.json.JSONException ignored) {
+            // Malformed diagnostic text must not prevent notification delivery.
+        }
+        String lower = detail.toLowerCase(java.util.Locale.ROOT);
+        java.util.regex.Matcher http = java.util.regex.Pattern
+            .compile("(?i)\\bHTTP\\s+(\\d{3})\\b").matcher(detail);
+        if (status < 400 && http.find()) status = Integer.parseInt(http.group(1));
+        if (status == 400 && lower.contains("max_tokens")
+            && (lower.contains("range") || lower.contains("must be") || lower.contains("maximum"))) {
+            return context.getString(R.string.notification_error_output_budget);
+        }
+        if (status >= 400) {
+            int resource = status == 401 || status == 403 ? R.string.notification_error_auth
+                : status == 429 ? R.string.notification_error_rate
+                : status >= 500 ? R.string.notification_error_service
+                : R.string.notification_error_http;
+            return context.getString(resource, status);
+        }
+        if (lower.contains("timed out") || lower.contains("timeout")) {
+            return context.getString(R.string.notification_error_timeout);
+        }
+        if (lower.contains("result remained invalid") || lower.contains("translation validation failed")
+            || lower.contains("invalid response")
+            || "validation".equals(type)) {
+            return context.getString(R.string.notification_error_response);
+        }
+        if (lower.contains("network retries") || lower.contains("unable to resolve host")
+            || lower.contains("failed to connect") || lower.contains("connection reset")) {
+            return context.getString(R.string.notification_error_network);
+        }
+        return context.getString(fallbackResource);
+    }
+
+    static Notification buildRetryNotification(Context app, String scene, String text, PendingIntent intent) {
+        return new Notification.Builder(app, JOB_ERROR_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(app.getString(R.string.notification_api_retry_title))
+            .setSubText(scene)
+            .setContentText(text)
+            .setStyle(new Notification.BigTextStyle().bigText(text))
+            .setContentIntent(intent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setTimeoutAfter(60_000L)
+            .setCategory(Notification.CATEGORY_ERROR)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build();
+    }
+
+    static Notification buildJobErrorNotification(Context context, String title, String text, String subText, PendingIntent intent) {
+        return new Notification.Builder(
+            context,
+            JOB_ERROR_CHANNEL_ID
+        )
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(context.getColor(R.color.het_primary))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(new Notification.BigTextStyle().bigText(text))
+            .setSubText(subText)
+            .setContentIntent(intent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_ERROR)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build();
+    }
+
+    static Notification buildRejectedResultNotification(Context appContext, String text, PendingIntent intent) {
+        return new Notification.Builder(
+            appContext,
+            JOB_ERROR_CHANNEL_ID
+        )
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(appContext.getColor(R.color.het_primary))
+            .setContentTitle(appContext.getString(
+                R.string.notification_rejected_api_result_title
+            ))
+            .setContentText(text)
+            .setStyle(new Notification.BigTextStyle().bigText(text))
+            .setSubText(appContext.getString(
+                R.string.notification_rejected_api_result_subtitle
+            ))
+            .setContentIntent(intent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_ERROR)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build();
+    }
+
+    static Notification buildSceneRejectionNotification(Context appContext, String sceneName, int textResource, PendingIntent contentIntent) {
+        return new Notification.Builder(
+            appContext,
+            JOB_ERROR_CHANNEL_ID
+        )
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(appContext.getColor(R.color.het_primary))
+            .setContentTitle(appContext.getString(
+                R.string.notification_scene_rejected_title
+            ))
+            .setContentText(appContext.getString(textResource))
+            .setStyle(new Notification.BigTextStyle().bigText(appContext.getString(textResource)))
+            .setSubText(sceneName)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_ERROR)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build();
+    }
+
+    static Notification buildSceneConflictNotification(Context context, int count, boolean onlyAlertOnce, PendingIntent intent) {
+        return new Notification.Builder(context, JOB_ERROR_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(context.getColor(R.color.het_primary))
+            .setContentTitle(context.getString(R.string.notification_scene_conflicts_title))
+            .setContentText(context.getString(R.string.notification_scene_conflicts_text, count))
+            .setContentIntent(intent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(onlyAlertOnce)
+            .setCategory(Notification.CATEGORY_ERROR)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build();
     }
 
     private static int stableNotificationId(int base, String identity) {
@@ -658,11 +735,62 @@ public final class TranslationStatusNotification {
         show(context.getApplicationContext());
     }
 
+    /** Ephemeral rendering inputs for style checks; never installed as runtime state. */
+    static final class PreviewStatus {
+        String status = STATE_IDLE;
+        String scene;
+        String message;
+        long startedAt = System.currentTimeMillis() - 65_000L;
+        long finishedAt = System.currentTimeMillis();
+        boolean paused;
+        int heldQueuedJobCount;
+        int manualRerunCandidateCount;
+        int pendingMutationCount;
+        String pendingMutationDiagnostic = "";
+        boolean mutationFailed;
+        boolean repairingStartupJobs;
+        boolean manualStartupRepair;
+        SceneSyncRuntimeState.Snapshot sceneSync = new SceneSyncRuntimeState.Snapshot(
+            true, true, SceneSyncRuntimeState.Phase.IDLE, 0, 0,
+            SceneSyncRuntimeState.Action.NONE, SceneSyncRuntimeState.Outcome.NONE,
+            java.util.Collections.emptyList());
+    }
+
+    static void preparePreviewChannels(Context context, NotificationManager manager) {
+        createChannel(context, manager);
+        createJobErrorChannel(context, manager);
+    }
+
     private static Notification buildStatusNotification(Context context, boolean forceOngoing) {
-        SharedPreferences state = state(context);
-        String status = state.getString(KEY_STATE, STATE_IDLE);
-        if (STATE_ACTIVE.equals(status) || STATE_IDLE.equals(status)
-            || STATE_SUCCEEDED.equals(status) || STATE_FAILED.equals(status)) {
+        return buildStatusNotification(context, forceOngoing, null, null, null);
+    }
+
+    /** Uses the same attention decision as live status refreshes, without publishing live state. */
+    static Notification buildStatusPreviewNotification(Context context, PreviewStatus preview,
+        PendingIntent previewIntent) {
+        List<AttentionNotice> notices = new ArrayList<>();
+        Notification status = buildStatusNotification(context, false, preview, previewIntent, notices);
+        if (!notices.isEmpty()) return notices.get(0).notification;
+        if (STATE_FAILED.equals(preview.status)) {
+            // Live failures already have a separate translationFailedDetails notification.
+            return buildJobErrorNotification(context,
+                context.getString(R.string.notification_translation_failed_title),
+                context.getString(R.string.notification_translation_failed_generic),
+                preview.scene, previewIntent);
+        }
+        if (preview.sceneSync.pendingConflictCount > 0) {
+            return buildSceneConflictNotification(context, preview.sceneSync.pendingConflictCount,
+                false, previewIntent);
+        }
+        return status;
+    }
+
+    private static Notification buildStatusNotification(Context context, boolean forceOngoing,
+        PreviewStatus preview, PendingIntent previewIntent, List<AttentionNotice> notices) {
+        SharedPreferences state = preview == null ? state(context) : null;
+        String status = preview == null ? state.getString(KEY_STATE, STATE_IDLE) : preview.status;
+        if (preview == null && (STATE_ACTIVE.equals(status) || STATE_IDLE.equals(status)
+            || STATE_SUCCEEDED.equals(status) || STATE_FAILED.equals(status))) {
             TranslationTaskExecutor executor = TranslationService.getActiveTaskExecutor();
             TranslationTaskExecutor.ActiveTranslationSnapshot active = executor == null
                 ? null : executor.getActiveTranslationSnapshot(state.getString(KEY_REQUEST_ID, ""));
@@ -683,7 +811,7 @@ public final class TranslationStatusNotification {
                 status = STATE_IDLE;
             }
         }
-        if (STATE_BLOCKED.equals(status)) {
+        if (preview == null && STATE_BLOCKED.equals(status)) {
             String requestId = state.getString(KEY_BLOCKED_REQUEST_ID, "");
             TranslationTaskExecutor executor = TranslationService.getActiveTaskExecutor();
             if (requestId.isEmpty()
@@ -697,37 +825,39 @@ public final class TranslationStatusNotification {
                 status = STATE_IDLE;
             }
         }
-        String scene = state.getString(KEY_SCENE, "");
-        long startedAt = state.getLong(KEY_STARTED_AT, 0L);
-        long finishedAt = state.getLong(KEY_FINISHED_AT, System.currentTimeMillis());
-        boolean paused = RuntimeControlStore.isCapturePaused(context);
-        TranslationJobStore jobStore = statusJobStore;
-        SceneStore sceneStore = statusSceneStore;
+        String scene = preview == null ? state.getString(KEY_SCENE, "") : preview.scene;
+        long startedAt = preview == null ? state.getLong(KEY_STARTED_AT, 0L) : preview.startedAt;
+        long finishedAt = preview == null ? state.getLong(KEY_FINISHED_AT, System.currentTimeMillis()) : preview.finishedAt;
+        boolean paused = preview == null ? RuntimeControlStore.isCapturePaused(context) : preview.paused;
+        TranslationJobStore jobStore = preview == null ? statusJobStore : null;
+        SceneStore sceneStore = preview == null ? statusSceneStore : null;
         // The notification may be rebuilt on the service/main thread.  Read
         // only the store's O(1) in-memory snapshot; durable candidate scans
         // belong to startup repair or the queue activity's I/O executor.
         // Before the background startup coordinator builds the store, keep the
         // foreground notification lightweight and avoid constructing it here.
-        int heldQueuedJobCount = jobStore == null
+        int heldQueuedJobCount = preview != null ? preview.heldQueuedJobCount : jobStore == null
             ? 0
             : jobStore.getHeldQueuedJobCount();
-        int manualRerunCandidateCount = jobStore == null
+        int manualRerunCandidateCount = preview != null ? preview.manualRerunCandidateCount : jobStore == null
             ? 0
             : jobStore.getManualRerunCandidateCount();
-        int pendingMutationCount = sceneStore == null
+        int pendingMutationCount = preview != null ? preview.pendingMutationCount : sceneStore == null
             ? 0
             : sceneStore.getDeferredMutationCountSnapshot();
-        String pendingMutationDiagnostic = sceneStore == null
+        String pendingMutationDiagnostic = preview != null ? preview.pendingMutationDiagnostic : sceneStore == null
             ? ""
             : sceneStore.getDeferredMutationDiagnosticSnapshot();
         boolean hasPendingMutationNotice = pendingMutationCount > 0
             || !pendingMutationDiagnostic.trim().isEmpty();
-        boolean repairingStartupJobs = jobStore != null
+        boolean mutationFailed = preview != null ? preview.mutationFailed
+            : sceneStore != null && sceneStore.hasDeferredMutationFailureSnapshot();
+        boolean repairingStartupJobs = preview != null ? preview.repairingStartupJobs : jobStore != null
             && jobStore.isRepairingStartupJobs();
-        boolean manualStartupRepair = jobStore != null
+        boolean manualStartupRepair = preview != null ? preview.manualStartupRepair : jobStore != null
             && jobStore.isManualStartupRepairInProgress();
         SceneSyncRuntimeState.Snapshot sceneSync =
-            SceneSyncRuntimeState.getInstance().getSnapshot();
+            preview == null ? SceneSyncRuntimeState.getInstance().getSnapshot() : preview.sceneSync;
         boolean sceneSyncActive =
             sceneSync.phase != SceneSyncRuntimeState.Phase.IDLE;
         boolean manualApply =
@@ -735,29 +865,79 @@ public final class TranslationStatusNotification {
         boolean hasPendingConflicts = sceneSync.pendingConflictCount > 0;
         boolean sceneNeedsAttention = isSceneAttention(sceneSync);
 
+        if (notices != null) {
+            if (STATE_STARTUP_FAILED.equals(status)) {
+                String message = preview != null ? preview.message
+                    : state.getString(KEY_STARTUP_FAILED_MESSAGE, "");
+                if (message.isEmpty()) message = context.getString(R.string.notification_startup_failed);
+                notices.add(attention(context, "startup", startedAt + "|" + message, 0,
+                    context.getString(R.string.notification_startup_failed_title),
+                    context.getString(R.string.notification_startup_failed),
+                    previewIntent != null ? previewIntent : queuePendingIntent(context)));
+            }
+            if (STATE_BLOCKED.equals(status) || STATE_ADMISSION_BLOCKED.equals(status)) {
+                String message = preview != null ? preview.message
+                    : state.getString(KEY_BLOCKED_MESSAGE, "");
+                String requestId = preview != null ? "style-preview"
+                    : state.getString(KEY_BLOCKED_REQUEST_ID, "");
+                if (message.isEmpty()) message = context.getString(R.string.notification_translation_needs_user_action);
+                notices.add(attention(context, "blocked", status + "|" + requestId + "|" + scene + "|" + message, 0,
+                    context.getString(R.string.notification_attention_title),
+                    context.getString(R.string.notification_blocked_action),
+                    previewIntent != null ? previewIntent : queuePendingIntent(context, requestId)));
+            }
+            if (!repairingStartupJobs && (heldQueuedJobCount > 0 || manualRerunCandidateCount > 0)) {
+                String message = heldQueuedJobCount > 0 && manualRerunCandidateCount > 0
+                    ? context.getString(R.string.notification_recovery_waiting_with_failures,
+                        heldQueuedJobCount, manualRerunCandidateCount)
+                    : heldQueuedJobCount > 0
+                        ? context.getString(R.string.notification_queued_jobs_waiting, heldQueuedJobCount)
+                        : context.getString(R.string.notification_failed_jobs_waiting, manualRerunCandidateCount);
+                notices.add(attention(context, "queue",
+                    (heldQueuedJobCount > 0 ? "held" : "") + (manualRerunCandidateCount > 0 ? "failed" : ""),
+                    heldQueuedJobCount + manualRerunCandidateCount,
+                    context.getString(R.string.notification_attention_title), message,
+                    previewIntent != null ? previewIntent : queuePendingIntent(context)));
+            }
+            if (!sceneSyncActive && !hasPendingConflicts && sceneNeedsAttention
+                && sceneSync.lastOutcome != SceneSyncRuntimeState.Outcome.QUEUED_BEHIND_GATE) {
+                String message = context.getString(sceneSync.lastOutcome == SceneSyncRuntimeState.Outcome.NEEDS_ATTENTION
+                    ? R.string.notification_scene_sync_attention : R.string.notification_scene_sync_failed);
+                notices.add(attention(context, "scene-sync", sceneSync.lastAction + "|" + sceneSync.lastOutcome, 0,
+                    context.getString(R.string.notification_scene_attention_title), message,
+                    previewIntent != null ? previewIntent : sceneFilesPendingIntent(context)));
+            }
+            if (mutationFailed) {
+                notices.add(attention(context, "scene-mutation", pendingMutationDiagnostic, 0,
+                    context.getString(R.string.notification_mutation_failure_title),
+                    context.getString(R.string.notification_scene_mutation_pool_failure),
+                    previewIntent != null ? previewIntent : sceneFilesPendingIntent(context)));
+            }
+        }
+
         PendingIntent scenePageIntent = null;
         String sceneActionTitle = null;
         if (hasPendingConflicts
             && (!sceneSyncActive || manualApply)) {
-            scenePageIntent = sceneConflictsPendingIntent(context);
+            scenePageIntent = (previewIntent != null ? previewIntent : sceneConflictsPendingIntent(context));
             sceneActionTitle = context.getString(
                 R.string.notification_action_scene_conflicts,
                 sceneSync.pendingConflictCount
             );
         } else if (manualApply) {
-            scenePageIntent = sceneConflictsPendingIntent(context);
+            scenePageIntent = (previewIntent != null ? previewIntent : sceneConflictsPendingIntent(context));
             sceneActionTitle = context.getString(
                 R.string.notification_action_view_scene_conflicts
             );
         } else if (sceneSyncActive || sceneNeedsAttention) {
-            scenePageIntent = sceneFilesPendingIntent(context);
+            scenePageIntent = (previewIntent != null ? previewIntent : sceneFilesPendingIntent(context));
             sceneActionTitle = context.getString(
                 R.string.notification_action_view_scene_sync
             );
         }
 
         if (hasPendingMutationNotice && scenePageIntent == null) {
-            scenePageIntent = sceneFilesPendingIntent(context);
+            scenePageIntent = (previewIntent != null ? previewIntent : sceneFilesPendingIntent(context));
             sceneActionTitle = context.getString(
                 R.string.notification_action_view_scene_mutation_pool
             );
@@ -767,14 +947,14 @@ public final class TranslationStatusNotification {
         if (STATE_STARTUP_FAILED.equals(status)
             || STATE_BLOCKED.equals(status)
             || STATE_ADMISSION_BLOCKED.equals(status)) {
-            contentIntent = queuePendingIntent(context);
+            contentIntent = (previewIntent != null ? previewIntent : queuePendingIntent(context));
         } else if (manualApply
             || (hasPendingConflicts && !sceneSyncActive)) {
-            contentIntent = sceneConflictsPendingIntent(context);
+            contentIntent = (previewIntent != null ? previewIntent : sceneConflictsPendingIntent(context));
         } else if (sceneSyncActive || sceneNeedsAttention) {
-            contentIntent = sceneFilesPendingIntent(context);
+            contentIntent = (previewIntent != null ? previewIntent : sceneFilesPendingIntent(context));
         } else {
-            contentIntent = settingsPendingIntent(context);
+            contentIntent = (previewIntent != null ? previewIntent : settingsPendingIntent(context));
         }
 
         Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID)
@@ -800,7 +980,7 @@ public final class TranslationStatusNotification {
                         ? R.string.notification_action_resume_capture
                         : R.string.notification_action_pause_capture
                 ),
-                capturePendingIntent(context)
+                (previewIntent != null ? previewIntent : capturePendingIntent(context))
             );
 
         String actionableTaskTitle;
@@ -841,12 +1021,12 @@ public final class TranslationStatusNotification {
         builder.addAction(
             R.drawable.ic_notification,
             actionableTaskTitle,
-            queuePendingIntent(context)
+            (previewIntent != null ? previewIntent : queuePendingIntent(context))
         );
         builder.addAction(
             R.drawable.ic_notification,
             context.getString(R.string.notification_action_view_waiting_results),
-            rejectedApiResultsPendingIntent(context)
+            (previewIntent != null ? previewIntent : rejectedApiResultsPendingIntent(context))
         );
 
         if (STATE_ACTIVE.equals(status) && startedAt > 0L) {
@@ -867,24 +1047,12 @@ public final class TranslationStatusNotification {
                 .setOngoing(false);
 
             if (STATE_STARTUP_FAILED.equals(status)) {
-                String startupFailedMessage = state.getString(
-                    KEY_STARTUP_FAILED_MESSAGE,
-                    context.getString(R.string.notification_startup_failed)
-                );
-                builder.setContentText(
-                    startupFailedMessage.isEmpty()
-                        ? context.getString(R.string.notification_startup_failed)
-                        : startupFailedMessage
-                );
+                builder.setContentText(context.getString(R.string.notification_startup_failed));
                 builder.setSubText(context.getString(
                     R.string.notification_startup_failed_subtitle
                 ));
             } else if (STATE_BLOCKED.equals(status) || STATE_ADMISSION_BLOCKED.equals(status)) {
-                String blockedMessage = state.getString(
-                    KEY_BLOCKED_MESSAGE,
-                    context.getString(R.string.notification_waiting)
-                );
-                builder.setContentText(blockedMessage);
+                builder.setContentText(context.getString(R.string.notification_blocked_action));
                 builder.setSubText(context.getString(
                     R.string.notification_translation_needs_user_action
                 ));
@@ -931,8 +1099,8 @@ public final class TranslationStatusNotification {
                 builder.setContentText(context.getString(
                     sceneSync.lastOutcome
                             == SceneSyncRuntimeState.Outcome.NEEDS_ATTENTION
-                        ? R.string.scene_files_refresh_needs_attention
-                        : R.string.scene_files_refresh_failed
+                        ? R.string.notification_scene_sync_attention
+                        : R.string.notification_scene_sync_failed
                 ));
             } else if (STATE_SUCCEEDED.equals(status)) {
                 builder.setContentText(context.getString(
@@ -966,13 +1134,9 @@ public final class TranslationStatusNotification {
         }
 
         if (hasPendingMutationNotice) {
-            builder.setSubText(context.getString(
-                pendingMutationCount > 0
-                    ? R.string.notification_scene_mutation_pool_pending
-                    : R.string.notification_scene_mutation_pool_failure,
-                pendingMutationCount,
-                pendingMutationDiagnostic
-            ));
+            builder.setSubText(mutationFailed
+                ? context.getString(R.string.notification_scene_mutation_pool_failure)
+                : context.getString(R.string.notification_scene_mutation_pool_pending, pendingMutationCount));
         }
 
         return builder.build();
@@ -1042,16 +1206,77 @@ public final class TranslationStatusNotification {
         }
 
         refreshSceneConflictNotification(context, manager);
+        List<AttentionNotice> notices = new ArrayList<>();
+        Notification notification = buildStatusNotification(context, false, null, null, notices);
+        refreshAttentionNotifications(context, manager, notices);
         if (SceneSyncUiVisibility.isSceneSyncUiVisible()) {
             return;
         }
-
-        Notification notification = buildStatusNotification(context, false);
 
         try {
             manager.notify(NOTIFICATION_ID, notification);
         } catch (SecurityException e) {
             Log.w(TAG, "Could not post translation notification", e);
+        }
+    }
+
+    private static final class AttentionNotice {
+        final String category;
+        final String identity;
+        final int count;
+        final String text;
+        final Notification notification;
+
+        AttentionNotice(String category, String identity, int count, String text, Notification notification) {
+            this.category = category;
+            this.identity = identity;
+            this.count = count;
+            this.text = text;
+            this.notification = notification;
+        }
+    }
+
+    private static AttentionNotice attention(Context context, String category, String identity,
+        int count, String title, String text, PendingIntent intent) {
+        Notification notification = Notification.Builder.recoverBuilder(context,
+            buildJobErrorNotification(context, title, text,
+                context.getString(R.string.notification_attention_subtitle), intent))
+            .setStyle(new Notification.BigTextStyle().bigText(text))
+            .setOnlyAlertOnce(false)
+            .build();
+        return new AttentionNotice(category, identity, count, text, notification);
+    }
+
+    private static void refreshAttentionNotifications(Context context, NotificationManager manager,
+        List<AttentionNotice> notices) {
+        createJobErrorChannel(context, manager);
+        NotificationChannel channel = manager.getNotificationChannel(JOB_ERROR_CHANNEL_ID);
+        if (!manager.areNotificationsEnabled()
+            || (channel != null && channel.getImportance() == NotificationManager.IMPORTANCE_NONE)) return;
+
+        Map<String, AttentionNotice> current = new HashMap<>();
+        for (AttentionNotice notice : notices) current.put(notice.category, notice);
+        for (String category : new ArrayList<>(notifiedAttention.keySet())) {
+            if (!current.containsKey(category)) {
+                manager.cancel(ATTENTION_TAG_PREFIX + category, 1);
+                notifiedAttention.remove(category);
+            }
+        }
+        for (AttentionNotice notice : notices) {
+            AttentionNotice previous = notifiedAttention.get(notice.category);
+            boolean newProblem = previous == null || !previous.identity.equals(notice.identity)
+                || notice.count > previous.count;
+            // A dismissed alert stays dismissed until the problem changes or first resolves.
+            if (!newProblem && previous.text.equals(notice.text)) continue;
+            Notification notification = Notification.Builder.recoverBuilder(context, notice.notification)
+                .setOnlyAlertOnce(!newProblem)
+                .build();
+            try {
+                manager.notify(ATTENTION_TAG_PREFIX + notice.category, 1, notification);
+                notifiedAttention.put(notice.category, notice);
+            } catch (RuntimeException error) {
+                Log.w(TAG, "Could not post attention notification category=" + notice.category, error);
+            }
         }
     }
 
@@ -1075,17 +1300,7 @@ public final class TranslationStatusNotification {
             return;
         }
         createJobErrorChannel(context, manager);
-        Notification notification = new Notification.Builder(context, JOB_ERROR_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setColor(context.getColor(R.color.het_primary))
-            .setContentTitle(context.getString(R.string.notification_scene_conflicts_title))
-            .setContentText(context.getString(R.string.notification_scene_conflicts_text, count))
-            .setContentIntent(sceneConflictsPendingIntent(context))
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(count <= notifiedSceneConflictCount)
-            .setCategory(Notification.CATEGORY_ERROR)
-            .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .build();
+        Notification notification = buildSceneConflictNotification(context, count, count <= notifiedSceneConflictCount, sceneConflictsPendingIntent(context));
         try {
             manager.notify(SCENE_CONFLICT_NOTIFICATION_ID, notification);
             notifiedSceneConflictCount = count;

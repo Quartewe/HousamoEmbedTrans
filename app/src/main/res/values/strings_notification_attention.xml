@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_attention_title">Tasks need attention</string>
+    <string name="notification_attention_subtitle">Action required</string>
+    <string name="notification_scene_attention_title">Scene sync needs attention</string>
+    <string name="notification_mutation_failure_title">Scene change replay failed</string>
+    <string name="notification_context_summary_failed_title">Context summary failed</string>
+    <string name="notification_group_summary_failed_title">Group summary failed</string>
+    <string name="notification_rejected_translation_text">Translation archived. Tap to review.</string>
+    <string name="notification_rejected_summary_text">Summary archived. Tap to review.</string>
+    <string name="notification_blocked_action">Task blocked. Open the queue to resolve it.</string>
+    <string name="notification_scene_sync_attention">Sync needs attention. Tap to review.</string>
+    <string name="notification_scene_sync_failed">Sync failed. Tap to review.</string>
+    <string name="notification_error_output_budget">HTTP 400: check the max_tokens limit.</string>
+    <string name="notification_error_auth">HTTP %1$d: check API key and permissions.</string>
+    <string name="notification_error_rate">HTTP %1$d: rate or quota limit. Check quota.</string>
+    <string name="notification_error_service">HTTP %1$d: service error. Try again later.</string>
+    <string name="notification_error_http">HTTP %1$d: request rejected. Check API settings.</string>
+    <string name="notification_error_timeout">Request timed out. Check the connection.</string>
+    <string name="notification_error_network">Connection failed. Check the network and API URL.</string>
+    <string name="notification_error_response">Invalid result. Check output format and API protocol.</string>
+</resources>

@@ -82,10 +82,12 @@ public final class SceneStore {
     private static final class MutationPoolSnapshot {
         private final int count;
         private final String diagnostic;
+        private final boolean failed;
 
-        private MutationPoolSnapshot(int count, String diagnostic) {
+        private MutationPoolSnapshot(int count, String diagnostic, boolean failed) {
             this.count = count;
             this.diagnostic = diagnostic == null ? "" : diagnostic;
+            this.failed = failed;
         }
     }
 
@@ -1071,6 +1073,7 @@ public final class SceneStore {
     private final Object mutationPoolLock = new Object();
     private volatile int deferredMutationCount;
     private volatile String deferredMutationDiagnostic = "";
+    private volatile boolean deferredMutationFailed;
     private boolean mutationPoolEnumerationFailed;
     private final JsonSchemaValidator schemaValidator;
     /** Null for explicit host/fixture seams; bound only by the Android default. */
@@ -1354,6 +1357,14 @@ public final class SceneStore {
         }
     }
 
+    /** A diagnostic may describe ordinary queued work; only a recorded error requires attention. */
+    public boolean hasDeferredMutationFailureSnapshot() {
+        synchronized (MUTATION_POOL_SNAPSHOT_LOCK) {
+            MutationPoolSnapshot snapshot = MUTATION_POOL_SNAPSHOTS.get(mutationPoolSnapshotKey);
+            return snapshot == null ? deferredMutationFailed : snapshot.failed;
+        }
+    }
+
     /** Explicit recovery seam for a head failure or a newly available disk. */
     public void retryDeferredMutations() {
         if (MUTATION_ADMISSION.requestDrain(this)) {
@@ -1458,6 +1469,7 @@ public final class SceneStore {
     private void refreshMutationPoolSnapshotLocked() {
         List<File> entries = mutationEntries();
         if (mutationPoolEnumerationFailed) {
+            deferredMutationFailed = true;
             deferredMutationDiagnostic =
                 "mutation pool enumeration unavailable";
             publishMutationPoolSnapshotLocked();
@@ -1466,15 +1478,18 @@ public final class SceneStore {
         deferredMutationCount = entries.size();
         if (entries.isEmpty()) {
             deferredMutationDiagnostic = "";
+            deferredMutationFailed = false;
             publishMutationPoolSnapshotLocked();
             return;
         }
         try {
             JSONObject state = readMutationState(entries.get(0));
+            deferredMutationFailed = !state.optString("last_error", "").trim().isEmpty();
             deferredMutationDiagnostic = state.optString("scene", "")
                 + " " + state.optString("operation", "")
                 + " " + state.optString("last_error", "");
         } catch (Exception e) {
+            deferredMutationFailed = true;
             deferredMutationDiagnostic =
                 "mutation pool head is damaged: " + safeError(e);
         }
@@ -1487,7 +1502,8 @@ public final class SceneStore {
                 mutationPoolSnapshotKey,
                 new MutationPoolSnapshot(
                     deferredMutationCount,
-                    deferredMutationDiagnostic
+                    deferredMutationDiagnostic,
+                    deferredMutationFailed
                 )
             );
         }
@@ -1999,6 +2015,7 @@ public final class SceneStore {
 
     private void persistMutationPoolDiagnostic(Exception failure) {
         synchronized (mutationPoolLock) {
+            deferredMutationFailed = true;
             String message = safeError(failure);
             try {
                 ensureMutationPoolDirectories();

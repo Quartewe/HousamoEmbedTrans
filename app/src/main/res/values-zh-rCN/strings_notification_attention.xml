@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_attention_title">任务待处理</string>
+    <string name="notification_attention_subtitle">需要处理</string>
+    <string name="notification_scene_attention_title">剧情同步待处理</string>
+    <string name="notification_mutation_failure_title">剧情修改回放失败</string>
+    <string name="notification_scene_mutation_pool_pending">%1$d 项剧情修改等待同步</string>
+    <string name="notification_scene_mutation_pool_failure">修改回放失败，请打开剧情同步查看</string>
+    <string name="notification_rejected_api_result_title">结果未应用</string>
+    <string name="notification_rejected_api_result_text">结果已归档，点开查看</string>
+    <string name="notification_rejected_api_result_subtitle">查看或删除</string>
+    <string name="notification_scene_rejected_title">剧情未处理</string>
+    <string name="notification_scene_rejected_sync_active">同步中未处理，请打开剧情同步重试</string>
+    <string name="notification_scene_rejected_conflict">尚未同步完成，请处理剧情冲突</string>
+    <string name="notification_scene_rejected_not_synced">尚未同步，请打开剧情同步查看</string>
+    <string name="notification_action_view_scene_mutation_pool">待应用修改</string>
+    <string name="notification_scene_queued_behind_gate">修改已排队，回放完成后才会解除冲突</string>
+    <string name="notification_context_summary_failed_title">上下文摘要失败</string>
+    <string name="notification_group_summary_failed_title">分组摘要失败</string>
+    <string name="notification_rejected_translation_text">译文已归档，点开查看</string>
+    <string name="notification_rejected_summary_text">摘要已归档，点开查看</string>
+    <string name="notification_blocked_action">任务受阻，请打开队列处理</string>
+    <string name="notification_scene_sync_attention">同步尚待处理，点开查看</string>
+    <string name="notification_scene_sync_failed">同步失败，点开查看</string>
+    <string name="notification_error_output_budget">HTTP 400：请检查 max_tokens 上限</string>
+    <string name="notification_error_auth">HTTP %1$d：请检查密钥及权限</string>
+    <string name="notification_error_rate">HTTP %1$d：限流或额度受限，请核对额度</string>
+    <string name="notification_error_service">HTTP %1$d：服务异常，请稍后重试</string>
+    <string name="notification_error_http">HTTP %1$d：请求被拒，请检查接口设置</string>
+    <string name="notification_error_timeout">请求超时，请检查连接</string>
+    <string name="notification_error_network">连接失败，请检查网络和接口地址</string>
+    <string name="notification_error_response">结果无效，请检查输出格式和接口协议</string>
+</resources>
