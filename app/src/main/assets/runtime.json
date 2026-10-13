@@ -1,17 +1,17 @@
 {
-    "GameVersion": "5.19.0",
+    "GameVersion": "5.20.0",
     "RuntimeConfigs": {
         "RVA": {
-            "RVA_FindScenarioData": "0x2191D7C",
-            "RVA_InitBase": "0x217E574",
-            "RVA_InitText": "0x2187428",
-            "RVA_PageTextChange": "0x21CB71C",
-            "RVA_AddSelection": "0x21CE054",
-            "RVA_ShowSelection": "0x21CE47C",
-            "RVA_RemakeText": "0x21C85A4",
-            "RVA_UguiSelectionInit": "0x21E703C",
-            "RVA_UguiSelectionClearAll": "0x21E7484",
-            "RVA_UiTextSetText": "0x47D1B60"
+            "RVA_FindScenarioData": "0x2332E44",
+            "RVA_InitBase": "0x231F740",
+            "RVA_InitText": "0x23289FC",
+            "RVA_PageTextChange": "0x236CB3C",
+            "RVA_AddSelection": "0x236F474",
+            "RVA_ShowSelection": "0x236F89C",
+            "RVA_RemakeText": "0x23699C4",
+            "RVA_UguiSelectionInit": "0x238856C",
+            "RVA_UguiSelectionClearAll": "0x23889B4",
+            "RVA_UiTextSetText": "0x4BA5FA0"
         },
         "Layout": {
             "Il2CppString": {
