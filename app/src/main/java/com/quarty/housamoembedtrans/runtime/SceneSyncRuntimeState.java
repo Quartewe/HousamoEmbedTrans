@@ -103,6 +103,7 @@ public final class SceneSyncRuntimeState {
         public final Action lastAction;
         public final Outcome lastOutcome;
         public final List<SceneSummary> sceneSummaries;
+        public final String gameStartupFailure;
 
         public Snapshot(
             boolean serviceAvailable,
@@ -113,6 +114,21 @@ public final class SceneSyncRuntimeState {
             Action lastAction,
             Outcome lastOutcome,
             List<SceneSummary> sceneSummaries
+        ) {
+            this(serviceAvailable, gamePortAvailable, phase, activeApiJobs,
+                pendingConflictCount, lastAction, lastOutcome, sceneSummaries, "");
+        }
+
+        public Snapshot(
+            boolean serviceAvailable,
+            boolean gamePortAvailable,
+            Phase phase,
+            int activeApiJobs,
+            int pendingConflictCount,
+            Action lastAction,
+            Outcome lastOutcome,
+            List<SceneSummary> sceneSummaries,
+            String gameStartupFailure
         ) {
             if (phase == null || lastAction == null || lastOutcome == null) {
                 throw new IllegalArgumentException(
@@ -148,6 +164,7 @@ public final class SceneSyncRuntimeState {
             this.lastAction = lastAction;
             this.lastOutcome = lastOutcome;
             this.sceneSummaries = Collections.unmodifiableList(copied);
+            this.gameStartupFailure = gameStartupFailure;
         }
 
         private static Snapshot offline() {
@@ -172,7 +189,8 @@ public final class SceneSyncRuntimeState {
                 pendingConflictCount,
                 action,
                 outcome,
-                sceneSummaries
+                sceneSummaries,
+                gameStartupFailure
             );
         }
 

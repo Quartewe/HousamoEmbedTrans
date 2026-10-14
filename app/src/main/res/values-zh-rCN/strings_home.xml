@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="game_startup_failed_title">游戏启动失败</string>
     <string name="primary_nav_home">主页</string>
 
     <string name="home_state_loading">正在读取连接状态</string>

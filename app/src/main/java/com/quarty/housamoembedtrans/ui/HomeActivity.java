@@ -414,10 +414,15 @@ public final class HomeActivity extends AppCompatActivity {
         boolean connected = snapshot.serviceAvailable
             && snapshot.gamePortAvailable;
         boolean serviceReady = snapshot.serviceAvailable;
+        boolean startupFailed = !snapshot.gameStartupFailure.isEmpty();
         int background;
         int foreground;
         int icon;
-        if (syncing) {
+        if (startupFailed) {
+            background = R.color.het_error_container;
+            foreground = R.color.het_error;
+            icon = R.drawable.ic_home_waiting_game;
+        } else if (syncing) {
             background = R.color.het_primary_container;
             foreground = R.color.het_on_primary_container;
             icon = R.drawable.ic_home_syncing;
@@ -439,13 +444,15 @@ public final class HomeActivity extends AppCompatActivity {
         statusIcon.setImageResource(icon);
         statusCard.setCardBackgroundColor(cardColor);
         stateView.setText(
-            syncing
-                ? R.string.home_state_syncing
-                : connected
-                    ? R.string.home_state_connected
-                    : serviceReady
-                        ? R.string.home_state_waiting_game
-                        : R.string.home_state_waiting_service
+            startupFailed
+                ? R.string.game_startup_failed_title
+                : syncing
+                    ? R.string.home_state_syncing
+                    : connected
+                        ? R.string.home_state_connected
+                        : serviceReady
+                            ? R.string.home_state_waiting_game
+                            : R.string.home_state_waiting_service
         );
         connectionView.setText(
             syncing
@@ -456,6 +463,9 @@ public final class HomeActivity extends AppCompatActivity {
                         ? R.string.home_connection_waiting_game
                         : R.string.home_connection_waiting_service
         );
+        if (startupFailed) {
+            connectionView.setText(snapshot.gameStartupFailure);
+        }
         stateView.setTextColor(textColor);
         connectionView.setTextColor(textColor);
         statusIcon.setColorFilter(textColor, PorterDuff.Mode.SRC_IN);

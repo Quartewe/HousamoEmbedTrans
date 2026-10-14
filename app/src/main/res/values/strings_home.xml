@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="game_startup_failed_title">Game startup failed</string>
     <string name="primary_nav_home">Home</string>
 
     <string name="home_state_loading">Checking connection</string>

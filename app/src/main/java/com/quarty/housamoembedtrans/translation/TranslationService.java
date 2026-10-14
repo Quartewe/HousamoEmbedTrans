@@ -311,6 +311,9 @@ public final class TranslationService extends Service {
     private IGameObbPort gameObbPort;
     private final Object gameLogLock = new Object();
     private IGameLogPort gameLogPort;
+    // The log port outlives failed native startup and owns its diagnostic.
+    private IBinder.DeathRecipient gameLogDeathRecipient;
+    private String gameStartupFailure = "";
     private final Object contextStoreLock = new Object();
     private CallbackRecord currentCallback;
     private final ExecutorService callbackIoExecutor =
@@ -977,21 +980,24 @@ public final class TranslationService extends Service {
             }
 
             @Override
-            public void registerGameLogPort(IGameLogPort port) {
+            public void registerGameLogPort(IGameLogPort port) throws RemoteException {
                 enforceAllowedCaller();
                 synchronized (gameLogLock) {
+                    IBinder owner = port.asBinder();
+                    IBinder.DeathRecipient death = () -> clearGameLogPort(owner);
+                    owner.linkToDeath(death, 0);
+                    clearGameLogPortLocked();
                     gameLogPort = port;
+                    gameLogDeathRecipient = death;
                 }
+                republishRuntimeState();
             }
 
             @Override
             public void unregisterGameLogPort(IGameLogPort port) {
                 enforceAllowedCaller();
-                synchronized (gameLogLock) {
-                    if (gameLogPort != null && port != null
-                        && gameLogPort.asBinder().equals(port.asBinder())) {
-                        gameLogPort = null;
-                    }
+                if (port != null) {
+                    clearGameLogPort(port.asBinder());
                 }
             }
 
@@ -999,11 +1005,24 @@ public final class TranslationService extends Service {
             public IGameLogPort getGameLogPort() {
                 enforceSelfUidCaller();
                 synchronized (gameLogLock) {
-                    if (gameLogPort != null && !gameLogPort.asBinder().isBinderAlive()) {
-                        gameLogPort = null;
-                    }
                     return gameLogPort;
                 }
+            }
+
+            @Override
+            public void reportGameStartupFailure(IGameLogPort owner, String message) {
+                enforceAllowedCaller();
+                synchronized (gameLogLock) {
+                    if (gameLogPort == null
+                        || !gameLogPort.asBinder().equals(owner.asBinder())) {
+                        return;
+                    }
+                    gameStartupFailure = message;
+                }
+                if (!message.isEmpty()) {
+                    Log.e(TAG, message);
+                }
+                republishRuntimeState();
             }
 
             @Override
@@ -1608,7 +1627,7 @@ public final class TranslationService extends Service {
             gameObbPort = null;
         }
         synchronized (gameLogLock) {
-            gameLogPort = null;
+            clearGameLogPortLocked();
         }
         if (terminalDelivery != null) {
             terminalDelivery.close();
@@ -1619,7 +1638,9 @@ public final class TranslationService extends Service {
         sceneSyncOperationExecutor.shutdownNow();
         startupRepairExecutor.shutdownNow();
         startupCoordinatorExecutor.shutdownNow();
-        runtimeState.detach(runtimeStateController);
+        if (runtimeState.detach(runtimeStateController)) {
+            TranslationStatusNotification.refresh(this);
+        }
         Log.i(TAG, "Service destroyed");
         super.onDestroy();
     }
@@ -1824,6 +1845,25 @@ public final class TranslationService extends Service {
         );
     }
 
+    private void clearGameLogPort(IBinder owner) {
+        synchronized (gameLogLock) {
+            if (gameLogPort == null || !gameLogPort.asBinder().equals(owner)) {
+                return;
+            }
+            clearGameLogPortLocked();
+        }
+        republishRuntimeState();
+    }
+
+    private void clearGameLogPortLocked() {
+        if (gameLogPort != null && gameLogDeathRecipient != null) {
+            gameLogPort.asBinder().unlinkToDeath(gameLogDeathRecipient, 0);
+        }
+        gameLogPort = null;
+        gameLogDeathRecipient = null;
+        gameStartupFailure = "";
+    }
+
     private void publishRuntimeSnapshot(
         SceneSyncRuntimeState.Action action,
         SceneSyncRuntimeState.Outcome outcome,
@@ -1839,19 +1879,25 @@ public final class TranslationService extends Service {
         int activeApiJobs = coordinator == null
             ? 0
             : coordinator.getActiveApiJobs();
-        boolean published = runtimeState.publish(
-            runtimeStateController,
-            new SceneSyncRuntimeState.Snapshot(
-                true,
-                gamePortAvailable,
-                mapRuntimePhase(coordinatorState),
-                activeApiJobs,
-                pendingConflictCount,
-                action,
-                outcome,
-                summaries
-            )
-        );
+        boolean published;
+        // Serialize the diagnostic read and publication with owner changes,
+        // so unrelated sync updates cannot restore an exited game's error.
+        synchronized (gameLogLock) {
+            published = runtimeState.publish(
+                runtimeStateController,
+                new SceneSyncRuntimeState.Snapshot(
+                    true,
+                    gamePortAvailable,
+                    mapRuntimePhase(coordinatorState),
+                    activeApiJobs,
+                    pendingConflictCount,
+                    action,
+                    outcome,
+                    summaries,
+                    gameStartupFailure
+                )
+            );
+        }
         if (published) {
             TranslationStatusNotification.refresh(this);
         }

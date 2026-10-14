@@ -2,6 +2,7 @@ package com.quarty.housamoembedtrans.runtime;
 import com.quarty.housamoembedtrans.translation.TranslationService;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.ui.HomeActivity;
 import com.quarty.housamoembedtrans.ui.SceneConflictsActivity;
 import com.quarty.housamoembedtrans.ui.SceneContextActivity;
 import com.quarty.housamoembedtrans.ui.SceneFilesActivity;
@@ -66,6 +67,7 @@ public final class TranslationStatusNotification {
     private static final int SCENE_CONFLICTS_REQUEST_CODE = 5;
     private static final int SCENE_CONTEXT_REVIEW_REQUEST_CODE = 6;
     private static final int REJECTED_API_RESULTS_REQUEST_CODE = 7;
+    private static final int HOME_REQUEST_CODE = 8;
     private static final String NOTIFICATION_INTENT_SCHEME =
         "housamoembedtrans";
 
@@ -864,8 +866,15 @@ public final class TranslationStatusNotification {
             sceneSync.phase == SceneSyncRuntimeState.Phase.MANUAL_APPLY;
         boolean hasPendingConflicts = sceneSync.pendingConflictCount > 0;
         boolean sceneNeedsAttention = isSceneAttention(sceneSync);
+        String gameStartupFailure = sceneSync.gameStartupFailure;
 
         if (notices != null) {
+            if (!gameStartupFailure.isEmpty()) {
+                notices.add(attention(context, "game-startup", gameStartupFailure, 0,
+                    context.getString(R.string.game_startup_failed_title),
+                    gameStartupFailure,
+                    previewIntent != null ? previewIntent : homePendingIntent(context)));
+            }
             if (STATE_STARTUP_FAILED.equals(status)) {
                 String message = preview != null ? preview.message
                     : state.getString(KEY_STARTUP_FAILED_MESSAGE, "");
@@ -941,6 +950,21 @@ public final class TranslationStatusNotification {
             sceneActionTitle = context.getString(
                 R.string.notification_action_view_scene_mutation_pool
             );
+        }
+
+        if (!gameStartupFailure.isEmpty()) {
+            return new Notification.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(context.getColor(R.color.het_error))
+                .setContentTitle(context.getString(R.string.game_startup_failed_title))
+                .setContentText(gameStartupFailure)
+                .setStyle(new Notification.BigTextStyle().bigText(gameStartupFailure))
+                .setCategory(Notification.CATEGORY_ERROR)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setOnlyAlertOnce(true)
+                .setOngoing(forceOngoing)
+                .setContentIntent(previewIntent != null ? previewIntent : homePendingIntent(context))
+                .build();
         }
 
         PendingIntent contentIntent;
@@ -1340,6 +1364,13 @@ public final class TranslationStatusNotification {
         channel.setDescription(context.getString(R.string.notification_channel_description));
         channel.setShowBadge(false);
         manager.createNotificationChannel(channel);
+    }
+
+    private static PendingIntent homePendingIntent(Context context) {
+        Intent intent = new Intent(context, HomeActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        return PendingIntent.getActivity(context, HOME_REQUEST_CODE, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static PendingIntent settingsPendingIntent(Context context) {

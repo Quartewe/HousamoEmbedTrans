@@ -34,6 +34,8 @@ import de.robv.android.xposed.XposedHelpers;
 
 import org.json.JSONObject;
 import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -2632,6 +2634,17 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             client.start();
             client.bind();
 
+            String installedGameVersion = context.getPackageManager()
+                .getPackageInfo(context.getPackageName(), 0).versionName;
+            String resourceGameVersion = startup.gameVersion.trim();
+            if (!resourceGameVersion.equals(installedGameVersion)) {
+                reportGameStartupFailure(client,
+                    "游戏版本与运行时资源版本不一致：游戏 " + installedGameVersion
+                        + "，资源 " + resourceGameVersion
+                        + "。请打开 HET 更新 RVA 资源后重启游戏。");
+                return;
+            }
+
             Log.game(
                 "[HousamoTrans] Deferred startup: initializing ShadowHook..."
             );
@@ -2639,10 +2652,26 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             String chardictJson = readPreferredModuleJson(context, CHARDICT_FILE_NAME);
             String gametermsJson = readPreferredModuleJson(context, GAMETERMS_FILE_NAME);
 
-            ShadowHook.init(new ShadowHook.ConfigBuilder()
+            int shadowHookResult = ShadowHook.init(new ShadowHook.ConfigBuilder()
                 .setMode(ShadowHook.Mode.UNIQUE)
                 .build());
-            Log.game("[HousamoTrans] ShadowHook init ok");
+            Log.game("[HousamoTrans] ShadowHook init result=" + shadowHookResult
+                + " (" + ShadowHook.toErrmsg(shadowHookResult) + ")");
+            if (shadowHookResult != 0) {
+                String message;
+                if (shadowHookResult == 12
+                    && "2.0.0".equals(ShadowHook.getVersion())
+                    && isHoudiniLoaded()) {
+                    message = "安装包版本与运行环境不匹配：当前为 Houdini 模拟器环境。"
+                        + "请安装 x86-houdini 版本后重启游戏。";
+                } else {
+                    message = "ShadowHook 初始化失败：错误码 " + shadowHookResult
+                        + "（" + ShadowHook.toErrmsg(shadowHookResult)
+                        + "）。请导出日志并反馈。";
+                }
+                reportGameStartupFailure(client, message);
+                return;
+            }
 
             IoUtils.ensureDirectory(new File(baseDir));
             File targetSceneDirectory = new File(baseDir, SceneStore.DIRECTORY_NAME);
@@ -2715,6 +2744,27 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 s_initializing = false;
             }
         }
+    }
+
+    private static void reportGameStartupFailure(
+        TranslationServiceClient client, String message
+    ) {
+        Log.e("HousamoTrans", message);
+        client.setGameStartupFailure(message);
+    }
+
+    private static boolean isHoudiniLoaded() {
+        try (BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("/libhoudini.so")) {
+                    return true;
+                }
+            }
+        } catch (IOException error) {
+            Log.w("HousamoTrans", "Could not identify native bridge", error);
+        }
+        return false;
     }
 
     private static native void nativeStart(

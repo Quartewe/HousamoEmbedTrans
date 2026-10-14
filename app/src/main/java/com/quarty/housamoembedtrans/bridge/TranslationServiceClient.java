@@ -105,6 +105,7 @@ public final class TranslationServiceClient {
     private volatile SecurityException connectionSecurityFailure;
     private boolean bound;
     private boolean closed;
+    private String gameStartupFailure = "";
 
     @FunctionalInterface
     private interface DescriptorAction {
@@ -224,6 +225,28 @@ public final class TranslationServiceClient {
             }
         };
 
+    public synchronized void setGameStartupFailure(String message) {
+        if (message == null || message.isEmpty()) {
+            throw new IllegalArgumentException("Startup failure message cannot be empty");
+        }
+        if (closed) {
+            return;
+        }
+        gameStartupFailure = message;
+        if (remote != null) {
+            reportGameStartupFailure(remote);
+        }
+    }
+
+    private void reportGameStartupFailure(ITranslationService service) {
+        try {
+            service.reportGameStartupFailure(gameLogPort, gameStartupFailure);
+        } catch (RemoteException | RuntimeException error) {
+            // An older service can still export the game log containing this error.
+            log("Game startup status unavailable: " + safeMessage(error));
+        }
+    }
+
     private final ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(
@@ -258,6 +281,7 @@ public final class TranslationServiceClient {
                     }
                     try {
                         connected.registerGameLogPort(gameLogPort);
+                        reportGameStartupFailure(connected);
                     } catch (RemoteException | RuntimeException error) {
                         log("Game log port unavailable: " + safeMessage(error));
                     }

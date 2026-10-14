@@ -94,4 +94,6 @@ interface ITranslationService {
     void registerGameLogPort(IGameLogPort port);
     void unregisterGameLogPort(IGameLogPort port);
     IGameLogPort getGameLogPort();
+    /** Process-scoped startup error; owner is the registered game log port. */
+    void reportGameStartupFailure(IGameLogPort owner, String message);
 }
