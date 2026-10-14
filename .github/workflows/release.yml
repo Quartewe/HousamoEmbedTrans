@@ -1,4 +1,4 @@
-name: Publish signed APK
+name: Publish signed APKs
 
 on:
   push:
@@ -6,25 +6,22 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
+  version:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    defaults:
-      run:
-        shell: bash
+    outputs:
+      name: ${{ steps.version.outputs.name }}
+      code: ${{ steps.version.outputs.code }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
       - name: Read release version from tag
+        id: version
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -41,10 +38,50 @@ jobs:
           code = major * 1000000 + minor * 1000 + patch
           if minor > 999 or patch > 999 or not 1 <= code <= 2100000000:
               raise SystemExit('Version exceeds the supported Android versionCode range')
-          with open(os.environ['GITHUB_ENV'], 'a') as output:
-              output.write(f'HET_VERSION_NAME={tag[1:]}\nHET_VERSION_CODE={code}\n')
-              output.write(f'HET_PRERELEASE={str(prerelease).lower()}\n')
-              output.write(f'APK_NAME=HousamoEmbedTrans-{tag}-arm64-v8a.apk\n')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'name={tag[1:]}\ncode={code}\n')
+              output.write(f'prerelease={str(prerelease).lower()}\n')
+          PY
+
+  build:
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: arm64-v8a
+            shadowhook: '2.0.0'
+          # Houdini translates ARM64 code on x86 emulators; both APKs use ARM64 native libraries.
+          - variant: x86-houdini
+            shadowhook: '1.0.10'
+    env:
+      HET_VERSION_NAME: ${{ needs.version.outputs.name }}
+      HET_VERSION_CODE: ${{ needs.version.outputs.code }}
+      APK_NAME: HousamoEmbedTrans-${{ github.ref_name }}-${{ matrix.variant }}.apk
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Select ShadowHook for this variant
+        env:
+          SHADOWHOOK_VERSION: ${{ matrix.shadowhook }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re, tomllib
+          path = pathlib.Path('gradle/libs.versions.toml')
+          version = os.environ['SHADOWHOOK_VERSION']
+          content, count = re.subn(
+              r'^shadowhook = "[^"]+"$', f'shadowhook = "{version}"',
+              path.read_text(encoding='utf-8'), flags=re.MULTILINE)
+          if count != 1 or tomllib.loads(content)['versions']['shadowhook'] != version:
+              raise SystemExit('Could not select the ShadowHook version in the version catalog')
+          path.write_text(content, encoding='utf-8')
           PY
 
       - uses: actions/setup-java@v5
@@ -115,7 +152,7 @@ jobs:
       - name: Retain APK for download if publishing needs a retry
         uses: actions/upload-artifact@v4
         with:
-          name: HousamoEmbedTrans-${{ github.ref_name }}
+          name: HousamoEmbedTrans-${{ github.ref_name }}-${{ matrix.variant }}
           path: dist/*.apk
           if-no-files-found: error
           retention-days: 30
@@ -123,12 +160,31 @@ jobs:
       - name: Retain unstripped native symbols
         uses: actions/upload-artifact@v4
         with:
-          name: native-symbols-${{ github.ref_name }}
+          name: native-symbols-${{ github.ref_name }}-${{ matrix.variant }}
           path: app/build/intermediates/cxx/RelWithDebInfo/*/obj/arm64-v8a/libhousamo_trans.so
           if-no-files-found: error
           retention-days: 90
 
-      - name: Publish release after APK upload
+      - name: Remove temporary signing keystore
+        if: ${{ always() }}
+        run: rm -f -- "$RUNNER_TEMP/het-release.jks"
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      HET_PRERELEASE: ${{ needs.version.outputs.prerelease }}
+    steps:
+      - name: Download both verified APKs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: HousamoEmbedTrans-${{ github.ref_name }}-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release after both APK uploads
         uses: actions/github-script@v7
         with:
           script: |
@@ -136,7 +192,12 @@ jobs:
             const { owner, repo } = context.repo;
             const tag = context.ref.slice('refs/tags/'.length);
             const prerelease = process.env.HET_PRERELEASE === 'true';
-            const name = process.env.APK_NAME;
+            const names = ['arm64-v8a', 'x86-houdini']
+              .map(variant => `HousamoEmbedTrans-${tag}-${variant}.apk`);
+            const files = fs.readdirSync('dist').filter(name => name.endsWith('.apk'));
+            if (files.length !== names.length || names.some(name => !files.includes(name))) {
+              throw new Error('Expected both the ARM64 and Houdini compatibility APKs');
+            }
             const releases = await github.paginate(github.rest.repos.listReleases, {
               owner, repo, per_page: 100
             });
@@ -150,27 +211,30 @@ jobs:
             const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
               owner, repo, release_id: release.id, per_page: 100
             });
-            const existing = assets.find(asset => asset.name === name);
-            if (existing && existing.state !== 'uploaded') {
-              throw new Error('Incomplete release asset; delete it before rerunning this workflow');
+            for (const name of names) {
+              const existing = assets.find(asset => asset.name === name);
+              if (existing && existing.state !== 'uploaded') {
+                throw new Error(`Incomplete release asset ${name}; delete it before rerunning this workflow`);
+              }
+              if (!existing) {
+                const data = fs.readFileSync(`dist/${name}`);
+                await github.rest.repos.uploadReleaseAsset({
+                  owner, repo, release_id: release.id, name, data,
+                  headers: { 'content-type': 'application/vnd.android.package-archive', 'content-length': data.length }
+                });
+              } else {
+                core.info(`Release asset ${name} already exists; keeping the published APK`);
+              }
             }
-            if (!existing) {
-              const data = fs.readFileSync(`dist/${name}`);
-              await github.rest.repos.uploadReleaseAsset({
-                owner, repo, release_id: release.id, name, data,
-                headers: { 'content-type': 'application/vnd.android.package-archive', 'content-length': data.length }
-              });
-            } else {
-              core.info('Release asset already exists; keeping the published APK');
-            }
-            if (release.draft || release.prerelease !== prerelease) {
+            const downloadNotice = '模拟器用户下载 `x86-houdini` 版本，手机用户下载 `arm64-v8a` 版本。';
+            const currentBody = release.body || '';
+            const body = currentBody.includes(downloadNotice)
+              ? currentBody
+              : `${downloadNotice}\n\n${currentBody}`;
+            if (release.draft || release.prerelease !== prerelease || body !== currentBody) {
               await github.rest.repos.updateRelease({
-                owner, repo, release_id: release.id, draft: false, prerelease,
+                owner, repo, release_id: release.id, draft: false, prerelease, body,
                 make_latest: prerelease ? 'false' : 'legacy'
               });
             }
             await core.summary.addLink(`Release ${tag}`, release.html_url).write();
-
-      - name: Remove temporary signing keystore
-        if: ${{ always() }}
-        run: rm -f -- "$RUNNER_TEMP/het-release.jks"
