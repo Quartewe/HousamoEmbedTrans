@@ -5,6 +5,8 @@ import com.quarty.housamoembedtrans.translation.IGameScenePort;
 import com.quarty.housamoembedtrans.translation.ITranslationCallback;
 import com.quarty.housamoembedtrans.translation.IGameObbPort;
 import com.quarty.housamoembedtrans.translation.IGameLogPort;
+import com.quarty.housamoembedtrans.translation.IGameChoicePort;
+import com.quarty.housamoembedtrans.translation.IChoiceBackCallback;
 
 interface ITranslationService {
     int getProtocolVersion();
@@ -96,4 +98,11 @@ interface ITranslationService {
     IGameLogPort getGameLogPort();
     /** Process-scoped startup error; owner is the registered game log port. */
     void reportGameStartupFailure(IGameLogPort owner, String message);
+
+    // Optional choice capability; existing transaction numbers stay unchanged.
+    void registerGameChoicePort(IGameChoicePort port);
+    void unregisterGameChoicePort(IGameChoicePort port);
+    void requestChoiceBack(IChoiceBackCallback callback);
+    /** Read-only extension probe. Zero/unsupported means no choice capability. */
+    int getChoiceBackProtocolVersion();
 }

@@ -3,6 +3,7 @@ package com.quarty.housamoembedtrans.bridge;
 import com.quarty.housamoembedtrans.translation.ITranslationService;
 import com.quarty.housamoembedtrans.translation.IGameObbPort;
 import com.quarty.housamoembedtrans.translation.IGameLogPort;
+import com.quarty.housamoembedtrans.translation.IChoiceBackCallback;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
 import android.content.ComponentName;
@@ -19,6 +20,9 @@ import org.json.JSONObject;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * HET-app-only Binder client for ordinary Translation Job controls.
@@ -58,12 +62,14 @@ public final class TranslationJobControlClient implements AutoCloseable {
     private final Context context;
     private final ComponentName component;
     private final Object lock = new Object();
+    private final Set<ChoiceRequest> choiceRequests = new HashSet<>();
     private final ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             ITranslationService connected =
                 ITranslationService.Stub.asInterface(service);
             boolean notifyConnected = false;
+            ChoiceRequest[] interrupted = new ChoiceRequest[0];
             try {
                 if (connected == null
                     || connected.getProtocolVersion()
@@ -76,6 +82,7 @@ public final class TranslationJobControlClient implements AutoCloseable {
                     if (closed || !bound) {
                         return;
                     }
+                    if (remote != connected) interrupted = detachChoiceRequestsLocked();
                     remote = connected;
                     lock.notifyAll();
                     notifyConnected = true;
@@ -86,6 +93,7 @@ public final class TranslationJobControlClient implements AutoCloseable {
                     wasBound = bound;
                     bound = false;
                     remote = null;
+                    interrupted = detachChoiceRequestsLocked();
                     lock.notifyAll();
                 }
                 if (wasBound) {
@@ -96,6 +104,7 @@ public final class TranslationJobControlClient implements AutoCloseable {
                     }
                 }
             }
+            finishChoiceRequests(interrupted);
             if (notifyConnected) {
                 notifyConnectionListener(true);
             } else {
@@ -111,10 +120,12 @@ public final class TranslationJobControlClient implements AutoCloseable {
         @Override
         public void onBindingDied(ComponentName name) {
             boolean wasBound;
+            ChoiceRequest[] interrupted;
             synchronized (lock) {
                 wasBound = bound;
                 bound = false;
                 remote = null;
+                interrupted = detachChoiceRequestsLocked();
                 lock.notifyAll();
             }
             if (wasBound) {
@@ -124,16 +135,19 @@ public final class TranslationJobControlClient implements AutoCloseable {
                     // The system may already have torn down the binding.
                 }
             }
+            finishChoiceRequests(interrupted);
             notifyConnectionListener(false);
         }
 
         @Override
         public void onNullBinding(ComponentName name) {
             boolean wasBound;
+            ChoiceRequest[] interrupted;
             synchronized (lock) {
                 wasBound = bound;
                 bound = false;
                 remote = null;
+                interrupted = detachChoiceRequestsLocked();
                 lock.notifyAll();
             }
             if (wasBound) {
@@ -143,6 +157,7 @@ public final class TranslationJobControlClient implements AutoCloseable {
                     // The system may already have torn down the binding.
                 }
             }
+            finishChoiceRequests(interrupted);
             notifyConnectionListener(false);
         }
     };
@@ -217,10 +232,12 @@ public final class TranslationJobControlClient implements AutoCloseable {
 
     public void unbind() {
         boolean wasBound;
+        ChoiceRequest[] interrupted;
         synchronized (lock) {
             wasBound = bound;
             bound = false;
             remote = null;
+            interrupted = detachChoiceRequestsLocked();
             lock.notifyAll();
         }
         if (wasBound) {
@@ -229,8 +246,9 @@ public final class TranslationJobControlClient implements AutoCloseable {
             } catch (IllegalArgumentException ignored) {
                 // Already disconnected; there is no binding to release.
             }
-            notifyConnectionListener(false);
         }
+        finishChoiceRequests(interrupted);
+        if (wasBound) notifyConnectionListener(false);
     }
 
     public boolean isConnected() {
@@ -305,6 +323,128 @@ public final class TranslationJobControlClient implements AutoCloseable {
             service = remote;
         }
         return service.getGameLogPort();
+    }
+
+    /**
+     * Submits one choice-back intent on the existing connection. Safe to call
+     * from the UI thread; completion does not imply any UI-thread affinity.
+     * Neither cancellation of the future nor reconnection resends the intent.
+     */
+    public CompletableFuture<Integer> requestChoiceBack() {
+        ChoiceRequest request;
+        synchronized (lock) {
+            if (closed) throw new ClientClosedException();
+            if (remote == null) {
+                return CompletableFuture.completedFuture(ChoiceBackResult.GAME_NOT_CONNECTED);
+            }
+            request = new ChoiceRequest(remote);
+            choiceRequests.add(request);
+        }
+        Thread worker = new Thread(request::dispatch, "HET-choice-back-dispatch");
+        worker.setDaemon(true);
+        try {
+            worker.start();
+        } catch (RuntimeException error) {
+            request.onCompleted(ChoiceBackResult.UNAVAILABLE);
+        }
+        return request.result;
+    }
+
+    private final class ChoiceRequest extends IChoiceBackCallback.Stub {
+        private final ITranslationService service;
+        private final CompletableFuture<Integer> result = new CompletableFuture<>();
+        private final IBinder.DeathRecipient death = this::disconnected;
+        private boolean linked;
+        private boolean dispatched;
+        private int terminalResult;
+
+        ChoiceRequest(ITranslationService service) {
+            this.service = service;
+        }
+
+        void dispatch() {
+            try {
+                synchronized (lock) {
+                    if (!choiceRequests.contains(this)) return;
+                    service.asBinder().linkToDeath(death, 0);
+                    linked = true;
+                }
+                // Old AIDL proxies can read zero from an unsupported empty reply.
+                // Probe before sending any non-idempotent operation.
+                if (service.getChoiceBackProtocolVersion() != 1) {
+                    onCompleted(ChoiceBackResult.UNAVAILABLE);
+                    return;
+                }
+            } catch (RemoteException | RuntimeException error) {
+                onCompleted(ChoiceBackResult.UNAVAILABLE);
+                return;
+            }
+            boolean unavailable;
+            synchronized (lock) {
+                if (!choiceRequests.contains(this)) return;
+                unavailable = remote != service || closed;
+                if (unavailable) {
+                    detachLocked(ChoiceBackResult.GAME_NOT_CONNECTED);
+                } else {
+                    // Dispatch commitment: a concurrent close reports UNKNOWN.
+                    // The committed intent is never retried.
+                    dispatched = true;
+                }
+            }
+            if (unavailable) {
+                finish();
+                return;
+            }
+            try {
+                service.requestChoiceBack(this);
+            } catch (RemoteException | RuntimeException error) {
+                onCompleted(ChoiceBackResult.UNKNOWN);
+            }
+        }
+
+        void disconnected() {
+            synchronized (lock) {
+                if (!detachLocked(dispatched ? ChoiceBackResult.UNKNOWN
+                    : ChoiceBackResult.GAME_NOT_CONNECTED)) return;
+            }
+            finish();
+        }
+
+        @Override
+        public void onCompleted(int value) {
+            synchronized (lock) {
+                if (!detachLocked(value)) return;
+            }
+            finish();
+        }
+
+        boolean detachLocked(int value) {
+            if (!choiceRequests.remove(this)) return false;
+            terminalResult = value;
+            if (linked) {
+                service.asBinder().unlinkToDeath(death, 0);
+                linked = false;
+            }
+            return true;
+        }
+
+        void finish() {
+            result.complete(terminalResult);
+        }
+    }
+
+    /** Called while removing the connection, before a new one can be installed. */
+    private ChoiceRequest[] detachChoiceRequestsLocked() {
+        ChoiceRequest[] interrupted = choiceRequests.toArray(new ChoiceRequest[0]);
+        for (ChoiceRequest request : interrupted) {
+            request.detachLocked(request.dispatched ? ChoiceBackResult.UNKNOWN
+                : ChoiceBackResult.GAME_NOT_CONNECTED);
+        }
+        return interrupted;
+    }
+
+    private void finishChoiceRequests(ChoiceRequest[] interrupted) {
+        for (ChoiceRequest request : interrupted) request.finish();
     }
 
     /** Calls the existing service cancellation transaction. */
@@ -466,6 +606,8 @@ public final class TranslationJobControlClient implements AutoCloseable {
 
     @Override
     public void close() {
+        ChoiceRequest[] interrupted;
+        boolean wasBound;
         synchronized (lock) {
             if (closed) {
                 return;
@@ -473,10 +615,8 @@ public final class TranslationJobControlClient implements AutoCloseable {
             closed = true;
             connectionListener = null;
             remote = null;
+            interrupted = detachChoiceRequestsLocked();
             lock.notifyAll();
-        }
-        boolean wasBound;
-        synchronized (lock) {
             wasBound = bound;
             bound = false;
         }
@@ -487,15 +627,19 @@ public final class TranslationJobControlClient implements AutoCloseable {
                 // The binding may already have died.
             }
         }
+        finishChoiceRequests(interrupted);
     }
 
     private void clearRemote() {
         boolean changed;
+        ChoiceRequest[] interrupted;
         synchronized (lock) {
             changed = remote != null;
             remote = null;
+            interrupted = detachChoiceRequestsLocked();
             lock.notifyAll();
         }
+        finishChoiceRequests(interrupted);
         if (changed) {
             notifyConnectionListener(false);
         }
@@ -503,13 +647,16 @@ public final class TranslationJobControlClient implements AutoCloseable {
 
     private void clearRemoteIfCurrent(ITranslationService service) {
         boolean changed;
+        ChoiceRequest[] interrupted = new ChoiceRequest[0];
         synchronized (lock) {
             changed = remote == service;
             if (changed) {
                 remote = null;
+                interrupted = detachChoiceRequestsLocked();
             }
             lock.notifyAll();
         }
+        finishChoiceRequests(interrupted);
         if (changed) {
             notifyConnectionListener(false);
         }

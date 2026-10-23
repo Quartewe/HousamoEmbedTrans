@@ -84,6 +84,7 @@ public final class TranslationServiceClient {
     private final Context context;
     private final GameObbPort gameObbPort;
     private final GameLogPort gameLogPort;
+    private final GameChoicePort gameChoicePort;
     private final Consumer<String> logger;
     private final ResultSink resultSink;
     private final ComponentName component;
@@ -285,6 +286,15 @@ public final class TranslationServiceClient {
                     } catch (RemoteException | RuntimeException error) {
                         log("Game log port unavailable: " + safeMessage(error));
                     }
+                    try {
+                        if (connected.getChoiceBackProtocolVersion() == 1) {
+                            gameChoicePort.connect();
+                            connected.registerGameChoicePort(gameChoicePort);
+                        }
+                    } catch (RemoteException | RuntimeException error) {
+                        gameChoicePort.disconnect();
+                        log("Game choice port unavailable: " + safeMessage(error));
+                    }
                     TranslationServiceClient.this.notifyAll();
                 }
                 log(
@@ -325,6 +335,7 @@ public final class TranslationServiceClient {
         public void onServiceDisconnected(ComponentName name) {
             synchronized (TranslationServiceClient.this) {
                 remote = null;
+                gameChoicePort.disconnect();
                 TranslationServiceClient.this.notifyAll();
             }
             resetSceneProductionPolicy();
@@ -334,6 +345,7 @@ public final class TranslationServiceClient {
         @Override
         public void onBindingDied(ComponentName name) {
             remote = null;
+            gameChoicePort.disconnect();
             resetSceneProductionPolicy();
             synchronized (TranslationServiceClient.this) {
                 if (closed) {
@@ -357,6 +369,7 @@ public final class TranslationServiceClient {
         public void onNullBinding(ComponentName name) {
             synchronized (TranslationServiceClient.this) {
                 remote = null;
+                gameChoicePort.disconnect();
                 TranslationServiceClient.this.notifyAll();
             }
             resetSceneProductionPolicy();
@@ -442,6 +455,7 @@ public final class TranslationServiceClient {
         this.logger = logger;
         this.gameObbPort = new GameObbPort(this.context);
         this.gameLogPort = new GameLogPort(this.context);
+        this.gameChoicePort = new GameChoicePort(this.context);
         this.resultSink = resultSink;
         if (sceneSyncSnapshot == null) {
             throw new IllegalArgumentException(
@@ -823,6 +837,7 @@ public final class TranslationServiceClient {
             closed = true;
             gameObbPort.close();
             gameLogPort.close();
+            gameChoicePort.disconnect();
             service = remote;
             port = gameScenePort;
             wasBound = bound;
@@ -873,6 +888,11 @@ public final class TranslationServiceClient {
                     service.unregisterGameLogPort(gameLogPort);
                 } catch (RemoteException | RuntimeException error) {
                     log("Could not unregister game log port: " + safeMessage(error));
+                }
+                try {
+                    service.unregisterGameChoicePort(gameChoicePort);
+                } catch (RemoteException | RuntimeException error) {
+                    log("Could not unregister game choice port: " + safeMessage(error));
                 }
                 boolean callbackRemoved = false;
                 boolean busyLogged = false;
@@ -943,6 +963,7 @@ public final class TranslationServiceClient {
 
             synchronized (TranslationServiceClient.this) {
                 remote = null;
+                gameChoicePort.disconnect();
                 bound = false;
                 notifyAll();
             }
@@ -1019,6 +1040,12 @@ public final class TranslationServiceClient {
         ITranslationService connected
     ) {
         if (connected != null) {
+            gameChoicePort.disconnect();
+            try {
+                connected.unregisterGameChoicePort(gameChoicePort);
+            } catch (RemoteException | RuntimeException ignored) {
+                // Optional extension may not exist in an older service.
+            }
             try {
                 connected.unregisterGameObbPort(gameObbPort);
             } catch (RemoteException | RuntimeException ignored) {
@@ -1047,6 +1074,7 @@ public final class TranslationServiceClient {
         boolean shouldRebind;
         synchronized (this) {
             remote = null;
+            gameChoicePort.disconnect();
             notifyAll();
             shouldRebind = !closed && bound;
             if (shouldRebind) {

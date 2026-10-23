@@ -342,8 +342,7 @@ static void InitThread(RuntimeConfig config) {
         return;
     }
 
-    if ((!config.enable_page_rec_debug || config.enable_page_rec_tasks)
-        && !StartQuestWriter(il2cpp_base, config)) {
+    if (!StartQuestWriter(il2cpp_base, config)) {
         LOGE("Initialization failed: Could not start quest writer");
         return;
     }

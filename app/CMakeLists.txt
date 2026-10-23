@@ -11,6 +11,7 @@ add_library(housamo_trans SHARED
     src/main/jni/runtime/hook.cpp
     src/main/jni/runtime/ilcpp_reader.cpp
     src/main/jni/runtime/quest_writer.cpp
+    src/main/jni/runtime/choice_back.cpp
     src/main/jni/data/data_manager.cpp
     src/main/jni/data/text_ac.cpp
     src/main/jni/scene/page_rec.cpp

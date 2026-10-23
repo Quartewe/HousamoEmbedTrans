@@ -309,6 +309,7 @@ public final class TranslationService extends Service {
     private final Object callbackLock = new Object();
     private final Object gameObbLock = new Object();
     private IGameObbPort gameObbPort;
+    private final GameChoiceRequests gameChoiceRequests = new GameChoiceRequests();
     private final Object gameLogLock = new Object();
     private IGameLogPort gameLogPort;
     // The log port outlives failed native startup and owns its diagnostic.
@@ -1010,6 +1011,32 @@ public final class TranslationService extends Service {
             }
 
             @Override
+            public void registerGameChoicePort(IGameChoicePort port) throws RemoteException {
+                enforceAllowedCaller();
+                gameChoiceRequests.register(port);
+            }
+
+            @Override
+            public void unregisterGameChoicePort(IGameChoicePort port) {
+                enforceAllowedCaller();
+                gameChoiceRequests.unregister(port);
+            }
+
+            @Override
+            public int getChoiceBackProtocolVersion() {
+                enforceAllowedCaller();
+                return 1;
+            }
+
+            @Override
+            public void requestChoiceBack(IChoiceBackCallback callback) {
+                enforceSelfUidCaller();
+                CallbackRecord game = getCallback();
+                gameChoiceRequests.request(callback,
+                    game != null && game.binder.isBinderAlive());
+            }
+
+            @Override
             public void reportGameStartupFailure(IGameLogPort owner, String message) {
                 enforceAllowedCaller();
                 synchronized (gameLogLock) {
@@ -1577,6 +1604,7 @@ public final class TranslationService extends Service {
 
     @Override
     public void onDestroy() {
+        gameChoiceRequests.close();
         // Publish the non-accepting state before shutting down either API
         // executor. A concurrent durable admission that already captured the
         // old callback will observe the non-accepting state instead of being

@@ -2,6 +2,7 @@
 #include "translation/store/scene_store.hpp"
 #include "translation/pipeline/translation_pipeline_internal.hpp"
 #include "housamo.hpp"
+#include "runtime/choice_back.hpp"
 #include "scene/block_queue.hpp"
 #include "shadowhook.h"
 #include "rapidjson/document.h"
@@ -58,6 +59,7 @@ namespace {
     void* g_runtime_invoke_stub = nullptr;
     RemakeTextFn g_remake_text = nullptr;
     UiTextSetTextFn g_ui_text_set_text = nullptr;
+    bool g_quest_writes_enabled = false;
 
     std::atomic<void*> g_page_text_change_fn{nullptr};
 
@@ -395,7 +397,8 @@ namespace {
         std::call_once(observed, [] {
             LOGI("[QuestWriterMainThread] Unity ExecuteTasks observed tid=%d", gettid());
         });
-        DrainQuestWrite();
+        PumpChoiceBack();
+        if (g_quest_writes_enabled) DrainQuestWrite();
         return result;
     }
 
@@ -650,6 +653,8 @@ bool StartQuestWriter(uintptr_t il2cpp_base, const RuntimeConfig& config) {
         if (!InitQuestWriterRuntime(il2cpp_base, config)) {
             return;
         }
+        g_quest_writes_enabled = !config.enable_page_rec_debug || config.enable_page_rec_tasks;
+        ConfigureChoiceBack(il2cpp_base);
 
         void* invoke = shadowhook_dlsym(g_il2cpp_handle, "il2cpp_runtime_invoke");
         if (!invoke) {
