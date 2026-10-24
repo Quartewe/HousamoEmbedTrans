@@ -961,21 +961,11 @@ public final class ConfigStore {
         }
     }
 
-    public static boolean isRubyTranslationEnabled(JSONObject userSettings) throws Exception {
-        if (userSettings.has("EnableRubyTranslation")
-            && !(userSettings.get("EnableRubyTranslation") instanceof Boolean)) {
-            throw new IllegalArgumentException(
-                "UserSettings.EnableRubyTranslation must be a boolean"
-            );
-        }
-        return userSettings.optBoolean("EnableRubyTranslation", false);
-    }
-
     private static void validateConfig(JSONObject config) throws Exception {
         requireNonEmptyString(config, "Version", "config");
 
         JSONObject userSettings = config.getJSONObject("UserSettings");
-        isRubyTranslationEnabled(userSettings);
+        StartupSettings.isRubyTranslationEnabled(userSettings);
         userSettings.getBoolean("EnablePageRecDebug");
         if (userSettings.has("EnablePageRecTasks")
             && !(userSettings.get("EnablePageRecTasks") instanceof Boolean)) {
@@ -1043,12 +1033,12 @@ public final class ConfigStore {
         } else {
             validateOptionalRetryCount(translationApi, "RetryCount");
         }
-        requireBoolean(
+        StartupSettings.requireBoolean(
             translationApi,
             "UseFullSceneForRepair",
             "UserSettings.TranslationApi"
         );
-        requireBoolean(translationApi, "EnableStreamingResponse", "UserSettings.TranslationApi");
+        StartupSettings.requireBoolean(translationApi, "EnableStreamingResponse", "UserSettings.TranslationApi");
         requirePositiveInt(translationApi.get("MaxTokens"), "UserSettings.TranslationApi.MaxTokens");
         String pendingMode = translationApi.getString("PendingSummaryMode");
         if (!"wait".equals(pendingMode) && !"skip".equals(pendingMode)
@@ -1327,79 +1317,17 @@ public final class ConfigStore {
                 )
             );
         }
-        normalizeSceneSyncSettings(userSettings);
+        StartupSettings.normalizeSceneSyncSettings(userSettings);
         JSONObject normalized = new JSONObject();
         normalized.put("Version", version);
         normalized.put("UserSettings", userSettings);
         return normalized;
     }
 
-    /**
-     * Applies the Scene Sync defaults in-place while rejecting malformed
-     * values.  Unknown UserSettings members remain untouched.
-     */
-    public static void normalizeSceneSyncSettings(JSONObject userSettings)
-        throws Exception {
-        if (userSettings == null) {
-            throw new IllegalArgumentException("UserSettings must be an object");
-        }
-
-        if (!userSettings.has("SceneWorkerCount")) {
-            userSettings.put(
-                "SceneWorkerCount",
-                DEFAULT_SCENE_WORKER_COUNT
-            );
-        } else {
-            userSettings.put(
-                "SceneWorkerCount",
-                SceneSyncSettings.normalizeWorkerCount(
-                    userSettings.get("SceneWorkerCount")
-                )
-            );
-        }
-
-        JSONObject sceneSync;
-        if (!userSettings.has("SceneSync")) {
-            sceneSync = new JSONObject();
-            userSettings.put("SceneSync", sceneSync);
-        } else {
-            Object rawSceneSync = userSettings.get("SceneSync");
-            if (!(rawSceneSync instanceof JSONObject)) {
-                throw new IllegalArgumentException(
-                    "UserSettings.SceneSync must be an object"
-                );
-            }
-            sceneSync = (JSONObject) rawSceneSync;
-        }
-
-        if (!sceneSync.has("AutoSyncOnNewTranslation")) {
-            sceneSync.put("AutoSyncOnNewTranslation", true);
-        }
-        requireBoolean(sceneSync, "AutoSyncOnNewTranslation", "UserSettings.SceneSync");
-
-        if (!sceneSync.has("ConflictResolutionMode")) {
-            sceneSync.put(
-                "ConflictResolutionMode",
-                DEFAULT_CONFLICT_RESOLUTION_MODE
-            );
-        } else {
-            sceneSync.put(
-                "ConflictResolutionMode",
-                SceneSyncSettings.normalizeConflictResolutionMode(
-                    sceneSync.get("ConflictResolutionMode")
-                )
-            );
-        }
-    }
-
     /** Returns the validated worker count from a startup settings snapshot. */
     public static int getSceneWorkerCount(JSONObject userSettings)
         throws Exception {
-        return userSettings != null && userSettings.has("SceneWorkerCount")
-            ? SceneSyncSettings.normalizeWorkerCount(
-                userSettings.get("SceneWorkerCount")
-            )
-            : DEFAULT_SCENE_WORKER_COUNT;
+        return StartupSettings.getSceneWorkerCount(userSettings);
     }
 
     /** Returns the independent global API concurrency limit. */
@@ -1757,20 +1685,6 @@ public final class ConfigStore {
                 + " to "
                 + MAX_REPAIR_GRADIENT_COUNT
         );
-    }
-
-    private static boolean requireBoolean(
-        JSONObject object,
-        String key,
-        String path
-    ) throws Exception {
-        Object value = object.get(key);
-        if (!(value instanceof Boolean)) {
-            throw new IllegalArgumentException(
-                path + "." + key + " must be a boolean"
-            );
-        }
-        return (Boolean) value;
     }
 
     private static IllegalArgumentException invalidRetryCount(String key) {

@@ -8,7 +8,7 @@ import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.scene.sync.GameSceneMirrorSource;
 import com.quarty.housamoembedtrans.scene.sync.SceneMirrorExportCoordinator;
 import com.quarty.housamoembedtrans.scene.sync.SceneSyncStartupSnapshot;
-import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.storage.config.StartupSettings;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
@@ -1758,12 +1758,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         config.characterWeight = Init_CharacterWeight(userConfig);
         JSONObject userSettings = userConfig.getJSONObject("UserSettings");
         config.sceneSyncSnapshot = SceneSyncStartupSnapshot.of(
-            ConfigStore.getSceneWorkerCount(userSettings)
+            StartupSettings.getSceneWorkerCount(userSettings)
         );
         config.sceneWorkerCount = config.sceneSyncSnapshot.getSceneWorkerCount();
         config.enablePageRecDebug = Init_EnablePageRecDebug(userConfig);
         config.enablePageRecTasks = Init_EnablePageRecTasks(userConfig);
-        config.enableRubyTranslation = ConfigStore.isRubyTranslationEnabled(userSettings);
+        config.enableRubyTranslation = StartupSettings.isRubyTranslationEnabled(userSettings);
         config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(userConfig);
         config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
         config.targetLanguage = Init_TargetLanguage(userConfig);
@@ -1819,11 +1819,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Init_CharacterWeight(json);
         Init_EnablePageRecDebug(json);
         Init_EnablePageRecTasks(json);
-        ConfigStore.isRubyTranslationEnabled(json.getJSONObject("UserSettings"));
+        StartupSettings.isRubyTranslationEnabled(json.getJSONObject("UserSettings"));
         Init_EnableParseOnlyDebug(json);
         Init_OverwriteExistingJson(json);
         Init_TargetLanguage(json);
-        ConfigStore.normalizeSceneSyncSettings(json.getJSONObject("UserSettings"));
+        StartupSettings.normalizeSceneSyncSettings(json.getJSONObject("UserSettings"));
     }
 
     private static void validateRuntimeStartupJson(JSONObject json) throws Exception {
