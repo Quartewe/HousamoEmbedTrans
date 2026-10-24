@@ -1561,6 +1561,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
         }
         if (SettingsCategory.TRANSLATION_REPAIR.equals(categoryId)) {
             return Arrays.asList(
+                bool("enable-page-rec-debug", R.string.settings_field_enable_page_rec_debug, R.string.settings_field_hint_enable_page_rec_debug, new String[] {"EnablePageRecDebug"}),
                 bool("enable-ruby-translation", R.string.settings_field_enable_ruby_translation, R.string.settings_field_hint_enable_ruby_translation, new String[] {"EnableRubyTranslation"}),
                 slider("result-repair-count", R.string.settings_field_result_repair_count, R.string.settings_field_hint_result_repair_count, new String[] {"TranslationApi", "ResultRepairCount"}, 0, 5, 1, true),
                 select("pending-summary-mode", R.string.settings_field_pending_summary_mode, R.string.settings_field_hint_pending_summary_mode,
@@ -1611,8 +1612,6 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
             );
         }
         return Arrays.asList(
-            bool("enable-page-rec-debug", R.string.settings_field_enable_page_rec_debug, R.string.settings_field_hint_enable_page_rec_debug, new String[] {"EnablePageRecDebug"}),
-            bool("enable-page-rec-tasks", R.string.settings_field_enable_page_rec_tasks, R.string.settings_field_hint_enable_page_rec_tasks, new String[] {"EnablePageRecTasks"}),
             bool("enable-parse-only-debug", R.string.settings_field_enable_parse_only_debug, R.string.settings_field_hint_enable_parse_only_debug, new String[] {"EnableParseOnlyDebug"}),
             bool("enable-failed-api-response-dump", R.string.settings_field_enable_failed_api_response_dump, R.string.settings_field_hint_enable_failed_api_response_dump, new String[] {"EnableFailedApiResponseDump"}),
             bool("enable-api-body-logging", R.string.settings_field_enable_api_body_logging, R.string.settings_field_hint_enable_api_body_logging, new String[] {"EnableApiBodyLogging"}),

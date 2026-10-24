@@ -1,8 +1,7 @@
 {
-    "Version": "1.0",
+    "Version": "1.1",
     "UserSettings": {
         "EnablePageRecDebug": false,
-        "EnablePageRecTasks": false,
         "EnableRubyTranslation": false,
         "EnableParseOnlyDebug": false,
         "EnableFailedApiResponseDump": false,

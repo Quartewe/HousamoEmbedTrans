@@ -38,8 +38,8 @@
     <string name="settings_category_translation_service_description">Protocol, URL, credentials, model, target language and request options</string>
     <string name="settings_category_translation_service_scope">Applies to future requests; requests already sent are unchanged.</string>
     <string name="settings_category_translation_repair">Translation and repair</string>
-    <string name="settings_category_translation_repair_description">Result repair, streaming repair and full-scene input</string>
-    <string name="settings_category_translation_repair_scope">Applies to future repair requests; requests already sent are unchanged.</string>
+    <string name="settings_category_translation_repair_description">PageRec scenes, result repair, streaming translation and full-scene input</string>
+    <string name="settings_category_translation_repair_scope">Restart the game to apply PageRec and ruby translation settings. Repair settings apply to future requests.</string>
     <string name="settings_category_capture_sync">Scene capture and sync</string>
     <string name="settings_category_capture_sync_description">Scene capture, sync conflicts and worker threads</string>
     <string name="settings_category_capture_sync_scope">Capture, sync and thread settings apply from the next run. The current run keeps its order.</string>
@@ -54,7 +54,7 @@
     <string name="settings_category_character_matching_scope">Applies to newly captured scenes. Character and term dictionaries are unchanged.</string>
     <string name="settings_category_diagnostics">Debug options</string>
     <string name="settings_category_diagnostics_description">Investigate capture, parsing and request failures without changing task data.</string>
-    <string name="settings_category_diagnostics_scope">Applies to the next capture or request. Task data is unchanged.</string>
+    <string name="settings_category_diagnostics_scope">Restart the game to apply parse-only mode. Request diagnostics apply to future requests.</string>
     <string name="settings_category_save">Save settings</string>
     <string name="settings_category_saved">Settings saved.</string>
     <string name="settings_category_memory_hint">Settings are saved locally and apply from the next eligible run.</string>
@@ -119,9 +119,7 @@
     <string name="settings_field_text_mentioned_score">Name-only mention threshold</string>
     <string name="settings_field_related_num">Relations needed for promotion</string>
     <string name="settings_field_low_term_score">Secondary-character term threshold</string>
-    <string name="settings_field_enable_page_rec_debug">PageRec scene export</string>
-    <string name="settings_field_enable_page_rec_tasks">Create translation tasks from PageRec scenes</string>
-    <string name="settings_field_hint_enable_page_rec_tasks">Requires PageRec export. Exported scenes use normal saving, translation and game write-back. Scenes with official target-language translations are skipped. Complete translations are written back directly; existing scenes keep saved content. New translations are written back when complete; streaming chunks follow existing write-back settings. Parse-only mode still blocks translation requests. May create tasks for multiple loaded scenes. Restart the game to apply.</string>
+    <string name="settings_field_enable_page_rec_debug">Enable PageRec</string>
     <string name="settings_field_enable_parse_only_debug">Parse-only diagnostics</string>
     <string name="settings_field_enable_failed_api_response_dump">Save failed responses</string>
     <string name="settings_field_hint_protocol">Choose a compatible translation API protocol.</string>
@@ -156,8 +154,8 @@
     <string name="settings_field_hint_text_mentioned_score">Include only names and translations, without the full profile.</string>
     <string name="settings_field_hint_related_num">Number of dictionary relations to primary characters needed to become a secondary character.</string>
     <string name="settings_field_hint_low_term_score">Minimum secondary characters sharing a guild, school or origin world before including that term.</string>
-    <string name="settings_field_hint_enable_page_rec_debug">Keeps the game connected and exports complete scenes. Uses Simplified Chinese, then Traditional Chinese, then Japanese. Files go to the game’s private files/housamo_embed_trans/page_rec directory. Exports are excluded from sync, translation and write-back unless added as tasks below. Restart the game after enabling or disabling.</string>
-    <string name="settings_field_hint_enable_parse_only_debug">Advanced debugging: parse scenes without requesting translation.</string>
+    <string name="settings_field_hint_enable_page_rec_debug">Captures complete scenes through PageRec, using Simplified Chinese, then Traditional Chinese, then Japanese. Scenes are exported and use normal translation and game write-back; scenes with official target-language translations are only exported. Multiple loaded scenes may be processed at once. To record only, enable Parse-only diagnostics under Debug options. Restart the game after changing this setting.</string>
+    <string name="settings_field_hint_enable_parse_only_debug">Parse and record scenes without requesting translation. With PageRec enabled, only keep exported records, without creating translation tasks or writing back to the game. Restart the game after changing this setting.</string>
     <string name="settings_field_hint_enable_failed_api_response_dump">Failed responses may contain sensitive content. Enable only when needed.</string>
     <string name="settings_error_required">This field is required.</string>
     <string name="settings_error_integer">Enter an integer.</string>
@@ -191,7 +189,7 @@
     <string name="settings_field_auto_sync_new_translation">Sync scenes for new translation tasks</string>
     <string name="settings_field_hint_auto_sync_new_translation">Automatically sync scenes after accepting a new translation task. When disabled, a result may wait for manual sync or game reconnection before it can be saved to HET. Existing results are retained.</string>
     <string name="settings_summary_model_empty">Model not set</string>
-    <string name="settings_summary_repair">Result repairs: %1$d · Streaming: %2$s</string>
+    <string name="settings_summary_repair">Result repairs: %1$d · Streaming: %2$s · PageRec: %3$s</string>
     <string name="settings_summary_on">On</string>
     <string name="settings_summary_off">Off</string>
     <string name="settings_summary_capture">Scene workers: %1$d · %2$s</string>

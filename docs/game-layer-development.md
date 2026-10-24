@@ -171,11 +171,11 @@ FindScenarioData 返回
 
 官方译文的列号从当前命令的 `RowData -> grid -> rows[headerRow].strings` 即读即取：`en` 对应 `English`，`zh-tw` 对应 `ChineseTraditional`，`zh-cn` 对应 `ChineseSimplified`。不缓存表头或列号，也不保留额外的游戏对象指针；缺列或该行单元格为空时，不因官方译文排除 Scene。表头不可读取时走解析失败，不能将读取失败当作语言缺失。Text 与 Selection 均遵守此规则。PageRec 复用相同的即时列名读取，保持简中、繁中、日文的逐条回退顺序。
 
-PageRec 解析时同时记录是否存在目标语言官方译文，但仍完成整份导出。开启“PageRec 剧情加入翻译任务”后，只要任一 Text 或 Selection 命中目标语言官方译文，就在正常 Scene 保存与任务入口前跳过；已有待翻译 Scene 也不补投。这个标记仅在本次解析和提交间传递，不写入 Scene JSON，也不将官方正文伪装成 HET 已完成译文。此前已生成的任务不自动取消。
+PageRec 解析时同时记录是否存在目标语言官方译文，但仍完成整份导出。开启 PageRec 且未开启“仅解析诊断”时，只要任一 Text 或 Selection 命中目标语言官方译文，就在正常 Scene 保存与任务入口前跳过；已有待翻译 Scene 也不补投。这个标记仅在本次解析和提交间传递，不写入 Scene JSON，也不将官方正文伪装成 HET 已完成译文。此前已生成的任务不自动取消。
 
 普通捕获和 PageRec（含纯导出）共用 `CatchTextLabel`，将完整富文本标签保存为 `protect[].origin`，正文使用对应占位符。`UserSettings.EnableRubyTranslation` 默认关闭；开启后，`<ruby=…>`、`<ruby>` 与 `</ruby>` 原样留在正文，不写入 `protect`，其注释文本可交给模型翻译；Ruby 包裹的正文在两种模式下都正常翻译。`<em=・>`、`<size=…>`、`<param=…>` 等其他标签仍完整保护。配置在游戏启动时传入 Native，修改后需重启游戏，仅影响新捕获内容；已有 Scene、任务及译文不自动改写，旧任务重跑仍沿用原映射。
 
-“PageRec 剧情加入翻译任务”开关还启用现有 QuestWriter 及正文、选项显示观察 hook。PageRec 在同一次解析中收集原有 `OrderKey` 到页面的候选目标，官方译文过滤及生产门禁放行后登记；纯导出不登记。目标无法唯一登记时仍保留完整导出，但不接纳该次任务或回写。解析产物和 API 数据结构不变，托管对象不进入 Scene worker；目标集仍由 QuestWriter 保存非拥有引用，实际使用沿用其游戏线程和生命周期约束。
+游戏 Java 从 `EnablePageRecDebug && !EnableParseOnlyDebug` 派生 native 的 `enable_page_rec_tasks`，启用现有 QuestWriter 及正文、选项显示观察 hook；它不再是独立的持久化设置。PageRec 在同一次解析中收集原有 `OrderKey` 到页面的候选目标，官方译文过滤及生产门禁放行后登记；仅解析时的纯导出不登记。目标无法唯一登记时仍保留完整导出，但不接纳该次任务或回写。解析产物和 API 数据结构不变，托管对象不进入 Scene worker；目标集仍由 QuestWriter 保存非拥有引用，实际使用沿用其游戏线程和生命周期约束。
 
 每次捕获先刷新目标集，再判断任务去重。已有完整译文从正常 Scene 文件入队回写，不重复请求模型；新成功结果提交到游戏 Scene 后，也从该文件入队完整回写，不依赖内存 pending request 或流式 patch 是否到达。显示入队失败不撤销已保存结果或 ACK，之后重新进入剧情可再尝试。流式块复用原有路径；纯导出仍不启用任何画面回写。
 

@@ -1675,15 +1675,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return userSettings.getBoolean("EnablePageRecDebug");
     }
 
-    private static boolean Init_EnablePageRecTasks(JSONObject json) throws Exception {
-        JSONObject settings = json.getJSONObject("UserSettings");
-        if (settings.has("EnablePageRecTasks")
-            && !(settings.get("EnablePageRecTasks") instanceof Boolean)) {
-            throw new IllegalArgumentException("UserSettings.EnablePageRecTasks must be a boolean");
-        }
-        return settings.optBoolean("EnablePageRecTasks", false);
-    }
-
     private static boolean Init_EnableParseOnlyDebug(JSONObject json) throws Exception {
         JSONObject userSettings = json.getJSONObject("UserSettings");
         return userSettings.optBoolean("EnableParseOnlyDebug", false);
@@ -1762,9 +1753,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         );
         config.sceneWorkerCount = config.sceneSyncSnapshot.getSceneWorkerCount();
         config.enablePageRecDebug = Init_EnablePageRecDebug(userConfig);
-        config.enablePageRecTasks = Init_EnablePageRecTasks(userConfig);
         config.enableRubyTranslation = StartupSettings.isRubyTranslationEnabled(userSettings);
         config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(userConfig);
+        config.enablePageRecTasks = config.enablePageRecDebug && !config.enableParseOnlyDebug;
         config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
         config.targetLanguage = Init_TargetLanguage(userConfig);
         config.gameVersion = Init_GameVersion(runtimeConfig);
@@ -1816,9 +1807,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         if (json.getString("Version").trim().isEmpty()) {
             throw new IllegalArgumentException("config.Version must not be empty");
         }
+        StartupSettings.migratePageRecSettings(json);
         Init_CharacterWeight(json);
         Init_EnablePageRecDebug(json);
-        Init_EnablePageRecTasks(json);
         StartupSettings.isRubyTranslationEnabled(json.getJSONObject("UserSettings"));
         Init_EnableParseOnlyDebug(json);
         Init_OverwriteExistingJson(json);

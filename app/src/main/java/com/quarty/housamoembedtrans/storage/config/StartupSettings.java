@@ -22,6 +22,29 @@ public final class StartupSettings {
         return userSettings.optBoolean("EnableRubyTranslation", false);
     }
 
+    /** Merges the old PageRec task switch into parse-only mode exactly once. */
+    public static void migratePageRecSettings(JSONObject config) throws Exception {
+        JSONObject userSettings = config.getJSONObject("UserSettings");
+        boolean legacyVersion = "1.0".equals(config.optString("Version", "1.0").trim());
+        boolean hasLegacySwitch = userSettings.has("EnablePageRecTasks");
+        if (hasLegacySwitch && !(userSettings.get("EnablePageRecTasks") instanceof Boolean)) {
+            throw new IllegalArgumentException("UserSettings.EnablePageRecTasks must be a boolean");
+        }
+        if (userSettings.has("EnableParseOnlyDebug")
+            && !(userSettings.get("EnableParseOnlyDebug") instanceof Boolean)) {
+            throw new IllegalArgumentException("UserSettings.EnableParseOnlyDebug must be a boolean");
+        }
+        if ((legacyVersion || hasLegacySwitch)
+            && userSettings.getBoolean("EnablePageRecDebug")
+            && !userSettings.optBoolean("EnablePageRecTasks", false)) {
+            userSettings.put("EnableParseOnlyDebug", true);
+        }
+        userSettings.remove("EnablePageRecTasks");
+        if (legacyVersion) {
+            config.put("Version", "1.1");
+        }
+    }
+
     /**
      * Applies the Scene Sync defaults in-place while rejecting malformed
      * values.  Unknown UserSettings members remain untouched.

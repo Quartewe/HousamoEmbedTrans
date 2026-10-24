@@ -967,12 +967,6 @@ public final class ConfigStore {
         JSONObject userSettings = config.getJSONObject("UserSettings");
         StartupSettings.isRubyTranslationEnabled(userSettings);
         userSettings.getBoolean("EnablePageRecDebug");
-        if (userSettings.has("EnablePageRecTasks")
-            && !(userSettings.get("EnablePageRecTasks") instanceof Boolean)) {
-            throw new IllegalArgumentException(
-                "UserSettings.EnablePageRecTasks must be a boolean"
-            );
-        }
         if (userSettings.has("EnableParseOnlyDebug")
             && !(userSettings.get("EnableParseOnlyDebug") instanceof Boolean)) {
             throw new IllegalArgumentException(
@@ -1152,11 +1146,7 @@ public final class ConfigStore {
     private JSONObject normalizeConfig(JSONObject config) throws Exception {
         String version = config.has("Version")
             ? requireNonEmptyString(config, "Version", "config")
-            : requireNonEmptyString(
-                loadBundledJson(CONFIG_FILE_NAME),
-                "Version",
-                "config"
-            );
+            : "1.0";
 
         JSONObject userSettings = new JSONObject(
             config.getJSONObject("UserSettings").toString()
@@ -1321,6 +1311,7 @@ public final class ConfigStore {
         JSONObject normalized = new JSONObject();
         normalized.put("Version", version);
         normalized.put("UserSettings", userSettings);
+        StartupSettings.migratePageRecSettings(normalized);
         return normalized;
     }
 
@@ -1501,6 +1492,8 @@ public final class ConfigStore {
             ? null
             : userSettings.optJSONObject("ContextHistory");
         return translationApi != null
+            && !"1.0".equals(config.optString("Version").trim())
+            && !userSettings.has("EnablePageRecTasks")
             && userSettings.has("DebugOmitThinkingParameters")
             && translationApi.has("MaxTokens")
             && translationApi.has("PendingSummaryMode")

@@ -140,6 +140,8 @@ public final class SettingsCategory {
                 translationApi == null ? 0 : translationApi.optInt("ResultRepairCount", 0),
                 uiContext.getString(translationApi != null
                     && translationApi.optBoolean("EnableStreamingResponse", true)
+                    ? R.string.settings_summary_on : R.string.settings_summary_off),
+                uiContext.getString(userSettings.optBoolean("EnablePageRecDebug", false)
                     ? R.string.settings_summary_on : R.string.settings_summary_off)
             );
         }
@@ -188,9 +190,7 @@ public final class SettingsCategory {
                 weights == null ? 1 : weights.optInt("RelatedNum", 1)
             );
         }
-        return userSettings.optBoolean("EnablePageRecDebug", false)
-                || userSettings.optBoolean("EnablePageRecTasks", false)
-                || userSettings.optBoolean("EnableParseOnlyDebug", false)
+        return userSettings.optBoolean("EnableParseOnlyDebug", false)
                 || userSettings.optBoolean("EnableFailedApiResponseDump", false)
                 || userSettings.optBoolean("EnableApiBodyLogging", false)
                 || userSettings.optBoolean("DebugOmitThinkingParameters", true)
