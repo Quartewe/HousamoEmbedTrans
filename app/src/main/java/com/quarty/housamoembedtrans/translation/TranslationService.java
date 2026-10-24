@@ -20,6 +20,7 @@ import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 import com.quarty.housamoembedtrans.translation.job.TranslationTaskExecutor;
 
 import com.quarty.housamoembedtrans.bridge.CallerVerifier;
+import com.quarty.housamoembedtrans.bridge.ChoiceBackResult;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
@@ -89,6 +90,26 @@ public final class TranslationService extends Service {
 
     /** Process-local accessor for the active executor used by local UI retry. */
     private static volatile TranslationTaskExecutor activeTaskExecutor;
+
+    // Main-thread-only: the non-exported notification receiver and Service lifecycle.
+    private static TranslationService notificationChoiceBackOwner;
+
+    /** Called by the notification receiver on the main thread; never queues a reconnect. */
+    public static void requestChoiceBackFromNotification(IChoiceBackCallback callback)
+        throws RemoteException {
+        TranslationService owner = notificationChoiceBackOwner;
+        if (owner == null) {
+            callback.onCompleted(ChoiceBackResult.GAME_NOT_CONNECTED);
+            return;
+        }
+        owner.dispatchChoiceBack(callback);
+    }
+
+    private void dispatchChoiceBack(IChoiceBackCallback callback) {
+        CallbackRecord game = getCallback();
+        gameChoiceRequests.request(callback,
+            game != null && game.binder.isBinderAlive());
+    }
 
     /**
      * The Summary store which owns the current Service startup recovery
@@ -1031,9 +1052,7 @@ public final class TranslationService extends Service {
             @Override
             public void requestChoiceBack(IChoiceBackCallback callback) {
                 enforceSelfUidCaller();
-                CallbackRecord game = getCallback();
-                gameChoiceRequests.request(callback,
-                    game != null && game.binder.isBinderAlive());
+                dispatchChoiceBack(callback);
             }
 
             @Override
@@ -1411,6 +1430,7 @@ public final class TranslationService extends Service {
                 + " uid="
                 + Process.myUid()
         );
+        notificationChoiceBackOwner = this;
     }
 
     /**
@@ -1604,6 +1624,7 @@ public final class TranslationService extends Service {
 
     @Override
     public void onDestroy() {
+        if (notificationChoiceBackOwner == this) notificationChoiceBackOwner = null;
         gameChoiceRequests.close();
         // Publish the non-accepting state before shutting down either API
         // executor. A concurrent durable admission that already captured the

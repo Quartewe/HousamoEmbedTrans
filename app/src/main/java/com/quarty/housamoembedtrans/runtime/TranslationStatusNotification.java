@@ -44,6 +44,8 @@ public final class TranslationStatusNotification {
 
     static final String ACTION_TOGGLE_CAPTURE =
         "com.quarty.housamoembedtrans.action.TOGGLE_CAPTURE";
+    static final String ACTION_CHOICE_BACK =
+        "com.quarty.housamoembedtrans.action.CHOICE_BACK";
 
     private static final String TAG = "HET.Notification";
     private static final String CHANNEL_ID = "translation_status";
@@ -68,6 +70,7 @@ public final class TranslationStatusNotification {
     private static final int SCENE_CONTEXT_REVIEW_REQUEST_CODE = 6;
     private static final int REJECTED_API_RESULTS_REQUEST_CODE = 7;
     private static final int HOME_REQUEST_CODE = 8;
+    private static final int CHOICE_BACK_REQUEST_CODE = 9;
     private static final String NOTIFICATION_INTENT_SCHEME =
         "housamoembedtrans";
 
@@ -1007,50 +1010,10 @@ public final class TranslationStatusNotification {
                 (previewIntent != null ? previewIntent : capturePendingIntent(context))
             );
 
-        String actionableTaskTitle;
-        if (manualStartupRepair) {
-            actionableTaskTitle = context.getString(
-                    R.string.notification_action_view_queue_repair
-            );
-        } else if (heldQueuedJobCount > 0 || manualRerunCandidateCount > 0) {
-            actionableTaskTitle = heldQueuedJobCount > 0
-                    && manualRerunCandidateCount > 0
-                    ? context.getString(
-                        R.string.notification_action_manage_queue_with_failures,
-                        heldQueuedJobCount,
-                        manualRerunCandidateCount
-                    )
-                    : heldQueuedJobCount > 0
-                        ? context.getString(
-                            R.string.notification_action_manage_queue,
-                            heldQueuedJobCount
-                        )
-                        : context.getString(
-                            R.string.notification_action_manage_failed_jobs,
-                            manualRerunCandidateCount
-                        );
-        } else if (STATE_STARTUP_FAILED.equals(status)) {
-            actionableTaskTitle = context.getString(
-                    R.string.notification_action_view_startup_failure
-            );
-        } else if (STATE_BLOCKED.equals(status) || STATE_ADMISSION_BLOCKED.equals(status)) {
-            actionableTaskTitle = context.getString(
-                    R.string.notification_action_view_queue_repair
-            );
-        } else {
-            actionableTaskTitle = context.getString(
-                R.string.notification_action_view_tasks
-            );
-        }
         builder.addAction(
-            R.drawable.ic_notification,
-            actionableTaskTitle,
-            (previewIntent != null ? previewIntent : queuePendingIntent(context))
-        );
-        builder.addAction(
-            R.drawable.ic_notification,
-            context.getString(R.string.notification_action_view_waiting_results),
-            (previewIntent != null ? previewIntent : rejectedApiResultsPendingIntent(context))
+            R.drawable.ic_task_back,
+            context.getString(R.string.notification_action_choice_back),
+            (previewIntent != null ? previewIntent : choiceBackPendingIntent(context))
         );
 
         if (STATE_ACTIVE.equals(status) && startedAt > 0L) {
@@ -1373,6 +1336,17 @@ public final class TranslationStatusNotification {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
+    private static PendingIntent choiceBackPendingIntent(Context context) {
+        Intent intent = new Intent(context, TranslationControlReceiver.class)
+            .setAction(ACTION_CHOICE_BACK);
+        return PendingIntent.getBroadcast(
+            context,
+            CHOICE_BACK_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
     private static PendingIntent settingsPendingIntent(Context context) {
         Intent intent = new Intent(context, SettingsActivity.class)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -1428,10 +1402,6 @@ public final class TranslationStatusNotification {
             PendingIntent.FLAG_UPDATE_CURRENT
                 | PendingIntent.FLAG_IMMUTABLE
         );
-    }
-
-    private static PendingIntent rejectedApiResultsPendingIntent(Context context) {
-        return rejectedApiResultsPendingIntent(context, null);
     }
 
     private static PendingIntent rejectedApiResultsPendingIntent(

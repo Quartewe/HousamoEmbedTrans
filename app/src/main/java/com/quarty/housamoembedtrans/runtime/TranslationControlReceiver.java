@@ -2,11 +2,18 @@ package com.quarty.housamoembedtrans.runtime;
 import com.quarty.housamoembedtrans.translation.TranslationService;
 
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
+import com.quarty.housamoembedtrans.bridge.ChoiceBackResult;
+import com.quarty.housamoembedtrans.translation.IChoiceBackCallback;
+import com.quarty.housamoembedtrans.R;
 
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.RemoteException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.widget.Toast;
 import com.quarty.housamoembedtrans.logging.Log;
 
 /** Handles notification actions in the module process. */
@@ -73,6 +80,24 @@ public final class TranslationControlReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (intent != null
+            && TranslationStatusNotification.ACTION_CHOICE_BACK.equals(intent.getAction())) {
+            Context appContext = context.getApplicationContext();
+            try {
+                TranslationService.requestChoiceBackFromNotification(
+                    new IChoiceBackCallback.Stub() {
+                        @Override
+                        public void onCompleted(int result) {
+                            showChoiceBackResult(appContext, result);
+                        }
+                    }
+                );
+            } catch (RemoteException error) {
+                Log.w(TAG, "Choice-back notification dispatch lost its connection", error);
+                showChoiceBackResult(appContext, ChoiceBackResult.UNKNOWN);
+            }
+            return;
+        }
         if (intent == null
             || !TranslationStatusNotification.ACTION_TOGGLE_CAPTURE.equals(
                 intent.getAction()
@@ -109,5 +134,35 @@ public final class TranslationControlReceiver extends BroadcastReceiver {
         } catch (RuntimeException error) {
             Log.w(TAG, "Could not open task-page capture control", error);
         }
+    }
+
+    private static void showChoiceBackResult(Context context, int result) {
+        final int message;
+        switch (result) {
+            case ChoiceBackResult.RESTORED:
+                message = R.string.notification_choice_back_restored;
+                break;
+            case ChoiceBackResult.NO_TARGET:
+                message = R.string.notification_choice_back_no_target;
+                break;
+            case ChoiceBackResult.BUSY:
+                message = R.string.notification_choice_back_busy;
+                break;
+            case ChoiceBackResult.UNAVAILABLE:
+                message = R.string.notification_choice_back_unavailable;
+                break;
+            case ChoiceBackResult.GAME_NOT_CONNECTED:
+                message = R.string.notification_choice_back_disconnected;
+                break;
+            case ChoiceBackResult.FAILED:
+                message = R.string.notification_choice_back_failed;
+                break;
+            default:
+                message = R.string.notification_choice_back_unknown;
+                break;
+        }
+        new Handler(Looper.getMainLooper()).post(() ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        );
     }
 }
