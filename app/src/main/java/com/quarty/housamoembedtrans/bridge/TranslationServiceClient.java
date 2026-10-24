@@ -256,6 +256,7 @@ public final class TranslationServiceClient {
         ) {
             ITranslationService connected =
                 ITranslationService.Stub.asInterface(service);
+            boolean retryBindingOnFailure = true;
             try {
                 int version = connected.getProtocolVersion();
                 if (version != HetBridgeContract.PROTOCOL_VERSION) {
@@ -270,6 +271,12 @@ public final class TranslationServiceClient {
                     if (closed) {
                         return;
                     }
+                    // BIND_AUTO_CREATE can recreate only the bound Service.
+                    // Every connection also needs its idempotent START path
+                    // to enter the foreground and initialize Scene sync.
+                    retryBindingOnFailure = false;
+                    start();
+                    retryBindingOnFailure = true;
                     remote = connected;
                     connectionSecurityFailure = null;
                     registerGameScenePort(connected);
@@ -302,7 +309,7 @@ public final class TranslationServiceClient {
                         + version
                 );
             } catch (RemoteException e) {
-                recoverConnectionInitializationFailure(connected);
+                recoverConnectionInitializationFailure(connected, retryBindingOnFailure);
                 log(
                     "Failed to initialize TranslationService connection: "
                         + e.getClass().getSimpleName()
@@ -310,7 +317,7 @@ public final class TranslationServiceClient {
                         + safeMessage(e)
                 );
             } catch (SecurityException e) {
-                recoverConnectionInitializationFailure(connected);
+                recoverConnectionInitializationFailure(connected, retryBindingOnFailure);
                 synchronized (TranslationServiceClient.this) {
                     connectionSecurityFailure = e;
                 }
@@ -321,7 +328,7 @@ public final class TranslationServiceClient {
                         + safeMessage(e)
                 );
             } catch (RuntimeException e) {
-                recoverConnectionInitializationFailure(connected);
+                recoverConnectionInitializationFailure(connected, retryBindingOnFailure);
                 log(
                     "Failed to initialize TranslationService connection: "
                         + e.getClass().getSimpleName()
@@ -1030,14 +1037,17 @@ public final class TranslationServiceClient {
     }
 
     /**
-     * Rolls back a partially initialized Binder connection and schedules a
-     * fresh bind.  Registering the callback can succeed remotely immediately
+     * Rolls back a partially initialized Binder connection and optionally
+     * schedules a fresh bind. A rejected START waits for a later explicit
+     * start/bind attempt instead of immediately repeating the rejected call.
+     * Registering the callback can succeed remotely immediately
      * before a later setup call fails; leaving the old ServiceConnection bound
      * would otherwise create a service-side callback that the client can no
      * longer use.
      */
     private void recoverConnectionInitializationFailure(
-        ITranslationService connected
+        ITranslationService connected,
+        boolean retryBinding
     ) {
         if (connected != null) {
             gameChoicePort.disconnect();
@@ -1071,25 +1081,25 @@ public final class TranslationServiceClient {
             }
         }
 
-        boolean shouldRebind;
+        boolean shouldUnbind;
         synchronized (this) {
             remote = null;
             gameChoicePort.disconnect();
             notifyAll();
-            shouldRebind = !closed && bound;
-            if (shouldRebind) {
+            shouldUnbind = !closed && bound;
+            if (shouldUnbind) {
                 bound = false;
             }
         }
         resetSceneProductionPolicy();
-        if (shouldRebind) {
+        if (shouldUnbind) {
             try {
                 context.unbindService(connection);
             } catch (IllegalArgumentException ignored) {
                 // The binding may already have died.
             }
             synchronized (this) {
-                if (!closed) {
+                if (retryBinding && !closed) {
                     bind();
                 }
             }
