@@ -94,6 +94,21 @@ public final class TranslationService extends Service {
     // Main-thread-only: the non-exported notification receiver and Service lifecycle.
     private static TranslationService notificationChoiceBackOwner;
 
+    /** Main-thread entry used after a runtime resource commit. Does not start a service. */
+    public static void announceOnlineIfRunning() {
+        TranslationService owner = notificationChoiceBackOwner;
+        if (owner != null && owner.foregroundStarted) {
+            owner.announceOnline();
+        }
+    }
+
+    private void announceOnline() {
+        sendBroadcast(new Intent(HetBridgeContract.ACTION_TRANSLATION_SERVICE_ONLINE)
+            .setPackage(HetBridgeContract.TARGET_PACKAGE)
+            .addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY | Intent.FLAG_RECEIVER_FOREGROUND));
+        Log.i(TAG, "Translation service online signal sent");
+    }
+
     /** Called by the notification receiver on the main thread; never queues a reconnect. */
     public static void requestChoiceBackFromNotification(IChoiceBackCallback callback)
         throws RemoteException {
@@ -1594,6 +1609,7 @@ public final class TranslationService extends Service {
                 + " uid="
                 + Process.myUid()
         );
+        announceOnline();
         return START_STICKY;
     }
 

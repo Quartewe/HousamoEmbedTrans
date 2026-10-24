@@ -86,7 +86,7 @@ PageRec 复用正常 Scene 结构和分支组装：同一 Scene 的正文与分�
 
 PageRec 开启后，捕获输出到 `page_rec/`。未开启“仅解析诊断”时，导出的 Scene 同时进入正常 `scenes/` 保存与任务链，按当前目标语言处理，并启用 Quest 回写；已有目标语言官方译文的剧情仅导出。已有完整译文直接回写，已有 Scene 沿用原内容；新翻译完整保存后也会提交回写，流式块沿用现有回写设置。完整回写读取正常 `scenes/` 中的译文，`page_rec/` 文件仍仅作导出留档。开启“仅解析诊断”时只导出，不进入正常 Scene、任务或回写。模式只处理此后捕获的剧情，不扫描旧会话目录。游戏与 HET 的连接、正常 `scenes/` 端口仍保留；导出隔离不表示停止已有正常 Scene 的同步。切换模式需重启游戏。
 
-游戏配置与字典优先通过 HET 用户文件 Provider 读取，无法取得可用的覆盖文件时回退到模块 APK assets，不从游戏 `housamo_embed_trans/` 寻找另一份 `runtime.json`。修改仓库 assets 不等于更新已安装 APK 或 HET 用户覆盖文件。
+游戏配置与字典优先通过 HET 用户文件 Provider 读取。取得 Provider 后确认没有可用覆盖文件时，回退到模块 APK assets；Provider 无法取得、通信失败或读取中断时，结束本次读取并等待 HET 在线信号，不把通信失败当作默认配置。读取仍使用现有 Provider，Android 获取 Provider 时仍可能启动其所属进程。游戏不从 `housamo_embed_trans/` 寻找另一份 `runtime.json`。修改仓库 assets 不等于更新已安装 APK 或 HET 用户覆盖文件。
 
 ## 4. 游戏原生资源
 

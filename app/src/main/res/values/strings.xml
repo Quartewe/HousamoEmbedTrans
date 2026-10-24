@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="service_start_failed">Could not start the HET service. Open HET again to reconnect.</string>
     <string name="notification_api_retry_title">Retrying request</string>
     <string name="notification_api_retry_text">%1$s: %2$s · retry %3$d/%4$d</string>
     <string name="notification_api_main_phase">Translation</string>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="service_start_failed">HET 服务启动失败，请重新打开 HET 连接。</string>
     <string name="notification_api_retry_title">正在重试</string>
     <string name="notification_api_retry_text">%1$s：%2$s · 重试 %3$d/%4$d</string>
     <string name="notification_api_main_phase">翻译</string>

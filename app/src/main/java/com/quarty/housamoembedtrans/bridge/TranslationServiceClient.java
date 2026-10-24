@@ -12,7 +12,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 
@@ -34,6 +36,7 @@ import java.util.function.Consumer;
  */
 public final class TranslationServiceClient {
     private static final int MAX_CALLBACK_BYTES = 32 * 1024 * 1024;
+    private static final long CONNECT_TIMEOUT_MS = 5_000L;
 
     /** The client itself was closed and cannot become connected by retrying. */
     public static final class ClientClosedException
@@ -46,7 +49,7 @@ public final class TranslationServiceClient {
         }
     }
 
-    /** A known local service start or binding failure that may be retried. */
+    /** An unavailable connection that may be restored by opening HET. */
     public static final class ServiceUnavailableException
         extends IllegalStateException {
 
@@ -107,6 +110,11 @@ public final class TranslationServiceClient {
     private boolean bound;
     private boolean closed;
     private String gameStartupFailure = "";
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private GameServiceConnection connection;
+    private Runnable connectionTimeout;
+    private boolean onlinePending;
+    private Consumer<Boolean> connectionListener;
 
     @FunctionalInterface
     private interface DescriptorAction {
@@ -227,8 +235,8 @@ public final class TranslationServiceClient {
         };
 
     public synchronized void setGameStartupFailure(String message) {
-        if (message == null || message.isEmpty()) {
-            throw new IllegalArgumentException("Startup failure message cannot be empty");
+        if (message == null) {
+            throw new IllegalArgumentException("Startup failure message cannot be null");
         }
         if (closed) {
             return;
@@ -248,7 +256,8 @@ public final class TranslationServiceClient {
         }
     }
 
-    private final ServiceConnection connection = new ServiceConnection() {
+    /** Each bind has its own identity so late callbacks cannot alter a newer attempt. */
+    private final class GameServiceConnection implements ServiceConnection {
         @Override
         public void onServiceConnected(
             ComponentName name,
@@ -256,8 +265,11 @@ public final class TranslationServiceClient {
         ) {
             ITranslationService connected =
                 ITranslationService.Stub.asInterface(service);
-            boolean retryBindingOnFailure = true;
             try {
+                synchronized (TranslationServiceClient.this) {
+                    if (closed || connection != this) return;
+                    if (remote != null && remote.asBinder() == service) return;
+                }
                 int version = connected.getProtocolVersion();
                 if (version != HetBridgeContract.PROTOCOL_VERSION) {
                     throw new IllegalStateException(
@@ -268,19 +280,14 @@ public final class TranslationServiceClient {
                     );
                 }
                 synchronized (TranslationServiceClient.this) {
-                    if (closed) {
+                    if (closed || connection != this) {
                         return;
                     }
-                    // BIND_AUTO_CREATE can recreate only the bound Service.
-                    // Every connection also needs its idempotent START path
-                    // to enter the foreground and initialize Scene sync.
-                    retryBindingOnFailure = false;
-                    start();
-                    retryBindingOnFailure = true;
                     remote = connected;
                     connectionSecurityFailure = null;
-                    registerGameScenePort(connected);
-                    connected.registerTranslationCallback(callback);
+                    // A version-mismatch connection exposes diagnostics only.
+                    // Native-dependent callbacks are installed once the Scene port is ready.
+                    if (gameScenePort != null) registerReadyGamePorts(connected);
                     // Optional extension: an older HET service must not break translation.
                     try {
                         connected.registerGameObbPort(gameObbPort);
@@ -293,23 +300,17 @@ public final class TranslationServiceClient {
                     } catch (RemoteException | RuntimeException error) {
                         log("Game log port unavailable: " + safeMessage(error));
                     }
-                    try {
-                        if (connected.getChoiceBackProtocolVersion() == 1) {
-                            gameChoicePort.connect();
-                            connected.registerGameChoicePort(gameChoicePort);
-                        }
-                    } catch (RemoteException | RuntimeException error) {
-                        gameChoicePort.disconnect();
-                        log("Game choice port unavailable: " + safeMessage(error));
-                    }
+                    cancelConnectionTimeout();
+                    onlinePending = false;
                     TranslationServiceClient.this.notifyAll();
                 }
                 log(
                     "Connected to TranslationService protocol version="
                         + version
                 );
+                notifyConnectionState();
             } catch (RemoteException e) {
-                recoverConnectionInitializationFailure(connected, retryBindingOnFailure);
+                recoverConnectionInitializationFailure(this, connected);
                 log(
                     "Failed to initialize TranslationService connection: "
                         + e.getClass().getSimpleName()
@@ -317,10 +318,10 @@ public final class TranslationServiceClient {
                         + safeMessage(e)
                 );
             } catch (SecurityException e) {
-                recoverConnectionInitializationFailure(connected, retryBindingOnFailure);
                 synchronized (TranslationServiceClient.this) {
-                    connectionSecurityFailure = e;
+                    if (connection == this) connectionSecurityFailure = e;
                 }
+                recoverConnectionInitializationFailure(this, connected);
                 log(
                     "Permission denied while initializing TranslationService connection: "
                         + e.getClass().getSimpleName()
@@ -328,7 +329,7 @@ public final class TranslationServiceClient {
                         + safeMessage(e)
                 );
             } catch (RuntimeException e) {
-                recoverConnectionInitializationFailure(connected, retryBindingOnFailure);
+                recoverConnectionInitializationFailure(this, connected);
                 log(
                     "Failed to initialize TranslationService connection: "
                         + e.getClass().getSimpleName()
@@ -341,51 +342,52 @@ public final class TranslationServiceClient {
         @Override
         public void onServiceDisconnected(ComponentName name) {
             synchronized (TranslationServiceClient.this) {
+                if (closed || connection != this) return;
                 remote = null;
                 gameChoicePort.disconnect();
+                cancelConnectionTimeout();
                 TranslationServiceClient.this.notifyAll();
+                if (onlinePending) {
+                    // Consume a real signal received before this death callback.
+                    onlinePending = false;
+                    releaseBinding(this);
+                    bind();
+                    return;
+                }
             }
             resetSceneProductionPolicy();
             log("TranslationService disconnected");
+            // Keep the existing passive binding; Android may reconnect it after HET starts.
+            notifyConnectionState();
         }
 
         @Override
         public void onBindingDied(ComponentName name) {
-            remote = null;
-            gameChoicePort.disconnect();
-            resetSceneProductionPolicy();
-            synchronized (TranslationServiceClient.this) {
-                if (closed) {
-                    return;
-                }
-                bound = false;
-            }
             log("TranslationService binding died");
-            try {
-                context.unbindService(connection);
-            } catch (IllegalArgumentException ignored) {
-            }
-            synchronized (TranslationServiceClient.this) {
-                if (!closed) {
-                    bind();
-                }
-            }
+            recoverConnectionInitializationFailure(this, null);
         }
 
         @Override
         public void onNullBinding(ComponentName name) {
-            synchronized (TranslationServiceClient.this) {
-                remote = null;
-                gameChoicePort.disconnect();
-                TranslationServiceClient.this.notifyAll();
-            }
-            resetSceneProductionPolicy();
-            synchronized (TranslationServiceClient.this) {
-                bound = false;
-            }
             log("TranslationService returned a null binding");
+            recoverConnectionInitializationFailure(this, null);
         }
-    };
+    }
+
+    public synchronized void setConnectionListener(Consumer<Boolean> listener) {
+        connectionListener = listener;
+    }
+
+    private void notifyConnectionState() {
+        main.post(() -> {
+            Consumer<Boolean> listener;
+            synchronized (this) {
+                if (closed) return;
+                listener = connectionListener;
+            }
+            if (listener != null) listener.accept(isConnected());
+        });
+    }
 
     public TranslationServiceClient(
         Context context,
@@ -510,7 +512,31 @@ public final class TranslationServiceClient {
                 );
             }
         }
+        try {
+            if (previous == null && gameScenePort != null) {
+                registerReadyGamePorts(service);
+            } else {
+                registerGameScenePort(service);
+            }
+        } catch (RemoteException | RuntimeException error) {
+            // Native and the Scene adapter stay alive; only this connection failed.
+            log("Could not activate game ports: " + safeMessage(error));
+            recoverConnectionInitializationFailure(connection, service);
+        }
+    }
+
+    private void registerReadyGamePorts(ITranslationService service) throws RemoteException {
         registerGameScenePort(service);
+        service.registerTranslationCallback(callback);
+        try {
+            if (service.getChoiceBackProtocolVersion() == 1) {
+                gameChoicePort.connect();
+                service.registerGameChoicePort(gameChoicePort);
+            }
+        } catch (RemoteException | RuntimeException error) {
+            gameChoicePort.disconnect();
+            log("Game choice port unavailable: " + safeMessage(error));
+        }
     }
 
     public boolean enqueue(String requestId, byte[] requestJson)
@@ -743,67 +769,80 @@ public final class TranslationServiceClient {
         if (bound) {
             return;
         }
+        GameServiceConnection attempt = new GameServiceConnection();
+        connection = attempt;
+        connectionSecurityFailure = null;
         Intent intent = new Intent().setComponent(component);
         try {
             bound = context.bindService(
                 intent,
-                connection,
-                Context.BIND_AUTO_CREATE
+                attempt,
+                0
             );
-        } catch (IllegalStateException e) {
-            throw new ServiceUnavailableException(
-                "Could not bind TranslationService",
-                e
-            );
+        } catch (RuntimeException error) {
+            if (error instanceof SecurityException) {
+                connectionSecurityFailure = (SecurityException) error;
+            }
+            log("Could not bind TranslationService: " + safeMessage(error));
         }
         log("bindService to TranslationService accepted=" + bound);
+        if (!bound) {
+            releaseBinding(attempt);
+            notifyConnectionState();
+            return;
+        }
+        connectionTimeout = () -> onConnectionTimeout(attempt);
+        main.postDelayed(connectionTimeout, CONNECT_TIMEOUT_MS);
     }
 
-    public boolean start() {
-        synchronized (this) {
-            if (closed) {
-                throw new ClientClosedException();
-            }
+    /** Called only for a HET online signal, never by task submission or Activity resume. */
+    public synchronized void onHetOnline() {
+        if (closed || isConnected()) return;
+        if (connectionTimeout != null) {
+            onlinePending = true;
+            return;
         }
-        Intent intent = new Intent(
-            HetBridgeContract.ACTION_START_TRANSLATION_SERVICE
-        ).setComponent(component);
+        if (connection != null) releaseBinding(connection);
+        bind();
+    }
+
+    private synchronized void onConnectionTimeout(GameServiceConnection attempt) {
+        if (closed || connection != attempt || isConnected()) return;
+        connectionTimeout = null;
+        if (onlinePending) {
+            // The deadline consumes one coalesced external wake, not a timer retry.
+            onlinePending = false;
+            releaseBinding(attempt);
+            bind();
+        } else {
+            log("TranslationService connection pending; waiting for HET to open");
+            notifyConnectionState();
+        }
+    }
+
+    private void cancelConnectionTimeout() {
+        if (connectionTimeout != null) main.removeCallbacks(connectionTimeout);
+        connectionTimeout = null;
+    }
+
+    private synchronized void releaseBinding(GameServiceConnection attempt) {
+        if (attempt == null || connection != attempt) return;
+        connection = null;
+        bound = false;
+        remote = null;
+        gameChoicePort.disconnect();
+        cancelConnectionTimeout();
+        notifyAll();
         try {
-            context.startForegroundService(intent);
-            log("TranslationService started");
-            return true;
-        } catch (SecurityException e) {
-            log(
-                "Permission denied while starting TranslationService: "
-                    + e.getClass().getSimpleName()
-                    + ": "
-                    + safeMessage(e)
-            );
-            throw e;
-        } catch (IllegalStateException e) {
-            log(
-                "TranslationService start is temporarily unavailable: "
-                    + e.getClass().getSimpleName()
-                    + ": "
-                    + safeMessage(e)
-            );
-            throw new ServiceUnavailableException(
-                "Could not start TranslationService",
-                e
-            );
-        } catch (RuntimeException e) {
-            log(
-                "Unexpected TranslationService start failure: "
-                    + e.getClass().getSimpleName()
-                    + ": "
-                    + safeMessage(e)
-            );
-            throw e;
+            context.unbindService(attempt);
+        } catch (IllegalArgumentException ignored) {
+            // bindService may have been rejected before a dispatcher was retained.
         }
+        resetSceneProductionPolicy();
     }
 
     public synchronized boolean isConnected() {
-        return remote != null;
+        return !closed && remote != null && remote.asBinder().isBinderAlive();
     }
 
     public synchronized boolean awaitConnected(long timeoutMs)
@@ -814,7 +853,7 @@ public final class TranslationServiceClient {
             );
         }
         long deadline = System.currentTimeMillis() + timeoutMs;
-        while (!closed && remote == null) {
+        while (!closed && remote == null && bound) {
             if (connectionSecurityFailure != null) {
                 throw connectionSecurityFailure;
             }
@@ -837,6 +876,7 @@ public final class TranslationServiceClient {
         final ITranslationService service;
         final IGameScenePort port;
         final boolean wasBound;
+        final GameServiceConnection closingConnection;
         synchronized (this) {
             if (closed) {
                 return;
@@ -848,6 +888,10 @@ public final class TranslationServiceClient {
             service = remote;
             port = gameScenePort;
             wasBound = bound;
+            closingConnection = connection;
+            connection = null;
+            cancelConnectionTimeout();
+            onlinePending = false;
 
             // Stop accepting callbacks first, then close every descriptor
             // still queued.  A running task is deliberately left alone so
@@ -959,7 +1003,7 @@ public final class TranslationServiceClient {
 
             if (wasBound) {
                 try {
-                    context.unbindService(connection);
+                    context.unbindService(closingConnection);
                 } catch (RuntimeException e) {
                     log(
                         "Could not unbind TranslationService: "
@@ -1037,18 +1081,18 @@ public final class TranslationServiceClient {
     }
 
     /**
-     * Rolls back a partially initialized Binder connection and optionally
-     * schedules a fresh bind. A rejected START waits for a later explicit
-     * start/bind attempt instead of immediately repeating the rejected call.
+     * Rolls back a partially initialized Binder connection. Only a pending
+     * HET online signal can authorize another bind; failure alone never retries.
      * Registering the callback can succeed remotely immediately
      * before a later setup call fails; leaving the old ServiceConnection bound
      * would otherwise create a service-side callback that the client can no
      * longer use.
      */
-    private void recoverConnectionInitializationFailure(
-        ITranslationService connected,
-        boolean retryBinding
+    private synchronized void recoverConnectionInitializationFailure(
+        GameServiceConnection attempt,
+        ITranslationService connected
     ) {
+        if (closed || attempt == null || connection != attempt) return;
         if (connected != null) {
             gameChoicePort.disconnect();
             try {
@@ -1081,29 +1125,11 @@ public final class TranslationServiceClient {
             }
         }
 
-        boolean shouldUnbind;
-        synchronized (this) {
-            remote = null;
-            gameChoicePort.disconnect();
-            notifyAll();
-            shouldUnbind = !closed && bound;
-            if (shouldUnbind) {
-                bound = false;
-            }
-        }
-        resetSceneProductionPolicy();
-        if (shouldUnbind) {
-            try {
-                context.unbindService(connection);
-            } catch (IllegalArgumentException ignored) {
-                // The binding may already have died.
-            }
-            synchronized (this) {
-                if (retryBinding && !closed) {
-                    bind();
-                }
-            }
-        }
+        boolean wakePending = onlinePending;
+        onlinePending = false;
+        releaseBinding(attempt);
+        if (wakePending) bind();
+        else notifyConnectionState();
     }
 
     private void readCallbackPayload(

@@ -10,6 +10,7 @@ import android.widget.Toast;
 
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.logging.Log;
+import com.quarty.housamoembedtrans.translation.TranslationService;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
 import org.json.JSONObject;
@@ -28,21 +29,26 @@ public final class RuntimeResourceUpdater implements Application.ActivityLifecyc
     private static final String RESOURCE_URL =
         "https://raw.githubusercontent.com/Quartewe/HousamoEmbedTrans/master/app/src/main/assets/runtime.json";
     private final Application application;
+    private final Runnable onAppOpened;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AtomicBoolean checking = new AtomicBoolean();
     private int startedActivities;
     private boolean changingConfiguration;
     private Consumer<String> manualCompletion;
 
-    public RuntimeResourceUpdater(Application application) {
+    public RuntimeResourceUpdater(Application application, Runnable onAppOpened) {
         this.application = application;
+        this.onAppOpened = onAppOpened;
     }
 
     @Override
     public void onActivityStarted(Activity activity) {
         boolean opening = startedActivities++ == 0 && !changingConfiguration;
         changingConfiguration = false;
-        if (opening) requestCheck(null);
+        if (opening) {
+            onAppOpened.run();
+            requestCheck(null);
+        }
     }
 
     /** Called on the UI thread; joins an active startup check instead of downloading twice. */
@@ -100,7 +106,10 @@ public final class RuntimeResourceUpdater implements Application.ActivityLifecyc
         }
         if (store.updateRuntimeForGame(remote, gameVersion)) {
             Log.i(TAG, "Runtime updated version=" + gameVersion);
-            return "RVA 资源已自动更新至 " + gameVersion + "，请重启游戏使其生效。";
+            // Commit first; notify only through a service that is already running.
+            main.post(TranslationService::announceOnlineIfRunning);
+            return "RVA 资源已自动更新至 " + gameVersion
+                + "。等待资源的游戏会自动继续；已初始化的游戏需重启后生效。";
         }
         Log.i(TAG, "Runtime content hash matches remote; game=" + gameVersion);
         return null;

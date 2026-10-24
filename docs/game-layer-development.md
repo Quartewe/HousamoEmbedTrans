@@ -28,7 +28,13 @@
 
 ## 2. 启动与 Hook
 
-`MainHook` 在目标应用 `Application.attach` 后调用 `initializeTarget`，读取启动配置、建立 HET 连接、初始化 ShadowHook 并调用 `nativeStart`。游戏 Scene 端口需在 Native 策略及游戏镜像目录就绪后启用；连接服务与 Unity 资源加载不是同一件事。
+`MainHook` 在目标应用 `Application.attach` 后注册进程寿命的在线信号接收器，首次 Activity resume 返回后执行一次 `initializeTarget`。沿既有顺序读取启动配置、绑定 HET、初始化 ShadowHook 并调用 `nativeStart`。HET 每次从后台进入前台时自行启动服务；服务成功接受 START 后向游戏包发送不含配置的在线信号。先开 HET 时，游戏仍走首次尝试，不需要等信号。
+
+游戏不调用服务 START，绑定不使用 `BIND_AUTO_CREATE`。Provider 通信失败、绑定被拒绝或连接等待超时时，游戏显示打开 HET 的提示；不通过定时器、再次 resume 或任务提交发起连接重试。普通断连保留已有的被动绑定；绑定失效或返回空 Binder 时解除绑定。在线信号到达后，未开始 Native 初始化的游戏重新读取启动资源；已经开始初始化的游戏只恢复通信。资源更新成功后，HET 通过正在运行的服务再次发送相同信号，供等待资源版本匹配的游戏继续。
+
+绑定回调、在线接收器和启动入口在游戏主线程串行处理。每次绑定持有独立的 `ServiceConnection`，旧回调不能操作新绑定；绑定进行中收到的信号合并保存一次，当前尝试失败或等待超时后可以消费它再尝试一次。没有新信号时，超时只提示，不重绑。启动资源仍沿用同步读取，主线程读取期间收到的广播排在其后处理；没有新增后台读取队列。
+
+开始 ShadowHook 初始化前设置进程内闩锁，后续信号不能再次调用 `nativeStart`；初始化本身失败需要重启游戏。Scene 适配器先准备，Native 策略及镜像目录就绪后再注册 Scene、翻译结果和 choice 端口。资源版本不匹配时只注册诊断端口，避免旧结果提前进入 JNI。普通断连不关闭整个客户端，也不清空 Native 持有的 choice 历史；连接恢复后只重新注册端口。连接服务、Native 初始化派发与 Unity Hook 安装成功仍是不同阶段。
 
 `runtime.json` 提供目标游戏版本、函数 RVA 和对象布局；用户配置提供功能开关。配置解析入口在 `init_config.cpp`，业务读取使用 `g_runtime_config`，不要在访问代码中另写一套偏移常量。
 

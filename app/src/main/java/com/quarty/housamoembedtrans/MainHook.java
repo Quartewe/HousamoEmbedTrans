@@ -20,14 +20,19 @@ import de.robv.android.xposed.IXposedHookZygoteInit;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.BroadcastReceiver;
+import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.net.Uri;
+import android.widget.Toast;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -80,7 +85,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static String sModulePath = null;
     private static boolean s_loaded = false;
     private static boolean s_attach_hook_installed = false;
-    private static boolean s_initializing = false;
+    // Startup triggers and Binder lifecycle callbacks are serialized on the main Looper.
+    private static Handler sStartupHandler;
+    private static Runnable sStartupAttempt;
+    private static boolean sFirstActivityResumed;
+    private static boolean sNativeInitializationStarted;
+    private static boolean sWaitingToastShown;
     private static volatile TranslationServiceClient sTranslationClient;
     private static volatile GameScenePort sGameScenePort;
     private static volatile Context sTargetContext;
@@ -138,7 +148,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     /**
      * Game-process implementation of the one registered Scene port.  The
-     * adapter is created only after nativeStart and the injected game mirror
+     * adapter is registered only after nativeStart and the injected game mirror
      * store are ready, so a fast Binder registration cannot hit an unloaded
      * native policy entry point.
      */
@@ -1510,32 +1520,29 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             .appendPath(name)
             .build();
 
-        try {
-            context.getContentResolver().takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            );
-        } catch (SecurityException ignored) {
-            // A temporary grant may not be present yet. openInputStream below
-            // still works on devices where the exported provider is visible.
-        }
-
-        try (InputStream input = context.getContentResolver().openInputStream(uri)) {
-            if (input != null) {
+        // Acquire separately: framework/provider failure must not look like a
+        // confirmed absence of a user file. This still uses the existing Provider.
+        try (ContentProviderClient provider = context.getContentResolver()
+                .acquireUnstableContentProviderClient(uri)) {
+            if (provider == null) {
+                throw new IOException("HET user-file Provider is unavailable");
+            }
+            ParcelFileDescriptor descriptor;
+            try {
+                descriptor = provider.openFile(uri, "r");
+            } catch (FileNotFoundException missing) {
+                Log.game("[HousamoTrans] No user override for " + name
+                    + "; using module asset");
+                return readModuleAsset(name);
+            }
+            if (descriptor == null) {
+                throw new IOException("HET returned no descriptor for " + name);
+            }
+            try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(descriptor)) {
                 Log.game("[HousamoTrans] Using user override: " + name);
                 return IoUtils.readUtf8Limited(input, -1);
             }
-        } catch (Exception e) {
-            Log.game(
-                "[HousamoTrans] No usable user override for "
-                    + name
-                    + "; falling back to module asset ("
-                    + e.getClass().getSimpleName()
-                    + ")"
-            );
         }
-
-        return readModuleAsset(name);
     }
 
     private static RVA Init_RVA(JSONObject json) throws Exception {
@@ -1914,17 +1921,6 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     false
                 );
             }
-
-            if (!client.start()) {
-                return errorBytes(
-                    "service",
-                    0,
-                    "could not start TranslationService",
-                    true
-                );
-            }
-
-            client.bind();
 
             if (!client.awaitConnected(SERVICE_CONNECT_TIMEOUT_MS)) {
                 return errorBytes(
@@ -2516,6 +2512,38 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         LoadPackageParam lpparam
     ) {
         Log.initializeGame(application);
+        sTargetContext = application;
+        sStartupHandler = new Handler(Looper.getMainLooper());
+        // Retain Application, never an Activity, for the lifetime of this game process.
+        sStartupAttempt = () -> {
+            try {
+                initializeTarget(application, lpparam);
+            } catch (Throwable failure) {
+                XposedBridge.log("[HousamoTrans] Deferred initialization failed");
+                XposedBridge.log(failure);
+            }
+        };
+        BroadcastReceiver onlineReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (!HetBridgeContract.ACTION_TRANSLATION_SERVICE_ONLINE.equals(
+                        intent.getAction())) return;
+                Log.game("[HousamoTrans] HET online signal received");
+                if (!sFirstActivityResumed) return;
+                if (!sNativeInitializationStarted) {
+                    queueStartupAttempt();
+                } else {
+                    TranslationServiceClient client = sTranslationClient;
+                    if (client != null) client.onHetOnline();
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter(HetBridgeContract.ACTION_TRANSLATION_SERVICE_ONLINE);
+        if (Build.VERSION.SDK_INT >= 33) {
+            application.registerReceiver(onlineReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            application.registerReceiver(onlineReceiver, filter);
+        }
         Log.game(
             "[HousamoTrans] Application attached; waiting for first Activity resume"
         );
@@ -2528,35 +2556,13 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                         // this listener makes the trigger one-shot, including
                         // later resumes and Activity recreation.
                         application.unregisterActivityLifecycleCallbacks(this);
-                        String activityName = activity.getClass().getName();
+                        sFirstActivityResumed = true;
                         // onActivityResumed can run inside super.onResume().
                         // Post to let the entire current resume dispatch return;
                         // this is not a guarantee of Unity/native readiness.
-                        boolean posted = new Handler(Looper.getMainLooper()).post(() -> {
-                            try {
-                                Log.game(
-                                    "[HousamoTrans] Starting deferred initialization after "
-                                        + "first Activity resume: " + activityName
-                                );
-                                // Retain only Application, never the Activity.
-                                initializeTarget(application, lpparam);
-                            } catch (Throwable failure) {
-                                // This Runnable no longer has Xposed's callback
-                                // exception boundary. Keep Java startup failures
-                                // from escaping into the game's main Looper.
-                                XposedBridge.log(
-                                    "[HousamoTrans] Deferred initialization failed; "
-                                        + "restart the game to retry"
-                                );
-                                XposedBridge.log(failure);
-                            }
-                        });
-                        if (!posted) {
-                            Log.game(
-                                "[HousamoTrans] Deferred initialization was not queued; "
-                                    + "the main Looper is exiting"
-                            );
-                        }
+                        Log.game("[HousamoTrans] Scheduling initialization after first Activity resume: "
+                            + activity.getClass().getName());
+                        queueStartupAttempt();
                     } catch (Throwable failure) {
                         XposedBridge.log(
                             "[HousamoTrans] Could not schedule deferred initialization"
@@ -2581,12 +2587,28 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         );
     }
 
+    private static void queueStartupAttempt() {
+        // Calls come from the main Looper. Signals queued during a synchronous
+        // read run afterwards and therefore cannot be lost inside that attempt.
+        sStartupHandler.removeCallbacks(sStartupAttempt);
+        if (!sStartupHandler.post(sStartupAttempt)) {
+            Log.game("[HousamoTrans] Initialization was not queued; main Looper is exiting");
+        }
+    }
+
+    private static void showWaitingForHet() {
+        if (sWaitingToastShown) return;
+        sWaitingToastShown = true;
+        Log.game("[HousamoTrans] Waiting for HET online signal; no automatic retry");
+        Toast.makeText(sTargetContext, "HET 未连接，请打开 HET 后返回游戏。",
+            Toast.LENGTH_LONG).show();
+    }
+
     private static void initializeTarget(Context context, LoadPackageParam lpparam) {
-        synchronized (MainHook.class) {
-            if (s_loaded || s_initializing) {
-                return;
-            }
-            s_initializing = true;
+        if (sNativeInitializationStarted) {
+            TranslationServiceClient client = sTranslationClient;
+            if (client != null) client.onHetOnline();
+            return;
         }
 
         String baseDir = lpparam.appInfo.dataDir + "/files/housamo_embed_trans";
@@ -2605,12 +2627,17 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             );
         }
 
+        GameScenePort preparedScenePort = null;
         try {
             // Read and validate the complete startup snapshot before opening
             // the HET connection.  The connection and native side therefore
             // observe one immutable worker choice for this game process.
             StartupConfig startup = loadStartupConfig(context);
             sOverwriteExistingJson = startup.overwriteExistingJson;
+            // Only pre-native diagnostic clients can be replaced here. Their
+            // native-dependent result callbacks have never been registered.
+            TranslationServiceClient previous = sTranslationClient;
+            if (previous != null) previous.close();
             // PageRec isolates its documents, not the game/service connection.
             TranslationServiceClient client = new TranslationServiceClient(
                     sTargetContext,
@@ -2621,8 +2648,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                     MainHook::resetSceneProductionPolicySafely,
                     MainHook::abortGameSceneExportSafely
                 );
+            client.setConnectionListener(connected -> {
+                if (!isSameClient(sTranslationClient, client)) return;
+                if (connected) sWaitingToastShown = false;
+                else if (!sNativeInitializationStarted || s_loaded) showWaitingForHet();
+            });
             sTranslationClient = client;
-            client.start();
             client.bind();
 
             String installedGameVersion = context.getPackageManager()
@@ -2632,7 +2663,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 reportGameStartupFailure(client,
                     "游戏版本与运行时资源版本不一致：游戏 " + installedGameVersion
                         + "，资源 " + resourceGameVersion
-                        + "。请打开 HET 更新 RVA 资源后重启游戏。");
+                        + "。请打开 HET 更新 RVA 资源，更新后会自动继续。");
+                showWaitingForHet();
                 return;
             }
 
@@ -2643,6 +2675,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             String chardictJson = readPreferredModuleJson(context, CHARDICT_FILE_NAME);
             String gametermsJson = readPreferredModuleJson(context, GAMETERMS_FILE_NAME);
 
+            IoUtils.ensureDirectory(new File(baseDir));
+            File targetSceneDirectory = new File(baseDir, SceneStore.DIRECTORY_NAME);
+            IoUtils.ensureDirectory(targetSceneDirectory);
+            preparedScenePort = new GameScenePort(
+                sTargetContext, targetSceneDirectory, startup.sceneWorkerCount);
+            // From this point initialization can have process-wide effects.
+            // Online signals must never repeat ShadowHook/native initialization.
+            sNativeInitializationStarted = true;
             int shadowHookResult = ShadowHook.init(new ShadowHook.ConfigBuilder()
                 .setMode(ShadowHook.Mode.UNIQUE)
                 .build());
@@ -2661,12 +2701,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                         + "）。请导出日志并反馈。";
                 }
                 reportGameStartupFailure(client, message);
+                preparedScenePort.close();
+                Toast.makeText(sTargetContext, message, Toast.LENGTH_LONG).show();
                 return;
             }
 
-            IoUtils.ensureDirectory(new File(baseDir));
-            File targetSceneDirectory = new File(baseDir, SceneStore.DIRECTORY_NAME);
-            IoUtils.ensureDirectory(targetSceneDirectory);
             System.loadLibrary("housamo_trans");
             Log.game("[HousamoTrans] Native library loaded successfully.");
 
@@ -2689,15 +2728,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // Bind may have completed earlier, but no Game Scene port is
             // registered until native policy, the injected mirror directory,
             // and the adapter are all ready.
-            GameScenePort gameScenePort = new GameScenePort(
-                sTargetContext,
-                targetSceneDirectory,
-                startup.sceneWorkerCount
-            );
-            sGameScenePort = gameScenePort;
-            client.setGameScenePort(gameScenePort);
-
+            sGameScenePort = preparedScenePort;
             s_loaded = true;
+            client.setGameStartupFailure("");
+            client.setGameScenePort(preparedScenePort);
             Log.game(
                 "[HousamoTrans] Native initialization dispatched; Scene port ready. gameVersion="
                     + startup.gameVersion
@@ -2713,26 +2747,22 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             );
         } catch (Throwable t) {
             TranslationServiceClient client = sTranslationClient;
-            GameScenePort gameScenePort = sGameScenePort;
-            sGameScenePort = null;
-            if (isSameClient(sTranslationClient, client)) {
-                sTranslationClient = null;
-            }
-            if (gameScenePort != null) {
-                gameScenePort.close();
-            }
-            if (client != null) {
-                client.close();
-            }
+            if (!s_loaded && preparedScenePort != null) preparedScenePort.close();
             Log.game(
-                "[HousamoTrans] FATAL: Initialization failed: "
+                "[HousamoTrans] Initialization failed: "
                     + t.getClass().getSimpleName()
                     + ": "
                     + t.getMessage()
             );
-        } finally {
-            synchronized (MainHook.class) {
-                s_initializing = false;
+            if (sNativeInitializationStarted) {
+                String message = "游戏模块初始化失败，请导出日志并重启游戏："
+                    + t.getClass().getSimpleName() + ": " + t.getMessage();
+                if (client != null) reportGameStartupFailure(client, message);
+                Toast.makeText(sTargetContext, message, Toast.LENGTH_LONG).show();
+            } else {
+                if (client != null) reportGameStartupFailure(client,
+                    "启动资源读取失败，请打开 HET 后重试：" + t.getMessage());
+                showWaitingForHet();
             }
         }
     }

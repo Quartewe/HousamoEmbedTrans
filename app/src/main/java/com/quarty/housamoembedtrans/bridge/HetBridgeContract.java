@@ -10,6 +10,9 @@ public final class HetBridgeContract {
         MODULE_PACKAGE + ".translation.TranslationService";
     public static final String ACTION_START_TRANSLATION_SERVICE =
         MODULE_PACKAGE + ".translation.action.START_TRANSLATION_SERVICE";
+    /** Payload-free wake signal; the game still reads its own startup files. */
+    public static final String ACTION_TRANSLATION_SERVICE_ONLINE =
+        MODULE_PACKAGE + ".translation.action.SERVICE_ONLINE";
     public static final int ENQUEUE_RESULT_CREATED = 1;
     public static final int ENQUEUE_RESULT_EXISTING = 0;
     public static final int ENQUEUE_RESULT_RETRYABLE_PERSISTENCE = -1;
