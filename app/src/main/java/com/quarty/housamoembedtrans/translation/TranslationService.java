@@ -94,6 +94,25 @@ public final class TranslationService extends Service {
     // Main-thread-only: the non-exported notification receiver and Service lifecycle.
     private static TranslationService notificationChoiceBackOwner;
 
+    /** Copied playback identity: empty scene means ended, empty choice means none, null means unknown. */
+    public static final class StoryPosition {
+        public final String scene;
+        public final String choiceLabel;
+        public final int choicePage;
+
+        StoryPosition(String scene, String choiceLabel, int choicePage) {
+            this.scene = scene;
+            this.choiceLabel = choiceLabel;
+            this.choicePage = choicePage;
+        }
+    }
+
+    /** Notification-main-thread accessor; null until this connection publishes its first value. */
+    public static StoryPosition getStoryPosition() {
+        TranslationService owner = notificationChoiceBackOwner;
+        return owner == null ? null : owner.gameChoiceRequests.getPosition();
+    }
+
     /** Main-thread entry used after a runtime resource commit. Does not start a service. */
     public static void announceOnlineIfRunning() {
         TranslationService owner = notificationChoiceBackOwner;
@@ -345,7 +364,8 @@ public final class TranslationService extends Service {
     private final Object callbackLock = new Object();
     private final Object gameObbLock = new Object();
     private IGameObbPort gameObbPort;
-    private final GameChoiceRequests gameChoiceRequests = new GameChoiceRequests();
+    private final GameChoiceRequests gameChoiceRequests = new GameChoiceRequests(
+        () -> TranslationStatusNotification.refresh(TranslationService.this));
     private final Object gameLogLock = new Object();
     private IGameLogPort gameLogPort;
     // The log port outlives failed native startup and owns its diagnostic.

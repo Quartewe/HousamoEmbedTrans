@@ -12,6 +12,15 @@ final class GameChoiceRequests {
     private IBinder.DeathRecipient death;
     private final Set<Pending> pending = new HashSet<>();
     private boolean closed;
+    private final Runnable positionChanged;
+    private PositionReceiver positionReceiver;
+    private TranslationService.StoryPosition position;
+
+    GameChoiceRequests(Runnable positionChanged) {
+        this.positionChanged = positionChanged;
+    }
+
+    synchronized TranslationService.StoryPosition getPosition() { return position; }
 
     void register(IGameChoicePort next) throws RemoteException {
         Pending[] interrupted;
@@ -23,9 +32,20 @@ final class GameChoiceRequests {
             interrupted = clearLocked();
             port = next;
             death = nextDeath;
-            if (!binder.isBinderAlive()) clearLocked();
+            if (!binder.isBinderAlive()) {
+                clearLocked();
+            } else {
+                positionReceiver = new PositionReceiver();
+                try {
+                    // Oneway, serialized with port replacement. Older game ports keep back support.
+                    next.subscribePosition(positionReceiver);
+                } catch (RemoteException | RuntimeException error) {
+                    positionReceiver = null;
+                }
+            }
         }
         finishInterrupted(interrupted);
+        positionChanged.run();
     }
 
     void unregister(IGameChoicePort expected) {
@@ -35,6 +55,7 @@ final class GameChoiceRequests {
             interrupted = clearLocked();
         }
         finishInterrupted(interrupted);
+        positionChanged.run();
     }
 
     void request(IChoiceBackCallback callback, boolean gameConnected) {
@@ -53,7 +74,10 @@ final class GameChoiceRequests {
             request = target == null ? null : new Pending(callback);
             if (request != null) pending.add(request);
         }
-        if (interrupted != null) finishInterrupted(interrupted);
+        if (interrupted != null) {
+            finishInterrupted(interrupted);
+            positionChanged.run();
+        }
         if (request == null) {
             deliver(callback, unavailable);
             return;
@@ -73,12 +97,15 @@ final class GameChoiceRequests {
             interrupted = clearLocked();
         }
         finishInterrupted(interrupted);
+        positionChanged.run();
     }
 
     private Pending[] clearLocked() {
         if (port != null) port.asBinder().unlinkToDeath(death, 0);
         port = null;
         death = null;
+        positionReceiver = null;
+        position = null;
         Pending[] interrupted = pending.toArray(new Pending[0]);
         pending.clear();
         return interrupted;
@@ -87,6 +114,18 @@ final class GameChoiceRequests {
     private void finishInterrupted(Pending[] interrupted) {
         for (Pending request : interrupted) {
             request.deliverResult(ChoiceBackResult.UNKNOWN);
+        }
+    }
+
+    /** Each subscription owns its value; callbacks from a replaced port cannot publish. */
+    private final class PositionReceiver extends IStoryPositionListener.Stub {
+        @Override
+        public void onPositionChanged(String scene, String choiceLabel, int choicePage) {
+            synchronized (GameChoiceRequests.this) {
+                if (positionReceiver != this) return;
+                position = new TranslationService.StoryPosition(scene, choiceLabel, choicePage);
+            }
+            positionChanged.run();
         }
     }
 
