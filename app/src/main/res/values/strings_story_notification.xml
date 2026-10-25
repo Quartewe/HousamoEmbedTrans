@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_choice_back_short">↶ Previous</string>
+    <string name="notification_story_no_choice">No choice yet</string>
+    <string name="notification_story_choice_unknown">Choice position unavailable</string>
+    <string name="notification_story_choice">%1$s · p%2$d</string>
+    <string name="notification_story_last_choice">Latest choice: %1$s · p%2$d</string>
+    <string name="notification_story_translating">Translating</string>
+    <string name="notification_story_waiting_connection">Waiting for game</string>
+    <string name="notification_story_waiting_position">Waiting for story position</string>
+    <string name="notification_story_capture_active">Capture enabled</string>
+</resources>

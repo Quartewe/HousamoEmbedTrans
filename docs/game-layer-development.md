@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | 游戏 Java 启动 | [MainHook.java](../app/src/main/java/com/quarty/housamoembedtrans/MainHook.java) | `Application.attach`、配置读取、Native 初始化、游戏端口、JNI 转发 |
 | 服务连接 | [TranslationServiceClient.java](../app/src/main/java/com/quarty/housamoembedtrans/bridge/TranslationServiceClient.java) | Binder 连接、请求提交、结果接收、终态租约与 ACK |
-| 跨进程接口 | [AIDL 目录](../app/src/main/aidl/com/quarty/housamoembedtrans/translation/) | `ITranslationService`、`ITranslationCallback`、`IGameScenePort`、`IGameObbPort` |
+| 跨进程接口 | [AIDL 目录](../app/src/main/aidl/com/quarty/housamoembedtrans/translation/) | `ITranslationService`、`ITranslationCallback`、`IGameScenePort`、`IGameObbPort`、`IGameChoicePort`、`IStoryPositionListener` |
 | Native 初始化与配置 | [init.cpp](../app/src/main/jni/init.cpp)、[init_config.cpp](../app/src/main/jni/init_config.cpp) | JNI、运行时配置、目标库初始化 |
 | 结构与接口声明 | [housamo.hpp](../app/src/main/jni/housamo.hpp) | `RuntimeConfig`、`OrderKey`、Scene 和 Quest 回写结构 |
 | Hook | [hook.cpp](../app/src/main/jni/runtime/hook.cpp) | 剧情捕获与当前显示对象观察 |
@@ -48,6 +48,18 @@
 | `il2cpp_runtime_invoke` | QuestWriter 识别 `UnityEngine.UnitySynchronizationContext.ExecuteTasks` 返回时机并消费回写队列 |
 
 `AddSelection`、`ShowSelection` 出现在配置中不代表当前 Hook 安装了它们。当前选项刷新也不靠重新调用这两个方法。
+
+### 2.1 通知栏的剧情位置
+
+通知栏的位置来自 [choice_back.cpp](../app/src/main/jni/runtime/choice_back.cpp) 持有的当前剧情。实际进入页面后，用该页的 label 查询所属 `AdvScenarioData.Name`，得到当前 Scene。查询调用 `FindScenarioData` 的原函数，绕过捕获 Hook；预加载、后台解析及其他 Scene 的翻译任务不会更新当前 Scene。
+
+最近 choice 对应 tracker 栈顶。`SavePage` 生成页首快照候选；选项实际进入等待输入并成功入栈时，才发布该快照页面的 label 和 `PageNo`。普通对白页保留这一节点。回退成功并截断栈后发布目标节点；剧情结束、销毁或开始另一段剧情时，沿用 tracker 生命周期清空旧位置。页号使用游戏原有值，不另行编号。快照、历史和 managed 对象引用始终留在游戏进程。
+
+Native 在 Unity 线程完成状态变更并复制字符串，经 `MainHook.reportStoryPosition` 投递到游戏 Android 主线程。`GameChoicePort` 在该线程串行处理新位置和订阅时的初始值，通过 `IStoryPositionListener` 一次发送 `scene`、`choiceLabel`、`choicePage`。发送端完成身份读取和校验；HET 接收端只检查订阅是否仍属于当前端口，然后替换整个显示值。空 Scene 表示剧情已退出，空 choice 与 `-1` 表示尚无记录；`null` 表示该身份尚未取得，通知显示等待或未知状态。
+
+断连时 HET 清除该连接的位置，游戏端保留最新值和 tracker 历史；重连注册 choice 端口时重新订阅并立即补发最新值。旧端口回调不能覆盖新订阅。该通道不持久化位置、不轮询，也不改变服务启动和重连策略。
+
+通知采用回退优先布局，折叠时保留回退和捕获暂停/恢复入口。顶部显示 Scene，正文显示最近 choice；当前 Scene 尚无目标语言译文且已有运行中的翻译任务时，正文显示“正在翻译”，展开后仍显示最近 choice。任务需要用户处理时显示对应提示。剧情退出后 Scene 和 choice 一起清空，后台翻译继续沿既有任务流程运行。
 
 ## 3. RVA、字段偏移与对象关系
 

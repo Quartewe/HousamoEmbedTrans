@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical">
+    <TextView android:id="@+id/story_scene"
+        style="@android:style/TextAppearance.Material.Notification.Title"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:maxLines="2" android:ellipsize="end" />
+    <TextView android:id="@+id/story_status"
+        style="@android:style/TextAppearance.Material.Notification.Line2"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:maxLines="2" android:ellipsize="end" />
+    <TextView android:id="@+id/story_detail"
+        style="@android:style/TextAppearance.Material.Notification.Line2"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:maxLines="2" android:ellipsize="end" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp"
+        android:layout_marginTop="8dp" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:id="@+id/story_back"
+            android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+            android:background="@drawable/notification_choice_button" android:gravity="center"
+            android:text="@string/notification_action_choice_back" android:textColor="@color/notification_choice_text"
+            android:textSize="14sp" android:maxLines="1"
+            android:contentDescription="@string/notification_action_choice_back" />
+        <TextView android:id="@+id/story_capture"
+            style="@android:style/TextAppearance.Material.Notification.Line2"
+            android:layout_width="112dp" android:layout_height="48dp" android:gravity="center"
+            android:text="@string/notification_action_pause_capture" android:maxLines="1" />
+    </LinearLayout>
+</LinearLayout>

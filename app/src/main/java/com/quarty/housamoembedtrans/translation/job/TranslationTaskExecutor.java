@@ -793,6 +793,22 @@ public final class TranslationTaskExecutor {
         }
     }
 
+    /** Only work for the displayed Scene may replace its choice label with translation progress. */
+    public ActiveTranslationSnapshot getActiveTranslationForScene(String scene) {
+        synchronized (activeJobsLock) {
+            for (LinkedHashSet<JobCoordinator> registered : activeJobs.values()) {
+                for (JobCoordinator coordinator : registered) {
+                    if (!coordinator.cancelRequested && !coordinator.terminal
+                        && scene.equals(coordinator.requestInfo.getScene())
+                        && !coordinator.requestInfo.isTargetAlreadyTranslated()) {
+                        return new ActiveTranslationSnapshot(coordinator);
+                    }
+                }
+            }
+            return null;
+        }
+    }
+
     private boolean registerActiveJob(
         String requestId,
         JobCoordinator coordinator

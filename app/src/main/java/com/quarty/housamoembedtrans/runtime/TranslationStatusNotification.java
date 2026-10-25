@@ -25,7 +25,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.format.DateUtils;
+import android.view.View;
+import android.widget.RemoteViews;
 import com.quarty.housamoembedtrans.logging.Log;
 
 import org.json.JSONObject;
@@ -744,6 +745,8 @@ public final class TranslationStatusNotification {
     static final class PreviewStatus {
         String status = STATE_IDLE;
         String scene;
+        String choiceLabel = "";
+        int choicePage = -1;
         String message;
         long startedAt = System.currentTimeMillis() - 65_000L;
         long finishedAt = System.currentTimeMillis();
@@ -832,7 +835,6 @@ public final class TranslationStatusNotification {
         }
         String scene = preview == null ? state.getString(KEY_SCENE, "") : preview.scene;
         long startedAt = preview == null ? state.getLong(KEY_STARTED_AT, 0L) : preview.startedAt;
-        long finishedAt = preview == null ? state.getLong(KEY_FINISHED_AT, System.currentTimeMillis()) : preview.finishedAt;
         boolean paused = preview == null ? RuntimeControlStore.isCapturePaused(context) : preview.paused;
         TranslationJobStore jobStore = preview == null ? statusJobStore : null;
         SceneStore sceneStore = preview == null ? statusSceneStore : null;
@@ -847,20 +849,13 @@ public final class TranslationStatusNotification {
         int manualRerunCandidateCount = preview != null ? preview.manualRerunCandidateCount : jobStore == null
             ? 0
             : jobStore.getManualRerunCandidateCount();
-        int pendingMutationCount = preview != null ? preview.pendingMutationCount : sceneStore == null
-            ? 0
-            : sceneStore.getDeferredMutationCountSnapshot();
         String pendingMutationDiagnostic = preview != null ? preview.pendingMutationDiagnostic : sceneStore == null
             ? ""
             : sceneStore.getDeferredMutationDiagnosticSnapshot();
-        boolean hasPendingMutationNotice = pendingMutationCount > 0
-            || !pendingMutationDiagnostic.trim().isEmpty();
         boolean mutationFailed = preview != null ? preview.mutationFailed
             : sceneStore != null && sceneStore.hasDeferredMutationFailureSnapshot();
         boolean repairingStartupJobs = preview != null ? preview.repairingStartupJobs : jobStore != null
             && jobStore.isRepairingStartupJobs();
-        boolean manualStartupRepair = preview != null ? preview.manualStartupRepair : jobStore != null
-            && jobStore.isManualStartupRepairInProgress();
         SceneSyncRuntimeState.Snapshot sceneSync =
             preview == null ? SceneSyncRuntimeState.getInstance().getSnapshot() : preview.sceneSync;
         boolean sceneSyncActive =
@@ -927,34 +922,6 @@ public final class TranslationStatusNotification {
             }
         }
 
-        PendingIntent scenePageIntent = null;
-        String sceneActionTitle = null;
-        if (hasPendingConflicts
-            && (!sceneSyncActive || manualApply)) {
-            scenePageIntent = (previewIntent != null ? previewIntent : sceneConflictsPendingIntent(context));
-            sceneActionTitle = context.getString(
-                R.string.notification_action_scene_conflicts,
-                sceneSync.pendingConflictCount
-            );
-        } else if (manualApply) {
-            scenePageIntent = (previewIntent != null ? previewIntent : sceneConflictsPendingIntent(context));
-            sceneActionTitle = context.getString(
-                R.string.notification_action_view_scene_conflicts
-            );
-        } else if (sceneSyncActive || sceneNeedsAttention) {
-            scenePageIntent = (previewIntent != null ? previewIntent : sceneFilesPendingIntent(context));
-            sceneActionTitle = context.getString(
-                R.string.notification_action_view_scene_sync
-            );
-        }
-
-        if (hasPendingMutationNotice && scenePageIntent == null) {
-            scenePageIntent = (previewIntent != null ? previewIntent : sceneFilesPendingIntent(context));
-            sceneActionTitle = context.getString(
-                R.string.notification_action_view_scene_mutation_pool
-            );
-        }
-
         if (!gameStartupFailure.isEmpty()) {
             return new Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
@@ -984,165 +951,99 @@ public final class TranslationStatusNotification {
             contentIntent = (previewIntent != null ? previewIntent : settingsPendingIntent(context));
         }
 
-        Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setColor(context.getColor(R.color.het_primary))
-            .setContentTitle(context.getString(
-                STATE_STARTUP_FAILED.equals(status)
-                    ? R.string.notification_startup_failed_title
-                    : R.string.notification_translation_title
-            ))
-            .setCategory(
-                STATE_STARTUP_FAILED.equals(status)
-                    ? Notification.CATEGORY_ERROR
-                    : Notification.CATEGORY_PROGRESS
-            )
-            .setVisibility(Notification.VISIBILITY_PRIVATE)
-            .setOnlyAlertOnce(true)
-            .setContentIntent(contentIntent)
-            .addAction(
-                R.drawable.ic_notification,
-                context.getString(
-                    paused
-                        ? R.string.notification_action_resume_capture
-                        : R.string.notification_action_pause_capture
-                ),
-                (previewIntent != null ? previewIntent : capturePendingIntent(context))
-            );
-
-        builder.addAction(
-            R.drawable.ic_task_back,
-            context.getString(R.string.notification_action_choice_back),
-            (previewIntent != null ? previewIntent : choiceBackPendingIntent(context))
-        );
-
-        if (STATE_ACTIVE.equals(status) && startedAt > 0L) {
-            builder
-                .setContentText(context.getString(
-                    R.string.notification_translating_scene,
-                    scene
-                ))
-                .setSubText(context.getString(R.string.notification_elapsed_time))
-                .setWhen(startedAt)
-                .setShowWhen(true)
-                .setUsesChronometer(true)
-                .setOngoing(true);
-        } else {
-            builder
-                .setShowWhen(false)
-                .setUsesChronometer(false)
-                .setOngoing(false);
-
-            if (STATE_STARTUP_FAILED.equals(status)) {
-                builder.setContentText(context.getString(R.string.notification_startup_failed));
-                builder.setSubText(context.getString(
-                    R.string.notification_startup_failed_subtitle
-                ));
-            } else if (STATE_BLOCKED.equals(status) || STATE_ADMISSION_BLOCKED.equals(status)) {
-                builder.setContentText(context.getString(R.string.notification_blocked_action));
-                builder.setSubText(context.getString(
-                    R.string.notification_translation_needs_user_action
-                ));
-            } else if (sceneSyncActive) {
-                builder
-                    .setContentText(context.getString(
-                        scenePhaseContentResource(sceneSync.phase)
-                    ))
-                    .setOngoing(true);
-            } else if (repairingStartupJobs) {
-                builder.setContentText(context.getString(
-                    R.string.notification_repairing_damaged_jobs
-                ));
-            } else if (heldQueuedJobCount > 0
-                || manualRerunCandidateCount > 0) {
-                builder.setContentText(
-                    heldQueuedJobCount > 0 && manualRerunCandidateCount > 0
-                        ? context.getString(
-                            R.string.notification_recovery_waiting_with_failures,
-                            heldQueuedJobCount,
-                            manualRerunCandidateCount
-                        )
-                        : heldQueuedJobCount > 0
-                            ? context.getString(
-                                R.string.notification_queued_jobs_waiting,
-                                heldQueuedJobCount
-                            )
-                            : context.getString(
-                                R.string.notification_failed_jobs_waiting,
-                                manualRerunCandidateCount
-                            )
-                );
-            } else if (sceneSync.lastOutcome
-                == SceneSyncRuntimeState.Outcome.QUEUED_BEHIND_GATE) {
-                builder.setContentText(context.getString(
-                    R.string.notification_scene_queued_behind_gate
-                ));
-            } else if (hasPendingConflicts) {
-                builder.setContentText(context.getString(
-                    R.string.scene_conflicts_count,
-                    sceneSync.pendingConflictCount
-                ));
-            } else if (sceneNeedsAttention) {
-                builder.setContentText(context.getString(
-                    sceneSync.lastOutcome
-                            == SceneSyncRuntimeState.Outcome.NEEDS_ATTENTION
-                        ? R.string.notification_scene_sync_attention
-                        : R.string.notification_scene_sync_failed
-                ));
-            } else if (STATE_SUCCEEDED.equals(status)) {
-                builder.setContentText(context.getString(
-                    R.string.notification_translation_succeeded,
-                    scene
-                ));
-                builder.setSubText(context.getString(
-                    R.string.notification_finished_duration,
-                    formatDuration(startedAt, finishedAt)
-                ));
-            } else if (STATE_FAILED.equals(status)) {
-                builder.setContentText(context.getString(
-                    R.string.notification_translation_failed,
-                    scene
-                ));
-                builder.setSubText(context.getString(
-                    R.string.notification_finished_duration,
-                    formatDuration(startedAt, finishedAt)
-                ));
-            } else {
-                builder.setContentText(context.getString(
-                    paused
-                        ? R.string.notification_capture_paused
-                        : R.string.notification_waiting
-                ));
-            }
+        if (STATE_STARTUP_FAILED.equals(status)) {
+            return new Notification.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(context.getString(R.string.notification_startup_failed_title))
+                .setContentText(context.getString(R.string.notification_startup_failed))
+                .setCategory(Notification.CATEGORY_ERROR)
+                .setContentIntent(contentIntent)
+                .setOnlyAlertOnce(true)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setOngoing(forceOngoing)
+                .build();
         }
-
-        if (forceOngoing) {
-            builder.setOngoing(true);
-        }
-
-        if (hasPendingMutationNotice) {
-            builder.setSubText(mutationFailed
-                ? context.getString(R.string.notification_scene_mutation_pool_failure)
-                : context.getString(R.string.notification_scene_mutation_pool_pending, pendingMutationCount));
-        }
-
-        return builder.build();
+        return buildStoryNotification(context, forceOngoing, paused, sceneSync,
+            preview, previewIntent, contentIntent);
     }
 
-    private static int scenePhaseContentResource(
-        SceneSyncRuntimeState.Phase phase
-    ) {
-        switch (phase) {
-            case FULL_SYNC:
-                return R.string.scene_sync_phase_full_sync;
-            case MANUAL_REFRESH:
-                return R.string.scene_sync_phase_refresh;
-            case MANUAL_APPLY:
-                return R.string.scene_sync_phase_manual_apply;
-            case IDLE:
-            default:
-                return R.string.scene_sync_phase_idle;
+    private static Notification buildStoryNotification(Context context, boolean forceOngoing,
+        boolean paused, SceneSyncRuntimeState.Snapshot connection, PreviewStatus preview,
+        PendingIntent previewIntent, PendingIntent contentIntent) {
+        TranslationService.StoryPosition position = preview == null ? TranslationService.getStoryPosition() : null;
+        boolean connected = connection.gamePortAvailable;
+        boolean positionKnown = preview != null || (position != null && position.scene != null);
+        String scene = preview != null ? (preview.scene == null ? "" : preview.scene)
+            : !positionKnown ? "" : position.scene;
+        String choice = preview != null ? preview.choiceLabel : position == null ? "" : position.choiceLabel;
+        int page = preview != null ? preview.choicePage : position == null ? -1 : position.choicePage;
+        if (!connected) {
+            scene = "";
+            choice = "";
+            page = -1;
         }
+        TranslationTaskExecutor executor = preview == null ? TranslationService.getActiveTaskExecutor() : null;
+        TranslationTaskExecutor.ActiveTranslationSnapshot active = executor == null || scene.isEmpty()
+            ? null : executor.getActiveTranslationForScene(scene);
+        boolean translating = preview != null ? STATE_ACTIVE.equals(preview.status) : active != null;
+        boolean blocked = active != null && executor.hasUserActionRequiredJob(active.requestId);
+        String choiceText = choice == null ? context.getString(R.string.notification_story_choice_unknown)
+            : choice.isEmpty() ? context.getString(R.string.notification_story_no_choice)
+            : context.getString(R.string.notification_story_choice, choice, page);
+        String text;
+        if (!connected) {
+            text = context.getString(R.string.notification_story_waiting_connection);
+        } else if (!positionKnown) {
+            text = context.getString(R.string.notification_story_waiting_position);
+        } else if (scene.isEmpty()) {
+            text = context.getString(R.string.notification_waiting);
+        } else if (blocked) {
+            text = context.getString(R.string.notification_translation_needs_user_action);
+        } else if (translating) {
+            text = context.getString(R.string.notification_story_translating);
+        } else {
+            text = choiceText;
+        }
+        String capture = context.getString(paused ? R.string.notification_capture_paused
+            : R.string.notification_story_capture_active);
+        String detail = !scene.isEmpty() && choice != null && !choice.isEmpty() && (translating || blocked)
+            ? context.getString(R.string.notification_story_last_choice, choice, page) + " · " + capture
+            : capture;
+        PendingIntent backIntent = previewIntent != null ? previewIntent : choiceBackPendingIntent(context);
+        PendingIntent captureIntent = previewIntent != null ? previewIntent : capturePendingIntent(context);
+        boolean canRequestBack = connected && !scene.isEmpty() && (choice == null || !choice.isEmpty());
+        RemoteViews compact = new RemoteViews(context.getPackageName(), R.layout.notification_story_compact);
+        RemoteViews expanded = new RemoteViews(context.getPackageName(), R.layout.notification_story_expanded);
+        for (RemoteViews views : new RemoteViews[] { compact, expanded }) {
+            views.setTextViewText(R.id.story_status, text);
+            views.setOnClickPendingIntent(R.id.story_back, canRequestBack ? backIntent : null);
+            views.setBoolean(R.id.story_back, "setEnabled", canRequestBack);
+            views.setOnClickPendingIntent(R.id.story_capture, captureIntent);
+            views.setContentDescription(R.id.story_capture, context.getString(paused
+                ? R.string.notification_action_resume_capture : R.string.notification_action_pause_capture));
+        }
+        compact.setImageViewResource(R.id.story_capture, paused ? R.drawable.ic_task_play : R.drawable.ic_task_pause);
+        expanded.setTextViewText(R.id.story_capture, context.getString(paused
+            ? R.string.notification_action_resume_capture : R.string.notification_action_pause_capture));
+        expanded.setTextViewText(R.id.story_scene, scene);
+        expanded.setViewVisibility(R.id.story_scene, scene.isEmpty() ? View.GONE : View.VISIBLE);
+        expanded.setTextViewText(R.id.story_detail, detail);
+        return new Notification.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(context.getColor(R.color.het_primary))
+            .setContentTitle(scene.isEmpty() ? context.getString(R.string.notification_translation_title) : scene)
+            .setContentText(text)
+            .setSubText(scene.isEmpty() ? null : scene)
+            .setStyle(new Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(compact)
+            .setCustomBigContentView(expanded)
+            .setContentIntent(contentIntent)
+            .setCategory(Notification.CATEGORY_PROGRESS)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .setShowWhen(false)
+            .setOnlyAlertOnce(true)
+            .setOngoing(forceOngoing || translating)
+            .build();
     }
 
     private static boolean isSceneAttention(
@@ -1515,13 +1416,6 @@ public final class TranslationStatusNotification {
             .appendPath(category == null ? "unknown" : category)
             .appendPath(id)
             .build();
-    }
-
-    private static String formatDuration(long startedAt, long finishedAt) {
-        long elapsedSeconds = startedAt <= 0L
-            ? 0L
-            : Math.max(0L, finishedAt - startedAt) / 1_000L;
-        return DateUtils.formatElapsedTime(elapsedSeconds);
     }
 
     private static SharedPreferences state(Context context) {

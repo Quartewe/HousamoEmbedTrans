@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_choice_back_short">↶ 上个选项</string>
+    <string name="notification_story_no_choice">尚无选项</string>
+    <string name="notification_story_choice_unknown">选项位置未知</string>
+    <string name="notification_story_choice">%1$s · 页 %2$d</string>
+    <string name="notification_story_last_choice">最近选项：%1$s · 页 %2$d</string>
+    <string name="notification_story_translating">正在翻译</string>
+    <string name="notification_story_waiting_connection">等待游戏连接</string>
+    <string name="notification_story_waiting_position">等待剧情位置</string>
+    <string name="notification_story_capture_active">捕获已启用</string>
+</resources>
