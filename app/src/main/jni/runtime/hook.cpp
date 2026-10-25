@@ -3,7 +3,9 @@
 #include "scene/scene_identity.hpp"
 #include "scene/page_rec.hpp"
 #include "shadowhook.h"
+#include "runtime/choice_back.hpp"
 
+#include <atomic>
 #include <cstdint>
 #include <utility>
 
@@ -17,6 +19,11 @@ using SelectionClearAllFn = void (*)(void* self, void* method);
 static RawFuncPtr RawInitBase = nullptr; // 所有内容
 static RawFuncPtr RawInitText = nullptr; // Text专用
 static RawFindScenarioDataPtr RawFindScenarioData = nullptr;
+static std::atomic<RawFindScenarioDataPtr> PositionFindScenarioData{nullptr};
+void* FindScenarioDataForPosition(void* manager, void* label, const void* method) {
+    const auto lookup = PositionFindScenarioData.load(std::memory_order_acquire);
+    return lookup ? lookup(manager, label, const_cast<void*>(method)) : nullptr;
+}
 static void* (*PageRecStringNew)(const char*) = nullptr;
 static PageTextChangeFn RawPageTextChange = nullptr;
 static SelectionInitFn RawSelectionInit = nullptr;
@@ -193,6 +200,7 @@ bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config) {
         return false;
     }
     LOGI("shadowhook FindScenarioData success stub=%p", StubFindScenarioData);
+    PositionFindScenarioData.store(RawFindScenarioData, std::memory_order_release);
 
     if (!config.enable_page_rec_debug || config.enable_page_rec_tasks) {
         void* targetPageTextChange = reinterpret_cast<void*>(

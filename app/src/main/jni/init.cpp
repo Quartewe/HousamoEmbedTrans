@@ -432,10 +432,20 @@ bool InitJniBridge(JNIEnv* env, jclass main_hook_class) {
         return false;
     }
 
+    jmethodID report_story_position_method = env->GetStaticMethodID(
+        global_class, "reportStoryPosition", "(Ljava/lang/String;Ljava/lang/String;I)V");
+    if (!report_story_position_method) {
+        if (env->ExceptionCheck()) env->ExceptionClear();
+        env->DeleteGlobalRef(global_class);
+        LOGE("MainHook.reportStoryPosition not found");
+        return false;
+    }
+
     // 所有查找都成功后再发布，避免留下半初始化状态
     g_java_bridge.resolve_request_id_method = resolve_request_id_method;
     g_java_bridge.submit_translation_method = submit_translation_method;
     g_java_bridge.report_scene_rejected_method = report_scene_rejected_method;
+    g_java_bridge.report_story_position_method = report_story_position_method;
     g_java_bridge.main_hook_class = global_class;
     LOGI("JNI bridge initialized");
     return true;

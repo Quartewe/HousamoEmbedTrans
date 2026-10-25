@@ -1,6 +1,8 @@
 #include "runtime/choice_back.hpp"
 #include "housamo.hpp"
 #include "shadowhook.h"
+#include "bridge/jni_bridge.hpp"
+#include "scene/scene_identity.hpp"
 
 #include <jni.h>
 #include <link.h>
@@ -87,6 +89,8 @@ struct Api {
     uint32_t (*gchandle_new)(void*, bool) = nullptr;
     void* (*gchandle_get_target)(uint32_t) = nullptr;
     void (*gchandle_free)(uint32_t) = nullptr;
+    int32_t (*string_length)(void*) = nullptr;
+    const char16_t* (*string_chars)(void*) = nullptr;
 
     bool Init() {
         handle = shadowhook_dlopen("libil2cpp.so");
@@ -100,6 +104,7 @@ struct Api {
         LOAD(object_unbox); LOAD(object_new); LOAD(runtime_invoke);
         LOAD(field_get_value_object); LOAD(field_get_value); LOAD(field_set_value);
         LOAD(field_set_value_object); LOAD(gchandle_new); LOAD(gchandle_get_target); LOAD(gchandle_free);
+        LOAD(string_length); LOAD(string_chars);
 #undef LOAD
         return true;
     }
@@ -203,6 +208,7 @@ class Snapshot {
 public:
     Snapshot(Root save, void* page) : save_(std::move(save)), page_(page) {}
     void* Save() const { return save_.Get(); }
+    void* Page() const { return page_.Get(); }
     bool IsPage(void* page) const { return page_.Get() == page; }
     std::unique_ptr<Snapshot> CopyForLoad() const { return Capture(save_.Get(), page_.Get()); }
 
@@ -283,6 +289,8 @@ bool waiting = false;
 bool internalLoad = false;
 uint64_t pageVisit = 0;
 uint64_t candidateVisit = 0;
+// Playback identity is independent of capture/pause and background Scene parsing.
+std::string currentScene;
 
 // The load lease is independent from the history. Lifecycle invalidation can
 // clear history without releasing the object still used by the coroutine.
@@ -293,6 +301,77 @@ bool targetWaiting = false;
 bool loadStartedPage = false;
 bool enteredLoad = false;
 std::chrono::steady_clock::time_point deadline;
+
+bool ReadLabel(void* page, std::u16string& label, int& pageNo) {
+    Root data(api.Get(page, "get_ScenarioLabelData"));
+    Root name(api.Get(data.Get(), "get_ScenarioLabel"));
+    if (!name.Get() || !api.Read(page, "<PageNo>k__BackingField", pageNo) || pageNo < 0) return false;
+    int32_t length = api.string_length(name.Get());
+    if (length <= 0 || length > 8192) return false;
+    label.assign(api.string_chars(name.Get()), static_cast<size_t>(length));
+    return true;
+}
+
+std::string SceneForPage(void* page) {
+    Root labelData(api.Get(page, "get_ScenarioLabelData"));
+    Root label(api.Get(labelData.Get(), "get_ScenarioLabel"));
+    Root manager(api.Get(engine.Get(), "get_DataManager"));
+    if (!label.Get() || !manager.Get()) return {};
+    const void* method = api.Method(api.object_get_class(manager.Get()), "FindScenarioData", 1);
+    if (!method) return {};
+    Root scenario(FindScenarioDataForPosition(manager.Get(), label.Get(), method));
+    Root name(api.Get(scenario.Get(), "get_Name"));
+    if (!name.Get()) return {};
+    const int32_t length = api.string_length(name.Get());
+    if (length <= 0 || length > 235) return {};
+    const char16_t* chars = api.string_chars(name.Get());
+    std::string scene;
+    for (int32_t i = 0; i < length; ++i) {
+        if (chars[i] > 127) return {};
+        scene.push_back(static_cast<char>(chars[i]));
+    }
+    return het::translation::scene_identity::IsValid(scene) ? scene : std::string{};
+}
+
+void PublishPosition() {
+    auto& bridge = g_java_bridge;
+    if (!bridge.jvm || !bridge.main_hook_class || !bridge.report_story_position_method) return;
+    std::u16string choice;
+    int pageNo = -1;
+    bool choiceKnown = !top || ReadLabel(top->item.snapshot->Page(), choice, pageNo);
+    if (!choiceKnown) {
+        LOGW("[ChoiceBack] recorded choice display identity unavailable");
+        choice.clear();
+        pageNo = -1;
+    }
+    JNIEnv* env = nullptr;
+    bool attached = false;
+    if (bridge.jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_EDETACHED) {
+        attached = bridge.jvm->AttachCurrentThread(&env, nullptr) == JNI_OK;
+    }
+    if (!env) return;
+    jstring scene = !active || !currentScene.empty() ? env->NewStringUTF(currentScene.c_str()) : nullptr;
+    jstring label = choiceKnown && !env->ExceptionCheck()
+        ? env->NewString(reinterpret_cast<const jchar*>(choice.data()), static_cast<jsize>(choice.size())) : nullptr;
+    if (!env->ExceptionCheck()) {
+        env->CallStaticVoidMethod(bridge.main_hook_class, bridge.report_story_position_method,
+            scene, label, static_cast<jint>(pageNo));
+    }
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        LOGW("[ChoiceBack] position delivery to Java failed");
+    }
+    if (scene) env->DeleteLocalRef(scene);
+    if (label) env->DeleteLocalRef(label);
+    if (attached) bridge.jvm->DetachCurrentThread();
+}
+
+void UpdateScene(void* page) {
+    std::string scene = SceneForPage(page);
+    if (scene == currentScene) return;
+    currentScene = std::move(scene);
+    PublishPosition();
+}
 
 void Complete(int result) {
     auto completion = std::move(executing);
@@ -346,6 +425,8 @@ void NewSession(void* value, bool start) {
     if (!cancelled) LOGW("[ChoiceBack] previous load could not be stopped");
     choiceRecorded = selectedOnPage = waiting = false;
     ++pageVisit;
+    currentScene.clear();
+    PublishPosition();
 }
 
 void* CurrentData() {
@@ -385,6 +466,8 @@ void BeginPage(void* self, void* data, const void* method) {
         }
     }
     beginOriginal(self, data, method);
+    if (ready.load() && active && currentPage.Get() == data && !loadLease
+        && api.Get(self, "get_Engine") == engine.Get()) UpdateScene(data);
 }
 
 void SavePage(void* self, void* value, const void* method) {
@@ -424,6 +507,8 @@ bool WaitInput(void* self, const void* method) {
     node->previous = std::move(top);
     top = std::move(node);
     choiceRecorded = true;
+    currentScene = SceneForPage(CurrentData());
+    PublishPosition();
     LOGI("[ChoiceBack] recorded natural choice visit=%llu", static_cast<unsigned long long>(pageVisit));
     return result;
 }
@@ -584,6 +669,7 @@ void PumpChoiceBack() {
     if (!initialized) {
         initialized = true;
         ready.store(Install());
+        if (ready.load()) PublishPosition();
     }
     if (!ready.load()) return;
     if (loadLease) {
@@ -599,6 +685,8 @@ void PumpChoiceBack() {
             loadLease.reset();
             loadEngine.Reset();
             loadRoutine.Reset();
+            currentScene = SceneForPage(CurrentData());
+            PublishPosition();
             Complete(Restored);
         } else if (executing && std::chrono::steady_clock::now() >= deadline) {
             CancelLoad();

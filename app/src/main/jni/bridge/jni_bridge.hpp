@@ -9,6 +9,7 @@ struct JavaBridge {
     jmethodID resolve_request_id_method = nullptr;
     jmethodID submit_translation_method = nullptr;
     jmethodID report_scene_rejected_method = nullptr;
+    jmethodID report_story_position_method = nullptr;
 };
 
 extern JavaBridge g_java_bridge;

@@ -2426,6 +2426,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             : message;
     }
 
+    /** Native publishes only copied display values, after its Unity-thread state transition. */
+    private static void reportStoryPosition(String scene, String choiceLabel, int choicePage) {
+        TranslationServiceClient client = sTranslationClient;
+        if (client != null) client.reportStoryPosition(scene, choiceLabel, choicePage);
+    }
+
     /**
      * Native Scene production rejection side-channel.  The native hook only
      * calls this after validating the canonical AdvScenarioData.Name; the

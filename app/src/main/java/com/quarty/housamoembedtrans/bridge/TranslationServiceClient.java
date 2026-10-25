@@ -737,6 +737,11 @@ public final class TranslationServiceClient {
         );
     }
 
+    /** Keeps the latest playback position available across service reconnections. */
+    public void reportStoryPosition(String scene, String choiceLabel, int choicePage) {
+        gameChoicePort.positionChanged(scene, choiceLabel, choicePage);
+    }
+
     /** Best-effort one-way report from the native Scene production hook. */
     public void reportSceneProductionRejected(
         String sceneName,

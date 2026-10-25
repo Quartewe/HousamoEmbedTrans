@@ -1,9 +1,12 @@
 package com.quarty.housamoembedtrans.bridge;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.RemoteException;
 import com.quarty.housamoembedtrans.translation.IChoiceBackCallback;
 import com.quarty.housamoembedtrans.translation.IGameChoicePort;
+import com.quarty.housamoembedtrans.translation.IStoryPositionListener;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -12,6 +15,14 @@ final class GameChoicePort extends IGameChoicePort.Stub {
     private final Context context;
     private final Set<Completion> pending = new HashSet<>();
     private boolean connected;
+    private long connectionEpoch;
+    private final Handler main = new Handler(Looper.getMainLooper());
+    // Latest display value survives a service disconnect, just like native history.
+    private String scene;
+    private boolean positionReceived;
+    private String choiceLabel = "";
+    private int choicePage = -1;
+    private IStoryPositionListener positionListener;
 
     GameChoicePort(Context context) {
         this.context = context;
@@ -19,17 +30,56 @@ final class GameChoicePort extends IGameChoicePort.Stub {
 
     synchronized void connect() {
         connected = true;
+        ++connectionEpoch;
     }
 
     void disconnect() {
         Completion[] interrupted;
         synchronized (this) {
             connected = false;
+            ++connectionEpoch;
+            positionListener = null;
             interrupted = pending.toArray(new Completion[0]);
             pending.clear();
         }
         for (Completion completion : interrupted) {
             completion.deliver(ChoiceBackResult.UNKNOWN);
+        }
+    }
+
+    @Override
+    public void subscribePosition(IStoryPositionListener listener) {
+        CallerVerifier.enforceAllowedCaller(context, HetBridgeContract.MODULE_PACKAGE);
+        final long epoch;
+        synchronized (this) { epoch = connectionEpoch; }
+        main.post(() -> {
+            synchronized (this) {
+                if (!connected || epoch != connectionEpoch || !listener.asBinder().isBinderAlive()) return;
+                positionListener = listener;
+                sendPositionLocked();
+            }
+        });
+    }
+
+    /** Native calls in Unity order; this handler also serializes initial subscription delivery. */
+    void positionChanged(String scene, String choiceLabel, int choicePage) {
+        main.post(() -> {
+            synchronized (this) {
+                this.scene = scene;
+                positionReceived = true;
+                this.choiceLabel = choiceLabel;
+                this.choicePage = choicePage;
+                sendPositionLocked();
+            }
+        });
+    }
+
+    private void sendPositionLocked() {
+        if (!connected || positionListener == null || !positionReceived) return;
+        try {
+            positionListener.onPositionChanged(scene, choiceLabel, choicePage);
+        } catch (RemoteException error) {
+            positionListener = null;
         }
     }
 
