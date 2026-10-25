@@ -857,6 +857,11 @@ public final class SceneSyncOperation implements AutoCloseable {
                     pendingApplyNames.add(sceneName);
                 }
             }
+            // Automatic policy uses the current files instead of an older
+            // offline choice.  Keep its claim blocked until they converge.
+            if (!SceneSyncSettings.CONFLICT_MODE_MANUAL.equals(conflictMode)) {
+                blockedNames.addAll(pendingApplyNames);
+            }
             // Preserve one diagnostic identity per damaged directive for
             // this cycle; do not recreate a Scene or a formal conflict.
             for (String sceneName : pendingRecovery.discardedSceneNames) {
@@ -1332,10 +1337,11 @@ public final class SceneSyncOperation implements AutoCloseable {
             );
         }
 
-        // A pending directive whose Scene is absent from the fixed export is
-        // handled by the normal HET-only path with its candidate body.
+        // Manual offline choices retain their recorded body.  Automatic
+        // policy uses the current HET-only file in the following loop.
         for (String sceneName : formalNamesSorted(pendingApplyNames)) {
-            if (gameNames.contains(sceneName)
+            if (!SceneSyncSettings.CONFLICT_MODE_MANUAL.equals(conflictMode)
+                || gameNames.contains(sceneName)
                 || rejectedNames.contains(sceneName)) {
                 continue;
             }
@@ -1377,7 +1383,8 @@ public final class SceneSyncOperation implements AutoCloseable {
         for (String sceneName : formalNamesSorted(hetNames)) {
             if (gameNames.contains(sceneName)
                 || rejectedNames.contains(sceneName)
-                || blockedNames.contains(sceneName)) {
+                || (blockedNames.contains(sceneName)
+                    && SceneSyncSettings.CONFLICT_MODE_MANUAL.equals(conflictMode))) {
                 continue;
             }
             hetOnlyNames.add(sceneName);
@@ -1474,7 +1481,8 @@ public final class SceneSyncOperation implements AutoCloseable {
         Set<String> rejectedNames,
         Set<String> blockedNames
     ) throws Exception {
-        if (pendingApplyNames.contains(sceneName)) {
+        if (SceneSyncSettings.CONFLICT_MODE_MANUAL.equals(conflictMode)
+            && pendingApplyNames.contains(sceneName)) {
             if (processPendingApply(
                 sceneName,
                 gameBytes,
@@ -1519,6 +1527,7 @@ public final class SceneSyncOperation implements AutoCloseable {
             SceneStore.RawSceneSnapshot snapshot =
                 sceneStore.validateRawSceneBytes(sceneName, gameBytes);
             saveRawSceneForSync(snapshot);
+            completeAutomaticConflict(sceneName, blockedNames);
             return;
         }
 
@@ -1537,8 +1546,7 @@ public final class SceneSyncOperation implements AutoCloseable {
         boolean currentClaimRetained =
             conflictResolver.retainCurrentClaim(
                 sceneName,
-                gameScene.bytes,
-                hetScene.bytes
+                conflictMode
             );
         if (currentClaimRetained) {
             blockedNames.add(sceneName);
@@ -1546,6 +1554,7 @@ public final class SceneSyncOperation implements AutoCloseable {
         }
         blockedNames.remove(sceneName);
         if (MessageDigest.isEqual(gameHash, hetHash)) {
+            completeAutomaticConflict(sceneName, blockedNames);
             blockedNames.remove(sceneName);
             return;
         }
@@ -1591,8 +1600,24 @@ public final class SceneSyncOperation implements AutoCloseable {
             return;
         }
         if (decision.isBlocked()) {
-            throw new IOException("Scene conflict remains blocked");
+            throw new IOException("Scene conflict remains blocked", decision.error);
         }
+        completeAutomaticConflict(sceneName, blockedNames);
+    }
+
+    /** Retires old choices only after the current Scene copies have converged. */
+    private void completeAutomaticConflict(
+        String sceneName,
+        Set<String> blockedNames
+    ) throws IOException {
+        if (SceneSyncSettings.CONFLICT_MODE_MANUAL.equals(conflictMode)) {
+            return;
+        }
+        // Remove the offline directive first so a retained formal conflict
+        // still exposes cleanup failures and can be retried next cycle.
+        pendingApplyStore.remove(sceneName);
+        conflictResolver.removeConflict(sceneName);
+        blockedNames.remove(sceneName);
     }
 
     /** Processes one directive against the fixed export body for its Scene. */
@@ -1717,6 +1742,7 @@ public final class SceneSyncOperation implements AutoCloseable {
             )
         );
         requireCommittedApply(result, "HET-only Scene apply");
+        completeAutomaticConflict(sceneName, blockedNames);
         // It becomes part of the game's view only after the game has returned
         // a successful atomic APPLY_RESULT.
         gameNames.add(sceneName);

@@ -9,20 +9,20 @@
 
     <string name="scene_sync_policy_title">冲突策略</string>
     <string name="scene_sync_policy_current">当前策略：%1$s</string>
-    <string name="scene_sync_policy_note">修改策略只影响下一次同步；已有手动冲突仍会保留。</string>
+    <string name="scene_sync_policy_note">下一次同步按此策略处理新旧冲突；自动策略使用双方当前文件。</string>
     <string name="scene_sync_policy_settings">在设置中修改</string>
     <string name="scene_sync_policy_manual">逐项确认后应用</string>
     <string name="scene_sync_policy_manual_description">每个冲突都会保留，直到你选择完整的候选版本。</string>
     <string name="scene_sync_policy_manual_option">逐项确认后应用
 每个冲突都会保留，直到你选择完整的候选版本。</string>
     <string name="scene_sync_policy_game">优先使用游戏版本</string>
-    <string name="scene_sync_policy_game_description">下一次发现冲突时自动应用游戏候选。</string>
+    <string name="scene_sync_policy_game_description">下一次同步使用游戏当前版本处理新旧冲突。</string>
     <string name="scene_sync_policy_game_option">优先使用游戏版本
-下一次发现冲突时自动应用游戏候选。</string>
+下一次同步使用游戏当前版本处理新旧冲突。</string>
     <string name="scene_sync_policy_het">优先使用 HET 版本</string>
-    <string name="scene_sync_policy_het_description">下一次发现冲突时自动应用 HET 候选。</string>
+    <string name="scene_sync_policy_het_description">下一次同步使用 HET 当前版本处理新旧冲突。</string>
     <string name="scene_sync_policy_het_option">优先使用 HET 版本
-下一次发现冲突时自动应用 HET 候选。</string>
+下一次同步使用 HET 当前版本处理新旧冲突。</string>
     <string name="scene_sync_policy_preview">只读预览策略</string>
     <string name="scene_sync_policy_unavailable">策略不可用</string>
     <string name="scene_sync_policy_load_failed">无法读取当前策略。</string>

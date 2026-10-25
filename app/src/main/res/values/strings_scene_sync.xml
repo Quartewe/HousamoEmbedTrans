@@ -9,20 +9,20 @@
 
     <string name="scene_sync_policy_title">Conflict policy</string>
     <string name="scene_sync_policy_current">Current policy: %1$s</string>
-    <string name="scene_sync_policy_note">Changing this policy affects the next sync. Existing manual conflicts remain available.</string>
+    <string name="scene_sync_policy_note">The next sync applies this policy to new and existing conflicts. Automatic policies use the current files.</string>
     <string name="scene_sync_policy_settings">Change in settings</string>
     <string name="scene_sync_policy_manual">Ask before applying</string>
     <string name="scene_sync_policy_manual_description">Keep each conflict pending until you choose a complete candidate.</string>
     <string name="scene_sync_policy_manual_option">Ask before applying
 Keep each conflict pending until you choose a complete candidate.</string>
     <string name="scene_sync_policy_game">Prefer the game version</string>
-    <string name="scene_sync_policy_game_description">Apply the game candidate automatically when the next conflict is detected.</string>
+    <string name="scene_sync_policy_game_description">Use the current game version for new and existing conflicts on the next sync.</string>
     <string name="scene_sync_policy_game_option">Prefer the game version
-Apply the game candidate automatically on the next conflict.</string>
+Use the current game version for new and existing conflicts on the next sync.</string>
     <string name="scene_sync_policy_het">Prefer the HET version</string>
-    <string name="scene_sync_policy_het_description">Apply the HET candidate automatically when the next conflict is detected.</string>
+    <string name="scene_sync_policy_het_description">Use the current HET version for new and existing conflicts on the next sync.</string>
     <string name="scene_sync_policy_het_option">Prefer the HET version
-Apply the HET candidate automatically on the next conflict.</string>
+Use the current HET version for new and existing conflicts on the next sync.</string>
     <string name="scene_sync_policy_preview">Read-only preview policy</string>
     <string name="scene_sync_policy_unavailable">Policy unavailable</string>
     <string name="scene_sync_policy_load_failed">The current policy could not be read.</string>

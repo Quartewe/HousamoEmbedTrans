@@ -115,17 +115,16 @@ public final class SceneConflictResolver {
     }
 
     /**
-     * Reconciles a seeded claim.  A formal directory owns its SceneName until
-     * an explicit user action removes it; the current pair is not allowed to
-     * invalidate the user's two durable candidates.  Metadata/file damage is
-     * propagated as a diagnostic failure while the directory remains intact.
+     * Manual mode retains the recorded candidates until the user chooses.
+     * Automatic modes reconcile the current files before retiring the claim.
      */
     public boolean retainCurrentClaim(
         String sceneName,
-        byte[] gameBytes,
-        byte[] hetBytes
+        String mode
     ) throws IOException {
-        if (!conflictStore.hasFormalConflict(sceneName)) {
+        if (!SceneSyncSettings.CONFLICT_MODE_MANUAL.equals(
+                SceneSyncSettings.normalizeConflictResolutionMode(mode))
+            || !conflictStore.hasFormalConflict(sceneName)) {
             return false;
         }
         conflictStore.readMetadata(sceneName);
@@ -134,9 +133,9 @@ public final class SceneConflictResolver {
 
     /**
      * Resolves one pair independently.  Automatic failure is reported as a
-     * blocked result and never falls back to the other candidate; a formal
-     * conflict is retained regardless of whether the current pair matches;
-     * stale records are never invalidated by synchronization.
+     * blocked result and never falls back to the other candidate.  Existing
+     * claims only bypass reconciliation in manual mode; the operation removes
+     * automatic claims after the chosen current file has been committed.
      */
     public Decision resolve(
         String sceneName,
@@ -151,7 +150,8 @@ public final class SceneConflictResolver {
         try {
             ConflictStore.validateCandidate(sceneName, gameBytes);
             ConflictStore.validateCandidate(sceneName, hetBytes);
-            if (conflictStore.hasFormalConflict(sceneName)) {
+            if (SceneSyncSettings.CONFLICT_MODE_MANUAL.equals(normalizedMode)
+                && conflictStore.hasFormalConflict(sceneName)) {
                 ConflictStore.ConflictMetadata metadata =
                     conflictStore.readMetadata(sceneName);
                 return new Decision(
