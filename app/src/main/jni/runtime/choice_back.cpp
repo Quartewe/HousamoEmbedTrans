@@ -176,6 +176,21 @@ struct Api {
         field_get_value(object, field, &result);
         return true;
     }
+    void* Static(const char* ns, const char* type, const char* name) {
+        void* klass = Class(ns, type);
+        const void* method = klass ? Method(klass, name, 0) : nullptr;
+        if (!method) return nullptr;
+        void* exception = nullptr;
+        void* result = runtime_invoke(method, nullptr, nullptr, &exception);
+        return exception ? nullptr : result;
+    }
+    int Int(void* object, const char* getter, int missing = -1) {
+        void* value = Get(object, getter);
+        return value ? *static_cast<int*>(object_unbox(value)) : missing;
+    }
+    std::string Text(void* value) {
+        return value ? read_il2cpp_string(value) : std::string{};
+    }
 } api;
 
 class Root {
@@ -661,9 +676,100 @@ void ProcessRequest() {
         Complete(Failed);
     }
 }
+
+void* ListItem(void* list, int index) {
+    void* value = nullptr;
+    void* args[] = { &index };
+    return api.Call(list, "get_Item", 1, args, &value) ? value : nullptr;
+}
+
+Root QuestValues() {
+    return Root(api.Static("Housamo.MasterData", "Master_Quest", "FindAllValues"));
+}
+
 } // namespace
 
 void ConfigureChoiceBack(uintptr_t il2cpp_base) { base = il2cpp_base; }
+
+std::string ReadScenarioQuestLabel(void* scenario, void* dataManager) {
+    if (!ready.load() || !scenario || !dataManager) return {};
+    Root owner(scenario);
+    Root name(api.Get(scenario, "get_Name"));
+    void* labelObject = nullptr;
+    void* args[] = { name.Get() };
+    if (!name.Get() || !api.Call(scenario, "FindScenarioLabelData", 1, args, &labelObject)) return {};
+    Root label(labelObject);
+    void* command = nullptr;
+    if (!api.Read(label.Get(), "scenarioLabelCommand", command)) return {};
+    if (!command) label = Root(api.Get(label.Get(), "get_Next"));
+    if (!api.Read(label.Get(), "scenarioLabelCommand", command) || !command) return {};
+    const std::string raw = api.Text(api.Get(label.Get(), "get_ScenarioLabel"));
+    if (raw.empty()) return {};
+
+    Root quests = QuestValues();
+    const int count = api.Int(quests.Get(), "get_Count");
+    if (count <= 0) return {};
+    std::unordered_set<std::string> candidates;
+    bool qualified = false;
+    // Relate the declaration to actual complete Master labels, including the
+    // game's known after-battle transformation. Do not strip arbitrary suffixes.
+    for (int i = 0; i < count; ++i) {
+        Root quest(ListItem(quests.Get(), i));
+        const std::string entry = api.Text(api.Get(quest.Get(), "get_label"));
+        const auto slash = entry.rfind('/');
+        const std::string local = slash == std::string::npos ? entry : entry.substr(slash + 1);
+        bool match = local == raw;
+        if (!match && (api.Int(quest.Get(), "get_storyFlag", 0) & 2)) match = local + "_afterBattle" == raw;
+        if (!match) continue;
+        candidates.insert(entry);
+        qualified |= slash != std::string::npos;
+    }
+    if (qualified) {
+        Root grid(api.Get(scenario, "get_DataGrid"));
+        Root setting(api.Get(dataManager, "get_SettingDataManager"));
+        Root imported(api.Get(setting.Get(), "get_ImportedScenarios"));
+        Root chapters(api.Get(imported.Get(), "get_Chapters"));
+        std::unordered_set<std::string> owners;
+        const int chapterCount = api.Int(chapters.Get(), "get_Count");
+        for (int c = 0; c < chapterCount; ++c) {
+            Root chapter(ListItem(chapters.Get(), c));
+            Root books(api.Get(chapter.Get(), "get_DataList"));
+            const int bookCount = api.Int(books.Get(), "get_Count");
+            for (int b = 0; b < bookCount; ++b) {
+                Root book(ListItem(books.Get(), b));
+                Root sheets(api.Get(book.Get(), "get_ImportGridList"));
+                const int sheetCount = api.Int(sheets.Get(), "get_Count");
+                for (int s = 0; s < sheetCount; ++s) {
+                    if (grid.Get() && ListItem(sheets.Get(), s) == grid.Get()) {
+                        owners.insert(api.Text(api.Get(chapter.Get(), "get_ChapterName")));
+                    }
+                }
+            }
+        }
+        if (owners.size() != 1 || owners.begin()->empty()) {
+            LOGW("[SceneEntry] chapter unresolved scene=%s entry=%s owners=%zu",
+                 api.Text(name.Get()).c_str(), raw.c_str(), owners.size());
+            return {};
+        }
+        const std::string prefix = *owners.begin() + "/";
+        for (auto it = candidates.begin(); it != candidates.end();) {
+            if (it->find('/') != std::string::npos && it->compare(0, prefix.size(), prefix) != 0) it = candidates.erase(it);
+            else ++it;
+        }
+        if (candidates.empty()) {
+            LOGW("[SceneEntry] no entry in owning chapter scene=%s entry=%s chapter=%s",
+                 api.Text(name.Get()).c_str(), raw.c_str(), prefix.c_str());
+            return {};
+        }
+    }
+    if (candidates.size() > 1) {
+        LOGW("[SceneEntry] ambiguous entry scene=%s entry=%s candidates=%zu",
+             api.Text(name.Get()).c_str(), raw.c_str(), candidates.size());
+        return {};
+    }
+    // Common script tables can have a declared entry without an independent Quest.
+    return candidates.empty() ? raw : *candidates.begin();
+}
 
 void PumpChoiceBack() {
     if (!initialized) {

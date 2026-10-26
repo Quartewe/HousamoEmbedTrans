@@ -5545,6 +5545,7 @@ public final class SceneStore {
         for (String key : PENDING_ROOT_LANGUAGE_MAPS) {
             clearJsonObject(skeleton.optJSONObject(key));
         }
+        skeleton.remove("quest_label");
         clearNestedTranslationMaps(skeleton.optJSONArray("scene_items"));
         StringBuilder canonical = new StringBuilder();
         appendCanonicalJson(skeleton, canonical);

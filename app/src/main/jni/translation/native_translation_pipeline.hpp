@@ -15,6 +15,9 @@ enum class SceneFileStatus {
 };
 
 SceneFileStatus GetSceneFileStatus(const std::string& scene_name);
+// Caller holds the Scene production lease, including sync-drain admission.
+bool BackfillSceneQuestLabel(const std::string& scene_name, const std::string& label,
+                            std::uint64_t captured_epoch);
 bool SubmitSceneToWriter(const std::string& scene_name, const std::string& target_lang);
 bool SubmitExistingScene(
     const std::string& scene_name,

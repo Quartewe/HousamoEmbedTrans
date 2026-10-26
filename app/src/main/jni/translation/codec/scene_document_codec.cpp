@@ -522,6 +522,9 @@ bool EncodeCapturedScene(
         &api,
         "scene",
         JsonString(scene.scene, local_allocator));
+    if (!scene.quest_label.empty()) {
+        local.AddMember("quest_label", JsonString(scene.quest_label, local_allocator), local_allocator);
+    }
     AddSharedMember(
         &local,
         &api,

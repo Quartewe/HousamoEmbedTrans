@@ -57,7 +57,7 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
     std::string entry_label = read_il2cpp_string(label);
 
     if (g_runtime_config.enable_page_rec_debug) {
-        ExportPageRecScenarios(scenario_data, entry_label, captured_epoch,
+        ExportPageRecScenarios(scenario_data, self, entry_label, captured_epoch,
             [self, method](const std::string& name) -> void* {
                 void* managed_label = PageRecStringNew(name.c_str());
                 return managed_label ? RawFindScenarioData(self, managed_label, method) : nullptr;
@@ -100,7 +100,8 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
             scenario_data,
             entry_label,
             std::move(production_lease),
-            captured_epoch)) {
+            captured_epoch,
+            ReadScenarioQuestLabel(scenario_data, self))) {
         LOGE("[FindScenarioData] failed to catch scenario scene=%s entry=%s",
              scene_name.c_str(), entry_label.c_str());
     }

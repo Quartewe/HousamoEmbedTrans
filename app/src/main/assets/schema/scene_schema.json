@@ -19,6 +19,7 @@
   ],
   "properties": {
     "scene": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "quest_label": { "type": "string", "minLength": 1 },
     "game_version": { "type": "string", "minLength": 1 },
     "raw_lang": { "type": "string", "minLength": 1 },
     "target_lang": { "type": "string", "minLength": 1 },

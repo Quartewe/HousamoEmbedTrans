@@ -110,6 +110,7 @@ public:
         const size_t item_count = result.scene_items.size();
         std::vector<GameTerm> character_terms;
         scene.scene = result.scene;
+        scene.quest_label = std::move(result.quest_label);
         scene.target_lang = g_runtime_config.target_lang;
         scene.protect = std::move(result.protect);
         scene.scene_items = std::move(result.scene_items);

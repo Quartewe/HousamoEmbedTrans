@@ -2,6 +2,7 @@
 #include "scene/scene_identity.hpp"
 #include "translation/codec/document_codec.hpp"
 #include "translation/native_translation_pipeline.hpp"
+#include "runtime/choice_back.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -93,11 +94,6 @@ bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
     if (!g_runtime_config.enable_page_rec_tasks) return true;
     auto& record = exported_json.at(scene.scene);
     if (!IsCurrent(epoch)) return false;
-    if (has_target_official_translation) {
-        LOGI("[PageRec] task skipped scene=%s reason=official_translation target=%s",
-             scene.scene.c_str(), g_runtime_config.target_lang.c_str());
-        return true;
-    }
     auto lease = EnterSceneProduction(scene.scene, &batch);
     if (!lease.allowed()) {
         LOGI("[PageRec] task deferred scene=%s reason=%d",
@@ -105,6 +101,12 @@ bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
         return false;
     }
     const std::string name = scene.scene;
+    if (!BackfillSceneQuestLabel(name, scene.quest_label, epoch)) return false;
+    if (has_target_official_translation) {
+        LOGI("[PageRec] task skipped scene=%s reason=official_translation target=%s",
+             name.c_str(), g_runtime_config.target_lang.c_str());
+        return true;
+    }
     if (!IsCurrent(epoch) || !SubmitQuestTargetSet(name, target_set)) return false;
     const auto status = GetSceneFileStatus(name);
     // Refresh targets on every lookup. Admission dedup must not suppress an
@@ -160,7 +162,7 @@ bool CommandExamine(void* page_data, const std::string&) {
 }
 
 void ExportPageRecScenarios(
-    void* current_scenario, const std::string& entry_label,
+    void* current_scenario, void* data_manager, const std::string& entry_label,
     std::uint64_t epoch, const std::function<void*(const std::string&)>& resolve) {
     // Do not recursively enter the exporter or retain its manager.
     static thread_local bool exporting = false;
@@ -195,8 +197,9 @@ void ExportPageRecScenarios(
         std::vector<std::string> labels;
         bool has_target_official_translation = false;
         if (!ParsePageRecScene(data, entry, &scene, &labels,
-                               &has_target_official_translation, &target_set)
-            || !WriteScene(scene, epoch)) {
+                               &has_target_official_translation, &target_set)) return;
+        scene.quest_label = ReadScenarioQuestLabel(data, data_manager);
+        if (!WriteScene(scene, epoch)) {
             LOGW("[PageRec] export deferred scene=%s; retry on next lookup", name.c_str());
             return;
         }

@@ -9,6 +9,9 @@
 #include <filesystem>
 #include <fstream>
 #include <system_error>
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -96,6 +99,47 @@ SceneCommitResult RenameWithoutReplacing(
 
 }  // namespace
 
+std::recursive_mutex& MutationMutex() {
+    static std::recursive_mutex mutex;
+    return mutex;
+}
+
+bool BackfillQuestLabel(const std::string& scene_name, const std::string& label, std::string* error) {
+    if (label.empty()) return true;
+    std::lock_guard<std::recursive_mutex> lock(MutationMutex());
+    if (!Exists(scene_name)) return true;
+    std::string bytes;
+    if (!Read(scene_name, &bytes, error)) return false;
+    rapidjson::Document document;
+    document.Parse(bytes.data(), bytes.size());
+    if (document.HasParseError() || !document.IsObject()) return Fail(error, "existing Scene could not be read");
+    auto previous = document.FindMember("quest_label");
+    if (previous != document.MemberEnd()) {
+        if (previous->value.IsString() && label == previous->value.GetString()) return true;
+        if (!g_runtime_config.overwrite_existing) {
+            LOGW("[SceneEntry] keeping saved entry scene=%s; captured entry differs and overwrite is disabled",
+                 scene_name.c_str());
+            return true;
+        }
+        LOGI("[SceneEntry] replacing entry scene=%s under overwrite policy", scene_name.c_str());
+    }
+    rapidjson::Document updated(rapidjson::kObjectType);
+    auto& allocator = updated.GetAllocator();
+    for (auto it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
+        if (std::strcmp(it->name.GetString(), "quest_label") == 0) continue;
+        rapidjson::Value key(it->name, allocator), value(it->value, allocator);
+        updated.AddMember(key, value, allocator);
+        if (std::strcmp(it->name.GetString(), "scene") == 0) {
+            updated.AddMember("quest_label", rapidjson::Value(label.c_str(), static_cast<rapidjson::SizeType>(label.size()), allocator), allocator);
+        }
+    }
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    updated.Accept(writer);
+    return Commit(scene_name, std::string(buffer.GetString(), buffer.GetSize()), true, error)
+        == SceneCommitResult::committed;
+}
+
 std::string PathForLog(const std::string& scene_name) {
     std::filesystem::path path;
     if (!BuildPath(scene_name, &path, nullptr)) {
@@ -117,6 +161,7 @@ bool Read(
     const std::string& scene_name,
     std::string* scene_json,
     std::string* error) {
+    std::lock_guard<std::recursive_mutex> lock(MutationMutex());
     if (error) {
         error->clear();
     }
@@ -157,6 +202,7 @@ SceneCommitResult Commit(
     const std::string& scene_json,
     bool overwrite_existing,
     std::string* error) {
+    std::lock_guard<std::recursive_mutex> lock(MutationMutex());
     if (error) {
         error->clear();
     }

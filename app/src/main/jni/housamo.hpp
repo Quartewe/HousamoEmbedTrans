@@ -413,6 +413,7 @@ struct AliasScore {
 
 struct ScenarioParseResult {
     std::string scene;        // scenarioData.name
+    std::string quest_label;  // complete Master_Quest label, when known
     std::string entry_label;  // FindScenarioData(label) 的参数
     std::vector<ItemScore> speaker_character;
     std::vector<ItemScore> show_character;
@@ -426,6 +427,7 @@ struct ScenarioParseResult {
 
 struct Scene {
     std::string scene;
+    std::string quest_label;
     std::string raw_lang = "ja";
     std::string target_lang;
     Character character;
@@ -494,7 +496,8 @@ bool CatchScenario(
     void* scenario_data,
     const std::string& entry_label,
     het::scene_sync::SceneProductionLease production_lease,
-    std::uint64_t captured_epoch);
+    std::uint64_t captured_epoch,
+    const std::string& quest_label);
 std::vector<AcHit> AcScan(const std::string& text);
 bool FindCharacterItem(const std::string& name, CharacterItem* out);
 bool FindGameTerm(const std::string& term, GameTerm* out);

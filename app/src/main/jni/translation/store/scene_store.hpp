@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <mutex>
 
 namespace het::translation {
 
@@ -11,6 +12,10 @@ enum class SceneCommitResult {
 };
 
 namespace scene_store {
+
+// One lock spans read/modify/commit; individual store calls also acquire it.
+std::recursive_mutex& MutationMutex();
+bool BackfillQuestLabel(const std::string& scene_name, const std::string& label, std::string* error);
 
 bool Exists(const std::string& scene_name);
 

@@ -7,7 +7,7 @@
 // Export retains only label names. Task mode also registers non-owning targets
 // with the existing QuestWriter; managed objects never enter the Scene pipeline.
 void ExportPageRecScenarios(
-    void* current_scenario, const std::string& entry_label,
+    void* current_scenario, void* data_manager, const std::string& entry_label,
     std::uint64_t captured_epoch,
     const std::function<void*(const std::string&)>& resolve);
 

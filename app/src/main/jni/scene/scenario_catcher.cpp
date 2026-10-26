@@ -2007,7 +2007,8 @@ bool CatchScenario(
     void* scenario_data,
     const std::string& entry_label,
     het::scene_sync::SceneProductionLease production_lease,
-    std::uint64_t captured_epoch) {
+    std::uint64_t captured_epoch,
+    const std::string& quest_label) {
     uintptr_t scenario_key = reinterpret_cast<uintptr_t>(scenario_data);
 
     QuestTargetSet target_set;
@@ -2023,6 +2024,10 @@ bool CatchScenario(
     }
 
     BuildLabelOrder(&scenario);
+    if (!BackfillSceneQuestLabel(scenario.result.scene, quest_label, captured_epoch)) {
+        ForgetCaughtScenario(scenario_key, captured_epoch);
+        return false;
+    }
     LOGI("[ScenarioCatcher] scenario=%s entry=%s labels=%zu order=%zu",
          scenario.result.scene.c_str(),
          scenario.result.entry_label.c_str(),
@@ -2030,6 +2035,7 @@ bool CatchScenario(
          scenario.label_order.size());
 
     ScenarioParseOutput output = ParseScenarioToResult(scenario);
+    output.result.quest_label = quest_label;
     // Failed and skipped parses have no write-back targets.
     if (output.status == ScenarioParseStatus::skipped_official_translation) {
         LOGI("[ScenarioCatcher] scenario skipped because official translation exists entry=%s",

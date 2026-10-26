@@ -400,6 +400,7 @@ private:
         const TranslationRequest& request,
         const TranslationResult& result,
         std::string* error) const {
+        std::lock_guard<std::recursive_mutex> mutation(scene_store::MutationMutex());
         std::string scene_json;
         if (!scene_store::Read(request.scene_name, &scene_json, error)) {
             return false;
@@ -508,6 +509,12 @@ private:
                 scene_json,
                 g_runtime_config.overwrite_existing,
                 &error);
+            // Another capture may have created the file after admission-time
+            // backfill. Preserve that file and fill only its missing entry.
+            if (committed == SceneCommitResult::already_exists
+                && !scene_store::BackfillQuestLabel(scene->scene, scene->quest_label, &error)) {
+                committed = SceneCommitResult::failed;
+            }
         }
         if (committed == SceneCommitResult::failed) {
             LOGE(
@@ -611,6 +618,18 @@ void ClearNativeTranslationPipelineOnPause() {
 
 SceneFileStatus GetSceneFileStatus(const std::string& scene_name) {
     return GetPipeline().GetFileStatus(scene_name);
+}
+
+bool BackfillSceneQuestLabel(const std::string& scene_name, const std::string& label,
+                            std::uint64_t captured_epoch) {
+    std::lock_guard<std::mutex> transition(capture_transition_mutex);
+    if (!IsCaptureEpochCurrent(captured_epoch)) return false;
+    std::string error;
+    if (!scene_store::BackfillQuestLabel(scene_name, label, &error)) {
+        LOGW("[SceneEntry] metadata update deferred scene=%s reason=%s", scene_name.c_str(), error.c_str());
+        return false;
+    }
+    return true;
 }
 
 bool SubmitExistingScene(
