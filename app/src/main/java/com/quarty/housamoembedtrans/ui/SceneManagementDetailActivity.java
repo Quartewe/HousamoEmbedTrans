@@ -7,6 +7,10 @@ import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
+import com.quarty.housamoembedtrans.bridge.StoryOpenResult;
+import com.quarty.housamoembedtrans.translation.IChoiceBackCallback;
+import com.quarty.housamoembedtrans.translation.TranslationService;
 
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -32,6 +36,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.DateFormat;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashSet;
@@ -78,6 +83,11 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
 
     private LinearLayout content;
     private LinearLayout pageActions;
+    private MaterialButton openStoryButton;
+    private boolean storyOpenPending;
+    private final Runnable storyConnectionListener = () -> runOnUiThread(() -> {
+        if (isActivityAlive()) updateStoryOpenState();
+    });
     private NestedScrollView scrollView;
     private TextView status;
     private MaterialToolbar toolbar;
@@ -878,6 +888,13 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         });
         registerAction(edit);
         addPageAction(edit, wrapButtonParams(0));
+        openStoryButton = prototypeButton(R.string.scene_open_action, false);
+        openStoryButton.setBackgroundTintList(ColorStateList.valueOf(
+            ContextCompat.getColor(this, R.color.het_primary_container)));
+        openStoryButton.setTextColor(ContextCompat.getColor(this, R.color.het_on_primary_container));
+        openStoryButton.setStrokeWidth(0);
+        openStoryButton.setOnClickListener(view -> openStory());
+        addPageAction(openStoryButton, wrapButtonParams(0));
     }
 
     private void addPrototypeHeading(
@@ -1932,6 +1949,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
     }
 
     private void clearPageActions() {
+        openStoryButton = null;
         pageActions.removeAllViews();
         pageActions.setVisibility(View.GONE);
     }
@@ -1944,6 +1962,83 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
             && isActivityAlive();
         for (View action : actionViews) {
             action.setEnabled(enabled);
+        }
+        updateStoryOpenState();
+    }
+
+    private String storyQuestLabel() {
+        Object value = sceneData == null ? null : sceneData.source.opt("quest_label");
+        return value instanceof String ? (String) value : "";
+    }
+
+    private void updateStoryOpenState() {
+        if (openStoryButton == null) return;
+        boolean hasEntry = !storyQuestLabel().trim().isEmpty();
+        boolean connected = !stylePreview && TranslationService.hasStoryConnection();
+        openStoryButton.setText(storyOpenPending ? R.string.scene_open_pending
+            : !hasEntry ? R.string.scene_open_no_entry
+            : !connected ? R.string.scene_open_offline : R.string.scene_open_action);
+        openStoryButton.setEnabled(resumed && !operationBusy && !loadInFlight
+            && !storyOpenPending && hasEntry && connected);
+        openStoryButton.setAlpha(openStoryButton.isEnabled() ? 1f : 0.5f);
+    }
+
+    private void openStory() {
+        if (openStoryButton == null || !openStoryButton.isEnabled()) return;
+        Intent game = getPackageManager().getLaunchIntentForPackage(HetBridgeContract.TARGET_PACKAGE);
+        if (game == null) {
+            showStoryOpenMessage(R.string.scene_open_switch_game);
+            return;
+        }
+        storyOpenPending = true;
+        updateStoryOpenState();
+        try {
+            TranslationService.requestOpenStoryFromScene(storyQuestLabel(), new StoryOpenCallback(this));
+            // Unity must resume before it can execute the queued request.
+            if (storyOpenPending) {
+                try { startActivity(game); }
+                catch (RuntimeException error) { showStoryOpenMessage(R.string.scene_open_switch_game); }
+            }
+        } catch (android.os.RemoteException | RuntimeException error) {
+            storyOpenPending = false;
+            updateStoryOpenState();
+            showStoryOpenMessage(R.string.scene_open_unknown);
+        }
+    }
+
+    private void showStoryOpenMessage(int message) {
+        android.widget.Toast.makeText(getApplicationContext(), message,
+            android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    private void storyOpenCompleted(int result) {
+        storyOpenPending = false;
+        if (!isActivityAlive()) return;
+        updateStoryOpenState();
+        int message;
+        switch (result) {
+            case StoryOpenResult.STARTED: message = R.string.scene_open_started; break;
+            case StoryOpenResult.NO_ENTRY: message = R.string.scene_open_not_found; break;
+            case StoryOpenResult.BUSY: message = R.string.scene_open_busy; break;
+            case StoryOpenResult.UNAVAILABLE: message = R.string.scene_open_unavailable; break;
+            case StoryOpenResult.GAME_NOT_CONNECTED: message = R.string.scene_open_offline; break;
+            case StoryOpenResult.AMBIGUOUS: message = R.string.scene_open_ambiguous; break;
+            case StoryOpenResult.FAILED: message = R.string.scene_open_failed; break;
+            default: message = R.string.scene_open_unknown;
+        }
+        showStoryOpenMessage(message);
+    }
+
+    private static final class StoryOpenCallback extends IChoiceBackCallback.Stub {
+        private final WeakReference<SceneManagementDetailActivity> owner;
+
+        StoryOpenCallback(SceneManagementDetailActivity activity) {
+            owner = new WeakReference<>(activity);
+        }
+
+        @Override public void onCompleted(int result) {
+            SceneManagementDetailActivity activity = owner.get();
+            if (activity != null) activity.runOnUiThread(() -> activity.storyOpenCompleted(result));
         }
     }
 
@@ -2290,6 +2385,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        TranslationService.addStoryConnectionListener(storyConnectionListener);
         if (!stylePreview && hasResumed && !operationBusy && !loadInFlight) {
             loadAsync();
         }
@@ -2299,6 +2395,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
+        TranslationService.removeStoryConnectionListener(storyConnectionListener);
         rememberScroll();
         resumed = false;
         updateActionState();
@@ -2607,6 +2704,7 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        TranslationService.removeStoryConnectionListener(storyConnectionListener);
         if (pendingMoveController != null) {
             pendingMoveController.close();
             pendingMoveController = null;

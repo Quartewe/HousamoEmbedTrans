@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_open_action">打开剧情</string>
+    <string name="scene_open_pending">正在打开…</string>
+    <string name="scene_open_no_entry">暂无剧情入口</string>
+    <string name="scene_open_offline">游戏未连接</string>
+    <string name="scene_open_started">已开始加载剧情</string>
+    <string name="scene_open_not_found">游戏中未找到该剧情入口</string>
+    <string name="scene_open_busy">游戏正在处理其他操作，请先结束或退出</string>
+    <string name="scene_open_unavailable">游戏尚未就绪或当前版本不支持打开剧情</string>
+    <string name="scene_open_ambiguous">无法确定该剧情入口</string>
+    <string name="scene_open_failed">剧情加载未能开始</string>
+    <string name="scene_open_unknown">打开结果未知，请查看游戏</string>
+    <string name="scene_open_switch_game">请切回已连接的游戏继续</string>
+</resources>

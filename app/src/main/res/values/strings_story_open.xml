@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scene_open_action">Open story</string>
+    <string name="scene_open_pending">Opening…</string>
+    <string name="scene_open_no_entry">No story entry</string>
+    <string name="scene_open_offline">Game disconnected</string>
+    <string name="scene_open_started">Story loading started</string>
+    <string name="scene_open_not_found">Story entry not found in the game</string>
+    <string name="scene_open_busy">Finish the current game operation first</string>
+    <string name="scene_open_unavailable">Story opening is not ready in the game</string>
+    <string name="scene_open_ambiguous">Could not determine the story entry</string>
+    <string name="scene_open_failed">Could not start story loading</string>
+    <string name="scene_open_unknown">Opening result unknown; check the game</string>
+    <string name="scene_open_switch_game">Switch to the connected game to continue</string>
+</resources>

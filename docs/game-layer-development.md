@@ -61,6 +61,20 @@ Native 在 Unity 线程完成状态变更并复制字符串，经 `MainHook.repo
 
 通知采用回退优先布局，折叠时保留回退和捕获暂停/恢复入口。顶部显示 Scene，正文显示最近 choice；当前 Scene 尚无目标语言译文且已有运行中的翻译任务时，正文显示“正在翻译”，展开后仍显示最近 choice。任务需要用户处理时显示对应提示。剧情退出后 Scene 和 choice 一起清空，后台翻译继续沿既有任务流程运行。
 
+### 2.2 从 Scene 详情打开回想
+
+Scene 根节点可选保存 `quest_label`，紧接 `scene`，内容是完整的 `Master_Quest.label`。普通捕获与 PageRec 都调用 `ReadScenarioQuestLabel`：读取本表的正式 label 声明，表名空块则沿 `Next` 取声明；通过 `AdvScenarioData.DataGrid` 与已导入 chapter 中的 sheet 对象身份确认所属 chapter。战后表只关联主数据中具有战后位的基础入口。不能确定归属或入口有歧义时省略字段并记录原因，不用当前播放 Quest 替代预加载表的身份。
+
+字段只进入本地 Scene，不进入翻译请求。重采集通过生产租约和暂停代次门禁补齐旧文件的缺省字段；补填与译文结果保存共用存储读改写锁，保留其他成员。已有不同值按既有 `overwrite_existing` 设置处理：关闭时保留旧值并记录差异，继续原有翻译和回写；开启时只替换入口元数据并记录。之后的两端差异沿完整文件同步和既有冲突策略处理。正文结构哈希排除 `quest_label`，完整文件同步仍比较它。
+
+详情概览页底栏通过 `TranslationService.requestOpenStoryFromScene`，沿已有 `IGameChoicePort.requestOpenStory` 发送一个完整入口字符串，结果复用一次性回调。HET 校验发送字符串；游戏在 Unity `ExecuteTasks` 调度点查询当前主数据。候选先保留 `storyFlag & 3` 非零项，没有时使用其余精确匹配项；前后段位不一致返回入口无法确定，一致时按 questId 升序择一。
+
+当前版本仅在已加载玩家数据的 Home 空闲阶段受理，包括其中的回忆列表。使用真实 Quest，停止 BGM、开启回想、重置战后标志后调用游戏 `SceneLoader.NextScene("Adv")`；选项、前后段和结束返回由游戏继续执行。HET 在递交后立即切回已连接的游戏，让 Unity 恢复处理。“已开始加载”只表示切场调用完成，不代表剧情首屏或资源下载完成。
+
+打开与 choice 回退共用一个 native 请求槽。游戏端 `Completion.tryStart` 是执行边界：断连先清除 Java 待处理项，再按同一个 completion 取消尚在槽中的打开请求；Unity 未取得执行权时不改游戏状态。执行边界之后断连返回结果未知，不撤回已经开始的切场。重连不重投请求；新剧情通过现有生命周期建立 choice 历史并发布实际位置。版本门禁沿用 `choice_back` 的 arm64 库身份检查。
+
+规格及验收记录位于 `.scratch/scene-quest-entry-field-20261026/`。构建通过与底栏实际播放验收分别记录。
+
 ## 3. RVA、字段偏移与对象关系
 
 ### 3.1 如何读偏移
