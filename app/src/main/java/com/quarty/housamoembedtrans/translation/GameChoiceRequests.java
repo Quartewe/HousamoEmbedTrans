@@ -12,6 +12,7 @@ final class GameChoiceRequests {
     private IBinder.DeathRecipient death;
     private final Set<Pending> pending = new HashSet<>();
     private boolean closed;
+    private boolean storyOpenSupported;
     private final Runnable positionChanged;
     private PositionReceiver positionReceiver;
     private TranslationService.StoryPosition position;
@@ -21,6 +22,10 @@ final class GameChoiceRequests {
     }
 
     synchronized TranslationService.StoryPosition getPosition() { return position; }
+
+    synchronized boolean isConnected() {
+        return !closed && port != null && port.asBinder().isBinderAlive();
+    }
 
     void register(IGameChoicePort next) throws RemoteException {
         Pending[] interrupted;
@@ -32,6 +37,13 @@ final class GameChoiceRequests {
             interrupted = clearLocked();
             port = next;
             death = nextDeath;
+            try {
+                storyOpenSupported = next.getStoryOpenProtocolVersion() == 1;
+            } catch (RemoteException | RuntimeException unsupported) {
+                // Older injected ports keep choice-back support, but cannot
+                // acknowledge the appended oneway open operation.
+                storyOpenSupported = false;
+            }
             if (!binder.isBinderAlive()) {
                 clearLocked();
             } else {
@@ -59,6 +71,10 @@ final class GameChoiceRequests {
     }
 
     void request(IChoiceBackCallback callback, boolean gameConnected) {
+        request(null, callback, gameConnected);
+    }
+
+    void request(String questLabel, IChoiceBackCallback callback, boolean gameConnected) {
         IGameChoicePort target;
         Pending request;
         int unavailable;
@@ -71,6 +87,10 @@ final class GameChoiceRequests {
             target = closed ? null : port;
             unavailable = closed || gameConnected
                 ? ChoiceBackResult.UNAVAILABLE : ChoiceBackResult.GAME_NOT_CONNECTED;
+            if (target != null && questLabel != null && !storyOpenSupported) {
+                target = null;
+                unavailable = ChoiceBackResult.UNAVAILABLE;
+            }
             request = target == null ? null : new Pending(callback);
             if (request != null) pending.add(request);
         }
@@ -84,7 +104,8 @@ final class GameChoiceRequests {
         }
         try {
             // Oneway dispatch only: the final result comes from Unity completion.
-            target.requestBack(request);
+            if (questLabel == null) target.requestBack(request);
+            else target.requestOpenStory(questLabel, request);
         } catch (RemoteException | RuntimeException error) {
             request.onCompleted(ChoiceBackResult.UNKNOWN);
         }
@@ -103,6 +124,7 @@ final class GameChoiceRequests {
     private Pending[] clearLocked() {
         if (port != null) port.asBinder().unlinkToDeath(death, 0);
         port = null;
+        storyOpenSupported = false;
         death = null;
         positionReceiver = null;
         position = null;

@@ -10,6 +10,7 @@
 #include <chrono>
 #include <new>
 #include <utility>
+#include <algorithm>
 
 namespace {
 enum Result { Restored = 0, NoTarget = 1, Busy = 2, Unavailable = 3, Failed = 5 };
@@ -41,6 +42,21 @@ struct Completion {
     jobject object = nullptr;
     jmethodID method = nullptr;
     uint64_t epoch = 0;
+    bool openStory = false;
+    std::u16string questLabel;
+
+    bool TryStart() {
+        JNIEnv* env = nullptr;
+        bool attached = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_EDETACHED;
+        if (attached && vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return false;
+        jclass klass = env->GetObjectClass(object);
+        jmethodID claim = env->GetMethodID(klass, "tryStart", "()Z");
+        bool accepted = claim && env->CallBooleanMethod(object, claim);
+        if (env->ExceptionCheck()) { env->ExceptionClear(); accepted = false; }
+        env->DeleteLocalRef(klass);
+        if (attached) vm->DetachCurrentThread();
+        return accepted;
+    }
 
     void Deliver(int result) {
         JNIEnv* env = nullptr;
@@ -86,6 +102,8 @@ struct Api {
     void (*field_get_value)(void*, void*, void*) = nullptr;
     void (*field_set_value)(void*, void*, void*) = nullptr;
     void (*field_set_value_object)(void*, void*, void*) = nullptr;
+    void (*field_static_get_value)(void*, void*) = nullptr;
+    void* (*string_new)(const char*) = nullptr;
     uint32_t (*gchandle_new)(void*, bool) = nullptr;
     void* (*gchandle_get_target)(uint32_t) = nullptr;
     void (*gchandle_free)(uint32_t) = nullptr;
@@ -104,6 +122,7 @@ struct Api {
         LOAD(object_unbox); LOAD(object_new); LOAD(runtime_invoke);
         LOAD(field_get_value_object); LOAD(field_get_value); LOAD(field_set_value);
         LOAD(field_set_value_object); LOAD(gchandle_new); LOAD(gchandle_get_target); LOAD(gchandle_free);
+        LOAD(field_static_get_value); LOAD(string_new);
         LOAD(string_length); LOAD(string_chars);
 #undef LOAD
         return true;
@@ -136,7 +155,8 @@ struct Api {
         const void* method = Method(object_get_class(object), name, argc);
         if (!method) return false;
         void* exception = nullptr;
-        void* value = runtime_invoke(method, object, args, &exception);
+        void* instance = class_is_valuetype(object_get_class(object)) ? object_unbox(object) : object;
+        void* value = runtime_invoke(method, instance, args, &exception);
         if (exception) {
             LOGW("[ChoiceBack] managed operation failed: %s", name);
             return false;
@@ -184,12 +204,23 @@ struct Api {
         void* result = runtime_invoke(method, nullptr, nullptr, &exception);
         return exception ? nullptr : result;
     }
+    void* StaticField(const char* ns, const char* type, const char* name) {
+        void* klass = Class(ns, type);
+        void* field = klass ? class_get_field_from_name(klass, name) : nullptr;
+        void* value = nullptr;
+        if (field) field_static_get_value(field, &value);
+        return value;
+    }
     int Int(void* object, const char* getter, int missing = -1) {
         void* value = Get(object, getter);
         return value ? *static_cast<int*>(object_unbox(value)) : missing;
     }
     std::string Text(void* value) {
         return value ? read_il2cpp_string(value) : std::string{};
+    }
+    bool SameText(void* value, const std::u16string& text) {
+        return value && string_length(value) == static_cast<int32_t>(text.size())
+            && std::equal(text.begin(), text.end(), string_chars(value));
     }
 } api;
 
@@ -677,6 +708,15 @@ void ProcessRequest() {
     }
 }
 
+// The story opener shares the existing Unity mailbox with choice restoration.
+// It owns no managed objects between frames and no durable request queue.
+bool storyChanging = false;
+
+std::string UnitySceneName() {
+    Root scene(api.Static("UnityEngine.SceneManagement", "SceneManager", "GetActiveScene"));
+    return api.Text(api.Get(scene.Get(), "get_name"));
+}
+
 void* ListItem(void* list, int index) {
     void* value = nullptr;
     void* args[] = { &index };
@@ -687,6 +727,77 @@ Root QuestValues() {
     return Root(api.Static("Housamo.MasterData", "Master_Quest", "FindAllValues"));
 }
 
+void ProcessOpenStory() {
+    if (!executing->TryStart()) { Complete(6); return; }
+    if (active || loadLease || storyChanging || UnitySceneName() != "Home") { Complete(Busy); return; }
+    Root data(api.Static("", "DataManager", "get_Instance"));
+    Root quests = QuestValues();
+    const int count = api.Int(quests.Get(), "get_Count");
+    if (!data.Get() || !api.Bool(data.Get(), "get_IsPlayerDataLoaded") || count <= 0) {
+        Complete(Unavailable); return;
+    }
+    Root selected;
+    int selectedId = 0, selectedBits = -1;
+    bool hasStory = false, ambiguous = false;
+    for (int i = 0; i < count; ++i) {
+        Root quest(ListItem(quests.Get(), i));
+        if (!api.SameText(api.Get(quest.Get(), "get_label"), executing->questLabel)) continue;
+        int bits = api.Int(quest.Get(), "get_storyFlag", 0) & 3;
+        int id = api.Int(quest.Get(), "get_questId");
+        if (hasStory && !bits) continue;
+        if (bits && !hasStory) { selected.Reset(); selectedBits = -1; ambiguous = false; hasStory = true; }
+        if (selectedBits >= 0 && selectedBits != bits) ambiguous = true;
+        selectedBits = bits;
+        // Stable ascending ID: original and replay duplicates do not depend on table order.
+        if (!selected.Get() || id < selectedId) { selected = std::move(quest); selectedId = id; }
+    }
+    if (!selected.Get()) { Complete(NoTarget); return; }
+    if (ambiguous) { Complete(7); return; }
+
+    void* questField = api.Field(data.Get(), "QuestMemoryPlayQuest");
+    void* afterField = api.Field(data.Get(), "afterBattleFlag");
+    const void* memorySetter = api.Method(api.object_get_class(data.Get()), "set_scenarioMemoryFlag", 1);
+    void* loader = api.Class("Housamo.SceneLoader", "SceneLoader");
+    const void* next = loader ? api.Method(loader, "NextScene", 1) : nullptr;
+    Root bgm(api.StaticField("", "BGMManager", "Instance"));
+    if (!questField || !afterField || !memorySetter || !next || !bgm.Get()) { Complete(Unavailable); return; }
+    bool previousMemory = false, previousAfter = false;
+    void* oldQuest = nullptr;
+    if (!api.Read(data.Get(), "scenarioMemoryFlag", previousMemory)
+        || !api.Read(data.Get(), "afterBattleFlag", previousAfter)
+        || !api.Read(data.Get(), "QuestMemoryPlayQuest", oldQuest)) { Complete(Unavailable); return; }
+    Root previousQuest(oldQuest);
+    Root adv(api.string_new("Adv"));
+    if (!adv.Get()) { Complete(Failed); return; }
+
+    // NextScene may synchronously invoke the normal session hooks. Those own
+    // history changes, but must not consume this opener's completion.
+    auto completion = std::move(executing);
+    bool memory = true, after = false;
+    void* memoryArgs[] = { &memory };
+    bool ok = api.Call(bgm.Get(), "Stop")
+        && api.Call(data.Get(), "set_scenarioMemoryFlag", 1, memoryArgs);
+    if (ok) {
+        api.field_set_value_object(data.Get(), questField, selected.Get());
+        api.field_set_value(data.Get(), afterField, &after);
+        storyChanging = true;
+        void* args[] = { adv.Get() };
+        void* exception = nullptr;
+        api.runtime_invoke(next, nullptr, args, &exception);
+        ok = !exception;
+    }
+    if (!ok) {
+        storyChanging = false;
+        api.field_set_value_object(data.Get(), questField, previousQuest.Get());
+        api.field_set_value(data.Get(), afterField, &previousAfter);
+        void* args[] = { &previousMemory };
+        api.Call(data.Get(), "set_scenarioMemoryFlag", 1, args);
+    }
+    LOGI("[StoryOpen] label=%s questId=%d started=%d",
+         api.Text(api.Get(selected.Get(), "get_label")).c_str(), selectedId, ok);
+    { std::lock_guard<std::mutex> lock(mailboxMutex); occupied = false; }
+    completion->Deliver(ok ? 0 : Failed);
+}
 } // namespace
 
 void ConfigureChoiceBack(uintptr_t il2cpp_base) { base = il2cpp_base; }
@@ -778,6 +889,10 @@ void PumpChoiceBack() {
         if (ready.load()) PublishPosition();
     }
     if (!ready.load()) return;
+    if (storyChanging) {
+        const std::string scene = UnitySceneName();
+        if (!scene.empty() && scene != "Home") storyChanging = false;
+    }
     if (loadLease) {
         if (executing && loadEnded && targetWaiting && target && loadLease->IsPage(CurrentData())
             && IsWaiting(api.Get(engine.Get(), "get_SelectionManager"))) {
@@ -806,11 +921,11 @@ void PumpChoiceBack() {
         if (!executing && pending) executing = std::move(pending);
         else return;
     }
-    ProcessRequest();
+    if (executing->openStory) ProcessOpenStory();
+    else ProcessRequest();
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_quarty_housamoembedtrans_bridge_GameChoicePort_nativeRequestBack(JNIEnv* env, jclass, jobject callback) {
+static void QueueGameRequest(JNIEnv* env, jobject callback, jstring questLabel) {
     jclass klass = env->GetObjectClass(callback);
     jmethodID method = env->GetMethodID(klass, "onCompleted", "(I)V");
     env->DeleteLocalRef(klass);
@@ -820,10 +935,21 @@ Java_com_quarty_housamoembedtrans_bridge_GameChoicePort_nativeRequestBack(JNIEnv
     env->GetJavaVM(&request->vm);
     request->object = env->NewGlobalRef(callback);
     request->method = method;
+    request->openStory = questLabel != nullptr;
     if (!request->object) {
         if (env->ExceptionCheck()) env->ExceptionClear();
         env->CallVoidMethod(callback, method, static_cast<jint>(Unavailable));
         return;
+    }
+    if (questLabel) {
+        const jchar* text = env->GetStringChars(questLabel, nullptr);
+        if (!text) {
+            if (env->ExceptionCheck()) env->ExceptionClear();
+            request->Deliver(Unavailable);
+            return;
+        }
+        request->questLabel.assign(reinterpret_cast<const char16_t*>(text), env->GetStringLength(questLabel));
+        env->ReleaseStringChars(questLabel, text);
     }
     int rejected = -1;
     {
@@ -837,4 +963,27 @@ Java_com_quarty_housamoembedtrans_bridge_GameChoicePort_nativeRequestBack(JNIEnv
         }
     }
     if (request) request->Deliver(rejected);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_quarty_housamoembedtrans_bridge_GameChoicePort_nativeRequestBack(JNIEnv* env, jclass, jobject callback) {
+    QueueGameRequest(env, callback, nullptr);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_quarty_housamoembedtrans_bridge_GameChoicePort_nativeRequestOpenStory(JNIEnv* env, jclass, jstring label, jobject callback) {
+    QueueGameRequest(env, callback, label);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_quarty_housamoembedtrans_bridge_GameChoicePort_nativeCancelOpenStory(JNIEnv* env, jclass, jobject callback) {
+    std::unique_ptr<Completion> cancelled;
+    {
+        std::lock_guard<std::mutex> lock(mailboxMutex);
+        if (pending && pending->openStory && env->IsSameObject(pending->object, callback)) {
+            cancelled = std::move(pending);
+            occupied = false;
+        }
+    }
+    if (cancelled) cancelled->Deliver(6);
 }

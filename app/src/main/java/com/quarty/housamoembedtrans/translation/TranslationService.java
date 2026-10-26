@@ -21,6 +21,7 @@ import com.quarty.housamoembedtrans.translation.job.TranslationTaskExecutor;
 
 import com.quarty.housamoembedtrans.bridge.CallerVerifier;
 import com.quarty.housamoembedtrans.bridge.ChoiceBackResult;
+import com.quarty.housamoembedtrans.bridge.StoryOpenResult;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
@@ -93,6 +94,46 @@ public final class TranslationService extends Service {
 
     // Main-thread-only: the non-exported notification receiver and Service lifecycle.
     private static TranslationService notificationChoiceBackOwner;
+    private static final java.util.concurrent.CopyOnWriteArrayList<Runnable> storyConnectionListeners =
+        new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public static void addStoryConnectionListener(Runnable listener) {
+        storyConnectionListeners.addIfAbsent(listener);
+        listener.run();
+    }
+
+    public static void removeStoryConnectionListener(Runnable listener) {
+        storyConnectionListeners.remove(listener);
+    }
+
+    public static boolean hasStoryConnection() {
+        TranslationService owner = notificationChoiceBackOwner;
+        return owner != null && owner.gameChoiceRequests.isConnected();
+    }
+
+    private static void notifyStoryConnectionChanged() {
+        for (Runnable listener : storyConnectionListeners) listener.run();
+    }
+
+    /** HET-main-thread entry; the game operation itself crosses the registered AIDL port. */
+    public static void requestOpenStoryFromScene(String questLabel, IChoiceBackCallback callback)
+        throws RemoteException {
+        TranslationService owner = notificationChoiceBackOwner;
+        if (owner == null) {
+            callback.onCompleted(StoryOpenResult.GAME_NOT_CONNECTED);
+        } else {
+            owner.dispatchOpenStory(questLabel, callback);
+        }
+    }
+
+    private void dispatchOpenStory(String questLabel, IChoiceBackCallback callback) {
+        if (questLabel == null || questLabel.trim().isEmpty() || questLabel.indexOf('\0') >= 0) {
+            try { callback.onCompleted(StoryOpenResult.NO_ENTRY); } catch (RemoteException ignored) { }
+            return;
+        }
+        CallbackRecord game = getCallback();
+        gameChoiceRequests.request(questLabel, callback, game != null && game.binder.isBinderAlive());
+    }
 
     /** Copied playback identity: empty scene means ended, empty choice means none, null means unknown. */
     public static final class StoryPosition {
@@ -364,8 +405,10 @@ public final class TranslationService extends Service {
     private final Object callbackLock = new Object();
     private final Object gameObbLock = new Object();
     private IGameObbPort gameObbPort;
-    private final GameChoiceRequests gameChoiceRequests = new GameChoiceRequests(
-        () -> TranslationStatusNotification.refresh(TranslationService.this));
+    private final GameChoiceRequests gameChoiceRequests = new GameChoiceRequests(() -> {
+        TranslationStatusNotification.refresh(TranslationService.this);
+        notifyStoryConnectionChanged();
+    });
     private final Object gameLogLock = new Object();
     private IGameLogPort gameLogPort;
     // The log port outlives failed native startup and owns its diagnostic.
@@ -1088,6 +1131,12 @@ public final class TranslationService extends Service {
             public void requestChoiceBack(IChoiceBackCallback callback) {
                 enforceSelfUidCaller();
                 dispatchChoiceBack(callback);
+            }
+
+            @Override
+            public void requestOpenStory(String questLabel, IChoiceBackCallback callback) {
+                enforceSelfUidCaller();
+                dispatchOpenStory(questLabel, callback);
             }
 
             @Override

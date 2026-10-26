@@ -43,6 +43,7 @@ final class GameChoicePort extends IGameChoicePort.Stub {
             pending.clear();
         }
         for (Completion completion : interrupted) {
+            try { nativeCancelOpenStory(completion); } catch (UnsatisfiedLinkError ignored) { }
             completion.deliver(ChoiceBackResult.UNKNOWN);
         }
     }
@@ -86,32 +87,51 @@ final class GameChoicePort extends IGameChoicePort.Stub {
     @Override
     public void requestBack(IChoiceBackCallback callback) {
         CallerVerifier.enforceAllowedCaller(context, HetBridgeContract.MODULE_PACKAGE);
+        request(null, callback);
+    }
+
+    @Override
+    public int getStoryOpenProtocolVersion() {
+        CallerVerifier.enforceAllowedCaller(context, HetBridgeContract.MODULE_PACKAGE);
+        return 1;
+    }
+
+    @Override
+    public void requestOpenStory(String questLabel, IChoiceBackCallback callback) {
+        CallerVerifier.enforceAllowedCaller(context, HetBridgeContract.MODULE_PACKAGE);
+        request(questLabel, callback);
+    }
+
+    private void request(String questLabel, IChoiceBackCallback callback) {
         Completion completion = new Completion(this, callback);
-        boolean admitted;
         synchronized (this) {
-            admitted = connected;
-            if (admitted) pending.add(completion);
-        }
-        if (!admitted) {
-            completion.deliver(ChoiceBackResult.UNAVAILABLE);
-            return;
-        }
-        try {
-            // This queues work for Unity; it must not wait for loading to finish.
-            nativeRequestBack(completion);
-        } catch (UnsatisfiedLinkError error) {
-            completion.onCompleted(ChoiceBackResult.UNAVAILABLE);
-        } catch (RuntimeException error) {
-            completion.onCompleted(ChoiceBackResult.FAILED);
+            if (!connected) {
+                completion.deliver(ChoiceBackResult.UNAVAILABLE);
+                return;
+            }
+            pending.add(completion);
+            try {
+                // Mailbox publication and disconnect share this lock. Native only
+                // queues here; Unity claims the operation after this call returns.
+                if (questLabel == null) nativeRequestBack(completion);
+                else nativeRequestOpenStory(questLabel, completion);
+            } catch (UnsatisfiedLinkError error) {
+                completion.onCompleted(ChoiceBackResult.UNAVAILABLE);
+            } catch (RuntimeException error) {
+                completion.onCompleted(ChoiceBackResult.FAILED);
+            }
         }
     }
 
     private static native void nativeRequestBack(Completion completion);
+    private static native void nativeRequestOpenStory(String questLabel, Completion completion);
+    private static native void nativeCancelOpenStory(Completion completion);
 
     /** JNI retains this object until native cleanup, even after disconnection. */
     private static final class Completion {
         private final GameChoicePort owner;
         private IChoiceBackCallback callback;
+        private boolean started;
 
         Completion(GameChoicePort owner, IChoiceBackCallback callback) {
             this.owner = owner;
@@ -123,6 +143,15 @@ final class GameChoicePort extends IGameChoicePort.Stub {
                 if (!owner.pending.remove(this)) return;
             }
             deliver(result);
+        }
+
+        /** Unity claims the operation before changing any game state. */
+        boolean tryStart() {
+            synchronized (owner) {
+                if (started || !owner.connected || !owner.pending.contains(this)) return false;
+                started = true;
+                return true;
+            }
         }
 
         void deliver(int result) {
