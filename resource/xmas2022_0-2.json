@@ -1,0 +1,4720 @@
+{
+  "scene": "xmas2022_0-2",
+  "quest_label": "quest_evMain_xmas2022_0-2",
+  "game_version": "5.20.0",
+  "raw_lang": "ja",
+  "translated": {
+    "zh-cn": true
+  },
+  "character": {
+    "mc": {
+      "name": "mc",
+      "aliases": [],
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "school": [
+        "神宿学園"
+      ],
+      "guild": [
+        "新宿サモナーズ"
+      ],
+      "origin_world": [],
+      "relationships": [],
+      "info": "竜の尾より断ち離された神剣の「神器」を手にした、異界からの転光生。全属性を併せ持つ刃に宿る「離断」の権能は「支配」と「力」を分断し、その代償として「流者」は故郷から追放される。23の異界と接続した東京での出会いを経て、切り離されていた記憶の一部を受け容れ、神器の真価をより引き出せるようになった。",
+      "description": "",
+      "speech_style": ""
+    },
+    "high_weight": [
+      {
+        "name": "レイス",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "トリッカー",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "コロポックル",
+        "aliases": [],
+        "i18n": {
+          "en": "Korpokkur",
+          "zh_tw": "克魯波克魯",
+          "zh_cn": "克鲁波克鲁"
+        },
+        "school": [
+          "王子坊学園"
+        ],
+        "guild": [
+          "中央ルールメイカーズ"
+        ],
+        "origin_world": [
+          "カムイコタン"
+        ],
+        "relationships": [
+          {
+            "target": "ホロケウカムイ",
+            "type": "好意"
+          },
+          {
+            "target": "ベイブ・バニヤン",
+            "type": "好意"
+          },
+          {
+            "target": "タヂカラオ",
+            "type": "苦手"
+          },
+          {
+            "target": "ティダ",
+            "type": "苦手"
+          }
+        ],
+        "info": "アイヌの伝承に登場する小さな精霊で、フキの葉の下に住む「転光生」。小さな体躯ながら植物を急成長させる「神器」を持ち、大地と共に生きる知恵を伝える。大柄な種族との交易を好み、素直で勤勉な性格だが、粗末に扱われると機嫌を損ねて姿を消してしまう。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ティダ",
+        "aliases": [],
+        "i18n": {
+          "en": "Teda",
+          "zh_tw": "堤達",
+          "zh_cn": "堤达"
+        },
+        "school": [
+          "中迦野芸能学園"
+        ],
+        "guild": [
+          "練馬ウォーモンガーズ"
+        ],
+        "origin_world": [
+          "ニライカナイ"
+        ],
+        "relationships": [
+          {
+            "target": "マカラ",
+            "type": "好意"
+          },
+          {
+            "target": "ソール",
+            "type": "好意"
+          },
+          {
+            "target": "イツァムナー",
+            "type": "好意"
+          },
+          {
+            "target": "コロポックル",
+            "type": "苦手"
+          }
+        ],
+        "info": "異世界ニライカナイの世界代行者で、天の帝の記憶を宿す好色な少年王であり、陽光の鏑矢の神器24本を操る武人でもある。太陽の光が届く場所へ肉体の一部として干渉する権能は、死と別れを水平線の彼方へ隔離するシステム・ニライカナイの中核を担う。光が遮られる場所や深淵には力が及ばず、自分を愛さなかった相手への執着を通じて未知の感情に向き合っている。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "マルドゥック",
+        "aliases": [],
+        "i18n": {
+          "en": "Marduk",
+          "zh_tw": "馬爾杜克",
+          "zh_cn": "马尔杜克"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "練馬ウォーモンガーズ"
+        ],
+        "origin_world": [
+          "バブイル"
+        ],
+        "relationships": [
+          {
+            "target": "ナタ",
+            "type": "好意"
+          },
+          {
+            "target": "ティダ",
+            "type": "好意"
+          },
+          {
+            "target": "ダイコク",
+            "type": "苦手"
+          }
+        ],
+        "info": "バブイル出身で「太陽の仔牛」の名を持つ英雄然とした「転光生」。大蛇ムシュフシュに丸呑みされ吐き出されることで新たな肉体を得る。星弓の「神器」で混沌を天と地に分かつ権能を持ち、常にまっさらな記憶と体で東京にデビューし、ナイトクラブでの初体験に狼狽しながらもやがてフロアを沸かせる。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "シュクユウ",
+        "aliases": [],
+        "i18n": {
+          "en": "Zhurong",
+          "zh_tw": "祝融",
+          "zh_cn": "祝融"
+        },
+        "school": [
+          "神宿学園"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "ホウライ",
+          "オールドワンズ"
+        ],
+        "relationships": [
+          {
+            "target": "ヘルメス",
+            "type": "好意"
+          },
+          {
+            "target": "ブギーマン",
+            "type": "好意"
+          },
+          {
+            "target": "ベヒモス",
+            "type": "苦手"
+          },
+          {
+            "target": "クアンタム",
+            "type": "苦手"
+          }
+        ],
+        "info": "ホウライ出身の鼠の「転光生」で、飢野学園の風紀委員を務める。尾の先の小さな光の「神器」は失せ物を探し当て、隠された真実を見つけ出す。小柄で気弱だが正義感が強く、学園の平和を守るためなら危険な調査にも果敢に挑む。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "黒服",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "リョウタ",
+        "aliases": [],
+        "i18n": {
+          "en": "Ryota",
+          "zh_tw": "良太",
+          "zh_cn": "良太"
+        },
+        "school": [
+          "神宿学園"
+        ],
+        "guild": [
+          "新宿サモナーズ"
+        ],
+        "origin_world": [
+          "東京"
+        ],
+        "relationships": [
+          {
+            "target": "チョウジ",
+            "type": "好意"
+          },
+          {
+            "target": "ケットシー",
+            "type": "好意"
+          }
+        ],
+        "info": "神宿学園二年生でのんびりとした人当たりの良い「転光生」で、聖杯の「神器」は愛をくべる事で奇跡をもたらしあらゆる外傷を治癒する。孤独を何よりも恐れる少年で、独りぼっちの者にも手を差し伸べずにいられない。かけがえのない学友たちと過ごす有限な学生生活を大切にし、失敗を恐れず新しい挑戦に踏み出す前向きさを持つ。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ジェド",
+        "aliases": [],
+        "i18n": {
+          "en": "Ded",
+          "zh_tw": "傑得",
+          "zh_cn": "杰得"
+        },
+        "school": [
+          "東京サンタスクール"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "キーテジ"
+        ],
+        "relationships": [
+          {
+            "target": "スネグーラチカ",
+            "type": "好意"
+          }
+        ],
+        "info": "キーテジから来た氷雪の妖精でありサンタクロースで、東京サンタスクールの校長。袋の「神器」は因果を具現し善行に褒賞を悪行に報償を与える二面性を持ち、清廉な父親的人格と過激な暴虐を為す冷酷な人格が同居する。時代と共に変化する新たなクリスマスの担い手の到来を心待ちにしている。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ヨウル",
+        "aliases": [],
+        "i18n": {
+          "en": "Yule",
+          "zh_tw": "尤爾",
+          "zh_cn": "尤尔"
+        },
+        "school": [
+          "東京サンタスクール"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "ティルナノグ"
+        ],
+        "relationships": [
+          {
+            "target": "ジェド",
+            "type": "好意"
+          },
+          {
+            "target": "クランプス",
+            "type": "苦手"
+          },
+          {
+            "target": "トムテ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ティルナノグ出身のトナカイの妖精の転光生で、サンタクロースになる夢を追ってサンタたちの学園で学んでいる。ほがらかだがおっちょこちょいで、失敗して笑われた後に一人で落ち込むこともある。ソリの神器は空を滑り昇る滑空の権能を持ち、トナカイとしての適性を持ちながらもサンタを目指して走り続ける。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "アイザック",
+        "aliases": [],
+        "i18n": {
+          "en": "Isaac",
+          "zh_tw": "艾札克",
+          "zh_cn": "艾萨克"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "品川インベイダーズ"
+        ],
+        "origin_world": [
+          "ユグドラシル"
+        ],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "バートロ",
+        "aliases": [],
+        "i18n": {
+          "en": "Bertro",
+          "zh_tw": "巴特羅",
+          "zh_cn": "巴特罗"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "練馬ウォーモンガーズ"
+        ],
+        "origin_world": [
+          "ユグドラシル"
+        ],
+        "relationships": [
+          {
+            "target": "シヴァ",
+            "type": "好意"
+          },
+          {
+            "target": "ブレイク",
+            "type": "苦手"
+          },
+          {
+            "target": "ヴァプラ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ホウライ出身の鬼の「転光生」で、得真道学園の風紀委員を務める。規律を重んじる真面目な性格だが、内に秘めた闘争本能は抑えきれないものがあり、時折箍が外れて暴走する。戒めの数珠の「神器」は自らの力を封印するための枷であり、人間の道を学ぶために日々修養に励む求道者。",
+        "description": "",
+        "speech_style": ""
+      }
+    ],
+    "low_weight": []
+  },
+  "mentioned_characters": [
+    {
+      "name": "デュオ",
+      "i18n": {
+        "en": "Duo",
+        "zh_tw": "迪歐",
+        "zh_cn": "迪欧"
+      }
+    }
+  ],
+  "game_terms": [
+    {
+      "term": "ギルド",
+      "i18n": {
+        "en": "Guild",
+        "zh_tw": "公會",
+        "zh_cn": "公会"
+      },
+      "description": "東京に溢れるアプリを用いし者達の集い。\n\n大小様々な100を超えるギルドが東京に存在し、各ギルドはそれぞれ少なくとも1つの拠点とギルドマスターを要している。\n\nこの拠点が制圧され、ギルドマスターが敗北することでギルドは消滅する。\n\nギルドを正式発足するためには「ギルドマスター」「アプリバトルが可能な構成員(メンバー)を最低4人」「拠点」の3つが必要となる。\n\nギルドの全ての機能を利用するためにはさらにもう1人、合計5人の構成員が必要。\n\n第3章で明らかにされたこと"
+    },
+    {
+      "term": "ギルドマスター",
+      "i18n": {
+        "en": "Guild Master",
+        "zh_tw": "公會會長",
+        "zh_cn": "公会会长"
+      },
+      "description": "ギルドを束ねるリーダーのようなもの。\n\nGMとのやり取りを行う権利がある。\n\n基本的にギルドマスターはハーフであると言われている。\nその中でもクロガネの特殊性とキャラクエストより\"舞台である東京とよく似た別世界の住人と現地人のハーフではないか\"と考察されている。\nまた、多くのギルドマスターは歴史上・伝承の人物と似た名前\/似た境遇にあることも特筆すべきである。\nこれが一体何を意味するのか…"
+    },
+    {
+      "term": "カムイコタン",
+      "i18n": {
+        "en": "Kamuy Kotan",
+        "zh_tw": "神居之所",
+        "zh_cn": "神居古潭"
+      },
+      "description": "カムイコタンはアイヌ神話を基にした極寒の異世界。世界代行者はコロポックル、追放者はアイヌラックル。弱い若者を保護して育てる一方、成人した者は養う口を減らすため狩られる。処刑役のキムンカムイは、その残忍な面をウェンカムイと呼ばれる。"
+    },
+    {
+      "term": "世界代行者",
+      "i18n": {
+        "en": "World Representative",
+        "zh_tw": "世界代理人",
+        "zh_cn": "世界代理人"
+      },
+      "description": "東京と繋がる23の世界の「勝利者たち」。23の異世界、各々の「信仰」を共にする多数の意志を代行し、「役割」と「権能」 を現す者。\n\n9章以降ではオールドワンズとユグドラシルの代行者を除く21人はそれぞれの目的の為、7人ずつ3つのギルドに分かれていることが発覚した。"
+    },
+    {
+      "term": "信仰",
+      "i18n": {
+        "en": "faith",
+        "zh_tw": "信仰",
+        "zh_cn": "信仰"
+      },
+      "description": "閉鎖空間で過半数を集めた信仰はチカラを持つ。それがこのゲームのルールとのこと。"
+    },
+    {
+      "term": "中央ルールメイカーズ",
+      "i18n": {
+        "en": "Chuo Rule Makers",
+        "zh_tw": "中央立法者",
+        "zh_cn": "中央立法者"
+      },
+      "description": "中央ルールメイカーズは、中央区を拠点とする裁定者と選定者の真の三大ギルド。ギルドマスターはカレンとMS-C1。主な特徴は、主人公を神性の器または世界を支えるシステムへ変えようとする思想。"
+    },
+    {
+      "term": "王子坊学園",
+      "i18n": {
+        "en": "Ojimachi Academy",
+        "zh_tw": "王子坊學園",
+        "zh_cn": "王子坊学园"
+      },
+      "description": "王子坊学園は、詳細未整理の教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "練馬ウォーモンガーズ",
+      "i18n": {
+        "en": "Nerima Warmongers",
+        "zh_tw": "練馬好戰者",
+        "zh_cn": "练马好战者"
+      },
+      "description": "練馬ウォーモンガーズは、練馬区・光が丘を拠点とする戦争と政変の真の三大ギルド。ギルドマスターはベルトロ。主な特徴は、過去ループの戦争記憶の武器化と、軍・行政・地下組織への強い影響力。"
+    },
+    {
+      "term": "中迦野芸能学園",
+      "i18n": {
+        "en": "Nakano Performing Arts Academy",
+        "zh_tw": "中迦野藝能學園",
+        "zh_cn": "中迦野艺能学园"
+      },
+      "description": "中迦野芸能学園は、詳細未整理の芸能系教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "ニライカナイ",
+      "i18n": {
+        "en": "Nirai Kanai",
+        "zh_tw": "理想鄉",
+        "zh_cn": "龙宫"
+      },
+      "description": "ニライカナイは「ゲーム」に参加している異世界のひとつで、琉球神話を基にした、神々の国の名を冠する世界。\n\nニライカナイの「世界代行者」はティダ。追放された魂はキンマモン。\n\nニライカナイは、死と別れの概念を水平線の向こうへ追放することで、永遠を実現しようとする世界である。"
+    },
+    {
+      "term": "？？？",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "バブイル",
+      "i18n": {
+        "en": "Babilim",
+        "zh_tw": "巴別",
+        "zh_cn": "巴比伦"
+      },
+      "description": "バブイルはバビロニア・メソポタミア神話を基にした異世界。世界代行者はマルドゥック、追放者はティアマト。マルドゥックが敗れたティアマトの遺骸から天と地を創り、キングーの肉と血から人類を生んだとされる。かつては空中庭園も存在した。"
+    },
+    {
+      "term": "未所属",
+      "i18n": {
+        "en": "Unaffiliated",
+        "zh_tw": "未隸屬",
+        "zh_cn": "未隶属"
+      },
+      "description": "特定のギルドに所属していない者たちを指す分類。ゲーム内の所属表示としては、明確な公会メンバーではないキャラクターに用いられる。"
+    },
+    {
+      "term": "神宿学園",
+      "i18n": {
+        "en": "Shinjuku Academy",
+        "zh_tw": "神宿學園",
+        "zh_cn": "神宿学园"
+      },
+      "description": "神宿学園は、新宿区にある主人公たちの通う教育機関。主な特徴は、自由度の高い指定制服と、転光生を含む多様な生徒を受け入れている点。関連する人物は主人公たち。"
+    },
+    {
+      "term": "ホウライ",
+      "i18n": {
+        "en": "Hourai",
+        "zh_tw": "蓬萊",
+        "zh_cn": "蓬莱"
+      },
+      "description": "ホウライは中国の伝説・民話・文学を基にした異世界で、ペングライとも呼ばれる。世界代行者はフッキ、追放者はジョカ。大洪水後にフッキとジョカが世界を再建したが、ジョカ追放後は戦争と飢饉が広がり、シンノウも救済の道を探し続けている。"
+    },
+    {
+      "term": "オールドワンズ",
+      "i18n": {
+        "en": "Old Ones",
+        "zh_tw": "舊日支配者",
+        "zh_cn": "旧支配者"
+      },
+      "description": "オールドワンズはクトゥルフ神話を基にした星々の異世界。世界代行者はアザトース、追放者はクー・リトルリトル。夢は小世界の創造と見なされ、世界そのものもアザトースの夢とされる。狂気と終焉を永遠に繰り返す壊れた世界で、閉鎖領域外でも権能を使える特権を持つ。"
+    },
+    {
+      "term": "新宿サモナーズ",
+      "i18n": {
+        "en": "Shinjuku Summoners",
+        "zh_tw": "新宿召喚師",
+        "zh_cn": "新宿召唤师"
+      },
+      "description": "新宿サモナーズは、新宿区・西新宿を拠点とする主人公たちのギルド。ギルドマスターは主人公。主な特徴は、所属や出自を問わず仲間を受け入れる包括性と、剣・召喚陣・桜の花弁を組み合わせたギルドアイコン。"
+    },
+    {
+      "term": "東京",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "東京サンタスクール",
+      "i18n": {
+        "en": "Tokyo Santa School",
+        "zh_tw": "東京聖誕老人學校",
+        "zh_cn": "东京圣诞老人学校"
+      },
+      "description": "東京サンタスクールは、新宿にあるサンタ養成系の教育機関。主な特徴は、サンタ科・ブラックサンタ科・トナカイ科を持つこと。関連人物は校長のジェド、ヨウルなど。"
+    },
+    {
+      "term": "キーテジ",
+      "i18n": {
+        "en": "Kitezh",
+        "zh_tw": "奇鐵茲",
+        "zh_cn": "奇铁兹"
+      },
+      "description": "キーテジは「ゲーム」に参加している異世界のひとつで、スラヴ神話を基にした世界。スヴェトロヤール湖の水底に沈んだとされる伝説都市キーテジに由来する。\n\nキーテジの「世界代行者」はペルーン。追放された魂はヴェーレス。"
+    },
+    {
+      "term": "ティルナノグ",
+      "i18n": {
+        "en": "Tir Na Nog",
+        "zh_tw": "提爾納諾",
+        "zh_cn": "提尔纳诺"
+      },
+      "description": "ティルナノグはケルト神話と欧州民間伝承を基にした妖精郷。世界代行者はバロール、追放者はルー。妖精たちは傷や老いを他者へ移す「取り替え子」の信仰で永遠の若さを保つ。王は民の負担を背負い、後継者へ王座と運命を渡す儀式が重い意味を持つ。"
+    },
+    {
+      "term": "品川インベイダーズ",
+      "i18n": {
+        "en": "Shinagawa Invaders",
+        "zh_tw": "品川入侵者",
+        "zh_cn": "品川侵略者"
+      },
+      "description": "品川インベイダーズは、品川区を拠点とする侵略者・革命家・内部破壊者の真の三大ギルド。ギルドマスターは∀アイザック。主な特徴は、トロフィーの奪取と、社会基盤を内部から反転させる潜入工作。"
+    },
+    {
+      "term": "ユグドラシル",
+      "i18n": {
+        "en": "Yggdrasil",
+        "zh_tw": "尤克特拉希爾",
+        "zh_cn": "世界树"
+      },
+      "description": "ユグドラシルは北欧神話を基にした九つの世界から成る異世界。世界代行者はオーディン、東京でのリザーブはスルト、追放者はフレイ。ロキの壁によりラグナロクが終わらず、戦士たちはヴァルハラで蘇生され、死と再生の循環を永遠に繰り返す。"
+    }
+  ],
+  "provider": {
+    "zh-cn": "openai"
+  },
+  "model": {
+    "zh-cn": "gemini-3.8-flash"
+  },
+  "summary": {
+    "zh-cn": "巴特罗在学院思索圣诞老人相关的过往，并在收到求助后与马尔杜克一同离开。另一边，东京圣诞老人学校内，见习圣诞老人尤尔正向校长杰得汇报荒川区儿童失踪导致礼物无法送达一事，主人公、良太和前来采访的祝融也在现场。此时，一群黑衣人持枪闯入并将众人挟持。隐蔽在房间内的堤达与克鲁波克鲁目睹了这一幕，原来克鲁波克鲁在平安夜用蜂斗菜叶保护荒川区儿童避寒，导致圣诞老人找不到他们；二人本想潜入学校借用圣诞老人的口袋补偿孩子们，却意外撞上黑衣人袭击。正当二人观察局势时，又有人影走入了校长室。"
+  },
+  "scene_items": [
+    {
+      "type": "if",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "condition": "playerSex==1",
+      "target_label": "quest_evMain_xmas2022_0-2shukuyu_a",
+      "merge_label": "quest_evMain_xmas2022_0-2shukuyu_after",
+      "following_text": []
+    },
+    {
+      "type": "if",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "condition": "playerSex==2",
+      "target_label": "quest_evMain_xmas2022_0-2shukuyu_b",
+      "merge_label": "quest_evMain_xmas2022_0-2shukuyu_after",
+      "following_text": []
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 15,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "長い思索活動を終えたバートロは、\nお目当ての人物を探してアカデミー中を見渡す。",
+      "translations": {
+        "zh-cn": "巴特罗结束了漫长的思考活动，\n环顾整个学院，寻找着目标人物。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そして、その人物が見当たらないことに気付き、\n行く先を知っていそうな人物へと通信をつないだ。",
+      "translations": {
+        "zh-cn": "发觉没看到那个人后，\n他便联络了可能知道其去向的人。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "ハロー、アイザック。デュオの姿が見つかりませんね？\nどこへ向かったのか知っていますか？",
+      "translations": {
+        "zh-cn": "“你好，艾萨克。没见到迪欧的身影呢？\n你知道他去哪里了吗？”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "新しいゲームを思いついたので、\n是非、共に遊び潰そうと考えていたのですが。",
+      "translations": {
+        "zh-cn": "“我想到了一个新游戏，\n本想一定要和他一起痛痛快快玩上一场呢。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "speaker": "アイザック",
+      "text": "あぁ、それなら今日はお兄さんと過ごすと言っていたよ。\n今日はクリスマスだそうじゃないか。",
+      "translations": {
+        "zh-cn": "“啊，那个啊，他今天说要和哥哥一起过。\n听说今天好像是圣诞节吧。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "__HET__PT_5_5_0__ボージェモイ__HET__PT_5_5_1__、そうでしたか！\nアカデミーの外はあのクリスマス……なるほどなるほど。",
+      "translations": {
+        "zh-cn": "“<ruby=おやまあ>哎呀呀<\/ruby>，是这样吗！\n学院外面正是那个圣诞节啊……原来如此原来如此。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "クリスマスはこの時期に行われる催事の１つであること。\nそれについてはバートロもデータ資料を閲覧して知っていた。",
+      "translations": {
+        "zh-cn": "圣诞节是这个时期举行的活动之一。\n这一点巴特罗也通过查阅资料数据有所了解。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そして思案する。今、アイザックを代わりに、\n一緒にゲームをプレイしないか誘っても良いものかと。",
+      "translations": {
+        "zh-cn": "于是他开始思索，现在是否可以转而邀请艾萨克\n一起玩游戏。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "アイザックと遊びたいのではなく、\n単にゲームをプレイするのに必要な頭数が欲しいだけ――",
+      "translations": {
+        "zh-cn": "并非想和艾萨克玩，\n只是单纯凑齐玩游戏所需的人数罢了——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そう、思われはしないかと考え、\n一瞬の__HET__PT_5_9_0__逡巡__HET__PT_5_9_1__が生まれた。",
+      "translations": {
+        "zh-cn": "他担心对方会不会这么想，\n心中产生了一瞬间的<ruby=ためらい>迟疑<\/ruby>。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "speaker": "アイザック",
+      "text": "はは、僕に何を遠慮することがあるんだい。\nでも、そうだな、折角だし今日は別のことを試さないか？",
+      "translations": {
+        "zh-cn": "“哈哈，跟我有什么好客气的。\n不过，也是呢，难得赶上，今天不如试试别的事情吧？”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "――というと？\nあなたの研究に、助手でも必要になったのですか？",
+      "translations": {
+        "zh-cn": "“——此话怎讲？\n是你的研究需要助手了吗？”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "アイザック",
+      "text": "それはそれで僕は助かるけれど、\nさっき話したクリスマスに関する実験だよ。",
+      "translations": {
+        "zh-cn": "“那样的话我也确实很受用，\n但我是说刚才聊到的关于圣诞节的实验。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 13,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "アイザック",
+      "text": "僕らでツリーを飾り付け、\nケーキとチキンを用意し、靴下を用意してみるんだよ。",
+      "translations": {
+        "zh-cn": "“由我们来装饰圣诞树，\n准备好蛋糕和烤鸡，再准备好袜子试试看。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "余りピンと来ていない様子のバートロを見て、\nアイザックははにかんだ。",
+      "translations": {
+        "zh-cn": "看着似乎不太明白的巴特罗，\n艾萨克腼腆地笑了笑。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 15,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "アイザック",
+      "text": "僕たちのところにもサンタが来るのか、\n気にならないかい？",
+      "translations": {
+        "zh-cn": "“难道你不好奇，\n圣诞老人会不会也来到我们这里吗？”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "アイザック",
+      "text": "実はサンタに直接聞いてみたいことがあるんだ。\n果たしてどこまで飛んでいけるのだろう……ってね。",
+      "translations": {
+        "zh-cn": "“其实我有些话想当面问问圣诞老人。\n比如‘究竟能飞到多远的地方呢’……这样。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "__HET__PT_5_17_0__ヤーポムニュ__HET__PT_5_17_1__、であれば、ぼくは\nサンタを捕まえる罠を仕掛けておくとしましょう。",
+      "translations": {
+        "zh-cn": "“<ruby=なるほどです>原来如此<\/ruby>，既然这样，\n我就去布设一个捕捉圣诞老人的陷阱吧。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "そして、ここから送り返す際の\n大きな発射台も……計算される設置角度は――",
+      "translations": {
+        "zh-cn": "“然后再造一座将他从这里发射回去的\n大型发射台……计算出的架设角度是——”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 19,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そう話したのはいつのことだったか、\n結局、成功の目を見なかった実験――",
+      "translations": {
+        "zh-cn": "那是多久之前的事了呢，\n最终没能迎来成功的实验——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 20,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "それは今でも、解けなかった宿題として\nバートロの胸の内に残っていた。",
+      "translations": {
+        "zh-cn": "时至今日，依然作为一道未能解开的课题\n留存在巴特罗心中。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 21,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "……………\n……………。",
+      "translations": {
+        "zh-cn": "“……………\n……………。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 22,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マルドゥック",
+      "text": "ギルドマスター・バートロ、\nどうした、貴殿が何か悩み事とは珍しいな。",
+      "translations": {
+        "zh-cn": "“公会会长巴特罗，\n你怎么了？阁下居然会有烦恼，真是罕见啊。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "__HET__PT_5_23_0__ニェット__HET__PT_5_23_1__、少し昔のことを思い出していました。\nあなたの話もちゃんと聞いておりましたのでご心配なく。",
+      "translations": {
+        "zh-cn": "“<ruby=いいえ>不<\/ruby>，我只是想起了过去的一些事。\n我也有在认真听您说话，请不用担心。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 24,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マルドゥック",
+      "text": "そうか、懐かしむ昔があるのは\n我からすればなんとも羨ましきことよ。",
+      "translations": {
+        "zh-cn": "“这样啊。能有值得怀念的过去，\n在吾看来真是令人艳羡不已。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 25,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "マルドゥックはムシュフシュと呼ばれる竜の胎内を経て、\n何度も生まれ変わる戦士である。",
+      "translations": {
+        "zh-cn": "马尔杜克是经过名为穆什胡什的巨龙之腹、\n经历无数次重生的战士。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 26,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "だが、その度に記憶の一切をもたない状態で\n生まれ落ちていた。",
+      "translations": {
+        "zh-cn": "但他每一次降生，\n都处于完全没有任何记忆的状态。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 27,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "……同志マルドゥック、１つ質問があるのですが、\nあなたにはサンタが来たことがありますか？",
+      "translations": {
+        "zh-cn": "“……同志马尔杜克，我有个问题想问，\n圣诞老人曾经到过您的身边吗？”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 28,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マルドゥック",
+      "text": "サンタ……たしか、クリスマスと呼ばれる日に\n贈り物を授ける、そんな存在だったか。",
+      "translations": {
+        "zh-cn": "“圣诞老人……记得是在名为圣诞节的日子里\n赐予赠礼的存在，对吧。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 29,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マルドゥック",
+      "text": "いや、このマルドゥックの元へ来たことはないな。\nそも、子供が対象なのだろう？",
+      "translations": {
+        "zh-cn": "“不，从未到过吾马尔杜克的身旁。\n说到底，那对象应该是孩童吧？”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 30,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "いえ、カムイコタンの「世界代行者」によれば、\n記憶がまっさらで穢れのない状態を子供と呼ぶそうですから――",
+      "translations": {
+        "zh-cn": "“不，根据神居古潭的‘世界代理人’所说，\n记忆一片空白且毫无污秽的状态就被称为孩童——”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 31,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "ひょっとすれば、あなたの元にも、\n訪れたことがあったのではないかと思ったのですが。",
+      "translations": {
+        "zh-cn": "“所以我在想，说不定他也曾\n拜访过您的身边呢。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 32,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "目の前の少年が、侮蔑の意を込めて発したのではないことを\n理解してか特段マルドゥックは怒ったりはしなかった。",
+      "translations": {
+        "zh-cn": "马尔杜克大概明白眼前的少年并非带有蔑视之意，\n因此并未生气。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 33,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マルドゥック",
+      "text": "どうなのだろうな、たしかにこのマルドゥックのことを\nそのように称す輩がいるのは事実ではある。",
+      "translations": {
+        "zh-cn": "“谁知道呢，确实也有人会\n这样称呼吾马尔杜克。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 34,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マルドゥック",
+      "text": "だが、単純な話、サンタからして、\n我は子供とは見なしていないということなのだろう。",
+      "translations": {
+        "zh-cn": "“不过说简单点，就代表在圣诞老人看来，\n并没有将吾视为孩童吧。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 35,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "その条件が未だにぼくにも分からないのですよ。\n何度も試してみたのですが――",
+      "translations": {
+        "zh-cn": "“那个条件至今连我也不明白呢。\n明明尝试过好多次了——”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "マルドゥック",
+      "text": "ほう、それは驚きだな。\n我らがギルドマスターにも、分からぬことがあったとは。",
+      "translations": {
+        "zh-cn": "“哦，这可真令人吃惊。\n没想到连吾等的公会会长也有不明白的事。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 37,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "その時、バートロの元に\n同志からの通信が入った。",
+      "translations": {
+        "zh-cn": "就在这时，巴特罗收到了\n来自同志的通讯。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 38,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "……話の途中ですがすみません。\n助けを求める子供の声をキャッチしたので行ってきます。",
+      "translations": {
+        "zh-cn": "“……抱歉打断谈话。\n我捕捉到了孩童求助的声音，先失陪了。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 39,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "マルドゥック",
+      "text": "ふっ、承知した。\nまた帰ってからで構わぬよ。",
+      "translations": {
+        "zh-cn": "“呵，无妨。\n等汝回来再谈也不迟。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 40,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "あー……それと、良ければなのですが、\n途中まで乗せて行ってもらえませんか？　",
+      "translations": {
+        "zh-cn": "“啊……还有，如果可以的话，\n能顺便载我一段路吗？”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 41,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "マルドゥックは目の前の少年が、機械の狼を\n連れ立っていないことを思い出し、傍らの竜に声をかけた。",
+      "translations": {
+        "zh-cn": "马尔杜克想起眼前的少年并未带着机械狼，\n便向身旁的巨龙搭话。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 42,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ここはサンタの見習いたちが通うサンタスクール。\nクリスマス当日を終え、一段落した今――",
+      "translations": {
+        "zh-cn": "这里是圣诞学徒们就读的圣诞老人学校。\n度过圣诞节当天、告一段落的当下——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 43,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "普段であれば、落ち着きを\n取り戻しているはずの時期。",
+      "translations": {
+        "zh-cn": "若是换作平时，本该是\n重归平静的时期。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 44,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "なのだが……今日は\n何故だか校内が騒がしかった。",
+      "translations": {
+        "zh-cn": "然而……不知为何，\n今天校内却一片喧闹。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 45,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "その原因となっている事件について、\n見習いサンタのヨウルが、校長であるジェドに報告をしていた。",
+      "translations": {
+        "zh-cn": "见习圣诞老人尤尔正在向身为校长的杰得\n汇报引发这起骚乱的事件。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 46,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ヨウル",
+      "text": "……すみません、というわけで荒川区の子供たちが１人も\n見つからず、プレゼントを渡せませんでした……！",
+      "translations": {
+        "zh-cn": "“……对不起，就是这样，荒川区的孩子们一个也\n找不到，没能把礼物送出去……！”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 47,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "なるほど……荒川区の子供たちだけに、プレゼントを\n渡せなかったことは、たしかに由々しき事態ではあるね。",
+      "translations": {
+        "zh-cn": "“原来如此……唯独荒川区的孩子们没能收到礼物，\n这确实是件严重的事态呢。”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 48,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "ただあまり重く受け止めすぎないように。\n他の生徒や教師に助けを求めても見つからなかったのだろう？",
+      "translations": {
+        "zh-cn": "“不过也别太放在心上。\n你向其他学生和老师求助了，也同样没找到对吧？”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 49,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "リョウタ",
+      "text": "そうだよヨウル、僕たちも手伝うからさ。\nクリスマスは終わっちゃったけど何かできるはずだよ！",
+      "translations": {
+        "zh-cn": "“是啊尤尔，我们也会帮忙的。\n虽然圣诞节已经结束了，但肯定还能做点什么的！”"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 50,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ヨウル",
+      "text": "ありがとうございます、ジェド校長、リョウタ。\nもう起きてしまったことなので、ボク、頑張ります！",
+      "translations": {
+        "zh-cn": "“谢谢你们，杰得校长、良太。\n既然事情已经发生了，我一定会努力的！”"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 5,
+        "page_no": 51,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "",
+      "branches": [
+        {
+          "target_label": "quest_evMain_xmas2022_0-2_a_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 51,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "子供が１人残らずいなくなるなんて……",
+              "translations": {
+                "zh-cn": "孩子们居然一个不剩全失踪了……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 51,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "事件の匂いがするね……",
+              "translations": {
+                "zh-cn": "感觉有事件的气息呢……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 51,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "ヨウル、元気出して",
+              "translations": {
+                "zh-cn": "尤尔，打起精神来"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 6,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヨウル",
+              "text": "ごめんね、__HET__PT_6_0_0__。\nわざわざ学校にまで来てもらっちゃって。",
+              "translations": {
+                "zh-cn": "“抱歉啊，<param=playerName>。\n还让你特地跑到学校来一趟。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 6,
+                "page_no": 1,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "リョウタ",
+              "text": "えへへ、直接相談受けたのは僕だけど。\nやっぱり__HET__PT_6_1_0__が一緒だと心強いからさ！",
+              "translations": {
+                "zh-cn": "“嘿嘿，虽然直接找上门的是我啦，\n但果然有<param=playerName>在就让人特别安心呢！”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 6,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "リョウタ",
+              "text": "__HET__PT_6_2_0__も今日はギルドのパーティー以外、\n用事なかったよね？　わざわざクリスマス当日は避けたわけだし。",
+              "translations": {
+                "zh-cn": "“<param=playerName>今天除了公会派对以外\n也没有别的事吧？毕竟特意避开了圣诞节当天呢。”"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 6,
+                "page_no": 3,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_xmas2022_0-2_b_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_xmas2022_0-2_b_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 6,
+                        "page_no": 3,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "……ないです",
+                      "translations": {
+                        "zh-cn": "“……没有。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 6,
+                        "page_no": 3,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "いや、全然めちゃくちゃあったけどね！？",
+                      "translations": {
+                        "zh-cn": "“不，其实事情超级超级多好吗！？”"
+                      }
+                    }
+                  ],
+                  "following_text": []
+                },
+                {
+                  "target_label": "quest_evMain_xmas2022_0-2_b_01",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 6,
+                        "page_no": 3,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "（口笛でごまかす）",
+                      "translations": {
+                        "zh-cn": "（吹口哨敷衍过去）"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 7,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "リョウタ",
+                      "text": "え……ウソ、僕にも秘密で！？\n嘘だよね、__HET__PT_7_0_0__！？",
+                      "translations": {
+                        "zh-cn": "“诶……骗人，连我都瞒着吗！？\n骗人的吧，<param=playerName>！？”"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "それにしても、何度聞いても不思議な話だ。\n荒川区の子供たちが一斉に消えてしまうなんて……。",
+              "translations": {
+                "zh-cn": "“话说回来，不管听几次都觉得不可思议。\n荒川区的孩子们竟然会一齐消失无踪……”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "しかも、その子供たちが、\n大雪に見舞われたクリスマスが終わると共に見つかり――",
+              "translations": {
+                "zh-cn": "“而且，那些孩子还在\n遭遇大雪的圣诞节结束后同时被找到了——”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "口を揃えて、皆ちゃんと荒川区に居た\nと言っている……考えれば考えるほど分からない。",
+              "translations": {
+                "zh-cn": "“大家都异口同声地说，自己一直都好好待在荒川区……\n越想越让人摸不着头脑。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "そんなことが可能であるのにも驚きだが、\n果たして誰が何のために……？",
+              "translations": {
+                "zh-cn": "“居然能做到这种事固然令人吃惊，\n但究竟是谁、为了什么而做的……？”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 4,
+                "cmd_index": 7,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "４人が話していると校長室の扉が勢いよく開かれる。\nそこから現れたのは――",
+              "translations": {
+                "zh-cn": "四人正谈论着，校长室的门猛地被推开了。\n出现在门前的是——"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 5,
+                "cmd_index": 13,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "メリー・クリスマス！！　こんにちは！　\nお電話させてもらっていたシュクユウです、取材にきました！",
+              "translations": {
+                "zh-cn": "“圣诞快乐！！你们好！\n我是之前打过电话的祝融，我来做采访了！”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 6,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "……ってあれ？　__HET__PT_8_6_0____HET__PT_8_6_1__、\nリョウタにーちゃん！　こんなところで会うなんて……！",
+              "translations": {
+                "zh-cn": "“……咦？<param=playerName><param=shukuyu>、\n良太哥哥！没想到会在这里碰见你们……！”"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 8,
+                "page_no": 7,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "quest_evMain_xmas2022_0-2_c_after",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_xmas2022_0-2_c_01",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 8,
+                        "page_no": 7,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "かわいいね、その恰好！",
+                      "translations": {
+                        "zh-cn": "你这身打扮真可爱！"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 8,
+                        "page_no": 7,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "サンタ服似合ってるよ！",
+                      "translations": {
+                        "zh-cn": "圣诞服很适合你哦！"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 9,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "シュクユウ",
+                      "text": "えへへ、ありがとう！\nみんなすごい褒めてくれるんだ！",
+                      "translations": {
+                        "zh-cn": "“嘿嘿，谢谢！\n大家都超级夸我呢！”"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "target_label": "quest_evMain_xmas2022_0-2_c_02",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 8,
+                        "page_no": 7,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "えーっとお菓子持ってたかな……",
+                      "translations": {
+                        "zh-cn": "唔，我带点心了吗……"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 10,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "シュクユウ",
+                      "text": "わーい、ありがとう__HET__PT_10_0_0____HET__PT_10_0_1__！\nえへへ、おれ好きなんだよねこれ！",
+                      "translations": {
+                        "zh-cn": "“哇—，谢谢<param=playerName><param=shukuyu>！\n嘿嘿，我好喜欢这个呢！”"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 0,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "ふふふ、嬉しいね。\nクリスマスが終わっても子供たちがサンタ服を着てくれるのは。",
+              "translations": {
+                "zh-cn": "“呵呵呵，真令人高兴啊。\n即便圣诞节结束了，孩子们也还愿意穿着圣诞服。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 1,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "おれも、このサンタ服\nすごく気に入ってるんです！",
+              "translations": {
+                "zh-cn": "“我也非常喜欢\n这套圣诞服！”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "街中とかも年末に向けて、\nクリスマス感はなくなっちゃったけど――",
+              "translations": {
+                "zh-cn": "“虽然街上也因为迎向年末，\n渐渐没有圣诞的气氛了——”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "クリスマスが大好きだから、\n気持ちだけでもまだまだ楽しんでいたいなって。",
+              "translations": {
+                "zh-cn": "“但我很喜欢圣诞节，\n所以希望至少在心情上还能继续享受。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "その言葉を聞いてジェドは一層嬉しそうな顔を浮かべ、\n机の引き出しを開けてチョコレートを取り出す。",
+              "translations": {
+                "zh-cn": "听了这番话，杰得脸上露出了更加欣慰的笑容，\n拉开办公桌的抽屉，取出了一块巧克力。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 5,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "メリー・クリスマス！　クリスマスが終わっても\n聖夜の奇跡を信じてくれている子にサンタからのプレゼントだ。",
+              "translations": {
+                "zh-cn": "“圣诞快乐！这是圣诞老人送给\n即便圣诞已过依然坚信圣夜奇迹的孩子的礼物。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 6,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "わぁ！　ありがとうございます！\n後でいただきます！",
+              "translations": {
+                "zh-cn": "“哇！谢谢您！\n我等会儿再吃！”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 7,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "それで、シュクユウ君……取材の件なんだけれど、\n申し訳ないけれど、少し待ってくれるかね？",
+              "translations": {
+                "zh-cn": "“那么，祝融同学……关于采访的事，\n很抱歉，能请你稍微等候一下吗？”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 8,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "ジェドは端的に、プレゼントを渡せなかった子供たちが居て、\nサンタスクールが今、少し混乱していることを話した。",
+              "translations": {
+                "zh-cn": "杰得简单说明了有孩子没能收到礼物、\n圣诞老人学校目前正陷入些许混乱的事情。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 9,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "それって――\n荒川区のことだよね……？",
+              "translations": {
+                "zh-cn": "“那是指——\n荒川区的事吧……？”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 10,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヨウル",
+              "text": "――！　シュクユウ君！\n何か知っているのかい！？",
+              "translations": {
+                "zh-cn": "“——！祝融同学！\n你知道些什么吗！？”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 11,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "はい、実は最近よく荒川区に出入りしてて……\n子供たちが居なくなっちゃったって聞いて……。",
+              "translations": {
+                "zh-cn": "“是的，其实我最近经常出入荒川区……\n听说那里的孩子们失踪了……。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 12,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "でも、それ以上の詳しいことは何も――\n力になれなくてごめんなさい。",
+              "translations": {
+                "zh-cn": "“但是，更详细的情况我就一概不知了——\n没能帮上忙，对不起。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 13,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "申し訳なさそうに謝るシュクユウに\nヨウルたちが大丈夫と声をかけた。",
+              "translations": {
+                "zh-cn": "看着一脸歉意道歉的祝融，\n尤尔他们连忙出声安慰说没关系。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 14,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "あの……ひとつ聞いてもいいですか？\n今からでも荒川区の子供たちに、プレゼントを配れるんですか？",
+              "translations": {
+                "zh-cn": "“那个……我可以问一个问题吗？\n即使是现在，还能给荒川区的孩子们派发礼物吗？”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 15,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "……正直に言うとかなり難しいんだ。\nサンタの奇跡の力はクリスマスへの「信仰」あってのもの。",
+              "translations": {
+                "zh-cn": "“……坦白说，相当困难。\n圣诞老人的奇迹之力，是依托对圣诞节的‘信仰’才得以成立的。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 16,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "クリスマスが終わってしまった今、\n何か別の方法を考えなければならない。",
+              "translations": {
+                "zh-cn": "“在圣诞节已经结束的当下，\n必须想出别的办法才行。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 17,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "なるべく、悲しい思いをさせてしまった子たちの\nためにも、一刻も早く行動しなければならないのだがね。",
+              "translations": {
+                "zh-cn": "“为了尽可能弥补那些感到悲伤的孩子们，\n我们必须尽快采取行动才是。”"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 18,
+                "cmd_index": 5,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "ジェドが言葉を続けようとした次の瞬間、\n校長室の扉が再び勢いよく開かれた。",
+              "translations": {
+                "zh-cn": "就在杰得打算继续说下去的下一刻，\n校长室的门再次被猛烈推开。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 19,
+                "cmd_index": 17,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "校長室へとぞろぞろとなだれ込んだ黒服たちは\n扉に最も近かったシュクユウに銃を向け冷たく告げる。",
+              "translations": {
+                "zh-cn": "一群黑衣人接连涌入校长室，\n将枪口对准离门最近的祝融，冷酷地说道。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 20,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "黒服",
+              "text": "手を挙げて、動くな。\n抵抗したらこのガキがどうなるか……分かってるな？",
+              "translations": {
+                "zh-cn": "“举起双手，不许动。\n要是敢抵抗，这小鬼会有什么下场……你们清楚吧？”"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 11,
+                "page_no": 21,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_xmas2022_0-2_c2_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 11,
+                        "page_no": 21,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "っ……！？",
+                      "translations": {
+                        "zh-cn": "呃……！？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 11,
+                        "page_no": 21,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "大人しく指示に従う",
+                      "translations": {
+                        "zh-cn": "老实遵照指示"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 11,
+                        "page_no": 21,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "だから乱暴はよせ",
+                      "translations": {
+                        "zh-cn": "所以我说别动粗"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 0,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "黒服",
+                      "text": "いい判断だ……。\nおい、こいつらを後ろ手に縛りあげろッ。",
+                      "translations": {
+                        "zh-cn": "“明智的判断……。\n喂，把他们双手反绑起来！”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 1,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "手際よく全員の手を縛り、目隠しをしていく黒服たち。\nその様子を__HET__PT_12_1_0__部屋の中から__HET__PT_12_1_1____HET__PT_12_1_2__窺__HET__PT_12_1_3__う２つの影があった。",
+                      "translations": {
+                        "zh-cn": "黑衣人们麻利地绑住所有人的双手，戴上眼罩。\n有两个身影正在<em=・>房间内<\/em><ruby=うかが>窥视<\/ruby>着这一幕。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 2,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "そして、襲撃者たちも誰も、\nその影たちにはまったく気付いていない、ようだった。",
+                      "translations": {
+                        "zh-cn": "而且，袭击者等人似乎\n完全没有察觉到那两道身影。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 3,
+                        "cmd_index": 8,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "あー……荒川の件でここまで来て、\n出てくタイミングをうかがってやがったら――",
+                      "translations": {
+                        "zh-cn": "“啊—……因为荒川的事追到这里来，\n正琢磨着现身的时机呢——”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 4,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "何だか面倒なことになってきやがったぜ。\nしかも、__HET__PT_12_4_0__がいるじゃねえかよ！",
+                      "translations": {
+                        "zh-cn": "“怎么就变成了麻烦的状况啊。\n而且，<param=playerName>不也在嘛！”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 5,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "ぬあっ、アイツら、__HET__PT_12_5_0__を\n乱暴に縛り上げやがった！　……消し炭にしてやろうか。",
+                      "translations": {
+                        "zh-cn": "“哇啊，那些家伙居然把<param=playerName>\n给粗暴地绑起来了！……要不要把他们烧成焦炭啊。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 6,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "……落ち着けよ、他の子もろとも巻き込む気か？\n危なくなったら出てくんだ、待てよな。",
+                      "translations": {
+                        "zh-cn": "“……冷静点，你是想把其他孩子也一起卷进来吗？\n等真危险了再出去，先等等啊。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 7,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "コロポックル、貴様ってヤツは相変わらず\n冷てーよなぁ、生きてて楽しいかよ？",
+                      "translations": {
+                        "zh-cn": "“克鲁波克鲁，你这家伙还是一如既往地\n冷淡啊，活着有意思吗？”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 8,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "そっちみたいに、脳みそが\n瞬間湯沸かし器の奴よりマシだぜ、ティダ？",
+                      "translations": {
+                        "zh-cn": "比起像你这样脑子跟\n即热热水器一样的家伙强多了吧，堤达？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 9,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "おれのフキの葉の下から出ていくなよ。\n……このまま様子をうかがうんだぜ。",
+                      "translations": {
+                        "zh-cn": "“别从我的蜂斗菜叶下面钻出去啊。\n……就这么继续静观其变吧。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 10,
+                        "cmd_index": 6,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "さて、なぜこの２人がここにいるのか？\nこのサンタスクールへ何をしにきたのか？",
+                      "translations": {
+                        "zh-cn": "那么，这两个人为什么会在这里？\n他们来到这所圣诞老人学校是想做什么？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 11,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "時は再び__HET__PT_12_11_0__遡__HET__PT_12_11_1__り、クリスマスイブの夜、\n歴史的な大雪が降り始めた頃のこと――",
+                      "translations": {
+                        "zh-cn": "时间再次<ruby=さかのぼ>倒回<\/ruby>平安夜、\n历史性的大雪刚开始降下之时——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 12,
+                        "cmd_index": 14,
+                        "sub_index": 0
+                      },
+                      "speaker": "トリッカー",
+                      "text": "こんなに大雪が降るなんて……\n寒い、寒いよ……。",
+                      "translations": {
+                        "zh-cn": "“居然下了这么大的雪……\n好冷，好冷啊……。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 13,
+                        "cmd_index": 7,
+                        "sub_index": 0
+                      },
+                      "speaker": "トリッカー",
+                      "text": "誰……？\nもしかして、サンタさん……？",
+                      "translations": {
+                        "zh-cn": "“谁……？\n难道是，圣诞老人吗……？”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 14,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "その言葉に、コロポックルは少し困ったような顔を浮かべ、\nフキの葉を子供に手渡した。",
+                      "translations": {
+                        "zh-cn": "听到这句话，克鲁波克鲁露出了略显为难的神情，\n将蜂斗菜叶递给了孩子。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 15,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "コロポックルのフキの葉は隠れた幼き者たちの姿を隠し、\nカムイコタンの吹き荒れる吹雪を遮る力を持つ――",
+                      "translations": {
+                        "zh-cn": "克鲁波克鲁的蜂斗菜叶拥有隐匿幼小者身形、\n并隔绝神居古潭肆虐暴风雪的力量——"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 16,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "ごめんな、おれはサンタじゃないんだ。\nでも、これを持っていれば冬の厳しい寒さから逃れられる。",
+                      "translations": {
+                        "zh-cn": "“抱歉啊，我不是圣诞老人。\n不过只要拿着这个，就能躲避冬日的严寒了。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 17,
+                        "cmd_index": 4,
+                        "sub_index": 0
+                      },
+                      "speaker": "トリッカー",
+                      "text": "すごい……寒くない！\nありがとうございます！",
+                      "translations": {
+                        "zh-cn": "“好厉害……不冷了！\n非常感谢您！”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 18,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "こうしないとお前は凍え死んでしまうかもしれない。\n雪が止むまでは手放すんじゃないぞ。",
+                      "translations": {
+                        "zh-cn": "“不这样的话你可能会冻死的。\n在雪停之前千万别放手哦。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 19,
+                        "cmd_index": 5,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "コロポックルはその場を離れ、\n子供たちにフキの葉を渡していく。",
+                      "translations": {
+                        "zh-cn": "克鲁波克鲁离开那里，\n逐一将蜂斗菜叶发给孩子们。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 20,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "結局、歴史的な大雪を観測することになり、\n聖夜が終わるまで、厳しい雪は降りやむことはなかった。",
+                      "translations": {
+                        "zh-cn": "最终观测到了历史性的暴雪，\n直到圣夜落幕，肆虐的风雪也未曾停歇。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 21,
+                        "cmd_index": 8,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "そんで、スラム街のガキどもが\n一斉にいなくなったと大騒ぎにしやがった訳だ！",
+                      "translations": {
+                        "zh-cn": "“结果就是，贫民窟的小鬼们\n全都失踪了，引得全城大骚动啊！”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 22,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "……仕方ないだろ。\nあのときはああするしかなかったんだぞ。",
+                      "translations": {
+                        "zh-cn": "“……这也是没办法的事吧。\n那时候只能那么做了啊。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 23,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "街行く人々がガラス越しに店内にティダを見つけ、\n熱い視線を送っている。",
+                      "translations": {
+                        "zh-cn": "过路的行人隔着玻璃发现了店内的堤达，\n纷纷投来炽热的目光。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 24,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "ちょい待て、コロポックル。オレ様の寵愛を\n受けてえ奴らがここにもそこにも大勢いやがる。",
+                      "translations": {
+                        "zh-cn": "“等下，克鲁波克鲁。想得到本大爷宠爱的家伙，\n这里那里可到处都是啊。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 25,
+                        "cmd_index": 10,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "それに対して、視線を合わせ、ファンサービスとして\n指でハートを作ってみせると黄色い声援が店の中まで響き渡った。",
+                      "translations": {
+                        "zh-cn": "对于投来的目光，他迎上前去，作为粉丝福利\n用手指比了个爱心，引得尖叫声甚至响彻了店内。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 26,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "コロポックルは耳を塞ぎ、\nげんなりとした様子で話を続けた。",
+                      "translations": {
+                        "zh-cn": "克鲁波克鲁捂住耳朵，\n一脸无奈地继续说道。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 27,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "……だからお前と居るのは嫌なんだ。\nどこに行ってもキャーキャーキャーキャー。",
+                      "translations": {
+                        "zh-cn": "“……所以我才讨厌跟你待在一起。\n不管走到哪儿都是哇啊哇啊尖叫个不停。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 28,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "うるさいったらありゃしない。\nもう少し顔を隠すとかさ、配慮してくれよ。",
+                      "translations": {
+                        "zh-cn": "“吵得要命。\n你就不能稍微把脸遮一下，顾忌一下周围吗。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 29,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "あー？　何故オレ様が隠れねばならんのだ。\nいつだってオレ様は輝き、愛されてこそよ。",
+                      "translations": {
+                        "zh-cn": "“啊—？为什么本大爷非得躲躲藏藏不可。\n本大爷无论何时都理应闪耀夺目、备受宠爱才对。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 30,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "いっつもクールぶりやがって、\nコロポックル、そういう所が気に食わねえぜ。",
+                      "translations": {
+                        "zh-cn": "“总在那装酷，\n克鲁波克鲁，本大爷就是看不惯你这点。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 31,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "おれは子供受け以外、どうでもいいんだ。\n……ほら、ファンとやらが来たぞ、ティダ。",
+                      "translations": {
+                        "zh-cn": "“除了受小孩子欢迎以外，我根本无所谓。\n……看吧，你的粉丝好像过来了哦，堤达。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 32,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "遠巻きにティダを見ていた店員がついに\n勇気を出すように声をかけた。",
+                      "translations": {
+                        "zh-cn": "远远观望着堤达的店员终于\n像是鼓起了勇气般上前搭话。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 33,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "レイス",
+                      "text": "あ、あの――もう少しでシフトが終わるんです！\nよ、良かったらこの後オレと――",
+                      "translations": {
+                        "zh-cn": "“那个，请问——我马上就要交班了！\n要、要是可以的话，之后能跟我一起——”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 34,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "勇気を出してオレに声をかけたこと褒めて遣わす。\nだが、生憎連れが居てな。",
+                      "translations": {
+                        "zh-cn": "“你能鼓起勇气向本大爷搭话，值得嘉奖。\n不过很不巧，本大爷已经有同伴了。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 35,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "レイス",
+                      "text": "そ、そうですよね！\nティダ様ならお相手の１人や２人――",
+                      "translations": {
+                        "zh-cn": "“没、没关系的！\n以堤达大人的人气，身边有一两个伴儿也是——”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 36,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "勝手に勘違いするなよ、オレ様は誰であろうと\nオレ様のことを望むのを__HET__PT_12_36_0__咎__HET__PT_12_36_1__めたりはしねぇ。",
+                      "translations": {
+                        "zh-cn": "“可别自顾自误会了啊，不论是谁，\n本大爷都绝不会<ruby=とが>责备<\/ruby>渴望本大爷的心意。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 37,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "ほら、もっと近くへ寄りやがれ。\nお前、端末は？",
+                      "translations": {
+                        "zh-cn": "“来，再靠过来点。\n你带着终端机吧？”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 38,
+                        "cmd_index": 6,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "おどおどと差し出された端末を取り、\n内カメラでツーショットを撮影する。",
+                      "translations": {
+                        "zh-cn": "他接过对方战战兢兢递过来的终端机，\n用前置摄像头拍了一张合影。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 39,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "レイス",
+                      "text": "あ、ありがとうございます！！\n一生大事にします！　部屋に飾らせて頂きます！！",
+                      "translations": {
+                        "zh-cn": "“谢、谢谢您！！\n我会珍惜一辈子的！一定会装裱在房间里的！！”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 40,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "ＳＮＳ投稿もＯＫだぜ。\nちゃんとオレ様の目にも見えるようにタグ付けしとけよ。",
+                      "translations": {
+                        "zh-cn": "“发社交平台也没问题哦。\n记得打上标签，好让本大爷也能看得到。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 41,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "そうだついでに注文するぜ。\nふわふわパンケーキアイス大盛り、マンゴーパフェそれと――",
+                      "translations": {
+                        "zh-cn": "“对了，顺便点单吧。\n松软松饼配超大份冰淇淋、芒果芭菲，还有——”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 42,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "大量の注文を受け、何回も頭を下げながら\n店員は店の奥へと消えていった。",
+                      "translations": {
+                        "zh-cn": "接下一大堆订单后，店员一边连连鞠躬\n一边退回了店堂深处。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 43,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "まったく、どいつもこいつも……\nこんな傲慢なヤツのどこが良いんだか。",
+                      "translations": {
+                        "zh-cn": "“真是的，一个个都这样……\n这种傲慢的家伙到底哪里好了。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 44,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "はは～ん、さては嫉妬してやがるなぁ？\nこの素直じゃねえ、うつけめ～。",
+                      "translations": {
+                        "zh-cn": "“哈哈～，难不成你吃醋啦？\n你这个不坦率的蠢货～。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 45,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "うつけじゃないし、嫉妬もしてない。\n子供は好きだけど、お前は子供の例外だ。",
+                      "translations": {
+                        "zh-cn": "“我才不是蠢货，也没吃醋。\n虽然我喜欢小孩子，但你属于小孩子的例外。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 46,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "お前も少しは大人に歩み寄ればどうだ？\n嫌いなヤツなんか１人もいない方が人生楽だぜ？",
+                      "translations": {
+                        "zh-cn": "“你也稍微试着向大人们靠拢一下如何？\n一个讨厌的人都没有，人生不是轻松得多吗？”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 47,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "コロポックルはその言葉に、\n殺気と冷気を漏れさせる。",
+                      "translations": {
+                        "zh-cn": "克鲁波克鲁听到这话，\n周身散发出了杀气与寒意。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 48,
+                        "cmd_index": 0,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "姿形は見えていないというのに、本能的に恐怖を察知したのか\n周囲の客がどよめき始めた。",
+                      "translations": {
+                        "zh-cn": "明明看不见身形，或许是本能地察觉到了恐惧，\n周围的顾客开始骚动起来。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 49,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "おいおい、そんなに怒んなって。\nパフェわけてやっから機嫌直せよ。",
+                      "translations": {
+                        "zh-cn": "“喂喂，别生那么大气嘛。\n芭菲分你一半，消消气啦。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 50,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "……お前はいつか雪の根に埋めてやる。\n吹雪の夜道には気をつけろよ。",
+                      "translations": {
+                        "zh-cn": "“……迟早有一天我要把你埋到雪根底下。\n走暴风雪夜路时可小心点。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 51,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "しばらくしてからティダの頼んだ大量のスイーツが\n所狭しとテーブルに並べられる。",
+                      "translations": {
+                        "zh-cn": "过了一会儿，堤达点的大批甜点\n摆满了整张桌子。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 52,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "呆れるぜ、フードファイトでも始めるつもり？\nそんなに食べたら……",
+                      "translations": {
+                        "zh-cn": "“真是服了你了，打算搞大胃王挑战吗？\n吃这么多的话……”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 52,
+                        "cmd_index": 9,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "ってむぐっ！",
+                      "translations": {
+                        "zh-cn": "“——呜咕！？”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 53,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "ほーんっと口うるせー奴だな貴様は、\nここのスイーツうめーんだよ、黙って食え。",
+                      "translations": {
+                        "zh-cn": "“你这家伙真是唠叨得要命啊，\n这里的甜点很好吃，闭嘴快吃。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 54,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "……おいしい。\nこの氷菓子……たしかに、なかなか悪くないな。",
+                      "translations": {
+                        "zh-cn": "“……真好吃。\n这冰品点心……确实还挺不错的。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 55,
+                        "cmd_index": 3,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "にやにやしているティダに気付き、\nコロポックルは軽く咳払いをする。",
+                      "translations": {
+                        "zh-cn": "注意到堤达在嬉皮笑脸，\n克鲁波克鲁轻咳了一声。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 56,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "って、そうじゃなくて！！\n別に甘いものを食べに来たわけじゃないんだよ。",
+                      "translations": {
+                        "zh-cn": "“不对，不是这个意思！！\n我又不是为了吃甜点才来的。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 57,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "おれがサンタを楽しみにしていた子供たちから、\n楽しみを奪ってしまったからさ、何かしてやらないと……。",
+                      "translations": {
+                        "zh-cn": "“是因为我夺走了期待圣诞老人的孩子们的那份期待，\n才想着必须为他们做点什么补偿才行……。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 58,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "へへん、心配すんなよ。\nちゃんとオレ様に完璧な作戦があるからな！",
+                      "translations": {
+                        "zh-cn": "“嘿嘿，别担心。\n本大爷心里可是有完美的作战方案呢！”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 59,
+                        "cmd_index": 20,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "……で？　完璧に巻き込まれたわけだけど。\nこれは作戦失敗ってことでいいよな？",
+                      "translations": {
+                        "zh-cn": "“……所以呢？结果被完完全全卷进来了。\n这应该算是作战失败了吧？”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 60,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "ま、そうとも言いやがるかもな。\nサンタの袋を借りて、オレたちがサンタになる――",
+                      "translations": {
+                        "zh-cn": "“嘛，也可以这么说吧。\n借用圣诞老人的口袋，由我们来当圣诞老人——”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 61,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "ティダ",
+                      "text": "どこのどいつかは知らんが、オレ様の完璧な作戦を\nよくも邪魔してくれやがって……。",
+                      "translations": {
+                        "zh-cn": "“虽然不知是打哪来的家伙，但竟敢妨碍\n本大爷的完美作战……。”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 62,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "コロポックル",
+                      "text": "サンタよりも目立ちたかっただけだろうがよ。\nそれより今は、子供を人質にする奴らの方を――",
+                      "translations": {
+                        "zh-cn": "“你只是想比圣诞老人更出风头罢了。\n比起那个，现在应该先解决把小孩子当人质的那些家伙——”"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 12,
+                        "page_no": 63,
+                        "cmd_index": 8,
+                        "sub_index": 0
+                      },
+                      "speaker": "",
+                      "text": "その時２人は、代わりに中に\n入ってくる人影に気付き、反射的に身をかがめた。",
+                      "translations": {
+                        "zh-cn": "就在这时，两人注意到了代替黑衣人\n走进室内的身影，条件反射般地蹲伏下身子。"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "protect": [
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_5_0__",
+      "origin": "<ruby=おやまあ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_5_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_9_0__",
+      "origin": "<ruby=ためらい>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_9_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_17_0__",
+      "origin": "<ruby=なるほどです>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_17_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_23_0__",
+      "origin": "<ruby=いいえ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_23_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_1_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_2_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_7_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 8,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_8_6_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 8,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_8_6_1__",
+      "origin": "<param=shukuyu>"
+    },
+    {
+      "order": {
+        "label_index": 10,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_10_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 10,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_10_0_1__",
+      "origin": "<param=shukuyu>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_1_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_1_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_1_2__",
+      "origin": "<ruby=うかが>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_1_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_4_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_5_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 11,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_11_0__",
+      "origin": "<ruby=さかのぼ>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 11,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_11_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_36_0__",
+      "origin": "<ruby=とが>"
+    },
+    {
+      "order": {
+        "label_index": 12,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_12_36_1__",
+      "origin": "<\/ruby>"
+    }
+  ],
+  "seq_to_order": [
+    {
+      "seq": 1,
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 15,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 2,
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 3,
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 4,
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 5,
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 6,
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 7,
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 8,
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 9,
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 10,
+      "order": {
+        "label_index": 5,
+        "page_no": 9,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 11,
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 12,
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 13,
+      "order": {
+        "label_index": 5,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 14,
+      "order": {
+        "label_index": 5,
+        "page_no": 13,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 15,
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 16,
+      "order": {
+        "label_index": 5,
+        "page_no": 15,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 17,
+      "order": {
+        "label_index": 5,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 18,
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 19,
+      "order": {
+        "label_index": 5,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 20,
+      "order": {
+        "label_index": 5,
+        "page_no": 19,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 21,
+      "order": {
+        "label_index": 5,
+        "page_no": 20,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 22,
+      "order": {
+        "label_index": 5,
+        "page_no": 21,
+        "cmd_index": 8,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 23,
+      "order": {
+        "label_index": 5,
+        "page_no": 22,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 24,
+      "order": {
+        "label_index": 5,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 25,
+      "order": {
+        "label_index": 5,
+        "page_no": 24,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 26,
+      "order": {
+        "label_index": 5,
+        "page_no": 25,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 27,
+      "order": {
+        "label_index": 5,
+        "page_no": 26,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 28,
+      "order": {
+        "label_index": 5,
+        "page_no": 27,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 29,
+      "order": {
+        "label_index": 5,
+        "page_no": 28,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 30,
+      "order": {
+        "label_index": 5,
+        "page_no": 29,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 31,
+      "order": {
+        "label_index": 5,
+        "page_no": 30,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 32,
+      "order": {
+        "label_index": 5,
+        "page_no": 31,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 33,
+      "order": {
+        "label_index": 5,
+        "page_no": 32,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 34,
+      "order": {
+        "label_index": 5,
+        "page_no": 33,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 35,
+      "order": {
+        "label_index": 5,
+        "page_no": 34,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 36,
+      "order": {
+        "label_index": 5,
+        "page_no": 35,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 37,
+      "order": {
+        "label_index": 5,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 38,
+      "order": {
+        "label_index": 5,
+        "page_no": 37,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 39,
+      "order": {
+        "label_index": 5,
+        "page_no": 38,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 40,
+      "order": {
+        "label_index": 5,
+        "page_no": 39,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 41,
+      "order": {
+        "label_index": 5,
+        "page_no": 40,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 42,
+      "order": {
+        "label_index": 5,
+        "page_no": 41,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 43,
+      "order": {
+        "label_index": 5,
+        "page_no": 42,
+        "cmd_index": 13,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 44,
+      "order": {
+        "label_index": 5,
+        "page_no": 43,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 45,
+      "order": {
+        "label_index": 5,
+        "page_no": 44,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 46,
+      "order": {
+        "label_index": 5,
+        "page_no": 45,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 47,
+      "order": {
+        "label_index": 5,
+        "page_no": 46,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 48,
+      "order": {
+        "label_index": 5,
+        "page_no": 47,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 49,
+      "order": {
+        "label_index": 5,
+        "page_no": 48,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 50,
+      "order": {
+        "label_index": 5,
+        "page_no": 49,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 51,
+      "order": {
+        "label_index": 5,
+        "page_no": 50,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 52,
+      "order": {
+        "label_index": 5,
+        "page_no": 51,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 53,
+      "order": {
+        "label_index": 5,
+        "page_no": 51,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 54,
+      "order": {
+        "label_index": 5,
+        "page_no": 51,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 55,
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 56,
+      "order": {
+        "label_index": 6,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 57,
+      "order": {
+        "label_index": 6,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 58,
+      "order": {
+        "label_index": 6,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 59,
+      "order": {
+        "label_index": 6,
+        "page_no": 3,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 60,
+      "order": {
+        "label_index": 6,
+        "page_no": 3,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 61,
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 62,
+      "order": {
+        "label_index": 8,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 63,
+      "order": {
+        "label_index": 8,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 64,
+      "order": {
+        "label_index": 8,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 65,
+      "order": {
+        "label_index": 8,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 66,
+      "order": {
+        "label_index": 8,
+        "page_no": 4,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 67,
+      "order": {
+        "label_index": 8,
+        "page_no": 5,
+        "cmd_index": 13,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 68,
+      "order": {
+        "label_index": 8,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 69,
+      "order": {
+        "label_index": 8,
+        "page_no": 7,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 70,
+      "order": {
+        "label_index": 8,
+        "page_no": 7,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 71,
+      "order": {
+        "label_index": 9,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 72,
+      "order": {
+        "label_index": 8,
+        "page_no": 7,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 73,
+      "order": {
+        "label_index": 10,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 74,
+      "order": {
+        "label_index": 11,
+        "page_no": 0,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 75,
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 76,
+      "order": {
+        "label_index": 11,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 77,
+      "order": {
+        "label_index": 11,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 78,
+      "order": {
+        "label_index": 11,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 79,
+      "order": {
+        "label_index": 11,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 80,
+      "order": {
+        "label_index": 11,
+        "page_no": 6,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 81,
+      "order": {
+        "label_index": 11,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 82,
+      "order": {
+        "label_index": 11,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 83,
+      "order": {
+        "label_index": 11,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 84,
+      "order": {
+        "label_index": 11,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 85,
+      "order": {
+        "label_index": 11,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 86,
+      "order": {
+        "label_index": 11,
+        "page_no": 12,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 87,
+      "order": {
+        "label_index": 11,
+        "page_no": 13,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 88,
+      "order": {
+        "label_index": 11,
+        "page_no": 14,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 89,
+      "order": {
+        "label_index": 11,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 90,
+      "order": {
+        "label_index": 11,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 91,
+      "order": {
+        "label_index": 11,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 92,
+      "order": {
+        "label_index": 11,
+        "page_no": 18,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 93,
+      "order": {
+        "label_index": 11,
+        "page_no": 19,
+        "cmd_index": 17,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 94,
+      "order": {
+        "label_index": 11,
+        "page_no": 20,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 95,
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 96,
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 97,
+      "order": {
+        "label_index": 11,
+        "page_no": 21,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 98,
+      "order": {
+        "label_index": 12,
+        "page_no": 0,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 99,
+      "order": {
+        "label_index": 12,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 100,
+      "order": {
+        "label_index": 12,
+        "page_no": 2,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 101,
+      "order": {
+        "label_index": 12,
+        "page_no": 3,
+        "cmd_index": 8,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 102,
+      "order": {
+        "label_index": 12,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 103,
+      "order": {
+        "label_index": 12,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 104,
+      "order": {
+        "label_index": 12,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 105,
+      "order": {
+        "label_index": 12,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 106,
+      "order": {
+        "label_index": 12,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 107,
+      "order": {
+        "label_index": 12,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 108,
+      "order": {
+        "label_index": 12,
+        "page_no": 10,
+        "cmd_index": 6,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 109,
+      "order": {
+        "label_index": 12,
+        "page_no": 11,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 110,
+      "order": {
+        "label_index": 12,
+        "page_no": 12,
+        "cmd_index": 14,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 111,
+      "order": {
+        "label_index": 12,
+        "page_no": 13,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 112,
+      "order": {
+        "label_index": 12,
+        "page_no": 14,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 113,
+      "order": {
+        "label_index": 12,
+        "page_no": 15,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 114,
+      "order": {
+        "label_index": 12,
+        "page_no": 16,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 115,
+      "order": {
+        "label_index": 12,
+        "page_no": 17,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 116,
+      "order": {
+        "label_index": 12,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 117,
+      "order": {
+        "label_index": 12,
+        "page_no": 19,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 118,
+      "order": {
+        "label_index": 12,
+        "page_no": 20,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 119,
+      "order": {
+        "label_index": 12,
+        "page_no": 21,
+        "cmd_index": 8,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 120,
+      "order": {
+        "label_index": 12,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 121,
+      "order": {
+        "label_index": 12,
+        "page_no": 23,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 122,
+      "order": {
+        "label_index": 12,
+        "page_no": 24,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 123,
+      "order": {
+        "label_index": 12,
+        "page_no": 25,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 124,
+      "order": {
+        "label_index": 12,
+        "page_no": 26,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 125,
+      "order": {
+        "label_index": 12,
+        "page_no": 27,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 126,
+      "order": {
+        "label_index": 12,
+        "page_no": 28,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 127,
+      "order": {
+        "label_index": 12,
+        "page_no": 29,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 128,
+      "order": {
+        "label_index": 12,
+        "page_no": 30,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 129,
+      "order": {
+        "label_index": 12,
+        "page_no": 31,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 130,
+      "order": {
+        "label_index": 12,
+        "page_no": 32,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 131,
+      "order": {
+        "label_index": 12,
+        "page_no": 33,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 132,
+      "order": {
+        "label_index": 12,
+        "page_no": 34,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 133,
+      "order": {
+        "label_index": 12,
+        "page_no": 35,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 134,
+      "order": {
+        "label_index": 12,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 135,
+      "order": {
+        "label_index": 12,
+        "page_no": 37,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 136,
+      "order": {
+        "label_index": 12,
+        "page_no": 38,
+        "cmd_index": 6,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 137,
+      "order": {
+        "label_index": 12,
+        "page_no": 39,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 138,
+      "order": {
+        "label_index": 12,
+        "page_no": 40,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 139,
+      "order": {
+        "label_index": 12,
+        "page_no": 41,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 140,
+      "order": {
+        "label_index": 12,
+        "page_no": 42,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 141,
+      "order": {
+        "label_index": 12,
+        "page_no": 43,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 142,
+      "order": {
+        "label_index": 12,
+        "page_no": 44,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 143,
+      "order": {
+        "label_index": 12,
+        "page_no": 45,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 144,
+      "order": {
+        "label_index": 12,
+        "page_no": 46,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 145,
+      "order": {
+        "label_index": 12,
+        "page_no": 47,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 146,
+      "order": {
+        "label_index": 12,
+        "page_no": 48,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 147,
+      "order": {
+        "label_index": 12,
+        "page_no": 49,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 148,
+      "order": {
+        "label_index": 12,
+        "page_no": 50,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 149,
+      "order": {
+        "label_index": 12,
+        "page_no": 51,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 150,
+      "order": {
+        "label_index": 12,
+        "page_no": 52,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 151,
+      "order": {
+        "label_index": 12,
+        "page_no": 52,
+        "cmd_index": 9,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 152,
+      "order": {
+        "label_index": 12,
+        "page_no": 53,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 153,
+      "order": {
+        "label_index": 12,
+        "page_no": 54,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 154,
+      "order": {
+        "label_index": 12,
+        "page_no": 55,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 155,
+      "order": {
+        "label_index": 12,
+        "page_no": 56,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 156,
+      "order": {
+        "label_index": 12,
+        "page_no": 57,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 157,
+      "order": {
+        "label_index": 12,
+        "page_no": 58,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 158,
+      "order": {
+        "label_index": 12,
+        "page_no": 59,
+        "cmd_index": 20,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 159,
+      "order": {
+        "label_index": 12,
+        "page_no": 60,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 160,
+      "order": {
+        "label_index": 12,
+        "page_no": 61,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 161,
+      "order": {
+        "label_index": 12,
+        "page_no": 62,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 162,
+      "order": {
+        "label_index": 12,
+        "page_no": 63,
+        "cmd_index": 8,
+        "sub_index": 0
+      }
+    }
+  ]
+}

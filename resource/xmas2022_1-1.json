@@ -1,0 +1,4648 @@
+{
+  "scene": "xmas2022_1-1",
+  "quest_label": "quest_evMain_xmas2022_1-1",
+  "game_version": "5.20.0",
+  "raw_lang": "ja",
+  "translated": {
+    "zh-cn": true
+  },
+  "character": {
+    "mc": {
+      "name": "mc",
+      "aliases": [],
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "school": [
+        "神宿学園"
+      ],
+      "guild": [
+        "新宿サモナーズ"
+      ],
+      "origin_world": [],
+      "relationships": [],
+      "info": "竜の尾より断ち離された神剣の「神器」を手にした、異界からの転光生。全属性を併せ持つ刃に宿る「離断」の権能は「支配」と「力」を分断し、その代償として「流者」は故郷から追放される。23の異界と接続した東京での出会いを経て、切り離されていた記憶の一部を受け容れ、神器の真価をより引き出せるようになった。",
+      "description": "",
+      "speech_style": ""
+    },
+    "high_weight": [
+      {
+        "name": "マフィア",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "オオグチマガミ",
+        "aliases": [],
+        "i18n": {
+          "en": "Oguchi Magami",
+          "zh_tw": "大口真神",
+          "zh_cn": "大口真神"
+        },
+        "school": [
+          "鬼王警察学校"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "タカマガハラ"
+        ],
+        "relationships": [
+          {
+            "target": "タヂカラオ",
+            "type": "好意"
+          },
+          {
+            "target": "ジェイコフ",
+            "type": "好意"
+          },
+          {
+            "target": "ヘルメス",
+            "type": "苦手"
+          }
+        ],
+        "info": "鬼王警察学校の警察犬科に所属する狼獣人の転光生で、真面目で正義感がある一方、好奇心に負けて危険地帯へ突っ込むため見習いに留まっている。鍛え抜かれた肉体そのものが厄を喰らう神器であり、攻撃に乗った感情や罪状を身に受けて理解する権能を持つ。人がなぜ拳を振るうのかを知りたいという好奇心が強く、故郷での悲劇によってその善性の経緯には腑に落ちないものを抱えている。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "タヂカラオ",
+        "aliases": [],
+        "i18n": {
+          "en": "Tajikarao",
+          "zh_tw": "手力男",
+          "zh_cn": "手力男"
+        },
+        "school": [
+          "鬼王警察学校"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "タカマガハラ"
+        ],
+        "relationships": [
+          {
+            "target": "ノブハル",
+            "type": "好意"
+          },
+          {
+            "target": "スズカ",
+            "type": "苦手"
+          }
+        ],
+        "info": "タカマガハラ出身で歌舞伎町の警察学校に通う転光生で、単純明快な性格と鍛えた肉体を誇るウエイトリフティング部員。巌のような腕そのものが神器で、触れたものを開放する権能により扉や隠されたもの、内に秘めた感情まで暴き出す。清廉潔白な警察官であり祭好きでもあり、隠し事や遠回しな表現を苦手とする。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ヨウル",
+        "aliases": [],
+        "i18n": {
+          "en": "Yule",
+          "zh_tw": "尤爾",
+          "zh_cn": "尤尔"
+        },
+        "school": [
+          "東京サンタスクール"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "ティルナノグ"
+        ],
+        "relationships": [
+          {
+            "target": "ジェド",
+            "type": "好意"
+          },
+          {
+            "target": "クランプス",
+            "type": "苦手"
+          },
+          {
+            "target": "トムテ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ティルナノグ出身のトナカイの妖精の転光生で、サンタクロースになる夢を追ってサンタたちの学園で学んでいる。ほがらかだがおっちょこちょいで、失敗して笑われた後に一人で落ち込むこともある。ソリの神器は空を滑り昇る滑空の権能を持ち、トナカイとしての適性を持ちながらもサンタを目指して走り続ける。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ジェド",
+        "aliases": [],
+        "i18n": {
+          "en": "Ded",
+          "zh_tw": "傑得",
+          "zh_cn": "杰得"
+        },
+        "school": [
+          "東京サンタスクール"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "キーテジ"
+        ],
+        "relationships": [
+          {
+            "target": "スネグーラチカ",
+            "type": "好意"
+          }
+        ],
+        "info": "キーテジから来た氷雪の妖精でありサンタクロースで、東京サンタスクールの校長。袋の「神器」は因果を具現し善行に褒賞を悪行に報償を与える二面性を持ち、清廉な父親的人格と過激な暴虐を為す冷酷な人格が同居する。時代と共に変化する新たなクリスマスの担い手の到来を心待ちにしている。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "シュクユウ",
+        "aliases": [],
+        "i18n": {
+          "en": "Zhurong",
+          "zh_tw": "祝融",
+          "zh_cn": "祝融"
+        },
+        "school": [
+          "神宿学園"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "ホウライ",
+          "オールドワンズ"
+        ],
+        "relationships": [
+          {
+            "target": "ヘルメス",
+            "type": "好意"
+          },
+          {
+            "target": "ブギーマン",
+            "type": "好意"
+          },
+          {
+            "target": "ベヒモス",
+            "type": "苦手"
+          },
+          {
+            "target": "クアンタム",
+            "type": "苦手"
+          }
+        ],
+        "info": "ホウライ出身の鼠の「転光生」で、飢野学園の風紀委員を務める。尾の先の小さな光の「神器」は失せ物を探し当て、隠された真実を見つけ出す。小柄で気弱だが正義感が強く、学園の平和を守るためなら危険な調査にも果敢に挑む。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ドンと呼ばれた者",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "黒服",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "リョウタ",
+        "aliases": [],
+        "i18n": {
+          "en": "Ryota",
+          "zh_tw": "良太",
+          "zh_cn": "良太"
+        },
+        "school": [
+          "神宿学園"
+        ],
+        "guild": [
+          "新宿サモナーズ"
+        ],
+        "origin_world": [
+          "東京"
+        ],
+        "relationships": [
+          {
+            "target": "チョウジ",
+            "type": "好意"
+          },
+          {
+            "target": "ケットシー",
+            "type": "好意"
+          }
+        ],
+        "info": "神宿学園二年生でのんびりとした人当たりの良い「転光生」で、聖杯の「神器」は愛をくべる事で奇跡をもたらしあらゆる外傷を治癒する。孤独を何よりも恐れる少年で、独りぼっちの者にも手を差し伸べずにいられない。かけがえのない学友たちと過ごす有限な学生生活を大切にし、失敗を恐れず新しい挑戦に踏み出す前向きさを持つ。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "フッキ",
+        "aliases": [],
+        "i18n": {
+          "en": "Fuxi",
+          "zh_tw": "伏羲",
+          "zh_cn": "伏羲"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "品川インベイダーズ"
+        ],
+        "origin_world": [
+          "ホウライ"
+        ],
+        "relationships": [
+          {
+            "target": "テムジン",
+            "type": "好意"
+          },
+          {
+            "target": "スモーキーゴッド",
+            "type": "苦手"
+          }
+        ],
+        "info": "ワノクニ出身の武士で、八犬士の一人として「悌」の珠を持つ「転光生」。弓の名手であり、弟分たちを導く兄貴分として慕われる。破魔の矢の「神器」は邪なるものを貫き清める権能を持ち、忠義と友情に厚い侍気質の持ち主。年下を守るためなら命も惜しまぬ侠気を持つが、裏切りだけは決して許さない。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "バートロ",
+        "aliases": [],
+        "i18n": {
+          "en": "Bertro",
+          "zh_tw": "巴特羅",
+          "zh_cn": "巴特罗"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "練馬ウォーモンガーズ"
+        ],
+        "origin_world": [
+          "ユグドラシル"
+        ],
+        "relationships": [
+          {
+            "target": "シヴァ",
+            "type": "好意"
+          },
+          {
+            "target": "ブレイク",
+            "type": "苦手"
+          },
+          {
+            "target": "ヴァプラ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ホウライ出身の鬼の「転光生」で、得真道学園の風紀委員を務める。規律を重んじる真面目な性格だが、内に秘めた闘争本能は抑えきれないものがあり、時折箍が外れて暴走する。戒めの数珠の「神器」は自らの力を封印するための枷であり、人間の道を学ぶために日々修養に励む求道者。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "２人",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      }
+    ],
+    "low_weight": []
+  },
+  "mentioned_characters": [],
+  "game_terms": [
+    {
+      "term": "神器",
+      "i18n": {
+        "en": "Sacred Artifacts",
+        "zh_tw": "神器",
+        "zh_cn": "神器"
+      },
+      "description": "持つべき役割を持った者だけが振るえる神の器。特定の権能を世界へ押し付け、物理法則を書き換えて通常ではあり得ない現象を起こす。東京には23の異世界、24の神話に由来する多様な神器があり、召喚には対応する役割と権能の宣言が必要。"
+    },
+    {
+      "term": "ギルド",
+      "i18n": {
+        "en": "Guild",
+        "zh_tw": "公會",
+        "zh_cn": "公会"
+      },
+      "description": "東京に溢れるアプリを用いし者達の集い。\n\n大小様々な100を超えるギルドが東京に存在し、各ギルドはそれぞれ少なくとも1つの拠点とギルドマスターを要している。\n\nこの拠点が制圧され、ギルドマスターが敗北することでギルドは消滅する。\n\nギルドを正式発足するためには「ギルドマスター」「アプリバトルが可能な構成員(メンバー)を最低4人」「拠点」の3つが必要となる。\n\nギルドの全ての機能を利用するためにはさらにもう1人、合計5人の構成員が必要。\n\n第3章で明らかにされたこと"
+    },
+    {
+      "term": "神宿学園",
+      "i18n": {
+        "en": "Shinjuku Academy",
+        "zh_tw": "神宿學園",
+        "zh_cn": "神宿学园"
+      },
+      "description": "神宿学園は、新宿区にある主人公たちの通う教育機関。主な特徴は、自由度の高い指定制服と、転光生を含む多様な生徒を受け入れている点。関連する人物は主人公たち。"
+    },
+    {
+      "term": "異世界",
+      "i18n": {
+        "en": "world",
+        "zh_tw": "異世界",
+        "zh_cn": "异世界"
+      },
+      "description": "舞台となる東京と十数年前にゲートで接続された、異なる神話体系の世界群。\n\n23のゲートに対応した23の異世界の他にも、未知の異世界が存在すると思われる。\n\n東京と繋がった23世界外の異世界"
+    },
+    {
+      "term": "オールドワンズ",
+      "i18n": {
+        "en": "Old Ones",
+        "zh_tw": "舊日支配者",
+        "zh_cn": "旧支配者"
+      },
+      "description": "オールドワンズはクトゥルフ神話を基にした星々の異世界。世界代行者はアザトース、追放者はクー・リトルリトル。夢は小世界の創造と見なされ、世界そのものもアザトースの夢とされる。狂気と終焉を永遠に繰り返す壊れた世界で、閉鎖領域外でも権能を使える特権を持つ。"
+    },
+    {
+      "term": "権能",
+      "i18n": {
+        "en": "Rule",
+        "zh_tw": "權能",
+        "zh_cn": "权能"
+      },
+      "description": "神器より溢れる「神の力」の一端で、神器の能力や性質を表すルール。神器召喚時に宣言される。同じ権能を持つ者はいても役割との組み合わせまで同一の例はなく、同系統の効果は重ねがけできない。矛盾する権能が衝突すると例外処理につながる。"
+    },
+    {
+      "term": "世界代行者",
+      "i18n": {
+        "en": "World Representative",
+        "zh_tw": "世界代理人",
+        "zh_cn": "世界代理人"
+      },
+      "description": "東京と繋がる23の世界の「勝利者たち」。23の異世界、各々の「信仰」を共にする多数の意志を代行し、「役割」と「権能」 を現す者。\n\n9章以降ではオールドワンズとユグドラシルの代行者を除く21人はそれぞれの目的の為、7人ずつ3つのギルドに分かれていることが発覚した。"
+    },
+    {
+      "term": "未所属",
+      "i18n": {
+        "en": "Unaffiliated",
+        "zh_tw": "未隸屬",
+        "zh_cn": "未隶属"
+      },
+      "description": "特定のギルドに所属していない者たちを指す分類。ゲーム内の所属表示としては、明確な公会メンバーではないキャラクターに用いられる。"
+    },
+    {
+      "term": "鬼王警察学校",
+      "i18n": {
+        "en": "Kiou Police Academy",
+        "zh_tw": "鬼王警察學校",
+        "zh_cn": "鬼王警察学校"
+      },
+      "description": "鬼王警察学校は、新宿区にある警察系の教育機関。主な特徴は、警察官を志す者の訓練と、稲荷鬼王神社を連想させる由来。関連人物はタヂカラオ。"
+    },
+    {
+      "term": "タカマガハラ",
+      "i18n": {
+        "en": "Takamagahara",
+        "zh_tw": "高天原",
+        "zh_cn": "高天原"
+      },
+      "description": "タカマガハラは神道神話を基にした異世界で、現在の「世界代行者」はアマテラス、追放者はスサノオ。不要と見なしたものを海底へ沈めて完全性を保つシステムを持ち、竜宮は苦痛や羞恥の記憶を封じる試作サブシステムとして機能する。"
+    },
+    {
+      "term": "東京サンタスクール",
+      "i18n": {
+        "en": "Tokyo Santa School",
+        "zh_tw": "東京聖誕老人學校",
+        "zh_cn": "东京圣诞老人学校"
+      },
+      "description": "東京サンタスクールは、新宿にあるサンタ養成系の教育機関。主な特徴は、サンタ科・ブラックサンタ科・トナカイ科を持つこと。関連人物は校長のジェド、ヨウルなど。"
+    },
+    {
+      "term": "ティルナノグ",
+      "i18n": {
+        "en": "Tir Na Nog",
+        "zh_tw": "提爾納諾",
+        "zh_cn": "提尔纳诺"
+      },
+      "description": "ティルナノグはケルト神話と欧州民間伝承を基にした妖精郷。世界代行者はバロール、追放者はルー。妖精たちは傷や老いを他者へ移す「取り替え子」の信仰で永遠の若さを保つ。王は民の負担を背負い、後継者へ王座と運命を渡す儀式が重い意味を持つ。"
+    },
+    {
+      "term": "キーテジ",
+      "i18n": {
+        "en": "Kitezh",
+        "zh_tw": "奇鐵茲",
+        "zh_cn": "奇铁兹"
+      },
+      "description": "キーテジは「ゲーム」に参加している異世界のひとつで、スラヴ神話を基にした世界。スヴェトロヤール湖の水底に沈んだとされる伝説都市キーテジに由来する。\n\nキーテジの「世界代行者」はペルーン。追放された魂はヴェーレス。"
+    },
+    {
+      "term": "ホウライ",
+      "i18n": {
+        "en": "Hourai",
+        "zh_tw": "蓬萊",
+        "zh_cn": "蓬莱"
+      },
+      "description": "ホウライは中国の伝説・民話・文学を基にした異世界で、ペングライとも呼ばれる。世界代行者はフッキ、追放者はジョカ。大洪水後にフッキとジョカが世界を再建したが、ジョカ追放後は戦争と飢饉が広がり、シンノウも救済の道を探し続けている。"
+    },
+    {
+      "term": "新宿サモナーズ",
+      "i18n": {
+        "en": "Shinjuku Summoners",
+        "zh_tw": "新宿召喚師",
+        "zh_cn": "新宿召唤师"
+      },
+      "description": "新宿サモナーズは、新宿区・西新宿を拠点とする主人公たちのギルド。ギルドマスターは主人公。主な特徴は、所属や出自を問わず仲間を受け入れる包括性と、剣・召喚陣・桜の花弁を組み合わせたギルドアイコン。"
+    },
+    {
+      "term": "東京",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "品川インベイダーズ",
+      "i18n": {
+        "en": "Shinagawa Invaders",
+        "zh_tw": "品川入侵者",
+        "zh_cn": "品川侵略者"
+      },
+      "description": "品川インベイダーズは、品川区を拠点とする侵略者・革命家・内部破壊者の真の三大ギルド。ギルドマスターは∀アイザック。主な特徴は、トロフィーの奪取と、社会基盤を内部から反転させる潜入工作。"
+    },
+    {
+      "term": "？？？",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "練馬ウォーモンガーズ",
+      "i18n": {
+        "en": "Nerima Warmongers",
+        "zh_tw": "練馬好戰者",
+        "zh_cn": "练马好战者"
+      },
+      "description": "練馬ウォーモンガーズは、練馬区・光が丘を拠点とする戦争と政変の真の三大ギルド。ギルドマスターはベルトロ。主な特徴は、過去ループの戦争記憶の武器化と、軍・行政・地下組織への強い影響力。"
+    },
+    {
+      "term": "ユグドラシル",
+      "i18n": {
+        "en": "Yggdrasil",
+        "zh_tw": "尤克特拉希爾",
+        "zh_cn": "世界树"
+      },
+      "description": "ユグドラシルは北欧神話を基にした九つの世界から成る異世界。世界代行者はオーディン、東京でのリザーブはスルト、追放者はフレイ。ロキの壁によりラグナロクが終わらず、戦士たちはヴァルハラで蘇生され、死と再生の循環を永遠に繰り返す。"
+    }
+  ],
+  "provider": {
+    "zh-cn": "openai"
+  },
+  "model": {
+    "zh-cn": "gemini-3.8-flash"
+  },
+  "summary": {
+    "zh-cn": "黑衣人以祝融为人质制伏了主人公等人。被称为“首领”的男子现身并要求杰得交出神器圣诞布袋，杰得为保护孩子们的安全只得妥协，袭击者得手后离去。手力男与大口真神随后赶到记录口供，良太决定留下协助警方调查，派对因而推迟。主人公在校门前遇到巴特罗，得知其通过精密推算认为祝融是自愿跟随黑衣人离开的。与此同时，伏羲正与巴特罗进行纸牌博弈并交谈过去的因缘与立场；另一黑手党派系皮特家族得知布袋被西木鲁格家族夺走，决定武力铲除对手。"
+  },
+  "scene_items": [
+    {
+      "type": "if",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "condition": "playerSex==1",
+      "target_label": "quest_evMain_xmas2022_1-1shukuyu_a",
+      "merge_label": "quest_evMain_xmas2022_1-1shukuyu_after",
+      "following_text": []
+    },
+    {
+      "type": "if",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "condition": "playerSex==2",
+      "target_label": "quest_evMain_xmas2022_1-1shukuyu_b",
+      "merge_label": "quest_evMain_xmas2022_1-1shukuyu_after",
+      "following_text": []
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 17,
+        "sub_index": 0
+      },
+      "speaker": "黒服",
+      "text": "コイツらの手足を拘束しろ。\n目隠しも忘れるなよ。",
+      "translations": {
+        "zh-cn": "把这些家伙的手脚绑起来。\n也别忘了蒙上眼睛。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "シュクユウには黒服の銃口が向けられており、\n__HET__PT_5_1_0__たちの動きを制止する。",
+      "translations": {
+        "zh-cn": "黑衣人的枪口正对着祝融，\n制止了<param=playerName>等人的行动。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "シュクユウ",
+      "text": "__HET__PT_5_2_0____HET__PT_5_2_1__……！",
+      "translations": {
+        "zh-cn": "<param=playerName><param=shukuyu>……！"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_xmas2022_1-1_a_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_a_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 3,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "クソッ……",
+              "translations": {
+                "zh-cn": "可恶……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 3,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "（抵抗しない）",
+              "translations": {
+                "zh-cn": "（不作抵抗）"
+              }
+            }
+          ],
+          "following_text": []
+        },
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_a_01",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 5,
+                "page_no": 3,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "（剣に手をかける）",
+              "translations": {
+                "zh-cn": "（把手搭在剑上）"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 6,
+                "page_no": 0,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "リョウタ",
+              "text": "ダメだよ__HET__PT_6_0_0__。\n下手に動いたらシュクユウくんが……。",
+              "translations": {
+                "zh-cn": "不可以啊，<param=playerName>。\n要是轻举妄动的话，祝融同学就……"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 12,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "人質が取られているせいで、__HET__PT_7_0_0__たちは\n結局大人しく縛られて目隠しをされることになった。",
+      "translations": {
+        "zh-cn": "因为对方抓有人质，<param=playerName>等人\n最终只能老老实实地被捆绑并蒙上双眼。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 7,
+        "page_no": 1,
+        "cmd_index": 7,
+        "sub_index": 0
+      },
+      "speaker": "黒服",
+      "text": "ドン、中に居た全員を無力化しました。\nどうぞ、こちらへ。",
+      "translations": {
+        "zh-cn": "首领，里面的所有人都已被制伏。\n请，往这边走。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 7,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ドンと呼ばれた者",
+      "text": "ご苦労。……悪いな、\n偶々居合わせたアンタらには――",
+      "translations": {
+        "zh-cn": "辛苦了。……抱歉啊，\n让碰巧在场的你们——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 7,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ドンと呼ばれた者",
+      "text": "怖い思いをさせることになったが\n騒がなきゃ何もしないことを約束する。",
+      "translations": {
+        "zh-cn": "受到了惊吓，不过我保证，\n只要你们不声张，我什么都不会做。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 7,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ドンと呼ばれた者",
+      "text": "さて、俺たちの要求は１つだ。\nアンタの「神器」、サンタの袋を寄越しな。",
+      "translations": {
+        "zh-cn": "那么，我们的要求只有一个。\n把你那件「神器」——圣诞老人的布袋交出来。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 7,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "いったい何に使うつもりなのだね。\nクリスマスが終わった今この袋は――",
+      "translations": {
+        "zh-cn": "你们到底打算拿它来做什么？\n圣诞节已经结束的现在，这个布袋——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 7,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ドンと呼ばれた者",
+      "text": "それを知る必要はない。アンタにできるのは首を縦に振るか、\n横に振って後悔するかのどちらかだ。",
+      "translations": {
+        "zh-cn": "你没必要知道。你能做的只有点头答应，\n或是摇头拒绝后追悔莫及，二选一。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 7,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ジェドと「ドン」と呼ばれた男との\n緊迫した交渉が続く。",
+      "translations": {
+        "zh-cn": "杰得与被称为“首领”的男子之间，\n紧绷的交涉仍在继续。"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 7,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_xmas2022_1-1_b_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_b_01",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 7,
+                "page_no": 8,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "（ヨウルの隣でじっと大人しくしておく）",
+              "translations": {
+                "zh-cn": "（在尤尔身边保持安静）"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 8,
+                "page_no": 0,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "ヨウル",
+              "text": "__HET__PT_8_0_0__、きっと大丈夫だよ。\nジェド先生がなんとかしてくれるはず。",
+              "translations": {
+                "zh-cn": "<param=playerName>，一定会没事的。\n杰得老师一定会想办法解决的。"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_b_02",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 7,
+                "page_no": 8,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "リョウタ、大丈夫？",
+              "translations": {
+                "zh-cn": "良太，你还好吗？"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 9,
+                "page_no": 0,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "リョウタ",
+              "text": "ありがと、__HET__PT_9_0_0__、ちょっと怖いけど、大丈夫。\n１人だったら不安で泣きだしちゃってたかもしれないけど……。",
+              "translations": {
+                "zh-cn": "谢谢你，<param=playerName>。虽然有点害怕，但我没事的。\n要是我一个人的话，可能早就害怕得哭出来了……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 9,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "リョウタ",
+              "text": "シュクユウくんを不安にさせないように、\n僕たちがしっかりしないとねっ。",
+              "translations": {
+                "zh-cn": "为了不让祝融同学感到不安，\n我们必须振作起来才行呢。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 9,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "気丈な声を出していた隣のリョウタが微かに\n震えていることに気付く。",
+              "translations": {
+                "zh-cn": "注意到身旁强撑着发出坚强声音的良太，\n身体正在微微颤抖。"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_b_03",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 7,
+                "page_no": 8,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "シュクユウ、怖くない？",
+              "translations": {
+                "zh-cn": "祝融，你害怕吗？"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 10,
+                "page_no": 0,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "うん、おれは大丈夫。\n特になにもされてないし、怖くないよ。",
+              "translations": {
+                "zh-cn": "嗯，我没事的。\n他们又没对我做什么，我不害怕哦。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 10,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "シュクユウ",
+              "text": "言う通りにじっとしてれば大丈夫だと思う。\nあの人たちの色が、そんなに悪い人たちじゃない気がするんだ。",
+              "translations": {
+                "zh-cn": "我想只要按他们说的乖乖待着就没问题的。\n从那些人的气色来看，我感觉他们并不是什么大恶人。"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "緊張で張り詰めた室内で、\n深いため息と共にジェドが沈黙を破った。",
+      "translations": {
+        "zh-cn": "在弥漫着紧张气息的室内，\n伴随着一声深沉的叹息，杰得打破了沉默。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "申し訳ないが、君たちが悪用しないという確証がない。\nサンタクロースの誇りでもある袋を渡すわけには……。",
+      "translations": {
+        "zh-cn": "很抱歉，我无法保证你们不会拿它做坏事。\n我不能把身为圣诞老人骄傲的布袋交给……"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ドンと呼ばれた者",
+      "text": "時間稼ぎか？　さては、何かを待っているな？\nたとえば、その机の裏で呼んだ警察……とか。",
+      "translations": {
+        "zh-cn": "在拖延时间吗？莫非，你是在等什么人？\n比方说……你在那张桌子后面悄悄呼叫的警察什么的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "……………\n……………。",
+      "translations": {
+        "zh-cn": "……………\n……………。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ドンと呼ばれた者",
+      "text": "クックックッ、顔に出すぎだぜ、じーさん。安心しな、\n警察を呼ばれたくらいで怒り狂って惨劇……なんてことにはならねぇよ。",
+      "translations": {
+        "zh-cn": "库库库，全写在脸上了啊，老头子。放宽心吧，\n我还不至于因为你报了警就暴跳如雷制造惨剧……那种事是不会发生的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ドンと呼ばれた者",
+      "text": "勿論、アンタの選択次第では、クリスマスらしく、\nこの部屋が赤に飾られることもある。",
+      "translations": {
+        "zh-cn": "当然了，取决于你的选择，这里也很可能会像过圣诞一样，\n被一片鲜红所装点。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "再びの長い長い沈黙、\nその時間がジェドの逡巡を容易に想像させた。",
+      "translations": {
+        "zh-cn": "室内再次陷入了漫长的沉默，\n这阵沉默让人轻易便能想象出杰得的犹豫与挣扎。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 7,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "……分かった。\n要求に応じ譲渡しよう。ただし、すぐに立ち去ってくれ。",
+      "translations": {
+        "zh-cn": "……我明白了。\n我会答应你们的要求把它让渡出去。但是，请你们立刻离开。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ドンと呼ばれた者",
+      "text": "勿論、用が済んだらすぐさまにでも。\nアンタが理解のある人で本当に助かったよ。",
+      "translations": {
+        "zh-cn": "那是自然，办完事之后我们会立刻走人。\n你能这么通情达理真是帮了大忙了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 9,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "声の主がそう言い残すと、\nどこからか大量の鳥たちが羽ばたく音が聞こえてくる。",
+      "translations": {
+        "zh-cn": "那个声音的主人留下这句话后，\n不知从何处传来了大量鸟儿振翅的声音。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 10,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "しばらくして鳥の鳴き声が遠くに消えていった頃、\n再び部屋の中が静寂に包まれるとジェドから声がかかる。",
+      "translations": {
+        "zh-cn": "过了一会儿，当鸟儿的啼鸣逐渐远去并消失，\n房间内再次重归寂静时，杰得开了口。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 11,
+        "page_no": 11,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "怖かったろう、もう大丈夫だよ。\n彼らは目的を果たして帰っていった。",
+      "translations": {
+        "zh-cn": "吓坏了吧，已经没事了。\n他们达到了目的，已经离开了。"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 11,
+        "page_no": 12,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_xmas2022_1-1_c_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_c_01",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 12,
+                "cmd_index": 10,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "自分たちが人質になったせいで……",
+              "translations": {
+                "zh-cn": "都是因为我们成了人质……"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 12,
+                "page_no": 0,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "気にすることはないさ、私はサンタに関わる事で\n子供たちを危険に晒したくないからね。",
+              "translations": {
+                "zh-cn": "用不着放在心上。无论如何，我都绝不希望因为圣诞老人的事，\n而让孩子们身陷险境。"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_c_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 12,
+                "cmd_index": 11,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "サンタの袋、大丈夫なんですか？",
+              "translations": {
+                "zh-cn": "圣诞老人的布袋，真的没关系吗？"
+              }
+            }
+          ],
+          "following_text": []
+        },
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_c_02",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 11,
+                "page_no": 12,
+                "cmd_index": 12,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "ジェド校長、怖かったです～",
+              "translations": {
+                "zh-cn": "杰得校长，好可怕啊～"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 13,
+                "page_no": 0,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "speaker": "ジェド",
+              "text": "お～よしよし、甘えん坊だね。\n本当に良かった、君たちを守ることが出来て。",
+              "translations": {
+                "zh-cn": "哦～乖乖，真是个爱撒娇的孩子呢。\n真的太好了，能够保护好你们。"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 14,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "彼らが持ち去った私の「神器」、\n白いプレゼント袋については心配いらないよ。",
+      "translations": {
+        "zh-cn": "关于被他们带走的我的「神器」——\n那个白色的礼物布袋，并不需要担心。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 14,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "あれは、持っているだけではただの布袋だ。\nそう簡単に悪用できないはずさ。",
+      "translations": {
+        "zh-cn": "那个东西光是拿着的话，不过就是个普通的布袋罢了。\n照理来说是不可能轻易被滥用的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 14,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "（それに……本当に「神器」を手放してしまった場合、\n　私は君たちの前から姿を消しているのだから）",
+      "translations": {
+        "zh-cn": "（更何况……如果真的失去了「神器」，\n　我现在早就已经从你们的眼前消失了）"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 14,
+        "page_no": 3,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "speaker": "タヂカラオ",
+      "text": "突入――！！\n通報を受けてタヂカラオ、現場に到着したであります！！",
+      "translations": {
+        "zh-cn": "突入——！！\n接到报案，手力男已抵达现场是也！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 14,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オオグチマガミ",
+      "text": "バウッ！　どこでありますか！\n人質を取って立てこもる凶悪犯は！！",
+      "translations": {
+        "zh-cn": "汪呜！在何处是也！\n劫持人质固守室内的穷凶极恶之徒在何处！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 14,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "speaker": "２人",
+      "text": "………………あれ？",
+      "translations": {
+        "zh-cn": "………………咦？"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 14,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "merge_label": "quest_evMain_xmas2022_1-1_d_after",
+      "branches": [
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_d_01",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 6,
+                "cmd_index": 3,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "一足遅かったね……",
+              "translations": {
+                "zh-cn": "迟了一步呢……"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 15,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "タヂカラオ",
+              "text": "なぬ！　まさか、もうホシは逃げてしまったのでありますか！？\n緊急車両でかっ飛ばして来たでありますのに！！",
+              "translations": {
+                "zh-cn": "什么！难道说，嫌犯已经逃跑了是也！？\n亏我们还开着紧急车辆一路狂飙赶来的说！！"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_d_02",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 6,
+                "cmd_index": 4,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "挨拶代わりのぱーんち！",
+              "translations": {
+                "zh-cn": "当作打招呼的一记重拳！"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 16,
+                "page_no": 0,
+                "cmd_index": 5,
+                "sub_index": 0
+              },
+              "speaker": "オオグチマガミ",
+              "text": "ぐほぉっ！　挨拶代わりの良い一発をありがとうでありますっ！\nそして、申し訳ないであります……。",
+              "translations": {
+                "zh-cn": "咕哇！多谢您这记精彩的打招呼重拳是也！\n还有，万分抱歉是也……"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 16,
+                "page_no": 1,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "オオグチマガミ",
+              "text": "自分たちがもう少し早く到着していれば、\nこんなに怖い思いをさせずにすみましたのに……。",
+              "translations": {
+                "zh-cn": "若是我们能再早一点赶到的话，\n就不会让各位受到如此惊吓了……"
+              }
+            }
+          ]
+        },
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_d_03",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 14,
+                "page_no": 6,
+                "cmd_index": 5,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "タヂカラオ怖かったよ～",
+              "translations": {
+                "zh-cn": "手力男，好可怕啊～"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 17,
+                "page_no": 0,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "タヂカラオ",
+              "text": "どわっ！　どっ、どっ、どうしたのでありますか！\n後輩が見ておりますので、公共の場ではどうか……どうか！",
+              "translations": {
+                "zh-cn": "哇哇！怎、怎、怎么了是也！\n后辈还在看着呢，在公共场合还请务必……务必矜持一点！"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 18,
+        "page_no": 0,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ジェド",
+      "text": "すまないね、もう少し引き留めておければよかったんだが、\nあれ以上は一緒にいた子らが危険だと私が判断したんだ。",
+      "translations": {
+        "zh-cn": "不好意思啊，要是能多拖延他们一阵子就好了，\n但我判断如果再拖延下去，身边的孩子们会有危险。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 18,
+        "page_no": 1,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "タヂカラオ",
+      "text": "とんでもないであります！　善良な市民の皆様には\nなんら落ち度はなく、すべては立てこもり犯の所業……！",
+      "translations": {
+        "zh-cn": "哪里的话是也！善良的市民各位没有任何过错，\n这一切全都是那群劫持犯的恶行……！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 18,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "オオグチマガミ",
+      "text": "恐ろしい現場に立ち会われたばかりで申し訳ないのでありますが、\n犯人逮捕のため、ご協力頂いても良いでありますか？",
+      "translations": {
+        "zh-cn": "让各位刚经历如此可怕的现场便要配合我们，实在很抱歉，\n但为了将犯人绳之以法，能否请各位配合协助调查是也？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 18,
+        "page_no": 3,
+        "cmd_index": 6,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "簡素な取り調べを受けたが、ほとんど犯人の姿を見ていない\n__HET__PT_18_3_0__たちはすぐさま解放された。",
+      "translations": {
+        "zh-cn": "在接受了简短的问话后，由于几乎没看到犯人的长相，\n<param=playerName>等人很快便被放行了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 18,
+        "page_no": 4,
+        "cmd_index": 7,
+        "sub_index": 0
+      },
+      "speaker": "リョウタ",
+      "text": "……犯人たち、逮捕されて、\n早くサンタの袋、帰ってくると良いね。",
+      "translations": {
+        "zh-cn": "……要是犯人们能快点被逮捕，\n圣诞老人的布袋也能早点还回来就好了呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 18,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ヨウル",
+      "text": "うん、でもタヂカラオさんたちが言うには\nかなり手際が良くてほとんど証拠も残ってないって……。",
+      "translations": {
+        "zh-cn": "嗯，可是手力男先生他们说，\n对方的手法相当利落，几乎没有留下什么证据……"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 18,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "リョウタ",
+      "text": "__HET__PT_18_6_0__、今日のクリスマスパーティーだけど、\n僕遅れるか……もしかしたら行けないかも。",
+      "translations": {
+        "zh-cn": "<param=playerName>，关于今天的圣诞派对，\n我可能会迟到……甚至可能去不了了。"
+      }
+    },
+    {
+      "type": "choice",
+      "order": {
+        "label_index": 18,
+        "page_no": 7,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "merge_label": "",
+      "branches": [
+        {
+          "target_label": "quest_evMain_xmas2022_1-1_e_after",
+          "options": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 18,
+                "page_no": 7,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "mc",
+              "text": "協力してあげるんだね",
+              "translations": {
+                "zh-cn": "你是打算帮他们吧"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 18,
+                "page_no": 7,
+                "cmd_index": 3,
+                "sub_index": 1
+              },
+              "speaker": "mc",
+              "text": "リョウタらしいね",
+              "translations": {
+                "zh-cn": "很有良太的风格呢"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 18,
+                "page_no": 7,
+                "cmd_index": 4,
+                "sub_index": 2
+              },
+              "speaker": "mc",
+              "text": "１日遅らせられないか頼んでみるよ",
+              "translations": {
+                "zh-cn": "我去拜托大家推迟一天吧"
+              }
+            }
+          ],
+          "following_text": [
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 0,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "リョウタ",
+              "text": "頼んでいたケーキが食べれないのは残念だけど……\n友達が困ってるんだからじっとしてられないや。",
+              "translations": {
+                "zh-cn": "虽然吃不到订好的蛋糕很遗憾……\n但朋友有难，我可坐不住呀。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 1,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "speaker": "ヨウル",
+              "text": "……あれ、シュクユウくんはどこに行ったんだろう？\n彼も警察に協力してたはずだよね。",
+              "translations": {
+                "zh-cn": "……咦，祝融同学去哪里了呢？\n他刚才应该也在协助警方的调查才对呀。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 2,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "ヨウル",
+              "text": "先に聴取が終わって帰ったのかな？\n出来れば荒川区について、もう少し聞いておきたかったんだけど。",
+              "translations": {
+                "zh-cn": "是先一步结束问询回去了吗？\n如果可以的话，我还想再向他打听一下关于荒川区的事呢。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 3,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "リョウタ",
+              "text": "それじゃあ__HET__PT_19_3_0__、みんなによろしくね！\nもし何か分かったら連絡よろしく！",
+              "translations": {
+                "zh-cn": "那么<param=playerName>，替我向大家问好哦！\n要是查到了什么线索，记得联系我！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 4,
+                "cmd_index": 1,
+                "sub_index": 0
+              },
+              "speaker": "リョウタ",
+              "text": "パーティーに行けないのは残念だけど、僕が選んだことだから\n無理してパーティーは延期にしなくても大丈夫だから！",
+              "translations": {
+                "zh-cn": "虽然不能去派对很可惜，但这是我自己的选择，\n不用勉强大家把派对延期的！"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 5,
+                "cmd_index": 4,
+                "sub_index": 0
+              },
+              "speaker": "",
+              "text": "２人が去り、サンタスクールを後にしようとした\n__HET__PT_19_5_0__は校門に傘を差した人影を見つける。",
+              "translations": {
+                "zh-cn": "两人离开后，正准备离开圣诞老人学校的\n<param=playerName>，发现校门口有一个撑着伞的人影。"
+              }
+            },
+            {
+              "type": "text",
+              "order": {
+                "label_index": 19,
+                "page_no": 6,
+                "cmd_index": 5,
+                "sub_index": 0
+              },
+              "speaker": "バートロ",
+              "text": "ハロー、ヒューマン？\n迎えに来ました、__HET__PT_19_6_0__。",
+              "translations": {
+                "zh-cn": "Hello，人类？\n我来接你了，<param=playerName>。"
+              }
+            },
+            {
+              "type": "choice",
+              "order": {
+                "label_index": 19,
+                "page_no": 7,
+                "cmd_index": 2,
+                "sub_index": 0
+              },
+              "merge_label": "",
+              "branches": [
+                {
+                  "target_label": "quest_evMain_xmas2022_1-1_f_after",
+                  "options": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 19,
+                        "page_no": 7,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "speaker": "mc",
+                      "text": "バートロ！？",
+                      "translations": {
+                        "zh-cn": "巴特罗！？"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 19,
+                        "page_no": 7,
+                        "cmd_index": 3,
+                        "sub_index": 1
+                      },
+                      "speaker": "mc",
+                      "text": "わざわざありがとう",
+                      "translations": {
+                        "zh-cn": "特意赶来，谢谢你"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 19,
+                        "page_no": 7,
+                        "cmd_index": 4,
+                        "sub_index": 2
+                      },
+                      "speaker": "mc",
+                      "text": "でもどうしてここに？",
+                      "translations": {
+                        "zh-cn": "可是你怎么会在这里？"
+                      }
+                    }
+                  ],
+                  "following_text": [
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 20,
+                        "page_no": 0,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "バートロ",
+                      "text": "我が__HET__PT_20_0_0__同志__HET__PT_20_0_1__より入信があり、\nサンタスクールの回線をハックして様子を伺っていたのです。",
+                      "translations": {
+                        "zh-cn": "我收到了我方<ruby=タワリシチ>同志<\/ruby>发来的通讯，\n便黑进了圣诞老人学校的网络观察里面的情况。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 20,
+                        "page_no": 1,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "バートロ",
+                      "text": "なんとまあ、君が事件に巻き込まれているではありませんか！\nそれで直接、様子を見に来たという訳ですよ。",
+                      "translations": {
+                        "zh-cn": "哎呀呀，没想到你竟然被卷入了事件当中！\n所以我这才亲自过来看看到底是怎么回事。"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "order": {
+                        "label_index": 20,
+                        "page_no": 2,
+                        "cmd_index": 1,
+                        "sub_index": 0
+                      },
+                      "speaker": "バートロ",
+                      "text": "ついでと言ってはなんですが、\n今日も大雪が降るので傘を持ってきました、どうぞ？",
+                      "translations": {
+                        "zh-cn": "顺便我也顺水推舟，\n考虑到今天会下大雪，便带了一把伞过来，请用？"
+                      }
+                    },
+                    {
+                      "type": "choice",
+                      "order": {
+                        "label_index": 20,
+                        "page_no": 3,
+                        "cmd_index": 2,
+                        "sub_index": 0
+                      },
+                      "merge_label": "",
+                      "branches": [
+                        {
+                          "target_label": "quest_evMain_xmas2022_1-1_g_after",
+                          "options": [
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 20,
+                                "page_no": 3,
+                                "cmd_index": 2,
+                                "sub_index": 0
+                              },
+                              "speaker": "mc",
+                              "text": "こんなに晴れてるのに？",
+                              "translations": {
+                                "zh-cn": "明明天气这么晴朗？"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 20,
+                                "page_no": 3,
+                                "cmd_index": 3,
+                                "sub_index": 1
+                              },
+                              "speaker": "mc",
+                              "text": "予報じゃ晴れだったけど……",
+                              "translations": {
+                                "zh-cn": "天气预报明明说是晴天……"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 20,
+                                "page_no": 3,
+                                "cmd_index": 4,
+                                "sub_index": 2
+                              },
+                              "speaker": "mc",
+                              "text": "そっか、これ以上積もらないといいけど",
+                              "translations": {
+                                "zh-cn": "这样啊，要是别再积雪就好了"
+                              }
+                            }
+                          ],
+                          "following_text": [
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 21,
+                                "page_no": 0,
+                                "cmd_index": 2,
+                                "sub_index": 0
+                              },
+                              "speaker": "",
+                              "text": "タイミングを計ったかのように急に辺りは暗くなり、\n雪がにわかに降り始める。",
+                              "translations": {
+                                "zh-cn": "仿佛看准了时机一般，周围骤然暗了下来，\n雪花突然纷纷扬扬地飘落。"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 21,
+                                "page_no": 1,
+                                "cmd_index": 2,
+                                "sub_index": 0
+                              },
+                              "speaker": "バートロ",
+                              "text": "ハハハハハッ！　ぼくの予測の方が\nそこらの天気予報よりも、遥かに正確でしょう？",
+                              "translations": {
+                                "zh-cn": "哈哈哈哈哈！我的预测比起外面的天气预报，\n要精准得多吧？"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 21,
+                                "page_no": 2,
+                                "cmd_index": 1,
+                                "sub_index": 0
+                              },
+                              "speaker": "バートロ",
+                              "text": "傘をどうぞ、それと君のギルドにはぼくの方から\n事情についてお話しておきましたのでご心配なく。",
+                              "translations": {
+                                "zh-cn": "请拿好伞。另外，关于事情的原委，\n我已经代你向你的公会说明过了，请不必担心。"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 21,
+                                "page_no": 3,
+                                "cmd_index": 1,
+                                "sub_index": 0
+                              },
+                              "speaker": "バートロ",
+                              "text": "君の友達がパーティーに参加しない選択を取ることも\nぼくは予測していましたので、それについても話しておきました。",
+                              "translations": {
+                                "zh-cn": "我也早已预料到你的朋友会选择不参加派对，\n所以关于这一点我也一并知会过了。"
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "order": {
+                                "label_index": 21,
+                                "page_no": 4,
+                                "cmd_index": 1,
+                                "sub_index": 0
+                              },
+                              "speaker": "バートロ",
+                              "text": "パーティーについては日を改めるそうですよ。\nあなたもこんなことに巻き込まれた後ですしね。",
+                              "translations": {
+                                "zh-cn": "派对似乎决定改期举行了哦。\n毕竟你也刚刚被卷入了这种事情嘛。"
+                              }
+                            },
+                            {
+                              "type": "choice",
+                              "order": {
+                                "label_index": 21,
+                                "page_no": 5,
+                                "cmd_index": 2,
+                                "sub_index": 0
+                              },
+                              "merge_label": "",
+                              "branches": [
+                                {
+                                  "target_label": "quest_evMain_xmas2022_1-1_h_after",
+                                  "options": [
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 21,
+                                        "page_no": 5,
+                                        "cmd_index": 2,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "mc",
+                                      "text": "そうだ、シュクユウ見なかった？",
+                                      "translations": {
+                                        "zh-cn": "对了，你看到祝融了吗？"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 21,
+                                        "page_no": 5,
+                                        "cmd_index": 3,
+                                        "sub_index": 1
+                                      },
+                                      "speaker": "mc",
+                                      "text": "もう陽も暮れそうだし――",
+                                      "translations": {
+                                        "zh-cn": "天也快黑了——"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 21,
+                                        "page_no": 5,
+                                        "cmd_index": 4,
+                                        "sub_index": 2
+                                      },
+                                      "speaker": "mc",
+                                      "text": "一緒に帰ろうかと思ったんだけど",
+                                      "translations": {
+                                        "zh-cn": "本来想着和他一起回去的"
+                                      }
+                                    }
+                                  ],
+                                  "following_text": [
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 22,
+                                        "page_no": 0,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "バートロ",
+                                      "text": "あぁ、君とやけに親しく話していた\n背丈の低い子供のことですね？",
+                                      "translations": {
+                                        "zh-cn": "啊，你是说那个刚才跟你聊得十分亲近的\n矮个子孩子吧？"
+                                      }
+                                    },
+                                    {
+                                      "type": "text",
+                                      "order": {
+                                        "label_index": 22,
+                                        "page_no": 1,
+                                        "cmd_index": 1,
+                                        "sub_index": 0
+                                      },
+                                      "speaker": "バートロ",
+                                      "text": "神宿学園初等部所属、異世界オールドワンズ由来の特殊な\n「権能」を持ち、過去にはこの東京を恐怖に――",
+                                      "translations": {
+                                        "zh-cn": "隶属于神宿学园小学部，拥有源自异世界旧支配者的特殊\n「权能」，过去曾让这座东京陷入恐惧之——"
+                                      }
+                                    },
+                                    {
+                                      "type": "choice",
+                                      "order": {
+                                        "label_index": 22,
+                                        "page_no": 2,
+                                        "cmd_index": 2,
+                                        "sub_index": 0
+                                      },
+                                      "merge_label": "",
+                                      "branches": [
+                                        {
+                                          "target_label": "quest_evMain_xmas2022_1-1_k_after",
+                                          "options": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 22,
+                                                "page_no": 2,
+                                                "cmd_index": 2,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "mc",
+                                              "text": "ストップストーップ！",
+                                              "translations": {
+                                                "zh-cn": "停！打住打住！"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 22,
+                                                "page_no": 2,
+                                                "cmd_index": 3,
+                                                "sub_index": 1
+                                              },
+                                              "speaker": "mc",
+                                              "text": "で、どこに行ったか知ってる？",
+                                              "translations": {
+                                                "zh-cn": "所以，你知道他去哪里了吗？"
+                                              }
+                                            }
+                                          ],
+                                          "following_text": [
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 23,
+                                                "page_no": 0,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "バートロ",
+                                              "text": "いいえ、見てはいませんね。\nただ、予測計算は可能です。",
+                                              "translations": {
+                                                "zh-cn": "不，我并没有亲眼看到。\n不过，进行预测计算倒是轻而易举。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 23,
+                                                "page_no": 1,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "バートロ",
+                                              "text": "おそらくはサンタスクールを襲撃した黒服たちに\nついて行ったのだと思います。",
+                                              "translations": {
+                                                "zh-cn": "我认为，他大概是跟着袭击圣诞老人学校的黑衣人\n一起离开了。"
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "order": {
+                                                "label_index": 23,
+                                                "page_no": 2,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "speaker": "",
+                                              "text": "バートロは淡々と抑揚のない声で\n信じがたい推論を話す。",
+                                              "translations": {
+                                                "zh-cn": "巴特罗用毫无起伏的平静语调，\n道出了令人难以置信的推论。"
+                                              }
+                                            },
+                                            {
+                                              "type": "choice",
+                                              "order": {
+                                                "label_index": 23,
+                                                "page_no": 3,
+                                                "cmd_index": 1,
+                                                "sub_index": 0
+                                              },
+                                              "merge_label": "",
+                                              "branches": [
+                                                {
+                                                  "target_label": "quest_evMain_xmas2022_1-1_m_after",
+                                                  "options": [
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 23,
+                                                        "page_no": 3,
+                                                        "cmd_index": 1,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "mc",
+                                                      "text": "連れ去られた！？",
+                                                      "translations": {
+                                                        "zh-cn": "被带走了！？"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 23,
+                                                        "page_no": 3,
+                                                        "cmd_index": 2,
+                                                        "sub_index": 1
+                                                      },
+                                                      "speaker": "mc",
+                                                      "text": "探さないと！！",
+                                                      "translations": {
+                                                        "zh-cn": "必须去找他！！"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 23,
+                                                        "page_no": 3,
+                                                        "cmd_index": 3,
+                                                        "sub_index": 2
+                                                      },
+                                                      "speaker": "mc",
+                                                      "text": "シュクユウが危ない！",
+                                                      "translations": {
+                                                        "zh-cn": "祝融有危险！"
+                                                      }
+                                                    }
+                                                  ],
+                                                  "following_text": [
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 24,
+                                                        "page_no": 0,
+                                                        "cmd_index": 1,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "バートロ",
+                                                      "text": "いえ、そうではありません。\nぼくはついて行ったと言いました。",
+                                                      "translations": {
+                                                        "zh-cn": "不，并非如此。\n我刚才说的是“跟着离开了”。"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "order": {
+                                                        "label_index": 24,
+                                                        "page_no": 1,
+                                                        "cmd_index": 1,
+                                                        "sub_index": 0
+                                                      },
+                                                      "speaker": "バートロ",
+                                                      "text": "つまりは、彼は自らの意思で、\n黒服たちの後を追ったということです。",
+                                                      "translations": {
+                                                        "zh-cn": "也就是说，他是出于自身的意愿，\n主动尾随那群黑衣人而去的。"
+                                                      }
+                                                    },
+                                                    {
+                                                      "type": "choice",
+                                                      "order": {
+                                                        "label_index": 24,
+                                                        "page_no": 2,
+                                                        "cmd_index": 2,
+                                                        "sub_index": 0
+                                                      },
+                                                      "merge_label": "",
+                                                      "branches": [
+                                                        {
+                                                          "target_label": "quest_evMain_xmas2022_1-1_n_after",
+                                                          "options": [
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 24,
+                                                                "page_no": 2,
+                                                                "cmd_index": 2,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "mc",
+                                                              "text": "そんな馬鹿な！？",
+                                                              "translations": {
+                                                                "zh-cn": "怎么可能！？"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 24,
+                                                                "page_no": 2,
+                                                                "cmd_index": 3,
+                                                                "sub_index": 1
+                                                              },
+                                                              "speaker": "mc",
+                                                              "text": "それは笑えないジョークだ",
+                                                              "translations": {
+                                                                "zh-cn": "这个玩笑可一点都不好笑"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 24,
+                                                                "page_no": 2,
+                                                                "cmd_index": 4,
+                                                                "sub_index": 2
+                                                              },
+                                                              "speaker": "mc",
+                                                              "text": "（__HET__PT_24_2_0__訝__HET__PT_24_2_1__しげな目で見る）",
+                                                              "translations": {
+                                                                "zh-cn": "（用<ruby=いぶか>怀疑<\/ruby>的眼神看着他）"
+                                                              }
+                                                            }
+                                                          ],
+                                                          "following_text": [
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 25,
+                                                                "page_no": 0,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "バートロ",
+                                                              "text": "ぼくは馬鹿じゃなく、残念ながらジョークでもありません。\nやはり、気付いていなかったのですね？",
+                                                              "translations": {
+                                                                "zh-cn": "我不是傻子，而且遗憾的是这也不是开玩笑。\n看来你果然没有注意到呢？"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 25,
+                                                                "page_no": 1,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "バートロ",
+                                                              "text": "あの場で彼は、目隠しもされていなければ、\n縛られても居なかったのですよ。",
+                                                              "translations": {
+                                                                "zh-cn": "在那个现场，他既没有被蒙上眼睛，\n也没有被捆绑住身体哦。"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 25,
+                                                                "page_no": 2,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "バートロ",
+                                                              "text": "ただ、彼の幼さから無力と判断され、\n捨て置かれた……という可能性はあります。",
+                                                              "translations": {
+                                                                "zh-cn": "虽然也有可能只是因为他年纪尚幼而被判定为构不成威胁，\n从而被置之不理……"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 25,
+                                                                "page_no": 3,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "バートロ",
+                                                              "text": "しかし、それは低いと考えています。\n何故なら彼はあの場で最も落ち着いた呼吸をしていました。",
+                                                              "translations": {
+                                                                "zh-cn": "但我认为那种可能性很低。\n因为他当时是全场呼吸最为平稳的人。"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "text",
+                                                              "order": {
+                                                                "label_index": 25,
+                                                                "page_no": 4,
+                                                                "cmd_index": 1,
+                                                                "sub_index": 0
+                                                              },
+                                                              "speaker": "バートロ",
+                                                              "text": "銃を向けられたあの瞬間ですらほとんど心拍数の変化が\n見られなかった。つまり、彼らは裏で通じていたのですよ。",
+                                                              "translations": {
+                                                                "zh-cn": "甚至就连枪口对准他的那一瞬间，他的心率也几乎没有任何波动。\n换言之，他们私底下是串通好的。"
+                                                              }
+                                                            },
+                                                            {
+                                                              "type": "choice",
+                                                              "order": {
+                                                                "label_index": 25,
+                                                                "page_no": 5,
+                                                                "cmd_index": 2,
+                                                                "sub_index": 0
+                                                              },
+                                                              "merge_label": "",
+                                                              "branches": [
+                                                                {
+                                                                  "target_label": "quest_evMain_xmas2022_1-1_o_after",
+                                                                  "options": [
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 25,
+                                                                        "page_no": 5,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "mc",
+                                                                      "text": "そこまで分かるのか……",
+                                                                      "translations": {
+                                                                        "zh-cn": "连这种事都能看出来吗……"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 25,
+                                                                        "page_no": 5,
+                                                                        "cmd_index": 3,
+                                                                        "sub_index": 1
+                                                                      },
+                                                                      "speaker": "mc",
+                                                                      "text": "信じたくないけど……",
+                                                                      "translations": {
+                                                                        "zh-cn": "虽然我很不想相信……"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 25,
+                                                                        "page_no": 5,
+                                                                        "cmd_index": 4,
+                                                                        "sub_index": 2
+                                                                      },
+                                                                      "speaker": "mc",
+                                                                      "text": "それが本当だとしたら何故……？",
+                                                                      "translations": {
+                                                                        "zh-cn": "如果那是真的，究竟是为什么……？"
+                                                                      }
+                                                                    }
+                                                                  ],
+                                                                  "following_text": [
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 0,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "まだ根拠は挙げられますが、すべてを説明するのに\n６時間ほどかかります。……お聞きになりますか？",
+                                                                      "translations": {
+                                                                        "zh-cn": "我还能列举出更多根据，不过要把一切都解释清楚的话\n得花上大约6个小时。……你要听吗？"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 1,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "それとも、防犯カメラの映像から、彼がどこへ向かったのか、\nすぐにぼくが検索して差し上げましょうか？",
+                                                                      "translations": {
+                                                                        "zh-cn": "还是说，由我立刻通过监控摄像头的画面，\n来帮你检索他究竟前往了何处呢？"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 2,
+                                                                        "cmd_index": 18,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "なるほど、そんなことだろうと思っていました。\n僕もウキウキで妹を迎えに行ったというのに……。",
+                                                                      "translations": {
+                                                                        "zh-cn": "原来如此，我就猜到会是这样。\n亏我还兴高采烈地去接妹妹……"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 3,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "いざ着いてみれば、__HET__PT_26_3_0__は入れ違いで\n帰ったというではないですか！",
+                                                                      "translations": {
+                                                                        "zh-cn": "结果一到那里，居然听人说<param=playerName>已经刚好错过\n并回去了！"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 4,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "しかも！　僕が折角誘われていたクリスマスパーティーも！\nまさかの延期！！　どうしてなのです！？！？",
+                                                                      "translations": {
+                                                                        "zh-cn": "而且！好不容易邀请我参加的圣诞派对！\n竟然也延期了！！这是为什么啊！？！？"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 5,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "__HET__PT_26_5_0__は__HET__PT_26_5_1__あのループ__HET__PT_26_5_2__で、\nあの日、あの時、あそこへ来るはずだった、はずでした。",
+                                                                      "translations": {
+                                                                        "zh-cn": "<param=playerName>在<em=・>那个循环<\/em>中，\n本该在那个日子、那个时刻来到那里的。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 6,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "ですが、ハハ、君はよく__HET__PT_26_6_0__のことを\n予測不能だからこそ、面白いと言っていたではありませんか。",
+                                                                      "translations": {
+                                                                        "zh-cn": "但是，哈哈，你不也经常说正因为<param=playerName>无法预测，\n才显得有趣吗。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 7,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "予測を裏切られることと、\n期待が叶わないことは、まったく別の代物ですよ！？",
+                                                                      "translations": {
+                                                                        "zh-cn": "预测落空与期待破灭，\n可是完全不能一概而论的两码事啊！？"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 8,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "",
+                                                                      "text": "対面する２人はトランプで、カードゲームに興じている。\nチップの量はほぼ同じくらい積まれている。",
+                                                                      "translations": {
+                                                                        "zh-cn": "面对面坐着的两人正在玩扑克牌游戏。\n筹码的数量堆得几乎不相上下。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 9,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "起こるはずの未来が__HET__PT_26_9_0__革__HET__PT_26_9_1__められた、それ即ち\n同様の予想が可能な何者かが介入したということです。",
+                                                                      "translations": {
+                                                                        "zh-cn": "本应发生的未来被<ruby=あらた>改<\/ruby>写了，也就是说，\n有能够做出同等预测的某人介入了其中。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 10,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "当時が今に比べて、ギルド間の堅苦しい協定など無いに等しく、\n「世界代行者」たちが自由に行動出来ていたとしても――",
+                                                                      "translations": {
+                                                                        "zh-cn": "即便与现在相比，当时公会之间那些死板的协定形同虚设，\n「世界代理人」们尚能自由行动——"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 11,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "この狭い東京ではそれが可能な人物は\n僕が知る限り、そう多くは居ません。",
+                                                                      "translations": {
+                                                                        "zh-cn": "但在如此狭窄的东京，就我所知，\n能够做到这一点的人也并不多。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 12,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "懐かしいですね、「世界代行者」同士も本気で争う者は少なく、\nむしろ仲が良いとまで言って良いほどでした。",
+                                                                      "translations": {
+                                                                        "zh-cn": "真让人怀念呢，当时在「世界代理人」之间很少有人动真格相争，\n甚至可以说关系好到了某种程度。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 13,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "",
+                                                                      "text": "バートロが控えめにコールを宣言、フッキは\nそれに危険を察知したのかフォールドを宣言した。",
+                                                                      "translations": {
+                                                                        "zh-cn": "巴特罗谨慎地宣布了跟注，而伏羲\n似乎察觉到了其中的危险，宣布了弃牌。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 14,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "ハハハハハ、ぼくらはあの頃から\n互いのことを目の敵としていましたがね。",
+                                                                      "translations": {
+                                                                        "zh-cn": "哈哈哈哈哈，不过我们俩从那时候起，\n就把彼此视作眼中钉了呢。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 15,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "__HET__PT_26_15_0__アカデミーの天才児__HET__PT_26_15_1__にも勝るとも劣らない\n超自然的な予測能力……「歴史とは恐ろしいものです」。",
+                                                                      "translations": {
+                                                                        "zh-cn": "那毫不逊色于<ruby=ぼくら>学院天才儿童<\/ruby>的\n超自然预测能力……“历史可真是可怕的东西啊”。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 16,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "それはこちらも同じですよ。\n人の身では……いえ、すみません――",
+                                                                      "translations": {
+                                                                        "zh-cn": "我这边也是彼此彼此哦。\n以人类之身……不，抱歉——"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 17,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "科学の脅威という言葉で片づけられる範疇を\nその予測精度は軽く逸脱していましたからね。",
+                                                                      "translations": {
+                                                                        "zh-cn": "因为那种预测精度，早已远远超出了\n一句“科学的威胁”所能概括的范畴呢。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 18,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "",
+                                                                      "text": "思わず出てしまった失言という名の銃弾を\nフッキは少し懐かしく思いながらも苦々しく思う。",
+                                                                      "translations": {
+                                                                        "zh-cn": "伏羲略带怀念、却又满嘴苦涩地反思着\n方才那颗脱口而出的、名为失言的子弹。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 19,
+                                                                        "cmd_index": 0,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "",
+                                                                      "text": "次のラウンドはフッキのレイズに対して、\nバートロは眉ひとつ動かさずにフォールドを宣言した。",
+                                                                      "translations": {
+                                                                        "zh-cn": "下一轮，面对伏羲的加注，\n巴特罗连眉毛都没动一下便宣布了弃牌。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 20,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "ハハハ、ボリショイ、サンクス！\nお気遣いありがとうございます。",
+                                                                      "translations": {
+                                                                        "zh-cn": "哈哈哈，非常感谢！\n多谢你的关照。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 21,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "あの頃はまだあなたから見て\n人らしく見えたということでしょうか。",
+                                                                      "translations": {
+                                                                        "zh-cn": "也就是说，在你看来，\n那个时候的我还能算得上像个“人类”吗？"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 22,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "今とは違って、補助なしで不自由なく歩き回れていましたし、\n科学的にもまだ近いと言えたのはたしかです。",
+                                                                      "translations": {
+                                                                        "zh-cn": "与现在不同，那时我不需要任何辅助就能行动自如地四处走动，\n从科学的角度来说确实也更接近人类。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 23,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "それだけに、何とか人らしくあろうと努力を重ねていましたが、\nあなたの評価を聞くに、徒労ではなかったのかもしれませんね。",
+                                                                      "translations": {
+                                                                        "zh-cn": "正因如此，我那时拼命努力想要保有人类的模样，\n如今听了你的评价，看来倒也未必是徒劳一场呢。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 24,
+                                                                        "cmd_index": 3,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "",
+                                                                      "text": "フッキはそれを聞いて、目を細めて一瞬手を止める。\nややあって、フォールドを宣言した。",
+                                                                      "translations": {
+                                                                        "zh-cn": "伏羲听罢眯起眼睛，动作停顿了一瞬。\n稍作沉吟后，宣布了弃牌。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 25,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "……やはり、勝負になりませんね。\n同等の予測が可能な二者の間では完全な運に寄ってしまう。",
+                                                                      "translations": {
+                                                                        "zh-cn": "……果然，根本没法决出胜负呢。\n在能够进行同等预测的两人之间，胜负将完全取决于运气。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 26,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "面白いではないですか。\nそういう意味では勝負が見えないとも言えますから。",
+                                                                      "translations": {
+                                                                        "zh-cn": "这不也挺有趣的吗？\n从这个意义上来说，也代表着胜负未卜嘛。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 27,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "どうです？　こうして昔話に花を咲かせ、語らいあったのです。\nお互いに今までの確執を忘れましょう。",
+                                                                      "translations": {
+                                                                        "zh-cn": "如何？既然我们都像这样畅谈往事、相谈甚欢了。\n不如就抛开彼此过去的隔阂吧。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 28,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "ちょうどクリスマスが近いですから、\n共に__HET__PT_26_28_0__にプレゼントを贈りにいきませんか？",
+                                                                      "translations": {
+                                                                        "zh-cn": "正好圣诞节也快到了，\n要不要一起去给<param=playerName>送一份礼物呢？"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 29,
+                                                                        "cmd_index": 3,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "……__HET__PT_26_29_0__否__HET__PT_26_29_1__。\nやめておきます。",
+                                                                      "translations": {
+                                                                        "zh-cn": "……<ruby=ニェット>否<\/ruby>。\n我还是算了。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 30,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "今のぼくは__HET__PT_26_30_0__の\n友人でも、同志でもありませんので。",
+                                                                      "translations": {
+                                                                        "zh-cn": "因为现在的我，既不是<param=playerName>的\n朋友，也不是同志。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 31,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "フッキ",
+                                                                      "text": "……では、丁度良いですしこのゲームで決めますか。\n僕は勿論、オールインで。",
+                                                                      "translations": {
+                                                                        "zh-cn": "……那么，正好就用这局游戏来决定如何？\n我当然是，全押。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 32,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "",
+                                                                      "text": "手札が配られる前に宣言をするフッキ、\nその目には自信がありありと満ち溢れていた。",
+                                                                      "translations": {
+                                                                        "zh-cn": "伏羲在底牌发下来之前便做出了宣言，\n他的眼中满是毫无掩饰的自信。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 33,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "バートロ",
+                                                                      "text": "……オールイン。",
+                                                                      "translations": {
+                                                                        "zh-cn": "……全押。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 34,
+                                                                        "cmd_index": 19,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "マフィア",
+                                                                      "text": "ドンから連絡があった。サンタの袋は\nシームルグファミリーに先を越されてしまったらしい。",
+                                                                      "translations": {
+                                                                        "zh-cn": "老大那边来消息了。据说圣诞老人的布袋\n已经被西木鲁格家族捷足先登了。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 35,
+                                                                        "cmd_index": 3,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "マフィア",
+                                                                      "text": "チッ、ふざけやがって！\nおれっちたちが成り上がるための打ち出の小槌を……。",
+                                                                      "translations": {
+                                                                        "zh-cn": "啧，开什么玩笑！\n那可是能让我们飞黄腾达的摇钱树啊……"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 36,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "マフィア",
+                                                                      "text": "なぁ、どうすんだよ！\nぜぇぇぇんぶ、計画が狂っちまったじゃねぇか。",
+                                                                      "translations": {
+                                                                        "zh-cn": "喂，现在怎么办啊！\n全——部，计划全都乱套了不是吗！"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 37,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "",
+                                                                      "text": "荒れているマフィアの元へ、\n通信機が彼らの上司から、追加の通達を告げる。",
+                                                                      "translations": {
+                                                                        "zh-cn": "躁动不安的黑手党们手中的通讯器，\n传来了他们上司的追加指示。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 38,
+                                                                        "cmd_index": 2,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "マフィア",
+                                                                      "text": "落ち着け、計画の変更だそうだ。\nこうなってしまった以上は……分かってるな？",
+                                                                      "translations": {
+                                                                        "zh-cn": "冷静点，据说是计划变更。\n既然事情变成这样了……你们懂的吧？"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 39,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "マフィア",
+                                                                      "text": "ヒヒヒヒ！　そっちの方が分かりやすくて良いな！\nシームルグファミリーを……潰す。",
+                                                                      "translations": {
+                                                                        "zh-cn": "嘻嘻嘻嘻！那种做法简单明了，太合我意了！\n去把西木鲁格家族……彻底碾碎。"
+                                                                      }
+                                                                    },
+                                                                    {
+                                                                      "type": "text",
+                                                                      "order": {
+                                                                        "label_index": 26,
+                                                                        "page_no": 40,
+                                                                        "cmd_index": 1,
+                                                                        "sub_index": 0
+                                                                      },
+                                                                      "speaker": "マフィア",
+                                                                      "text": "あぁ、生き残るのはおれたち、\nピートファミリーだ。",
+                                                                      "translations": {
+                                                                        "zh-cn": "啊啊，能活下来的只有我们——\n彼得家族。"
+                                                                      }
+                                                                    }
+                                                                  ]
+                                                                }
+                                                              ]
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "protect": [
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_1_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_2_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_2_1__",
+      "origin": "<param=shukuyu>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 12,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_7_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 8,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_8_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 9,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_9_0_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 18,
+        "page_no": 3,
+        "cmd_index": 6,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_18_3_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 18,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_18_6_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 19,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_19_3_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 19,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_19_5_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 19,
+        "page_no": 6,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_19_6_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 20,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_20_0_0__",
+      "origin": "<ruby=タワリシチ>"
+    },
+    {
+      "order": {
+        "label_index": 20,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_20_0_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 24,
+        "page_no": 2,
+        "cmd_index": 4,
+        "sub_index": 2
+      },
+      "label": "__HET__PT_24_2_0__",
+      "origin": "<ruby=いぶか>"
+    },
+    {
+      "order": {
+        "label_index": 24,
+        "page_no": 2,
+        "cmd_index": 4,
+        "sub_index": 2
+      },
+      "label": "__HET__PT_24_2_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_3_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_5_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_5_1__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_5_2__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_6_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_9_0__",
+      "origin": "<ruby=あらた>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_9_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_15_0__",
+      "origin": "<ruby=ぼくら>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_15_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 28,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_28_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 29,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_29_0__",
+      "origin": "<ruby=ニェット>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 29,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_29_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 26,
+        "page_no": 30,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_26_30_0__",
+      "origin": "<param=playerName>"
+    }
+  ],
+  "seq_to_order": [
+    {
+      "seq": 1,
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 17,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 2,
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 3,
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 4,
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 5,
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 6,
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 7,
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 8,
+      "order": {
+        "label_index": 7,
+        "page_no": 0,
+        "cmd_index": 12,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 9,
+      "order": {
+        "label_index": 7,
+        "page_no": 1,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 10,
+      "order": {
+        "label_index": 7,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 11,
+      "order": {
+        "label_index": 7,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 12,
+      "order": {
+        "label_index": 7,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 13,
+      "order": {
+        "label_index": 7,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 14,
+      "order": {
+        "label_index": 7,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 15,
+      "order": {
+        "label_index": 7,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 16,
+      "order": {
+        "label_index": 7,
+        "page_no": 8,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 17,
+      "order": {
+        "label_index": 8,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 18,
+      "order": {
+        "label_index": 7,
+        "page_no": 8,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 19,
+      "order": {
+        "label_index": 9,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 20,
+      "order": {
+        "label_index": 9,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 21,
+      "order": {
+        "label_index": 9,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 22,
+      "order": {
+        "label_index": 7,
+        "page_no": 8,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 23,
+      "order": {
+        "label_index": 10,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 24,
+      "order": {
+        "label_index": 10,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 25,
+      "order": {
+        "label_index": 11,
+        "page_no": 0,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 26,
+      "order": {
+        "label_index": 11,
+        "page_no": 1,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 27,
+      "order": {
+        "label_index": 11,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 28,
+      "order": {
+        "label_index": 11,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 29,
+      "order": {
+        "label_index": 11,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 30,
+      "order": {
+        "label_index": 11,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 31,
+      "order": {
+        "label_index": 11,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 32,
+      "order": {
+        "label_index": 11,
+        "page_no": 7,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 33,
+      "order": {
+        "label_index": 11,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 34,
+      "order": {
+        "label_index": 11,
+        "page_no": 9,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 35,
+      "order": {
+        "label_index": 11,
+        "page_no": 10,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 36,
+      "order": {
+        "label_index": 11,
+        "page_no": 11,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 37,
+      "order": {
+        "label_index": 11,
+        "page_no": 12,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 38,
+      "order": {
+        "label_index": 12,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 39,
+      "order": {
+        "label_index": 11,
+        "page_no": 12,
+        "cmd_index": 11,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 40,
+      "order": {
+        "label_index": 11,
+        "page_no": 12,
+        "cmd_index": 12,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 41,
+      "order": {
+        "label_index": 13,
+        "page_no": 0,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 42,
+      "order": {
+        "label_index": 14,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 43,
+      "order": {
+        "label_index": 14,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 44,
+      "order": {
+        "label_index": 14,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 45,
+      "order": {
+        "label_index": 14,
+        "page_no": 3,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 46,
+      "order": {
+        "label_index": 14,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 47,
+      "order": {
+        "label_index": 14,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 48,
+      "order": {
+        "label_index": 14,
+        "page_no": 6,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 49,
+      "order": {
+        "label_index": 15,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 50,
+      "order": {
+        "label_index": 14,
+        "page_no": 6,
+        "cmd_index": 4,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 51,
+      "order": {
+        "label_index": 16,
+        "page_no": 0,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 52,
+      "order": {
+        "label_index": 16,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 53,
+      "order": {
+        "label_index": 14,
+        "page_no": 6,
+        "cmd_index": 5,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 54,
+      "order": {
+        "label_index": 17,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 55,
+      "order": {
+        "label_index": 18,
+        "page_no": 0,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 56,
+      "order": {
+        "label_index": 18,
+        "page_no": 1,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 57,
+      "order": {
+        "label_index": 18,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 58,
+      "order": {
+        "label_index": 18,
+        "page_no": 3,
+        "cmd_index": 6,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 59,
+      "order": {
+        "label_index": 18,
+        "page_no": 4,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 60,
+      "order": {
+        "label_index": 18,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 61,
+      "order": {
+        "label_index": 18,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 62,
+      "order": {
+        "label_index": 18,
+        "page_no": 7,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 63,
+      "order": {
+        "label_index": 18,
+        "page_no": 7,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 64,
+      "order": {
+        "label_index": 18,
+        "page_no": 7,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 65,
+      "order": {
+        "label_index": 19,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 66,
+      "order": {
+        "label_index": 19,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 67,
+      "order": {
+        "label_index": 19,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 68,
+      "order": {
+        "label_index": 19,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 69,
+      "order": {
+        "label_index": 19,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 70,
+      "order": {
+        "label_index": 19,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 71,
+      "order": {
+        "label_index": 19,
+        "page_no": 6,
+        "cmd_index": 5,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 72,
+      "order": {
+        "label_index": 19,
+        "page_no": 7,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 73,
+      "order": {
+        "label_index": 19,
+        "page_no": 7,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 74,
+      "order": {
+        "label_index": 19,
+        "page_no": 7,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 75,
+      "order": {
+        "label_index": 20,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 76,
+      "order": {
+        "label_index": 20,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 77,
+      "order": {
+        "label_index": 20,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 78,
+      "order": {
+        "label_index": 20,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 79,
+      "order": {
+        "label_index": 20,
+        "page_no": 3,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 80,
+      "order": {
+        "label_index": 20,
+        "page_no": 3,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 81,
+      "order": {
+        "label_index": 21,
+        "page_no": 0,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 82,
+      "order": {
+        "label_index": 21,
+        "page_no": 1,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 83,
+      "order": {
+        "label_index": 21,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 84,
+      "order": {
+        "label_index": 21,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 85,
+      "order": {
+        "label_index": 21,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 86,
+      "order": {
+        "label_index": 21,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 87,
+      "order": {
+        "label_index": 21,
+        "page_no": 5,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 88,
+      "order": {
+        "label_index": 21,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 89,
+      "order": {
+        "label_index": 22,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 90,
+      "order": {
+        "label_index": 22,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 91,
+      "order": {
+        "label_index": 22,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 92,
+      "order": {
+        "label_index": 22,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 93,
+      "order": {
+        "label_index": 23,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 94,
+      "order": {
+        "label_index": 23,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 95,
+      "order": {
+        "label_index": 23,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 96,
+      "order": {
+        "label_index": 23,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 97,
+      "order": {
+        "label_index": 23,
+        "page_no": 3,
+        "cmd_index": 2,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 98,
+      "order": {
+        "label_index": 23,
+        "page_no": 3,
+        "cmd_index": 3,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 99,
+      "order": {
+        "label_index": 24,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 100,
+      "order": {
+        "label_index": 24,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 101,
+      "order": {
+        "label_index": 24,
+        "page_no": 2,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 102,
+      "order": {
+        "label_index": 24,
+        "page_no": 2,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 103,
+      "order": {
+        "label_index": 24,
+        "page_no": 2,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 104,
+      "order": {
+        "label_index": 25,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 105,
+      "order": {
+        "label_index": 25,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 106,
+      "order": {
+        "label_index": 25,
+        "page_no": 2,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 107,
+      "order": {
+        "label_index": 25,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 108,
+      "order": {
+        "label_index": 25,
+        "page_no": 4,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 109,
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 110,
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 3,
+        "sub_index": 1
+      }
+    },
+    {
+      "seq": 111,
+      "order": {
+        "label_index": 25,
+        "page_no": 5,
+        "cmd_index": 4,
+        "sub_index": 2
+      }
+    },
+    {
+      "seq": 112,
+      "order": {
+        "label_index": 26,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 113,
+      "order": {
+        "label_index": 26,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 114,
+      "order": {
+        "label_index": 26,
+        "page_no": 2,
+        "cmd_index": 18,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 115,
+      "order": {
+        "label_index": 26,
+        "page_no": 3,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 116,
+      "order": {
+        "label_index": 26,
+        "page_no": 4,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 117,
+      "order": {
+        "label_index": 26,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 118,
+      "order": {
+        "label_index": 26,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 119,
+      "order": {
+        "label_index": 26,
+        "page_no": 7,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 120,
+      "order": {
+        "label_index": 26,
+        "page_no": 8,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 121,
+      "order": {
+        "label_index": 26,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 122,
+      "order": {
+        "label_index": 26,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 123,
+      "order": {
+        "label_index": 26,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 124,
+      "order": {
+        "label_index": 26,
+        "page_no": 12,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 125,
+      "order": {
+        "label_index": 26,
+        "page_no": 13,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 126,
+      "order": {
+        "label_index": 26,
+        "page_no": 14,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 127,
+      "order": {
+        "label_index": 26,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 128,
+      "order": {
+        "label_index": 26,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 129,
+      "order": {
+        "label_index": 26,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 130,
+      "order": {
+        "label_index": 26,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 131,
+      "order": {
+        "label_index": 26,
+        "page_no": 19,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 132,
+      "order": {
+        "label_index": 26,
+        "page_no": 20,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 133,
+      "order": {
+        "label_index": 26,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 134,
+      "order": {
+        "label_index": 26,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 135,
+      "order": {
+        "label_index": 26,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 136,
+      "order": {
+        "label_index": 26,
+        "page_no": 24,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 137,
+      "order": {
+        "label_index": 26,
+        "page_no": 25,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 138,
+      "order": {
+        "label_index": 26,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 139,
+      "order": {
+        "label_index": 26,
+        "page_no": 27,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 140,
+      "order": {
+        "label_index": 26,
+        "page_no": 28,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 141,
+      "order": {
+        "label_index": 26,
+        "page_no": 29,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 142,
+      "order": {
+        "label_index": 26,
+        "page_no": 30,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 143,
+      "order": {
+        "label_index": 26,
+        "page_no": 31,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 144,
+      "order": {
+        "label_index": 26,
+        "page_no": 32,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 145,
+      "order": {
+        "label_index": 26,
+        "page_no": 33,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 146,
+      "order": {
+        "label_index": 26,
+        "page_no": 34,
+        "cmd_index": 19,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 147,
+      "order": {
+        "label_index": 26,
+        "page_no": 35,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 148,
+      "order": {
+        "label_index": 26,
+        "page_no": 36,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 149,
+      "order": {
+        "label_index": 26,
+        "page_no": 37,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 150,
+      "order": {
+        "label_index": 26,
+        "page_no": 38,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 151,
+      "order": {
+        "label_index": 26,
+        "page_no": 39,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 152,
+      "order": {
+        "label_index": 26,
+        "page_no": 40,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    }
+  ]
+}

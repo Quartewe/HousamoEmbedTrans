@@ -1,0 +1,5176 @@
+{
+  "scene": "xmas2022_4-2",
+  "quest_label": "quest_evMain_xmas2022_4-2",
+  "game_version": "5.20.0",
+  "raw_lang": "ja",
+  "translated": {
+    "zh-cn": true
+  },
+  "character": {
+    "mc": {
+      "name": "mc",
+      "aliases": [],
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "school": [
+        "神宿学園"
+      ],
+      "guild": [
+        "新宿サモナーズ"
+      ],
+      "origin_world": [],
+      "relationships": [],
+      "info": "竜の尾より断ち離された神剣の「神器」を手にした、異界からの転光生。全属性を併せ持つ刃に宿る「離断」の権能は「支配」と「力」を分断し、その代償として「流者」は故郷から追放される。23の異界と接続した東京での出会いを経て、切り離されていた記憶の一部を受け容れ、神器の真価をより引き出せるようになった。",
+      "description": "",
+      "speech_style": ""
+    },
+    "high_weight": [
+      {
+        "name": "シームルグ",
+        "aliases": [],
+        "i18n": {
+          "en": "Simurgh",
+          "zh_tw": "西摩格",
+          "zh_cn": "西摩格"
+        },
+        "school": [
+          "日暮離通信学園"
+        ],
+        "guild": [
+          "荒川ワンダラーズ"
+        ],
+        "origin_world": [
+          "ガローデマーン"
+        ],
+        "relationships": [
+          {
+            "target": "フッキ",
+            "type": "好意"
+          },
+          {
+            "target": "バロン",
+            "type": "好意"
+          },
+          {
+            "target": "タダトモ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ペルシア神話の巨鳥で、知恵と治癒を司る「転光生」。無数の羽根一枚一枚が「神器」であり、傷ついた者に羽根を振りかざせばあらゆる傷が癒される。遥かな時の彼方から世界を見守り続け、悩める者に叡智を授ける導き手として、東京の空を旋回する。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ティダ",
+        "aliases": [],
+        "i18n": {
+          "en": "Teda",
+          "zh_tw": "堤達",
+          "zh_cn": "堤达"
+        },
+        "school": [
+          "中迦野芸能学園"
+        ],
+        "guild": [
+          "練馬ウォーモンガーズ"
+        ],
+        "origin_world": [
+          "ニライカナイ"
+        ],
+        "relationships": [
+          {
+            "target": "マカラ",
+            "type": "好意"
+          },
+          {
+            "target": "ソール",
+            "type": "好意"
+          },
+          {
+            "target": "イツァムナー",
+            "type": "好意"
+          },
+          {
+            "target": "コロポックル",
+            "type": "苦手"
+          }
+        ],
+        "info": "異世界ニライカナイの世界代行者で、天の帝の記憶を宿す好色な少年王であり、陽光の鏑矢の神器24本を操る武人でもある。太陽の光が届く場所へ肉体の一部として干渉する権能は、死と別れを水平線の彼方へ隔離するシステム・ニライカナイの中核を担う。光が遮られる場所や深淵には力が及ばず、自分を愛さなかった相手への執着を通じて未知の感情に向き合っている。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "シュクユウ",
+        "aliases": [],
+        "i18n": {
+          "en": "Zhurong",
+          "zh_tw": "祝融",
+          "zh_cn": "祝融"
+        },
+        "school": [
+          "神宿学園"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "ホウライ",
+          "オールドワンズ"
+        ],
+        "relationships": [
+          {
+            "target": "ヘルメス",
+            "type": "好意"
+          },
+          {
+            "target": "ブギーマン",
+            "type": "好意"
+          },
+          {
+            "target": "ベヒモス",
+            "type": "苦手"
+          },
+          {
+            "target": "クアンタム",
+            "type": "苦手"
+          }
+        ],
+        "info": "ホウライ出身の鼠の「転光生」で、飢野学園の風紀委員を務める。尾の先の小さな光の「神器」は失せ物を探し当て、隠された真実を見つけ出す。小柄で気弱だが正義感が強く、学園の平和を守るためなら危険な調査にも果敢に挑む。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "マフィア",
+        "aliases": [],
+        "i18n": {
+          "en": "",
+          "zh_tw": "",
+          "zh_cn": ""
+        },
+        "school": [],
+        "guild": [],
+        "origin_world": [],
+        "relationships": [],
+        "info": "",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "ブレイク",
+        "aliases": [],
+        "i18n": {
+          "en": "Breke",
+          "zh_tw": "布雷克",
+          "zh_cn": "布雷克"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "未所属"
+        ],
+        "origin_world": [
+          "ユグドラシル",
+          "ユートピア"
+        ],
+        "relationships": [
+          {
+            "target": "ヘパイストス",
+            "type": "好意"
+          },
+          {
+            "target": "勇者",
+            "type": "好意"
+          },
+          {
+            "target": "マーナガルム",
+            "type": "苦手"
+          },
+          {
+            "target": "バートロ",
+            "type": "苦手"
+          }
+        ],
+        "info": "異世界ユートピアの技術で造られたとされるマシン型の転光生で、微小機械の神器を組み替えて環境へ自在に適応する。個人的な記憶を失っているが、B-type Frekeとしてユグドラシルの狼とワタリガラスの記憶を取り込み、異世界存在の情報と権能を疑似再現する機構を備える。本来は外宇宙調査とテラフォーミングのために設計され、愛や孤独、自分が何者かを知る旅路に立っている。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "フッキ",
+        "aliases": [],
+        "i18n": {
+          "en": "Fuxi",
+          "zh_tw": "伏羲",
+          "zh_cn": "伏羲"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "品川インベイダーズ"
+        ],
+        "origin_world": [
+          "ホウライ"
+        ],
+        "relationships": [
+          {
+            "target": "テムジン",
+            "type": "好意"
+          },
+          {
+            "target": "スモーキーゴッド",
+            "type": "苦手"
+          }
+        ],
+        "info": "ワノクニ出身の武士で、八犬士の一人として「悌」の珠を持つ「転光生」。弓の名手であり、弟分たちを導く兄貴分として慕われる。破魔の矢の「神器」は邪なるものを貫き清める権能を持ち、忠義と友情に厚い侍気質の持ち主。年下を守るためなら命も惜しまぬ侠気を持つが、裏切りだけは決して許さない。",
+        "description": "",
+        "speech_style": ""
+      },
+      {
+        "name": "バートロ",
+        "aliases": [],
+        "i18n": {
+          "en": "Bertro",
+          "zh_tw": "巴特羅",
+          "zh_cn": "巴特罗"
+        },
+        "school": [
+          "？？？"
+        ],
+        "guild": [
+          "練馬ウォーモンガーズ"
+        ],
+        "origin_world": [
+          "ユグドラシル"
+        ],
+        "relationships": [
+          {
+            "target": "シヴァ",
+            "type": "好意"
+          },
+          {
+            "target": "ブレイク",
+            "type": "苦手"
+          },
+          {
+            "target": "ヴァプラ",
+            "type": "苦手"
+          }
+        ],
+        "info": "ホウライ出身の鬼の「転光生」で、得真道学園の風紀委員を務める。規律を重んじる真面目な性格だが、内に秘めた闘争本能は抑えきれないものがあり、時折箍が外れて暴走する。戒めの数珠の「神器」は自らの力を封印するための枷であり、人間の道を学ぶために日々修養に励む求道者。",
+        "description": "",
+        "speech_style": ""
+      }
+    ],
+    "low_weight": []
+  },
+  "mentioned_characters": [],
+  "game_terms": [
+    {
+      "term": "ウォーモンガーズ",
+      "i18n": {
+        "en": "Warmongers",
+        "zh_tw": "好戰者",
+        "zh_cn": "好战者"
+      },
+      "description": "練馬ウォーモンガーズは、練馬区・光が丘を拠点とする戦争と政変の真の三大ギルド。ギルドマスターはベルトロ。主な特徴は、過去ループの戦争記憶の武器化と、軍・行政・地下組織への強い影響力。"
+    },
+    {
+      "term": "ギルド",
+      "i18n": {
+        "en": "Guild",
+        "zh_tw": "公會",
+        "zh_cn": "公会"
+      },
+      "description": "東京に溢れるアプリを用いし者達の集い。\n\n大小様々な100を超えるギルドが東京に存在し、各ギルドはそれぞれ少なくとも1つの拠点とギルドマスターを要している。\n\nこの拠点が制圧され、ギルドマスターが敗北することでギルドは消滅する。\n\nギルドを正式発足するためには「ギルドマスター」「アプリバトルが可能な構成員(メンバー)を最低4人」「拠点」の3つが必要となる。\n\nギルドの全ての機能を利用するためにはさらにもう1人、合計5人の構成員が必要。\n\n第3章で明らかにされたこと"
+    },
+    {
+      "term": "ギルドマスター",
+      "i18n": {
+        "en": "Guild Master",
+        "zh_tw": "公會會長",
+        "zh_cn": "公会会长"
+      },
+      "description": "ギルドを束ねるリーダーのようなもの。\n\nGMとのやり取りを行う権利がある。\n\n基本的にギルドマスターはハーフであると言われている。\nその中でもクロガネの特殊性とキャラクエストより\"舞台である東京とよく似た別世界の住人と現地人のハーフではないか\"と考察されている。\nまた、多くのギルドマスターは歴史上・伝承の人物と似た名前\/似た境遇にあることも特筆すべきである。\nこれが一体何を意味するのか…"
+    },
+    {
+      "term": "神器",
+      "i18n": {
+        "en": "Sacred Artifacts",
+        "zh_tw": "神器",
+        "zh_cn": "神器"
+      },
+      "description": "持つべき役割を持った者だけが振るえる神の器。特定の権能を世界へ押し付け、物理法則を書き換えて通常ではあり得ない現象を起こす。東京には23の異世界、24の神話に由来する多様な神器があり、召喚には対応する役割と権能の宣言が必要。"
+    },
+    {
+      "term": "ニライカナイ",
+      "i18n": {
+        "en": "Nirai Kanai",
+        "zh_tw": "理想鄉",
+        "zh_cn": "龙宫"
+      },
+      "description": "ニライカナイは「ゲーム」に参加している異世界のひとつで、琉球神話を基にした、神々の国の名を冠する世界。\n\nニライカナイの「世界代行者」はティダ。追放された魂はキンマモン。\n\nニライカナイは、死と別れの概念を水平線の向こうへ追放することで、永遠を実現しようとする世界である。"
+    },
+    {
+      "term": "世界代行者",
+      "i18n": {
+        "en": "World Representative",
+        "zh_tw": "世界代理人",
+        "zh_cn": "世界代理人"
+      },
+      "description": "東京と繋がる23の世界の「勝利者たち」。23の異世界、各々の「信仰」を共にする多数の意志を代行し、「役割」と「権能」 を現す者。\n\n9章以降ではオールドワンズとユグドラシルの代行者を除く21人はそれぞれの目的の為、7人ずつ3つのギルドに分かれていることが発覚した。"
+    },
+    {
+      "term": "権能",
+      "i18n": {
+        "en": "Rule",
+        "zh_tw": "權能",
+        "zh_cn": "权能"
+      },
+      "description": "神器より溢れる「神の力」の一端で、神器の能力や性質を表すルール。神器召喚時に宣言される。同じ権能を持つ者はいても役割との組み合わせまで同一の例はなく、同系統の効果は重ねがけできない。矛盾する権能が衝突すると例外処理につながる。"
+    },
+    {
+      "term": "異世界",
+      "i18n": {
+        "en": "world",
+        "zh_tw": "異世界",
+        "zh_cn": "异世界"
+      },
+      "description": "舞台となる東京と十数年前にゲートで接続された、異なる神話体系の世界群。\n\n23のゲートに対応した23の異世界の他にも、未知の異世界が存在すると思われる。\n\n東京と繋がった23世界外の異世界"
+    },
+    {
+      "term": "ホウライ",
+      "i18n": {
+        "en": "Hourai",
+        "zh_tw": "蓬萊",
+        "zh_cn": "蓬莱"
+      },
+      "description": "ホウライは中国の伝説・民話・文学を基にした異世界で、ペングライとも呼ばれる。世界代行者はフッキ、追放者はジョカ。大洪水後にフッキとジョカが世界を再建したが、ジョカ追放後は戦争と飢饉が広がり、シンノウも救済の道を探し続けている。"
+    },
+    {
+      "term": "荒川ワンダラーズ",
+      "i18n": {
+        "en": "Arakawa Wanderers",
+        "zh_tw": "荒川流浪者",
+        "zh_cn": "荒川流浪者"
+      },
+      "description": "荒川ワンダラーズは、荒川区から足立区、荒川沿いを活動域とする放浪者のギルド。ギルドマスターはボヘミオ、不在時はバーゲストが代理を務める。主な特徴は、定住地を持たないことと、生存確認としての密な連絡網。"
+    },
+    {
+      "term": "日暮離通信学園",
+      "i18n": {
+        "en": "Nippori Online Academy",
+        "zh_tw": "日暮離通信學園",
+        "zh_cn": "日暮离通信学园"
+      },
+      "description": "日暮離通信学園は、詳細未整理の通信制教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "ガローデマーン",
+      "i18n": {
+        "en": "Midearth",
+        "zh_tw": "加洛德滿",
+        "zh_cn": "光明天"
+      },
+      "description": "ガローデマーンは「ゲーム」に参加している異世界のひとつで、イスラム以前のアラビア伝承の人物や、ゾロアスター教の人物を基にした世界とされ、名称はゾロアスター教における天国の概念に由来する。\n\nガローデマーンの「世界代行者」はアフラ・マズダ。追放された魂はアーリマン。"
+    },
+    {
+      "term": "練馬ウォーモンガーズ",
+      "i18n": {
+        "en": "Nerima Warmongers",
+        "zh_tw": "練馬好戰者",
+        "zh_cn": "练马好战者"
+      },
+      "description": "練馬ウォーモンガーズは、練馬区・光が丘を拠点とする戦争と政変の真の三大ギルド。ギルドマスターはベルトロ。主な特徴は、過去ループの戦争記憶の武器化と、軍・行政・地下組織への強い影響力。"
+    },
+    {
+      "term": "中迦野芸能学園",
+      "i18n": {
+        "en": "Nakano Performing Arts Academy",
+        "zh_tw": "中迦野藝能學園",
+        "zh_cn": "中迦野艺能学园"
+      },
+      "description": "中迦野芸能学園は、詳細未整理の芸能系教育機関。主な特徴、所在地、関連人物は今後確認する。"
+    },
+    {
+      "term": "未所属",
+      "i18n": {
+        "en": "Unaffiliated",
+        "zh_tw": "未隸屬",
+        "zh_cn": "未隶属"
+      },
+      "description": "特定のギルドに所属していない者たちを指す分類。ゲーム内の所属表示としては、明確な公会メンバーではないキャラクターに用いられる。"
+    },
+    {
+      "term": "神宿学園",
+      "i18n": {
+        "en": "Shinjuku Academy",
+        "zh_tw": "神宿學園",
+        "zh_cn": "神宿学园"
+      },
+      "description": "神宿学園は、新宿区にある主人公たちの通う教育機関。主な特徴は、自由度の高い指定制服と、転光生を含む多様な生徒を受け入れている点。関連する人物は主人公たち。"
+    },
+    {
+      "term": "オールドワンズ",
+      "i18n": {
+        "en": "Old Ones",
+        "zh_tw": "舊日支配者",
+        "zh_cn": "旧支配者"
+      },
+      "description": "オールドワンズはクトゥルフ神話を基にした星々の異世界。世界代行者はアザトース、追放者はクー・リトルリトル。夢は小世界の創造と見なされ、世界そのものもアザトースの夢とされる。狂気と終焉を永遠に繰り返す壊れた世界で、閉鎖領域外でも権能を使える特権を持つ。"
+    },
+    {
+      "term": "？？？",
+      "i18n": {
+        "en": "",
+        "zh_tw": "",
+        "zh_cn": ""
+      },
+      "description": ""
+    },
+    {
+      "term": "ユグドラシル",
+      "i18n": {
+        "en": "Yggdrasil",
+        "zh_tw": "尤克特拉希爾",
+        "zh_cn": "世界树"
+      },
+      "description": "ユグドラシルは北欧神話を基にした九つの世界から成る異世界。世界代行者はオーディン、東京でのリザーブはスルト、追放者はフレイ。ロキの壁によりラグナロクが終わらず、戦士たちはヴァルハラで蘇生され、死と再生の循環を永遠に繰り返す。"
+    },
+    {
+      "term": "ユートピア",
+      "i18n": {
+        "en": "Utopia",
+        "zh_tw": "烏托邦",
+        "zh_cn": "乌托邦"
+      },
+      "description": "ユートピアは近代以降のフィクションを基にした異世界。世界代行者はMxOTHER、追放者は不明。情報、エネルギー、遺伝資源などが高速に交換され、美しさや寿命すら操作可能な加速した世界で、意思決定と行動の効率が社会の中心にある。"
+    },
+    {
+      "term": "品川インベイダーズ",
+      "i18n": {
+        "en": "Shinagawa Invaders",
+        "zh_tw": "品川入侵者",
+        "zh_cn": "品川侵略者"
+      },
+      "description": "品川インベイダーズは、品川区を拠点とする侵略者・革命家・内部破壊者の真の三大ギルド。ギルドマスターは∀アイザック。主な特徴は、トロフィーの奪取と、社会基盤を内部から反転させる潜入工作。"
+    }
+  ],
+  "provider": {
+    "zh-cn": "openai"
+  },
+  "model": {
+    "zh-cn": "gemini-3.8-flash"
+  },
+  "summary": {
+    "zh-cn": "巴特罗讲述了自己最初捡回收养流浪猫并最终建立皮特家族的缘由。回到圣诞节装饰刚完成不久的过去，巴特罗借口休息来到祝融所在的房间，悄悄解除了祝融相机神器上的限制装置。与此同时，伏羲现身与堤达对峙，并借助祝融相机抽走生命力权能削弱了堤达。两人在激战中互相试探，伏羲以玩笑般的口吻点破堤达对主人公的执着，堤达则反唇相讥指出伏羲因害怕不被爱而患得患失。此时传来西摩格中枪且主人公被指为凶手的通报，两人决定兵分两路前去救援。场景再次闪回到数刻前，巴特罗在对相机动手脚时与伏羲打赌今夜天气，布下了算计的伏笔。"
+  },
+  "scene_items": [
+    {
+      "type": "if",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "condition": "playerSex==1",
+      "target_label": "quest_evMain_xmas2022_4-2shukuyu_a",
+      "merge_label": "quest_evMain_xmas2022_4-2shukuyu_after",
+      "following_text": []
+    },
+    {
+      "type": "if",
+      "order": {
+        "label_index": 1,
+        "page_no": 0,
+        "cmd_index": 5,
+        "sub_index": 0
+      },
+      "condition": "playerSex==2",
+      "target_label": "quest_evMain_xmas2022_4-2shukuyu_b",
+      "merge_label": "quest_evMain_xmas2022_4-2shukuyu_after",
+      "following_text": []
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ある時、__HET__PT_5_0_0__ぼく__HET__PT_5_0_1__は道端で\n１匹の野良猫に出会ったのです。",
+      "translations": {
+        "zh-cn": "某一天，<em=・>我<\/em>在路边\n遇到了一只流浪猫。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 15,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "前の飼い主に見捨てられたのでしょう。\nその野良猫は、ボロボロでしたよ。",
+      "translations": {
+        "zh-cn": "或许是被前主人抛弃了吧。\n那只流浪猫，当时浑身伤痕累累。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ですが誰もが知っているとおり、\nこの世界にはよくあることです。",
+      "translations": {
+        "zh-cn": "但这正如人尽皆知的那样，\n在这个世界上不过是司空见惯的事。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "死にかけて尚、その野良猫は這いずりながら\n何処かへ行こうとしているようでした。",
+      "translations": {
+        "zh-cn": "即使濒临死亡，那只流浪猫仍旧匍匐爬行着，\n似乎想要前往某处。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "まるで、向かうその先に\n安息の地があると信じているようでした。",
+      "translations": {
+        "zh-cn": "就仿佛它坚信在所向的前方，\n存在着一处安宁之地一样。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「……………。」",
+      "translations": {
+        "zh-cn": "「……………」"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "世界は「競争」で成り立っていて、\nそこには勝者と敗者が生まれるのみ。",
+      "translations": {
+        "zh-cn": "世界由“竞争”所构成，\n在那之中只会诞生胜者与败者。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「__HET__PT_5_7_0__無料のランチはない__HET__PT_5_7_1__」。\n誰もが常に生存をかけた「競争」を行っている。",
+      "translations": {
+        "zh-cn": "「<ruby=タンスターフル>没有免费的午餐<\/ruby>」。\n所有人时刻都在进行赌上生存的“竞争”。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "この野良猫はその「競争」に負けたのです。\nただそれだけ、何時でも何処にもよくあること――",
+      "translations": {
+        "zh-cn": "这只流浪猫在这场“竞争”中落败了。\n仅此而已，随时随地都会发生的常见之事——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「グルルル……。\n　……クゥーン、クゥーン、ペロペロ」",
+      "translations": {
+        "zh-cn": "「咕噜噜……\n　……呜呜，呜呜，舔舔」"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "だから、あれに興味を示したのは__HET__PT_5_10_0__ぼく__HET__PT_5_10_1__ではなく\n__HET__PT_5_10_2__ぼく__HET__PT_5_10_3__が連れていた__HET__PT_5_10_4__狼__HET__PT_5_10_5__の方だったのです。",
+      "translations": {
+        "zh-cn": "因此，对那孩子产生兴趣的并非<em=・>我<\/em>，\n而是<em=・>我<\/em>所带来的那只<ruby=こ>狼<\/ruby>。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 6,
+        "sub_index": 0
+      },
+      "speaker": "ブレイク",
+      "text": "ずっと共に生きてきた__HET__PT_5_11_0__片割れ__HET__PT_5_11_1__と離れ離れにさせられた\nあの__HET__PT_5_11_2__狼__HET__PT_5_11_3__は寂しかったのかも、しれません。",
+      "translations": {
+        "zh-cn": "与一直相伴相生的<ruby=フレキ>半身<\/ruby>被迫分离，\n那只<ruby=こ>狼<\/ruby>或许也感到寂寞了吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 12,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "__HET__PT_5_12_0__ぼく__HET__PT_5_12_1__には、そうした責任がありました。\nだから……その野良猫を拾ったのです。",
+      "translations": {
+        "zh-cn": "<em=・>我<\/em>身上，背负着那样的责任。\n所以……我收留了那只流浪猫。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 13,
+        "cmd_index": 11,
+        "sub_index": 0
+      },
+      "speaker": "マフィア",
+      "text": "１匹がいつしか、２匹、３匹へ。\nそれから何度も繰り返し、増えていきました。",
+      "translations": {
+        "zh-cn": "一只不知不觉变成了两只、三只。\n其后不断反复，数量愈发庞大。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ひとつ拾って後を見捨てる__HET__PT_5_14_0__論理__HET__PT_5_14_1__を\n__HET__PT_5_14_2__ぼく__HET__PT_5_14_3__は結局、見つけられることはなく。",
+      "translations": {
+        "zh-cn": "收留了一只之后，舍弃其余生命的<ruby=ロジック>逻辑<\/ruby>，\n<em=・>我<\/em>终究没能找寻得到。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 15,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "やがて__HET__PT_5_15_0__ぼく__HET__PT_5_15_1__は、こう呼ばれるようになったのです。\nピートファミリーのドン・■■■■、と。",
+      "translations": {
+        "zh-cn": "不知不觉间，<em=・>我<\/em>开始被人冠以这样的称呼。\n皮特家族的教父·■■■■。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ああ、ピートというのは__HET__PT_5_16_0__ぼく__HET__PT_5_16_1__が昔読んだ\n小説に出てくる猫の名前なのでして――",
+      "translations": {
+        "zh-cn": "啊，至于皮特这个名字，是<em=・>我<\/em>以前读过的\n某本小说里登场的小猫之名——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "それは、クリスマスの\n飾り付けが終わってすぐの頃。",
+      "translations": {
+        "zh-cn": "那是在圣诞节的\n装饰刚刚布置完毕的时候。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 18,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "このスラム街にてマフィアたちの\n戦いが始まるよりも前の出来事――",
+      "translations": {
+        "zh-cn": "发生在这片贫民窟里黑手党们的\n争斗开始之前的事——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 19,
+        "cmd_index": 17,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "おや、ドン・シームルグ。\nシュクユウくんはどこへ行きました？",
+      "translations": {
+        "zh-cn": "哎呀，唐·西摩格。\n祝融君去哪里了？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 20,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "シームルグ",
+      "text": "泣いて疲れたのか、\n眠いから少し中で休むと言っていた。",
+      "translations": {
+        "zh-cn": "许是哭累了，\n他说困了想进去休息一下。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "そうですか、では飾り付けも終わりましたし、\nぼくも少し休みます。何かありましたらご連絡を。",
+      "translations": {
+        "zh-cn": "这样啊，那么装饰既然也弄完了，\n我也去稍作休息。若有什么事请联系我。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "シームルグ",
+      "text": "……あぁ、ご苦労だった。\n子供たちの頼みを聞いてくれた礼は必ずする。",
+      "translations": {
+        "zh-cn": "……啊，辛苦了。\n你回应了孩子们的请求，这份恩情我一定会报答。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "ハハハ、結構ですよ。\nやりたくてやったことですので。",
+      "translations": {
+        "zh-cn": "哈哈哈，不必客气。\n这只是在下自己想做而已。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 24,
+        "cmd_index": 7,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "バートロはシームルグのアジトへと足を踏み入れる。\n向かったのは休憩室――",
+      "translations": {
+        "zh-cn": "巴特罗踏入了西摩格的藏身处。\n他前往的是休息室——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 25,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "しかし、健やかな寝息を立てている先客が\nベッドを既に使っている部屋だった。",
+      "translations": {
+        "zh-cn": "然而，那里早已有一位呼吸匀称沉睡着的先客\n正占用着床铺。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 26,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "シュクユウ",
+      "text": "シュピ――シュピ――。\nえへへへへ……暖かいね……。",
+      "translations": {
+        "zh-cn": "呼——呼——\n嘿嘿嘿……好暖和呀……"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 27,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "……………\n……………。",
+      "translations": {
+        "zh-cn": "……………\n……………"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 28,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "眠ったままのシュクユウに、\nバートロが音も立てずに忍び寄る。",
+      "translations": {
+        "zh-cn": "面对熟睡中的祝融，\n巴特罗悄无声息地潜行接近。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 29,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そして、シュクユウの首元に、\nバートロが手を伸ばそうとした瞬間――",
+      "translations": {
+        "zh-cn": "接着，正当巴特罗将手伸向\n祝融颈边的那一瞬间——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 30,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "おっと、とんでもない所に立ち会ってしまいましたね。\nシュクユウくんにいったい、何をされる気でしょう？",
+      "translations": {
+        "zh-cn": "哎呀，这可真是撞上不得了的场面了呢。\n您这是打算对祝融君做些什么呢？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 31,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "まったく驚いていない様子で\n現れたフッキがバートロにそう告げる。",
+      "translations": {
+        "zh-cn": "毫无半点惊讶之色的\n伏羲现出身影，向巴特罗搭话道。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 32,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "ウォーモンガーズ・ギルドマスター……いえ、今は\nピートファミリーのドン・バートロと呼ぶべきですか？",
+      "translations": {
+        "zh-cn": "好战者公会会长……不，现在\n应该称呼您为皮特家族的唐·巴特罗吗？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 33,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "ただの野良猫でしかなかったあれらをまとめあげ、\n組織として成り立たせているのは貴方ですね？",
+      "translations": {
+        "zh-cn": "将原本不过是普通野猫的它们统率起来，\n建立起一个组织的幕后黑手，就是您吧？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 34,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "ええ、そうですよ、フッキ。\nあなたならば、分かるでしょうね。",
+      "translations": {
+        "zh-cn": "哎呀，正是如此，伏羲。\n凭你的话，自然看得出来呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 35,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そしてバートロもまた、フッキへ\n「気付かれているのは予測通り」という顔で答える。",
+      "translations": {
+        "zh-cn": "而巴特罗也同样带着\n“被察觉早在预料之中”的神情回应伏羲。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "止めに来たのであれば、\n残念ながらもう手遅れですよ。",
+      "translations": {
+        "zh-cn": "如果你是来阻止我的，\n那很遗憾，已经为时已晚了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 37,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "無慈悲なる抗争は既に成りました。\nもはや誰にも、止めることは叶いません。",
+      "translations": {
+        "zh-cn": "残酷无情的抗争已经成型。\n如今已经没有任何人能够将其制止了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 38,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "フフ、その言葉、もっと早く止めて\n欲しかったと僕には聞こえましたけど？",
+      "translations": {
+        "zh-cn": "呵呵，这话在我听来，\n倒像是在说希望有人能更早来阻止您呢？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 39,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "バートロの瞳が一瞬、細くなったのを\n歴戦のギャンブラーであるフッキは見逃さなかった。",
+      "translations": {
+        "zh-cn": "巴特罗的眼眸在瞬间微微眯起，\n这没能逃过久经沙场的赌徒伏羲的双眼。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 40,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "……ぼくには彼らに生きていくための場所を\n与える方法がこれしか思いつかなかったもので。",
+      "translations": {
+        "zh-cn": "……因为在下能想到的给它们生存之所的办法，\n就只有这一个了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 41,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "「競争」を是とするぼくが関わった以上、\nこうなるのも必然だったということです。",
+      "translations": {
+        "zh-cn": "既然由奉行“竞争”的在下插手，\n演变成这样也是一种必然。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 42,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "それにしても意外でした。あなたは妹が自分の元から\n飛び出した__HET__PT_5_42_0__理由__HET__PT_5_42_1__を疎んでいるものだと。",
+      "translations": {
+        "zh-cn": "不过真是意外呢。在下本以为你会对自己妹妹\n离开身边的<ruby=オーロラ>理由<\/ruby>感到嫌恶呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 43,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "だから、ぼくがシュクユウくんに手を出しても、\n喜んで静観を決め込むと推測していたのですが。",
+      "translations": {
+        "zh-cn": "因此在下推测，就算我对祝融君动手，\n你也会乐得作壁上观才是。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 44,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "フフ、シュクユウくんは、\nあのオーロラとは別物ですよ。",
+      "translations": {
+        "zh-cn": "呵呵，祝融君\n可和那个极光是两码事哦。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 45,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "混同などしませんし、そもそも僕は\n妹と占い以外に左程興味はありません。",
+      "translations": {
+        "zh-cn": "我可不会混为一谈，而且说到底\n除了妹妹和占卜之外，我对其他事都没多大兴趣。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 46,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "……なるほど、勉強になりました。\n次回の計算のために、覚えておきますよ。",
+      "translations": {
+        "zh-cn": "……原来如此，受教了。\n在下会记下来，留作下一次的计算参考。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 47,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "ハハハ、次、次、次……いったい僕たちは\nいつまでこの__HET__PT_5_47_0__戦い__HET__PT_5_47_1__を続けるのでしょうねえ？",
+      "translations": {
+        "zh-cn": "哈哈哈，下一次、下一次、下一次……我们到底\n还要将这场<ruby=ゲーム>战斗<\/ruby>持续到什么时候呢？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 48,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "……。ぼくたちは何度も時間を繰り返し、\nそして何度もやり直してきましたね。",
+      "translations": {
+        "zh-cn": "……在下与你无数次重复时间，\n然后无数次重头再来过。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 49,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "そう、ぼくたちは似た者同士です。\nあの小説の猫のように「違う未来への扉」を探し続ける――",
+      "translations": {
+        "zh-cn": "是的，我们是一类人。\n就像那本小说里的猫一样，不断追寻着“通往不同未来的门”——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 50,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "話をする２人の横で、\nシュクユウは少し身をよじった。",
+      "translations": {
+        "zh-cn": "在交谈的两人身旁，\n祝融微微翻动了下身子。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 51,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "さて、どうやらあまり時間が\n残っていないようです、本題に入りましょう。",
+      "translations": {
+        "zh-cn": "好了，看来所剩的时间\n不多了，我们切入正题吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 52,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "訂正しておきますが、ぼくはシュクユウ君に\n危害を加えるつもりなどありません、ただ――",
+      "translations": {
+        "zh-cn": "顺带澄清一下，在下并没有加害祝融君的\n打算，只是——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 53,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そう言って、バートロは再びシュクユウの首元――\nそこにかけてある「神器」のカメラを手に取った。",
+      "translations": {
+        "zh-cn": "说着，巴特罗再次将手伸向祝融颈边——\n拿起了挂在那里的“神器”照相机。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 54,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そして、かつてあるギルドがこの「神器」に施した、\n「__HET__PT_5_54_0__制限装置__HET__PT_5_54_1__」を手際よく外してゆく……。",
+      "translations": {
+        "zh-cn": "接着，他手法娴熟地将曾经某家公会在该“神器”上施加的\n“<ruby=リミッター>限制装置<\/ruby>”给拆除了下来……"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 55,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そして時は進み――フッキは\nニライカナイの太陽王、ティダと相対していた。",
+      "translations": {
+        "zh-cn": "随后时间流转——伏羲正与\n龙宫的太阳王堤达正面对峙。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 56,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "手元の、破壊された通信機を捨て、\nティダはフッキを見やって、不遜に笑う。",
+      "translations": {
+        "zh-cn": "扔掉手中被破坏的通讯器，\n堤达看向伏羲，狂傲地笑了起来。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 57,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "……何のつもりだ、とは聞かねえぜ。\nこのタイミングで仕掛けて来やがったか。",
+      "translations": {
+        "zh-cn": "……老子就不问你打算干嘛了。\n挑在这个节骨眼上动手啊。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 58,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "えぇ、僕たち「世界代行者」は\nひとつの「賞品」を狙い合う間柄。",
+      "translations": {
+        "zh-cn": "是啊，我们这些“世界代理人”\n本就是争夺同一件“奖品”的关系。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 59,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "だな。まァ、それはわかる。\nだがフッキ……なめてんのか？",
+      "translations": {
+        "zh-cn": "也是。嘛，这点老子明白。\n但是伏羲……你看不起老子吗？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 60,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "お前がこの肉体派のオレ様と\n一対一で、真正面からやり合えるってかよ。",
+      "translations": {
+        "zh-cn": "你难道以为自己能跟肉体派的老子我\n一对一正面硬碰硬不成？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 61,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そう告げたティダの肉体には\n生命力、戦う力が満ち満ちていた。",
+      "translations": {
+        "zh-cn": "如此放话的堤达体内，\n充盈着蓬勃的生命力与战斗力量。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 62,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "ええ、僕は待ちプレイ、ハメプレイが身上ですしね。\n戦場で正面から万全の貴方とは相性が悪い……万全ならばですが。",
+      "translations": {
+        "zh-cn": "是呢，我的看家本领是打埋伏和陷阱玩法嘛。\n在战场上与全盛状态的你正面对决确实相性很差……如果，是在全盛状态的话。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 63,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "あの子に写真を撮らせたのは\n不覚でしたね、「世界代行者」ティダ？",
+      "translations": {
+        "zh-cn": "让那个孩子拍下照片\n可是一大失策呢，“世界代理人”堤达？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 64,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "両者臨戦態勢に入る――\nが、ティダが突如ガクリと膝をついた。",
+      "translations": {
+        "zh-cn": "双方摆出临战态势——\n然而，堤达突然双膝一软跪倒在地。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 65,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "……力が、抜けていく？\nこれは――！！",
+      "translations": {
+        "zh-cn": "……力量，在流失？\n这是——！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 66,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ティダの体から、光が、\n生命の力が立ち上っては抜けてゆく。",
+      "translations": {
+        "zh-cn": "从堤达的体内，光芒以及\n生命的力量升腾而起，不断被抽离。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 67,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そしてその行く先は\nシームルグファミリーのアジトの方角――",
+      "translations": {
+        "zh-cn": "而那力量流向的终点\n正是西摩格家族藏身处的方向——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 68,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "スラムの子供らが待っている\nあの場所の上空に輝く、オーロラ。",
+      "translations": {
+        "zh-cn": "在贫民窟孩子们等候的\n那个地方的上空，闪耀着极光。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 69,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "こいつは、あの「__HET__PT_5_69_0__天与の魔性__HET__PT_5_69_1__」の！\n奴の「権能」かぁッ！？",
+      "translations": {
+        "zh-cn": "这难道是，那个“<ruby=シュクユウ>天生尤物<\/ruby>”的！\n那家伙的“权能”吗ッ！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 70,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ティダの言葉を聞いて\nフッキは口角を上げる。",
+      "translations": {
+        "zh-cn": "听到堤达的话，\n伏羲扬起了嘴角。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 71,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "他者の色と生命の光を奪う……あくまで私の解釈ですが\nそれがシュクユウくん、彼の「権能」です。",
+      "translations": {
+        "zh-cn": "夺取他人的色彩与生命之光……虽然只是我的个人诠释，\n不过这就是祝融君，他的“权能”。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 72,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "そして、その力の影響下に置かれる条件は\n彼に写真を撮られること……フフ、覚えがありますよね？",
+      "translations": {
+        "zh-cn": "而且，受到那股力量影响的条件，\n就是被他拍下照片……呵呵，你有印象吧？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 73,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "貴方の「権能」は異世界ひとつを\n照らし尽くすほどに、非常に強力なもの。",
+      "translations": {
+        "zh-cn": "你的“权能”极其强大，\n足以将整个异世界照耀得透亮。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 74,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "あわよくば……程度に考えていたのですが、\nどうやら特攻が入ったようですね。",
+      "translations": {
+        "zh-cn": "我本想着……要是碰巧能奏效就好了，\n现在看来似乎打出了特效克制呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 75,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "もちろん、写真に撮られたのは僕も一緒ですが\n僕の戦うスタイルには__HET__PT_5_75_0__生命力__HET__PT_5_75_1__は不要ですので。",
+      "translations": {
+        "zh-cn": "当然，被拍进照片里的我也一样，\n但在我的战斗风格里，并不需要<ruby=そういうもの>生命力<\/ruby>这种东西。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 76,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "フッキが指先を動かすと、\nその周囲に__HET__PT_5_76_0__札__HET__PT_5_76_1__が舞う。",
+      "translations": {
+        "zh-cn": "伏羲指尖微动，\n周遭便飞舞起<ruby=カード>牌<\/ruby>。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 77,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "なるほど、「自分も写真に入ることで」\nオレ様に警戒をさせなかったという訳か……天晴だ。",
+      "translations": {
+        "zh-cn": "原来如此，通过“自己也拍进照片里”，\n来让老子放松警惕吗……干得漂亮。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 78,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "わずかに得意を削る程度ですら、\n「世界代行者」同士の戦いでは命取りとなる――",
+      "translations": {
+        "zh-cn": "哪怕只是稍微被削弱长处，\n在“世界代理人”彼此的战斗中都是致命的——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 79,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "その天秤を狂わされてしまったティダは、\n今のやり取りで自らの不利を悟った。だが――",
+      "translations": {
+        "zh-cn": "天平被彻底打乱的堤达，\n在刚才的交锋中意识到了自己的劣势。但是——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 80,
+        "cmd_index": 7,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "さぁ、よろしいですか、ティダ。\n僕のゲーム盤上で、踊ってもらいましょう！",
+      "translations": {
+        "zh-cn": "那么，准备好了吗，堤达。\n请在我的棋盘上尽情起舞吧！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 81,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "ハハハ、上等！　__HET__PT_5_81_0__昏__HET__PT_5_81_1__き権謀術数を\n吹き飛ばしてこその__HET__PT_5_81_2__太陽王__HET__PT_5_81_3__よ！",
+      "translations": {
+        "zh-cn": "哈哈哈，正合我意！　唯有把<ruby=くら>阴暗<\/ruby>的权谋诡计\n统统吹飞，才配得上我这<ruby=オレさま>太阳王<\/ruby>！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 5,
+        "page_no": 82,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "来やがれ、ホウライの「世界代行者」フッキ！\nこのティダの威光、万民の眼に見せつけてやる――！！",
+      "translations": {
+        "zh-cn": "尽管放马过来吧，蓬莱的“世界代理人”伏羲！\n就让万民亲眼见识一下本堤达的威光吧——！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 14,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "やるじゃねえかよ、フッキ。\nまさかここまで楽しませてくれるとは思わなかったぜ！",
+      "translations": {
+        "zh-cn": "干得不错嘛，伏羲。\n没想到你能让老子尽兴到这种地步！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "ハァッ、ハァッ……とんでもない子供です。\nここまで策を講じて尚、この暴れぶりとは――",
+      "translations": {
+        "zh-cn": "哈啊，哈啊……真是个不可理喻的孩子。\n布下如此周密的策略，居然还能闹腾成这样——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 2,
+        "cmd_index": 23,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "フッキの攻撃をかろうじて、飛んで避けるティダだったが、\n着地した地面が、カチリと音を立てて吹き飛ぶ。",
+      "translations": {
+        "zh-cn": "堤达勉强跃起避开伏羲的攻击，\n然而刚落地的地面却伴随着咔嗒一声巨响被炸飞。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "札による起爆をモロに食らったティダへ\nそしてフッキは追い打ちをかけ踏みつける。",
+      "translations": {
+        "zh-cn": "正中符牌起爆威力的堤达，\n紧接着又被伏羲追击踩在脚下。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 4,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "ハハハハハ、痛ェ！\nだが、楽しい、楽しいなァ！？",
+      "translations": {
+        "zh-cn": "哈哈哈哈哈，好痛！\n不过，真痛快，太痛快了啊！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "戦況の不利を理解し、しかしティダは\n己の勝利を毛ほども疑わない目で笑う。",
+      "translations": {
+        "zh-cn": "明明清楚战况的不利，然而堤达那双眼睛里\n却带着对自身胜利不含半点怀疑的神色大笑着。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……まったく。「世界代行者」などという\n連中はどいつもこいつもいかれていますね！",
+      "translations": {
+        "zh-cn": "……真是的。被叫做“世界代理人”的\n这帮家伙真是一个比一个疯！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 7,
+        "cmd_index": 7,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ティダは一瞬の隙を突いてフッキの\n足を抜け出し、光の矢を雨あられと降らせて攻める。",
+      "translations": {
+        "zh-cn": "堤达抓住一瞬的破绽脱身开伏羲的\n脚底，射出如暴雨般的连绵光箭发起猛攻。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "それも予測していたのか、顔を少し逸らして避ける。\nが、頬をわずかに__HET__PT_6_8_0__掠__HET__PT_6_8_1__めていたのか、出来た傷を拭った。",
+      "translations": {
+        "zh-cn": "似乎连这也预料到了，伏羲稍微偏头避开。\n但脸颊似乎还是被轻轻<ruby=かす>擦伤<\/ruby>，他拭去了渗出的血迹。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……ああ、ティダ、そんな貴方に、\n前々から聞きたいことがあったのですよ。",
+      "translations": {
+        "zh-cn": "……啊，堤达，对于这样的你，\n我很久以前就想问你一件事了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "あん？\n……聞いてやる、言ってみな。",
+      "translations": {
+        "zh-cn": "啊？\n……老子听着呢，说吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "死力を尽くす戦いの最中とは思えないほど\n日常の与太話のようなトーンでフッキが聞く。",
+      "translations": {
+        "zh-cn": "完全让人想象不到身处拼死一搏的激战之中，\n伏羲用宛如日常闲聊般的语调问道。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 12,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そしてまた、ティダもそれに\n井戸端話のようなノリで答える。",
+      "translations": {
+        "zh-cn": "而堤达也同样\n以茶余饭后唠家常般的劲头作答。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 13,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "なぜならば血みどろの戦い、それも\n「世界代行者」たちにとってはいつものことであるから。",
+      "translations": {
+        "zh-cn": "因为血腥的厮杀，在“世界代理人”\n眼中本就不过是家常便饭。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "貴方はあの子に「愛されて当然」だと考えている。\nそこは、他の連中よりも共感できるところでして。",
+      "translations": {
+        "zh-cn": "你认为自己“被那孩子所深爱是理所当然的”。\n这一点，比起其他家伙，倒是让我更能感同身受呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "僕は、自分の故郷ではずっと\nあの子に好き好き言い続けてはいたのです。",
+      "translations": {
+        "zh-cn": "在我的故乡里，我一直都\n不断向那孩子诉说着“喜欢喜欢”。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "ですが、どうにもちゃんと伝わらなくて。\n今でもどうすればよかったのか悩んでいます。",
+      "translations": {
+        "zh-cn": "但是，却总也无法好好传达过去。\n哪怕到了现在，我依然在苦恼究竟该怎么做才好。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "参考までに貴方の場合、故郷でどうやって\n愛を伝えていたのか教えてくれません？",
+      "translations": {
+        "zh-cn": "为了参考一下，能否请你告诉我，\n你在故乡时都是如何传达爱意的呢？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "……………\n……………。",
+      "translations": {
+        "zh-cn": "……………\n……………"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 19,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……ティダ？",
+      "translations": {
+        "zh-cn": "……堤达？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 20,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "ティダはその質問が予想外だったのか、\n目を丸くして矢を放つ手を止める。",
+      "translations": {
+        "zh-cn": "大概是这问题太过出乎预料，\n堤达瞪圆了眼睛，止住了放箭的双手。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 21,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "そして、ティダには珍しく、\nか細い声で何かを呟いた。",
+      "translations": {
+        "zh-cn": "接着，堤达罕见地\n用细微的声音嘟囔了一句。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "………………じゃねえ。",
+      "translations": {
+        "zh-cn": "………………才没有。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 23,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……はい？　なんと言いました？\nいつもあれほど騒がしいのですからハッキリと――",
+      "translations": {
+        "zh-cn": "……哈？　你说什么？\n平时明明吵闹得很，说得更清楚一点——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 24,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "オレ様は、あいつのことなんて\nこれっぽっちも愛してなんかいねーーーー！！",
+      "translations": {
+        "zh-cn": "老子我对那家伙根本就\n连一丁点爱意都没有啊啊啊啊啊！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 25,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "やけくそと言った様子で叫ぶティダに、\n今度目を丸くしたのはフッキの方だった。",
+      "translations": {
+        "zh-cn": "面对仿佛自暴自弃般大喊出来的堤达，\n这次轮到伏羲瞪圆了眼睛。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……ぷっ、フハハハハハハ！\nちょ、ちょっと笑わせないでください！　横腹が……！",
+      "translations": {
+        "zh-cn": "……噗，噗哈哈哈哈哈哈！\n等、等等请别逗我笑了！　肚子好疼……！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 27,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "プフッ、貴方があの子を大好きなの\nミエミエじゃないですか、ちょっと！？",
+      "translations": {
+        "zh-cn": "噗嗤，你超喜欢那孩子不是\n一目了然吗，开什么玩笑啊！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 28,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "てめぇ、好き勝手笑ってんじゃね――！！\nぶち殺してやる！！",
+      "translations": {
+        "zh-cn": "你这混蛋，少在那笑个没完——！！\n宰了你啊！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 29,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "おっと、危ない危ない……だって貴方、\nフフ、流石にそう来るとは思いませんでしたよ。",
+      "translations": {
+        "zh-cn": "哎呀，危险危险……因为你啊，\n呵呵，我实在没想到你居然会来这么一出。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 30,
+        "cmd_index": 13,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "しばらくこみ上げる笑いが止まらないフッキに、\nティダは容赦なく怒りの矢の雨を降らせる。",
+      "translations": {
+        "zh-cn": "面对一时止不住狂笑的伏羲，\n堤达毫不留情地降下愤怒的箭雨。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 31,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "いつもみたくふんぞり返ってるだけでなく、フフッ、\nそういう可愛らしいところも出していけば良いのでは。",
+      "translations": {
+        "zh-cn": "平时总是一副狂傲的样子，呵呵，\n偶尔展现出这种可爱的地方不也挺好的嘛。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 32,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "おい、完全に馬鹿にしてやがるだろ貴様！\nいい加減笑うのを止めやがれ！！",
+      "translations": {
+        "zh-cn": "喂，你这家伙完全就是在嘲弄老子吧！\n差不多得了快给老子闭嘴别笑了！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 33,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "いえ、本心ですよ。あれだけあの子に猛アタックを\nしかけてなお、自身の執着心を認めない貴方のこと――",
+      "translations": {
+        "zh-cn": "不，我是真心的哦。明明对那孩子展开了那么猛烈的攻势，\n却依旧不肯承认自己的执着——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 34,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "それでも相手からの愛情を確信している、\nそんな所を心の底から羨ましく思っていますとも。",
+      "translations": {
+        "zh-cn": "即便如此也坚信着对方对自己的爱意，\n对于你这一点，我可是打心底感到羡慕呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 35,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "オレ様は別に__HET__PT_6_35_0__のことなんざ、\nなんとも思ってね――！！",
+      "translations": {
+        "zh-cn": "老子才没有对<param=playerName>抱有\n任何那种想法啊啊啊——！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "いえいえ、僕はさっきから一言も、\n__HET__PT_6_36_0__のこととは言ってませんよ。",
+      "translations": {
+        "zh-cn": "不不，我从刚才开始可一句\n都没提到过<param=playerName>哦。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 37,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "__HET__PT_6_37_0__嵌__HET__PT_6_37_1__められたという顔を浮かべたのを見て\nフッキは再び笑みを零す。",
+      "translations": {
+        "zh-cn": "看到堤达露出一副<ruby=は>中计<\/ruby>了的表情，\n伏羲再次忍不住笑出声来。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 38,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "しかし、ティダはそこで、\nあるひとつの可能性に思い至った――",
+      "translations": {
+        "zh-cn": "然而，就在那一刻，\n堤达突然联想到了某种可能性——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 39,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "今の発言の裏に隠された、フッキの本心に。",
+      "translations": {
+        "zh-cn": "隐藏在方才那番话背后的，伏羲的真心。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 40,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "……ああ、そうか。\nそういうことだったかよ、フッキ。",
+      "translations": {
+        "zh-cn": "……啊啊，原来如此。\n原来是这么回事啊，伏羲。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 41,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "は？",
+      "translations": {
+        "zh-cn": "哈？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 42,
+        "cmd_index": 3,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "そうかそうか、ようやくわかってきたぜ。\n……詰まるところ、自覚しちまってるわけだ。",
+      "translations": {
+        "zh-cn": "这样啊这样啊，老子总算是明白了。\n……归根结底，是你自己意识到了这点吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 43,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "あのうつけに愛されてねーかも――と怯えてんだろ？\nかわいい所、あるじゃねえかよ！",
+      "translations": {
+        "zh-cn": "你在害怕自己根本没被那个笨蛋所爱——对吧？\n你这家伙，不也有挺可爱的地方嘛！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 44,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "世界のことは読めてても、\n自分自身の中身は全然読めてねーんだなァ！？",
+      "translations": {
+        "zh-cn": "明明能看透世界，\n却对自己内心的真实想法完全看不透啊！？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 45,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……ッ。\nこのクソガキが――",
+      "translations": {
+        "zh-cn": "……啧。\n这个臭小鬼——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 46,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "ハッ、図星みてぇだな？\n動揺が表に出てるぜ！",
+      "translations": {
+        "zh-cn": "哈，看来是被老子说中了吧？\n慌乱全都写在脸上了！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 47,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "戦いが始まって初めて、\nティダの攻撃がフッキに直撃した。",
+      "translations": {
+        "zh-cn": "开战以来，\n堤达的攻击第一次直击了伏羲。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 48,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "たとえ予測出来ていたとしても、\n体がそれに追いつかなければ避けられない。",
+      "translations": {
+        "zh-cn": "即便早已预测到了攻击，\n身体若跟不上反应也无法避开。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 49,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "オレ様はな、愛されてっとわかってるぜ。\nだから追いかけられるのさ、お前と違って！",
+      "translations": {
+        "zh-cn": "老子我啊，很清楚自己是被爱着的。\n所以才追得上去，跟你这家伙可不一样！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 50,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "他のどんな奴より、オレ様が最上だと！\nあいつにとっての太陽だと信じている！！",
+      "translations": {
+        "zh-cn": "比起其他任何家伙，老子才是至高无上的！\n老子坚信自己就是那家伙心中的太阳！！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 51,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "フッキは自身の目に、\nティダが輝かしく映る。映った、気がした。",
+      "translations": {
+        "zh-cn": "在伏羲的眼中，\n堤达显得无比耀眼。他隐隐觉得，确实耀眼夺目。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 52,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……やっぱり僕は、\n貴方のことが嫌いですよ、ティダ。",
+      "translations": {
+        "zh-cn": "……果然，\n我很讨厌你呢，堤达。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 53,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "フッキはそう言って、__HET__PT_6_53_0__札__HET__PT_6_53_1__を収める。\nティダもまた、同じタイミングで弓を収めた。",
+      "translations": {
+        "zh-cn": "伏羲这么说着，收起了<ruby=カード>牌<\/ruby>。\n堤达也同时收起了弓箭。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 54,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……ここらへんで手打ちとしましょうか。\nこれ以上は「世界代行者」同士、千日手になるだけです。",
+      "translations": {
+        "zh-cn": "……差不多就到此为止吧。\n再打下去，对“世界代理人”之间而言也只是陷入无休止的僵局。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 55,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "……もともとそのつもりだったろうが。\n時間稼ぎが見え見えだったぜ、フッキ？",
+      "translations": {
+        "zh-cn": "……你本来就是这么打算的吧。\n拖延时间的意图老子早就看穿了，伏羲？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 56,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "さて、ひとつ教えろ。\nこの戦いの先に何を見た？　足止めの目的は？",
+      "translations": {
+        "zh-cn": "那么，给老子交代清楚。\n你在这一战之后看到了什么？拖住老子的目的是什么？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 57,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……今回の抗争の件には\n「未来予測者」が２人、介入しています。",
+      "translations": {
+        "zh-cn": "……这一次的抗争事件，\n有两名“未来预测者”介入其中。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 58,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "僕と、あのバートロ。\n……互いに「両者破滅の未来」を読んでいるはず。",
+      "translations": {
+        "zh-cn": "我，以及那个巴特罗。\n……双方应该都看到了“彼此走向毁灭的未来”。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 59,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "ですがもし……ティダ、貴方の言うとおり\n僕が「僕のことを読めておらず」――",
+      "translations": {
+        "zh-cn": "但如果……正如你所言，堤达，\n我“看不透我自己的内心”——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 60,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "あのバートロもまた同様であったなら――\n「この抗争はまったく別の場所に着地する可能性がある」。",
+      "translations": {
+        "zh-cn": "而那个巴特罗也同样如此的话——\n“这场抗争便有可能落在一个截然不同的结局”。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 61,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "「未来予測者」が２人いたならば、\n互いが互いを参照し合うから、です。",
+      "translations": {
+        "zh-cn": "因为如果有两名“未来预测者”存在，\n彼此就会互相将对方作为参考变量。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 62,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "そして「世界代行者」は少々、この件には過剰な戦力でした、\nこの抗争が早期に決しかねない。",
+      "translations": {
+        "zh-cn": "而且“世界代理人”对这件事而言战力略显过剩，\n这可能会导致抗争过早分出胜负。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 63,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "故に、僕たち同士で足止めしあう。\nその必要があった、説明はこれでいいですか？",
+      "translations": {
+        "zh-cn": "因此，我们彼此需要互相牵制。\n有这个必要。这个解释你满意了吗？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 64,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "……頭痛え。貴様のなんでも分かってるような\n言い方をしやがるところはやっぱり好きじゃねぇな。",
+      "translations": {
+        "zh-cn": "……头好痛。你那副自以为无所不知的\n说话调调老子果然还是喜欢不起来。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 65,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "フフ、それではお互い様ですね。\nお互い、目をつぶることにしましょう。",
+      "translations": {
+        "zh-cn": "呵呵，那彼此彼此呢。\n我们就互相睁一只眼闭一只眼吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 66,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "休戦へと至ったティダとフッキ、\n２人の耳に近くから叫び声が届いた――",
+      "translations": {
+        "zh-cn": "达成休战的堤达与伏羲，\n耳中忽然传来了从近处传来的叫喊声——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 67,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「ドンが撃たれた！\n　犯人は__HET__PT_6_67_0__とかいうヤツだ！」",
+      "translations": {
+        "zh-cn": "「唐中枪了！\n　犯人好像是一个叫<param=playerName>的家伙！」"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 68,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "「草の根を分けても探して引き連れてこい！\n　死ぬよりもひどい目に遭わせてやれ！」",
+      "translations": {
+        "zh-cn": "「就算掘地三尺也要找出来抓过来！\n　让他尝尝比死还难受的滋味！」"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 69,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "……聞いたか？　\nあのうつけがどうやらピンチらしい。",
+      "translations": {
+        "zh-cn": "……听到了吧？\n那个笨蛋好像陷入危机了啊。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 70,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "勿論、オレ様は助けに行く。\nそもそも、シームルグのことを撃つ意味がないしな。",
+      "translations": {
+        "zh-cn": "老子当然要去救。\n本来就没有任何开枪打西摩格的意义在。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 71,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "どうすんだ？　お前は日和って\nここで__HET__PT_6_71_0__が無事に戻るのを待つか？",
+      "translations": {
+        "zh-cn": "你打算怎么做？你要胆怯畏缩，\n留在这里等<param=playerName>平安回来吗？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 72,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "安い挑発ですね、ティダ。\nしかし、勿論乗って差し上げますよ！",
+      "translations": {
+        "zh-cn": "真是低劣的挑衅呢，堤达。\n不过，我当然乐意奉陪！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 73,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "にゃはは、良いだろう！\nどっちが先に__HET__PT_6_73_0__を助けるか次の勝負だ！",
+      "translations": {
+        "zh-cn": "喵哈哈，很好！\n比比谁先救下<param=playerName>，这是下一场较量！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 74,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "フッキが南方、ティダはその真逆に行こうとしたが\n何かに気付いたティダは足を止めてフッキを呼び止める。",
+      "translations": {
+        "zh-cn": "伏羲本想往南方走，堤达则正打算走向反方向，\n但注意到什么的堤达停下脚步叫住了伏羲。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 75,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "ティダ",
+      "text": "おい！　オレ様に選ばせろ！\nオレ様が南方に行く！",
+      "translations": {
+        "zh-cn": "喂！让老子来挑！\n老子要去南边！"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 76,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……フフッ、どうぞ。\nでは、僕は北の方へ向かいますね。",
+      "translations": {
+        "zh-cn": "……呵呵，请便。\n那我便往北边去了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 77,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "再び時刻は数刻前、シュクユウのカメラに細工し、\n首元に戻したバートロが口を開く。",
+      "translations": {
+        "zh-cn": "时间再次回溯到数刻之前，对祝融的相机动过手脚、\n并将其放回颈边的巴特罗开口说道。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 78,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "フッキ、ひとつ――\nひとつ賭けをしませんか？",
+      "translations": {
+        "zh-cn": "伏羲，要不要——\n要不要和我打个赌？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 79,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "おや、良いですよ。\n最近は挑戦者が減っていて退屈していたところです。",
+      "translations": {
+        "zh-cn": "哎呀，好啊。\n最近向我挑战的人越来越少，正觉得无聊呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 80,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "ハハ、内容もベットも聞かずとは……\n流石は天才ギャンブラーですね。",
+      "translations": {
+        "zh-cn": "哈哈，连内容和赌注都不问……\n不愧是天才赌徒呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 81,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "ふむ、それでは一応聞いておきましょうか。\nご心配なく、それでおりたりはしませんので。",
+      "translations": {
+        "zh-cn": "唔，那么姑且先听听看吧。\n不过请放心，我是不会临阵退缩的。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 82,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "フッキには持ちかけられた賭けを断るという\n発想がそもそもなかったが――",
+      "translations": {
+        "zh-cn": "伏羲本来就完全没有拒绝别人提出赌局的\n这种念头——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 83,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "言われてみれば目の前のギルドマスターが、\nどのような奇想天外な賭けを持ちだすのか気になっていた。",
+      "translations": {
+        "zh-cn": "但经他这么一提，伏羲也确实好奇眼前的这位公会会长\n究竟会提出怎样异想天开的赌局。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 84,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "そうですね……今宵の天気を予想して、\n当てた方が勝ちということでいかがでしょう？",
+      "translations": {
+        "zh-cn": "我想想……来预测今晚的天气，\n猜中的一方获胜，意下如何？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 85,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "何を隠そう、このぼくはそこらの天気予報よりも\n精度の高い予測に自信があるのですよ。",
+      "translations": {
+        "zh-cn": "不瞒你说，在下自信预测天气的精度\n比普通的天气预报还要准确哦。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 86,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……思ったより普通の内容ですね。\nもっと凝ったものを期待していたのですが。",
+      "translations": {
+        "zh-cn": "……比想象中要普通得多呢。\n我还期待着能有什么更精妙的内容呢。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 87,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "それに、八卦の創始者たる僕に対して\n挑む内容とは思えませんが。",
+      "translations": {
+        "zh-cn": "而且，针对我这个八卦的创立者，\n挑这个内容来挑战可不太明智吧？"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 88,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "なおも余裕の表情を崩さないバートロに、\nフッキは彼の自信を感じ取った。",
+      "translations": {
+        "zh-cn": "看着巴特罗依然挂着从容不迫的表情，\n伏羲感受到了他的自信。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 89,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……約束通り、断りはしませんよ。\nでは、僕から予想します。",
+      "translations": {
+        "zh-cn": "……正如承诺的那样，我不会拒绝。\n那么，就由我先来预测吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 90,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "そうですね……連日続いた雪、\n今日も同じく、しんしんと降り積もることでしょう。",
+      "translations": {
+        "zh-cn": "我想想……连日以来的大雪，\n今天也一样，会静悄悄地持续堆积吧。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 91,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "フフ、相手が貴方ですからね、\nここは手堅く、置いて勝たせて頂きますよ。",
+      "translations": {
+        "zh-cn": "呵呵，对手既然是您，\n我就稳扎稳打，稳稳地拿下这一局了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 92,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "フッキの予想を聞いたバートロは\n勝ちを確信したように笑う。",
+      "translations": {
+        "zh-cn": "听完伏羲的预测，巴特罗\n宛如确信了胜利般微笑起来。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 93,
+        "cmd_index": 4,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "フフ、ぼくの予想を申し上げます。\n今宵は――",
+      "translations": {
+        "zh-cn": "呵呵，那么在下宣布自己的预测。\n今晚将是——"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 94,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "speaker": "",
+      "text": "バートロが告げた言葉を聞いた\nフッキは目を丸くし、そして肩をすくめた。",
+      "translations": {
+        "zh-cn": "听完巴特罗道出的话语，\n伏羲瞪大了眼睛，随即耸了耸肩。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 95,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "フッキ",
+      "text": "……あり得ませんね、バートロ。\n勝ち目のない賭けほど、愚かな行為はないですよ。",
+      "translations": {
+        "zh-cn": "……绝无可能，巴特罗。\n没有比毫无胜算的赌局更愚蠢的行为了。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 96,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "いいえ、ぼくは大まじめですよフッキ。\n条件次第ですがぼくの計算では52分の１程の勝率があります。",
+      "translations": {
+        "zh-cn": "不，在下可是非常认真的，伏羲。\n虽然取决于条件，但在下的计算中，胜率大约有五十二分之一。"
+      }
+    },
+    {
+      "type": "text",
+      "order": {
+        "label_index": 6,
+        "page_no": 97,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "speaker": "バートロ",
+      "text": "楽しみにしておいてください。大穴での黒星が\nぼくからあなたへのクリスマスプレゼントです。",
+      "translations": {
+        "zh-cn": "就请好好期待吧。爆冷的大败，\n就是我送给你的圣诞礼物。"
+      }
+    }
+  ],
+  "protect": [
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_0_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_0_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_7_0__",
+      "origin": "<ruby=タンスターフル>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_7_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_10_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_10_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_10_2__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_10_3__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_10_4__",
+      "origin": "<ruby=こ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_10_5__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 6,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_11_0__",
+      "origin": "<ruby=フレキ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 6,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_11_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 6,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_11_2__",
+      "origin": "<ruby=こ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 6,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_11_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 12,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_12_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 12,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_12_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_14_0__",
+      "origin": "<ruby=ロジック>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_14_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_14_2__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_14_3__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 15,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_15_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 15,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_15_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_16_0__",
+      "origin": "<em=・>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_16_1__",
+      "origin": "<\/em>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 42,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_42_0__",
+      "origin": "<ruby=オーロラ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 42,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_42_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 47,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_47_0__",
+      "origin": "<ruby=ゲーム>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 47,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_47_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 54,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_54_0__",
+      "origin": "<ruby=リミッター>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 54,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_54_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 69,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_69_0__",
+      "origin": "<ruby=シュクユウ>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 69,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_69_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 75,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_75_0__",
+      "origin": "<ruby=そういうもの>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 75,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_75_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 76,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_76_0__",
+      "origin": "<ruby=カード>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 76,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_76_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 81,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_81_0__",
+      "origin": "<ruby=くら>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 81,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_81_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 81,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_81_2__",
+      "origin": "<ruby=オレさま>"
+    },
+    {
+      "order": {
+        "label_index": 5,
+        "page_no": 81,
+        "cmd_index": 8,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_5_81_3__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_8_0__",
+      "origin": "<ruby=かす>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_8_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 35,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_35_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_36_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 37,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_37_0__",
+      "origin": "<ruby=は>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 37,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_37_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 53,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_53_0__",
+      "origin": "<ruby=カード>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 53,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_53_1__",
+      "origin": "<\/ruby>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 67,
+        "cmd_index": 10,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_67_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 71,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_71_0__",
+      "origin": "<param=playerName>"
+    },
+    {
+      "order": {
+        "label_index": 6,
+        "page_no": 73,
+        "cmd_index": 1,
+        "sub_index": 0
+      },
+      "label": "__HET__PT_6_73_0__",
+      "origin": "<param=playerName>"
+    }
+  ],
+  "seq_to_order": [
+    {
+      "seq": 1,
+      "order": {
+        "label_index": 5,
+        "page_no": 0,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 2,
+      "order": {
+        "label_index": 5,
+        "page_no": 1,
+        "cmd_index": 15,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 3,
+      "order": {
+        "label_index": 5,
+        "page_no": 2,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 4,
+      "order": {
+        "label_index": 5,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 5,
+      "order": {
+        "label_index": 5,
+        "page_no": 4,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 6,
+      "order": {
+        "label_index": 5,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 7,
+      "order": {
+        "label_index": 5,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 8,
+      "order": {
+        "label_index": 5,
+        "page_no": 7,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 9,
+      "order": {
+        "label_index": 5,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 10,
+      "order": {
+        "label_index": 5,
+        "page_no": 9,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 11,
+      "order": {
+        "label_index": 5,
+        "page_no": 10,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 12,
+      "order": {
+        "label_index": 5,
+        "page_no": 11,
+        "cmd_index": 6,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 13,
+      "order": {
+        "label_index": 5,
+        "page_no": 12,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 14,
+      "order": {
+        "label_index": 5,
+        "page_no": 13,
+        "cmd_index": 11,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 15,
+      "order": {
+        "label_index": 5,
+        "page_no": 14,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 16,
+      "order": {
+        "label_index": 5,
+        "page_no": 15,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 17,
+      "order": {
+        "label_index": 5,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 18,
+      "order": {
+        "label_index": 5,
+        "page_no": 17,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 19,
+      "order": {
+        "label_index": 5,
+        "page_no": 18,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 20,
+      "order": {
+        "label_index": 5,
+        "page_no": 19,
+        "cmd_index": 17,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 21,
+      "order": {
+        "label_index": 5,
+        "page_no": 20,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 22,
+      "order": {
+        "label_index": 5,
+        "page_no": 21,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 23,
+      "order": {
+        "label_index": 5,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 24,
+      "order": {
+        "label_index": 5,
+        "page_no": 23,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 25,
+      "order": {
+        "label_index": 5,
+        "page_no": 24,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 26,
+      "order": {
+        "label_index": 5,
+        "page_no": 25,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 27,
+      "order": {
+        "label_index": 5,
+        "page_no": 26,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 28,
+      "order": {
+        "label_index": 5,
+        "page_no": 27,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 29,
+      "order": {
+        "label_index": 5,
+        "page_no": 28,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 30,
+      "order": {
+        "label_index": 5,
+        "page_no": 29,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 31,
+      "order": {
+        "label_index": 5,
+        "page_no": 30,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 32,
+      "order": {
+        "label_index": 5,
+        "page_no": 31,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 33,
+      "order": {
+        "label_index": 5,
+        "page_no": 32,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 34,
+      "order": {
+        "label_index": 5,
+        "page_no": 33,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 35,
+      "order": {
+        "label_index": 5,
+        "page_no": 34,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 36,
+      "order": {
+        "label_index": 5,
+        "page_no": 35,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 37,
+      "order": {
+        "label_index": 5,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 38,
+      "order": {
+        "label_index": 5,
+        "page_no": 37,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 39,
+      "order": {
+        "label_index": 5,
+        "page_no": 38,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 40,
+      "order": {
+        "label_index": 5,
+        "page_no": 39,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 41,
+      "order": {
+        "label_index": 5,
+        "page_no": 40,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 42,
+      "order": {
+        "label_index": 5,
+        "page_no": 41,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 43,
+      "order": {
+        "label_index": 5,
+        "page_no": 42,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 44,
+      "order": {
+        "label_index": 5,
+        "page_no": 43,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 45,
+      "order": {
+        "label_index": 5,
+        "page_no": 44,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 46,
+      "order": {
+        "label_index": 5,
+        "page_no": 45,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 47,
+      "order": {
+        "label_index": 5,
+        "page_no": 46,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 48,
+      "order": {
+        "label_index": 5,
+        "page_no": 47,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 49,
+      "order": {
+        "label_index": 5,
+        "page_no": 48,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 50,
+      "order": {
+        "label_index": 5,
+        "page_no": 49,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 51,
+      "order": {
+        "label_index": 5,
+        "page_no": 50,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 52,
+      "order": {
+        "label_index": 5,
+        "page_no": 51,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 53,
+      "order": {
+        "label_index": 5,
+        "page_no": 52,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 54,
+      "order": {
+        "label_index": 5,
+        "page_no": 53,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 55,
+      "order": {
+        "label_index": 5,
+        "page_no": 54,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 56,
+      "order": {
+        "label_index": 5,
+        "page_no": 55,
+        "cmd_index": 13,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 57,
+      "order": {
+        "label_index": 5,
+        "page_no": 56,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 58,
+      "order": {
+        "label_index": 5,
+        "page_no": 57,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 59,
+      "order": {
+        "label_index": 5,
+        "page_no": 58,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 60,
+      "order": {
+        "label_index": 5,
+        "page_no": 59,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 61,
+      "order": {
+        "label_index": 5,
+        "page_no": 60,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 62,
+      "order": {
+        "label_index": 5,
+        "page_no": 61,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 63,
+      "order": {
+        "label_index": 5,
+        "page_no": 62,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 64,
+      "order": {
+        "label_index": 5,
+        "page_no": 63,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 65,
+      "order": {
+        "label_index": 5,
+        "page_no": 64,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 66,
+      "order": {
+        "label_index": 5,
+        "page_no": 65,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 67,
+      "order": {
+        "label_index": 5,
+        "page_no": 66,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 68,
+      "order": {
+        "label_index": 5,
+        "page_no": 67,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 69,
+      "order": {
+        "label_index": 5,
+        "page_no": 68,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 70,
+      "order": {
+        "label_index": 5,
+        "page_no": 69,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 71,
+      "order": {
+        "label_index": 5,
+        "page_no": 70,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 72,
+      "order": {
+        "label_index": 5,
+        "page_no": 71,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 73,
+      "order": {
+        "label_index": 5,
+        "page_no": 72,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 74,
+      "order": {
+        "label_index": 5,
+        "page_no": 73,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 75,
+      "order": {
+        "label_index": 5,
+        "page_no": 74,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 76,
+      "order": {
+        "label_index": 5,
+        "page_no": 75,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 77,
+      "order": {
+        "label_index": 5,
+        "page_no": 76,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 78,
+      "order": {
+        "label_index": 5,
+        "page_no": 77,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 79,
+      "order": {
+        "label_index": 5,
+        "page_no": 78,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 80,
+      "order": {
+        "label_index": 5,
+        "page_no": 79,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 81,
+      "order": {
+        "label_index": 5,
+        "page_no": 80,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 82,
+      "order": {
+        "label_index": 5,
+        "page_no": 81,
+        "cmd_index": 8,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 83,
+      "order": {
+        "label_index": 5,
+        "page_no": 82,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 84,
+      "order": {
+        "label_index": 6,
+        "page_no": 0,
+        "cmd_index": 14,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 85,
+      "order": {
+        "label_index": 6,
+        "page_no": 1,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 86,
+      "order": {
+        "label_index": 6,
+        "page_no": 2,
+        "cmd_index": 23,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 87,
+      "order": {
+        "label_index": 6,
+        "page_no": 3,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 88,
+      "order": {
+        "label_index": 6,
+        "page_no": 4,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 89,
+      "order": {
+        "label_index": 6,
+        "page_no": 5,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 90,
+      "order": {
+        "label_index": 6,
+        "page_no": 6,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 91,
+      "order": {
+        "label_index": 6,
+        "page_no": 7,
+        "cmd_index": 7,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 92,
+      "order": {
+        "label_index": 6,
+        "page_no": 8,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 93,
+      "order": {
+        "label_index": 6,
+        "page_no": 9,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 94,
+      "order": {
+        "label_index": 6,
+        "page_no": 10,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 95,
+      "order": {
+        "label_index": 6,
+        "page_no": 11,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 96,
+      "order": {
+        "label_index": 6,
+        "page_no": 12,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 97,
+      "order": {
+        "label_index": 6,
+        "page_no": 13,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 98,
+      "order": {
+        "label_index": 6,
+        "page_no": 14,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 99,
+      "order": {
+        "label_index": 6,
+        "page_no": 15,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 100,
+      "order": {
+        "label_index": 6,
+        "page_no": 16,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 101,
+      "order": {
+        "label_index": 6,
+        "page_no": 17,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 102,
+      "order": {
+        "label_index": 6,
+        "page_no": 18,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 103,
+      "order": {
+        "label_index": 6,
+        "page_no": 19,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 104,
+      "order": {
+        "label_index": 6,
+        "page_no": 20,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 105,
+      "order": {
+        "label_index": 6,
+        "page_no": 21,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 106,
+      "order": {
+        "label_index": 6,
+        "page_no": 22,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 107,
+      "order": {
+        "label_index": 6,
+        "page_no": 23,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 108,
+      "order": {
+        "label_index": 6,
+        "page_no": 24,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 109,
+      "order": {
+        "label_index": 6,
+        "page_no": 25,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 110,
+      "order": {
+        "label_index": 6,
+        "page_no": 26,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 111,
+      "order": {
+        "label_index": 6,
+        "page_no": 27,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 112,
+      "order": {
+        "label_index": 6,
+        "page_no": 28,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 113,
+      "order": {
+        "label_index": 6,
+        "page_no": 29,
+        "cmd_index": 8,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 114,
+      "order": {
+        "label_index": 6,
+        "page_no": 30,
+        "cmd_index": 13,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 115,
+      "order": {
+        "label_index": 6,
+        "page_no": 31,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 116,
+      "order": {
+        "label_index": 6,
+        "page_no": 32,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 117,
+      "order": {
+        "label_index": 6,
+        "page_no": 33,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 118,
+      "order": {
+        "label_index": 6,
+        "page_no": 34,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 119,
+      "order": {
+        "label_index": 6,
+        "page_no": 35,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 120,
+      "order": {
+        "label_index": 6,
+        "page_no": 36,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 121,
+      "order": {
+        "label_index": 6,
+        "page_no": 37,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 122,
+      "order": {
+        "label_index": 6,
+        "page_no": 38,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 123,
+      "order": {
+        "label_index": 6,
+        "page_no": 39,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 124,
+      "order": {
+        "label_index": 6,
+        "page_no": 40,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 125,
+      "order": {
+        "label_index": 6,
+        "page_no": 41,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 126,
+      "order": {
+        "label_index": 6,
+        "page_no": 42,
+        "cmd_index": 3,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 127,
+      "order": {
+        "label_index": 6,
+        "page_no": 43,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 128,
+      "order": {
+        "label_index": 6,
+        "page_no": 44,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 129,
+      "order": {
+        "label_index": 6,
+        "page_no": 45,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 130,
+      "order": {
+        "label_index": 6,
+        "page_no": 46,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 131,
+      "order": {
+        "label_index": 6,
+        "page_no": 47,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 132,
+      "order": {
+        "label_index": 6,
+        "page_no": 48,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 133,
+      "order": {
+        "label_index": 6,
+        "page_no": 49,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 134,
+      "order": {
+        "label_index": 6,
+        "page_no": 50,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 135,
+      "order": {
+        "label_index": 6,
+        "page_no": 51,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 136,
+      "order": {
+        "label_index": 6,
+        "page_no": 52,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 137,
+      "order": {
+        "label_index": 6,
+        "page_no": 53,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 138,
+      "order": {
+        "label_index": 6,
+        "page_no": 54,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 139,
+      "order": {
+        "label_index": 6,
+        "page_no": 55,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 140,
+      "order": {
+        "label_index": 6,
+        "page_no": 56,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 141,
+      "order": {
+        "label_index": 6,
+        "page_no": 57,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 142,
+      "order": {
+        "label_index": 6,
+        "page_no": 58,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 143,
+      "order": {
+        "label_index": 6,
+        "page_no": 59,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 144,
+      "order": {
+        "label_index": 6,
+        "page_no": 60,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 145,
+      "order": {
+        "label_index": 6,
+        "page_no": 61,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 146,
+      "order": {
+        "label_index": 6,
+        "page_no": 62,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 147,
+      "order": {
+        "label_index": 6,
+        "page_no": 63,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 148,
+      "order": {
+        "label_index": 6,
+        "page_no": 64,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 149,
+      "order": {
+        "label_index": 6,
+        "page_no": 65,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 150,
+      "order": {
+        "label_index": 6,
+        "page_no": 66,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 151,
+      "order": {
+        "label_index": 6,
+        "page_no": 67,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 152,
+      "order": {
+        "label_index": 6,
+        "page_no": 68,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 153,
+      "order": {
+        "label_index": 6,
+        "page_no": 69,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 154,
+      "order": {
+        "label_index": 6,
+        "page_no": 70,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 155,
+      "order": {
+        "label_index": 6,
+        "page_no": 71,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 156,
+      "order": {
+        "label_index": 6,
+        "page_no": 72,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 157,
+      "order": {
+        "label_index": 6,
+        "page_no": 73,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 158,
+      "order": {
+        "label_index": 6,
+        "page_no": 74,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 159,
+      "order": {
+        "label_index": 6,
+        "page_no": 75,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 160,
+      "order": {
+        "label_index": 6,
+        "page_no": 76,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 161,
+      "order": {
+        "label_index": 6,
+        "page_no": 77,
+        "cmd_index": 10,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 162,
+      "order": {
+        "label_index": 6,
+        "page_no": 78,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 163,
+      "order": {
+        "label_index": 6,
+        "page_no": 79,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 164,
+      "order": {
+        "label_index": 6,
+        "page_no": 80,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 165,
+      "order": {
+        "label_index": 6,
+        "page_no": 81,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 166,
+      "order": {
+        "label_index": 6,
+        "page_no": 82,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 167,
+      "order": {
+        "label_index": 6,
+        "page_no": 83,
+        "cmd_index": 0,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 168,
+      "order": {
+        "label_index": 6,
+        "page_no": 84,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 169,
+      "order": {
+        "label_index": 6,
+        "page_no": 85,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 170,
+      "order": {
+        "label_index": 6,
+        "page_no": 86,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 171,
+      "order": {
+        "label_index": 6,
+        "page_no": 87,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 172,
+      "order": {
+        "label_index": 6,
+        "page_no": 88,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 173,
+      "order": {
+        "label_index": 6,
+        "page_no": 89,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 174,
+      "order": {
+        "label_index": 6,
+        "page_no": 90,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 175,
+      "order": {
+        "label_index": 6,
+        "page_no": 91,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 176,
+      "order": {
+        "label_index": 6,
+        "page_no": 92,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 177,
+      "order": {
+        "label_index": 6,
+        "page_no": 93,
+        "cmd_index": 4,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 178,
+      "order": {
+        "label_index": 6,
+        "page_no": 94,
+        "cmd_index": 2,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 179,
+      "order": {
+        "label_index": 6,
+        "page_no": 95,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 180,
+      "order": {
+        "label_index": 6,
+        "page_no": 96,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    },
+    {
+      "seq": 181,
+      "order": {
+        "label_index": 6,
+        "page_no": 97,
+        "cmd_index": 1,
+        "sub_index": 0
+      }
+    }
+  ]
+}
