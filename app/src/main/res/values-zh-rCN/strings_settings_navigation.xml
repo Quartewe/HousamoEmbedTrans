@@ -38,8 +38,8 @@
     <string name="settings_category_translation_service_description">服务类型、地址、凭据、模型、目标语言与请求策略</string>
     <string name="settings_category_translation_service_scope">翻译参数只影响之后发起的请求，不改动已经发送的请求。</string>
     <string name="settings_category_translation_repair">翻译与修复</string>
-    <string name="settings_category_translation_repair_description">PageRec 剧情、结果修复、流式翻译和完整场景输入</string>
-    <string name="settings_category_translation_repair_scope">PageRec 和注音翻译设置需重启游戏；修复参数只影响之后发起的请求。</string>
+    <string name="settings_category_translation_repair_description">批量获取已上线剧情、结果修复、流式翻译和完整场景输入</string>
+    <string name="settings_category_translation_repair_scope">批量获取已上线剧情和注音翻译设置需重启游戏；修复参数只影响之后发起的请求。</string>
     <string name="settings_category_capture_sync">剧情捕获与同步</string>
     <string name="settings_category_capture_sync_description">场景捕获、同步冲突和工作线程</string>
     <string name="settings_category_capture_sync_scope">捕获、同步和线程策略从下一次流程开始；当前流程不会被重排。</string>
@@ -119,7 +119,7 @@
     <string name="settings_field_text_mentioned_score">仅名称点名门槛</string>
     <string name="settings_field_related_num">关联提升门槛</string>
     <string name="settings_field_low_term_score">次要角色术语门槛</string>
-    <string name="settings_field_enable_page_rec_debug">启用 PageRec</string>
+    <string name="settings_field_enable_page_rec_debug">批量获取已上线剧情</string>
     <string name="settings_field_enable_parse_only_debug">启用仅解析诊断</string>
     <string name="settings_field_enable_failed_api_response_dump">保存失败响应诊断</string>
     <string name="settings_field_hint_protocol">选择兼容的翻译服务协议。</string>
@@ -154,8 +154,8 @@
     <string name="settings_field_hint_text_mentioned_score">只带入名称和译名，不附带完整资料。</string>
     <string name="settings_field_hint_related_num">与主要角色存在词典关联时提升为次要角色所需的关联数量。</string>
     <string name="settings_field_hint_low_term_score">公会、学校或来源世界至少被多少个次要角色共同关联时提供。</string>
-    <string name="settings_field_hint_enable_page_rec_debug">通过 PageRec 捕获完整剧情，优先使用简中、其次繁中，缺失时使用日文。剧情会导出留档，并按正常流程翻译和回写；已有目标语言官方译文的剧情只留档。一次可能处理多个已加载剧情。只想记录时，请开启“调试项 → 仅解析诊断”。修改后需重启游戏。</string>
-    <string name="settings_field_hint_enable_parse_only_debug">只解析和记录剧情，不发起翻译请求。启用 PageRec 时，仅保存导出记录，不加入翻译任务或回写游戏。修改后需重启游戏。</string>
+    <string name="settings_field_hint_enable_page_rec_debug">启用此按钮能在进入某个剧情后，批量获取在其之后的所有已上线的剧情，快速提交翻译任务。修改后需重启游戏。</string>
+    <string name="settings_field_hint_enable_parse_only_debug">只解析和记录剧情，不发起翻译请求。启用 批量获取已上线剧情 时，仅保存导出记录，不加入翻译任务或回写游戏。修改后需重启游戏。</string>
     <string name="settings_field_hint_enable_failed_api_response_dump">高级调试：失败响应可能包含敏感内容，请按需开启。</string>
     <string name="settings_error_required">此项不能为空。</string>
     <string name="settings_error_integer">请输入整数。</string>
@@ -189,7 +189,7 @@
     <string name="settings_field_auto_sync_new_translation">新翻译任务自动同步剧情</string>
     <string name="settings_field_hint_auto_sync_new_translation">接纳新翻译任务后自动同步剧情。关闭后，结果可能需要等待手动同步或游戏重新连接，才能保存到 HET；已有翻译结果会保留。</string>
     <string name="settings_summary_model_empty">未填写模型</string>
-    <string name="settings_summary_repair">结果修复 %1$d 次 · 流式翻译%2$s · PageRec %3$s</string>
+    <string name="settings_summary_repair">结果修复 %1$d 次 · 流式翻译%2$s · 批量获取已上线剧情 %3$s</string>
     <string name="settings_summary_on">开启</string>
     <string name="settings_summary_off">关闭</string>
     <string name="settings_summary_capture">%1$d 个剧情线程 · %2$s</string>
