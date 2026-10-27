@@ -324,6 +324,17 @@ public:
         queue_cv_.notify_all();
     }
 
+    void SetTaskProductionPaused(bool paused) {
+        {
+            // Serialize the control with final Java admission. The queue lock
+            // also prevents a missed wake between the worker's check and wait.
+            std::lock_guard<std::mutex> transition_lock(capture_transition_mutex);
+            std::lock_guard<std::mutex> queue_lock(queue_mutex_);
+            task_production_paused_ = paused;
+        }
+        queue_cv_.notify_all();
+    }
+
     std::shared_ptr<const TranslationRequest> TakePending(
         const std::string& request_id) {
         if (request_id.empty()) {
@@ -358,7 +369,7 @@ public:
                 ClearQueuedLocked();
                 return false;
             }
-            if (queue_.empty()
+            if (task_production_paused_ || queue_.empty()
                 || queue_.top()->next_attempt_at > Clock::now()) {
                 return false;
             }
@@ -400,6 +411,10 @@ private:
             if (IsPaused()) {
                 ClearQueuedLocked();
                 queue_cv_.wait_for(lock, std::chrono::milliseconds(250));
+                continue;
+            }
+            if (task_production_paused_) {
+                queue_cv_.wait(lock);
                 continue;
             }
             if (queue_.empty()) {
@@ -534,6 +549,14 @@ private:
                         std::memory_order_acquire)) {
                 return;
             }
+            if (task_production_paused_) {
+                // A request already popped by the worker returns to the same
+                // queue without changing its retry count or ordering. No Job
+                // has been admitted yet, and existing Jobs remain untouched.
+                std::lock_guard<std::mutex> queue_lock(queue_mutex_);
+                queue_.push(pending);
+                return;
+            }
             RegisterPending(pending->request_id, pending->request);
             bridge_submit_ok = bridge_.Submit(
                 pending->request_id,
@@ -601,6 +624,8 @@ private:
         std::vector<std::shared_ptr<PendingSubmission>>,
         PendingEarlier> queue_;
     uint64_t next_queue_sequence_ = 0;
+    // Writes hold both locks; reads hold queue_mutex_ or capture_transition_mutex.
+    bool task_production_paused_ = false;
 
     mutable std::mutex pending_mutex_;
     std::unordered_map<
@@ -644,6 +669,10 @@ std::shared_ptr<const TranslationRequest> PeekPendingRequest(
 
 void ClearOnPause() {
     GetDispatcher().ClearOnPause();
+}
+
+void SetTaskProductionPaused(bool paused) {
+    GetDispatcher().SetTaskProductionPaused(paused);
 }
 
 #else

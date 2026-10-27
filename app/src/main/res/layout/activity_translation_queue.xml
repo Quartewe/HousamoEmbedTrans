@@ -19,7 +19,7 @@
         app:title="@string/task_page_title">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_capture_control"
+            android:id="@+id/btn_task_production_control"
             style="@style/Widget.HET.StaticTask.Button.Text"
             android:layout_height="wrap_content"
             android:layout_gravity="start|center_vertical"
@@ -28,7 +28,7 @@
             android:minHeight="40dp"
             android:paddingStart="0dp"
             android:paddingEnd="0dp"
-            android:contentDescription="@string/capture_control_pause"
+            android:contentDescription="@string/task_production_control_pause"
             app:icon="@drawable/ic_task_pause"
             app:iconGravity="textStart"
             app:iconPadding="0dp"

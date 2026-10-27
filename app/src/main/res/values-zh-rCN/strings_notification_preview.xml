@@ -25,7 +25,7 @@
     <string name="notification_preview_mutation_pending_message">等待当前同步完成后回放</string>
     <string name="notification_preview_mutation_error">本地文件写入失败，等待重试</string>
     <string name="notification_preview_idle">等待翻译</string>
-    <string name="notification_preview_paused">捕获已暂停</string>
+    <string name="notification_preview_paused">渲染已暂停</string>
     <string name="notification_preview_active">翻译进行中／计时</string>
     <string name="notification_preview_succeeded">翻译完成</string>
     <string name="notification_preview_failed">翻译失败／状态栏</string>

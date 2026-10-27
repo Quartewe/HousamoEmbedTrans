@@ -38,7 +38,7 @@
     <string name="notification_translating_scene">Translating: %1$s</string>
     <string name="notification_elapsed_time">Elapsed time</string>
     <string name="notification_waiting">Waiting for a scene</string>
-    <string name="notification_capture_paused">New scene capture is paused</string>
+    <string name="notification_capture_paused">Rendering paused</string>
     <string name="notification_translation_succeeded">Translation completed: %1$s</string>
     <string name="notification_translation_failed">Translation failed: %1$s</string>
     <string name="notification_translation_needs_user_action">Action required</string>
@@ -46,8 +46,8 @@
     <string name="notification_startup_failed">Service startup failed. Open the task queue.</string>
     <string name="notification_startup_failed_subtitle">Startup failed</string>
     <string name="notification_finished_duration">Duration %1$s</string>
-    <string name="notification_action_pause_capture">Pause capture</string>
-    <string name="notification_action_resume_capture">Resume capture</string>
+    <string name="notification_action_pause_capture">Pause rendering</string>
+    <string name="notification_action_resume_capture">Resume rendering</string>
     <string name="notification_queued_jobs_waiting">%1$d tasks need ordering. Open the queue.</string>
     <string name="notification_failed_jobs_waiting">%1$d translations failed. Open the queue.</string>
     <string name="notification_recovery_waiting_with_failures">%1$d awaiting order, %2$d failed. Open the queue.</string>

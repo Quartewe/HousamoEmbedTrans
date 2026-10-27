@@ -3,6 +3,8 @@ package com.quarty.housamoembedtrans.ui;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.HousamoApplication;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
+import com.quarty.housamoembedtrans.runtime.RuntimeControlStore;
+import com.quarty.housamoembedtrans.runtime.TranslationControlReceiver;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
@@ -67,6 +69,11 @@ public final class HomeActivity extends AppCompatActivity {
     private ImageView statusIcon;
     private TextView stateView;
     private TextView connectionView;
+    private View renderControl;
+    private ImageView renderControlIcon;
+    private TextView renderControlLabel;
+    private boolean renderPaused;
+    private boolean renderControlBusy;
     private TextView updateStatusView;
     private TextView conflictsView;
     private TextView appVersionView;
@@ -187,6 +194,9 @@ public final class HomeActivity extends AppCompatActivity {
         statusIcon = findViewById(R.id.iv_home_status);
         stateView = findViewById(R.id.tv_home_state);
         connectionView = findViewById(R.id.tv_home_connection);
+        renderControl = findViewById(R.id.btn_home_render_control);
+        renderControlIcon = findViewById(R.id.iv_home_render_control);
+        renderControlLabel = findViewById(R.id.tv_home_render_control);
         updateStatusView = findViewById(R.id.tv_home_update_status);
         conflictsView = findViewById(R.id.tv_home_conflicts);
         appVersionView = findViewById(R.id.tv_home_app_version);
@@ -196,6 +206,7 @@ public final class HomeActivity extends AppCompatActivity {
     }
 
     private void installCardActions() {
+        renderControl.setOnClickListener(view -> onRenderControlClicked());
         View resourceEntry = (View) resourceVersionView.getParent();
         resourceEntry.setClickable(true);
         resourceEntry.setFocusable(true);
@@ -329,6 +340,7 @@ public final class HomeActivity extends AppCompatActivity {
             false
         );
         gameVersion = payload.optString("game_version", "").trim();
+        renderPaused = payload.optBoolean("render_paused", false);
         targetLanguage = payload.optString("target_language", "").trim();
         runtimeSnapshot = previewRuntimeSnapshot(payload.optJSONObject("runtime"));
         renderRuntimeSnapshot(runtimeSnapshot);
@@ -410,6 +422,7 @@ public final class HomeActivity extends AppCompatActivity {
         if (snapshot == null || statusCard == null) {
             return;
         }
+        if (!stylePreview) renderPaused = RuntimeControlStore.isCapturePaused(this);
         boolean syncing = snapshot.phase != SceneSyncRuntimeState.Phase.IDLE;
         boolean connected = snapshot.serviceAvailable
             && snapshot.gamePortAvailable;
@@ -427,9 +440,9 @@ public final class HomeActivity extends AppCompatActivity {
             foreground = R.color.het_on_primary_container;
             icon = R.drawable.ic_home_syncing;
         } else if (connected) {
-            background = R.color.het_good_container;
-            foreground = R.color.het_good;
-            icon = R.drawable.ic_home_status;
+            background = renderPaused ? R.color.het_warning_container : R.color.het_good_container;
+            foreground = renderPaused ? R.color.het_warning : R.color.het_good;
+            icon = renderPaused ? R.drawable.ic_task_pause : R.drawable.ic_home_status;
         } else if (serviceReady) {
             background = R.color.het_warning_container;
             foreground = R.color.het_warning;
@@ -449,7 +462,9 @@ public final class HomeActivity extends AppCompatActivity {
                 : syncing
                     ? R.string.home_state_syncing
                     : connected
-                        ? R.string.home_state_connected
+                        ? renderPaused
+                            ? R.string.home_state_render_paused
+                            : R.string.home_state_render_enabled
                         : serviceReady
                             ? R.string.home_state_waiting_game
                             : R.string.home_state_waiting_service
@@ -466,9 +481,22 @@ public final class HomeActivity extends AppCompatActivity {
         if (startupFailed) {
             connectionView.setText(snapshot.gameStartupFailure);
         }
+        if (!connected || syncing || startupFailed) {
+            connectionView.setText(getString(R.string.home_connection_render_state,
+                connectionView.getText(), getString(renderPaused
+                    ? R.string.home_state_render_paused : R.string.home_state_render_enabled)));
+        }
         stateView.setTextColor(textColor);
         connectionView.setTextColor(textColor);
         statusIcon.setColorFilter(textColor, PorterDuff.Mode.SRC_IN);
+        renderControlIcon.setImageResource(renderPaused ? R.drawable.ic_task_play : R.drawable.ic_task_pause);
+        renderControlIcon.setColorFilter(textColor, PorterDuff.Mode.SRC_IN);
+        renderControlLabel.setText(renderPaused ? R.string.render_control_resume_short : R.string.render_control_pause_short);
+        renderControlLabel.setTextColor(textColor);
+        renderControl.setContentDescription(getString(renderPaused
+            ? R.string.notification_action_resume_capture : R.string.notification_action_pause_capture));
+        renderControl.setEnabled(!renderControlBusy);
+        renderControl.setAlpha(renderControlBusy ? 0.5f : 1f);
 
         int pending = snapshot.pendingConflictCount;
         conflictsView.setText(
@@ -476,6 +504,35 @@ public final class HomeActivity extends AppCompatActivity {
                 ? getString(R.string.home_conflicts_count, pending)
                 : getString(R.string.home_conflicts_none)
         );
+    }
+
+    private void onRenderControlClicked() {
+        if (renderControlBusy) return;
+        if (stylePreview) {
+            renderPaused = !renderPaused;
+            renderRuntimeSnapshot(runtimeSnapshot);
+            return;
+        }
+        final boolean paused = !RuntimeControlStore.isCapturePaused(this);
+        final long generation = workGeneration;
+        renderControlBusy = true;
+        renderRuntimeSnapshot(runtimeSnapshot);
+        try {
+            ioExecutor.execute(() -> {
+                int message = TranslationControlReceiver.applyRenderPaused(
+                    getApplicationContext(), paused);
+                runOnUiThread(() -> {
+                    if (generation != workGeneration || isFinishing() || isDestroyed()) return;
+                    renderControlBusy = false;
+                    renderRuntimeSnapshot(runtimeSnapshot);
+                    if (message != 0) Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                });
+            });
+        } catch (RuntimeException error) {
+            renderControlBusy = false;
+            renderRuntimeSnapshot(runtimeSnapshot);
+            Toast.makeText(this, R.string.render_control_save_failed, Toast.LENGTH_LONG).show();
+        }
     }
 
     private void loadMetadataAsync() {

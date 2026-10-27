@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_state_render_enabled">Rendering enabled</string>
+    <string name="home_state_render_paused">Rendering paused</string>
+    <string name="home_connection_render_state">%1$s\n%2$s</string>
+    <string name="render_control_pause_short">Pause</string>
+    <string name="render_control_resume_short">Resume</string>
+    <string name="render_control_save_failed">Could not save the rendering setting. Try again.</string>
+    <string name="render_control_waiting_service">Rendering setting saved; waiting for the translation service.</string>
+    <string name="render_control_sync_failed">Rendering setting saved; the notification could not be updated.</string>
+</resources>

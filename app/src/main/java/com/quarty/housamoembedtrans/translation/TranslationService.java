@@ -82,6 +82,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class TranslationService extends Service {
     private static final String TAG = "HET.TranslationService";
+    public static final String EXTRA_TASK_PRODUCTION_CONTROL = "task_production_control";
 
     private static long newScenePortGeneration() {
         long token = UUID.randomUUID().getLeastSignificantBits()
@@ -1660,7 +1661,11 @@ public final class TranslationService extends Service {
             () -> {
                 foregroundStarted = true;
                 startStartupCoordinator();
-                applyCapturePauseToCurrentPort();
+                if (intent == null || !intent.getBooleanExtra(
+                    EXTRA_TASK_PRODUCTION_CONTROL, false)) {
+                    applyCapturePauseToCurrentPort();
+                }
+                applyTaskProductionPauseToCurrentPort();
             },
             () -> {
                 if (shouldScheduleApiWorkDrain(
@@ -4481,6 +4486,8 @@ public final class TranslationService extends Service {
             }
             activated = true;
             port.setCapturePaused(paused);
+            port.setTaskProductionPaused(
+                RuntimeControlStore.isTaskProductionPaused(this));
         } catch (RemoteException e) {
             if (activated) {
                 deactivateScenePortGeneration(port, generation);
@@ -4489,7 +4496,7 @@ public final class TranslationService extends Service {
                 unlinkScenePort(binder, deathRecipient);
             }
             throw new IllegalStateException(
-                "game Scene port could not activate or apply persisted capture state",
+                "game Scene port could not activate or apply persisted controls",
                 e
             );
         } catch (RuntimeException e) {
@@ -4577,6 +4584,25 @@ public final class TranslationService extends Service {
             throw new IllegalArgumentException("game Scene port cannot be null");
         }
         removeScenePortIfCurrent(port.asBinder());
+    }
+
+    private void applyTaskProductionPauseToCurrentPort() {
+        // Serialize replay with registration so a concurrent reconnect cannot
+        // publish a port carrying an older task-production preference.
+        synchronized (scenePortRegistrationLock) {
+            IGameScenePort port;
+            synchronized (scenePortLock) {
+                port = currentScenePort == null ? null : currentScenePort.port;
+            }
+            if (port == null) return;
+            boolean paused = RuntimeControlStore.isTaskProductionPaused(this);
+            try {
+                port.setTaskProductionPaused(paused);
+                Log.i(TAG, "Applied task production pause paused=" + paused);
+            } catch (RemoteException | RuntimeException e) {
+                Log.w(TAG, "Could not apply task production pause", e);
+            }
+        }
     }
 
     private void removeScenePortIfCurrent(IBinder expectedBinder) {

@@ -107,12 +107,6 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     /** Opens the matching archived result from its notification. */
     public static final String EXTRA_NOTIFICATION_REJECTED_RECORD_ID =
         "com.quarty.housamoembedtrans.extra.NOTIFICATION_REJECTED_RECORD_ID";
-    /** Opens this page from the status notification's capture action. */
-    public static final String EXTRA_NOTIFICATION_CAPTURE_CONTROL =
-        "com.quarty.housamoembedtrans.extra.NOTIFICATION_CAPTURE_CONTROL";
-    /** Explicit state requested by a notification action; never a toggle. */
-    public static final String EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED =
-        "com.quarty.housamoembedtrans.extra.NOTIFICATION_CAPTURE_DESIRED_PAUSED";
 
     /** Exact owner identity captured from a live management store. */
     private static final class PendingMoveTarget {
@@ -204,7 +198,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private MaterialButton submitButton;
     private LinearLayout pageActions;
     private MaterialButton summarySubmitButton;
-    private MaterialButton captureControlButton;
+    private MaterialButton taskProductionControlButton;
     private MaterialButton openPendingManagementButton;
     private boolean repairingStartupJobs;
     private boolean summaryRecoveryReady;
@@ -231,16 +225,14 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private int activeUiGeneration;
     /** Tracks only the stop operation so lifecycle cleanup cannot clear other work. */
     private boolean stopInFlight;
-    /** Captures the control intent shown by the task page. */
-    private boolean capturePaused;
-    /** Keeps capture persistence independent from Translation Job operations. */
-    private boolean captureControlBusy;
-    /** Invalidates capture-control callbacks after the Activity leaves the UI. */
-    private int captureControlGeneration;
-    /** One confirmation slot shared by capture, stop, and pending-delete actions. */
+    /** Task-production intent shown by the task page. */
+    private boolean taskProductionPaused;
+    /** Keeps control persistence independent from Translation Job operations. */
+    private boolean taskProductionControlBusy;
+    /** Invalidates task-control callbacks after the Activity leaves the UI. */
+    private int taskProductionControlGeneration;
+    /** One confirmation slot shared by task production, stop, and pending delete. */
     private AlertDialog controlDialog;
-    private boolean notificationCaptureControlPending;
-    private boolean notificationCaptureDesiredPaused;
     private String notificationRequestId;
     private String notificationRejectedRecordId;
 
@@ -412,7 +404,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         submitButton = findViewById(R.id.btn_submit_translation_queue);
         pageActions = findViewById(R.id.page_actions);
         summarySubmitButton = findViewById(R.id.btn_submit_summary_recovery);
-        captureControlButton = findViewById(R.id.btn_capture_control);
+        taskProductionControlButton = findViewById(R.id.btn_task_production_control);
         openPendingManagementButton = findViewById(
             R.id.btn_open_pending_management
         );
@@ -518,7 +510,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 View.GONE
             );
             summarySubmitButton.setVisibility(View.GONE);
-            captureControlButton.setVisibility(View.GONE);
+            taskProductionControlButton.setVisibility(View.GONE);
             openPendingManagementButton.setVisibility(View.GONE);
             taskTab = TAB_WAITING;
         }
@@ -601,16 +593,16 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         } else {
             toolbar.setNavigationIcon((android.graphics.drawable.Drawable) null);
             toolbar.setNavigationOnClickListener(view ->
-                onCaptureControlClicked()
+                onTaskProductionControlClicked()
             );
         }
         toolbar.setNavigationContentDescription(
             stylePreview || managementOnly
                 ? R.string.back_action
-                : R.string.capture_control_pause
+                : R.string.task_production_control_pause
         );
-        captureControlButton.setOnClickListener(view ->
-            onCaptureControlClicked()
+        taskProductionControlButton.setOnClickListener(view ->
+            onTaskProductionControlClicked()
         );
         submitButton.setOnClickListener(view -> showRecoveryOrderDialog());
         summarySubmitButton.setOnClickListener(
@@ -648,7 +640,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             initializeWaitingController();
         }
         if (!managementOnly && !stylePreview) {
-            refreshCaptureControl();
+            refreshTaskProductionControl();
         }
         if (stylePreview) {
             loadStylePreviewTasks();
@@ -737,7 +729,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         if (submitButton != null) submitButton.setVisibility(View.GONE);
         if (pageActions != null) pageActions.setVisibility(View.GONE);
         if (summarySubmitButton != null) summarySubmitButton.setVisibility(View.GONE);
-        if (captureControlButton != null) captureControlButton.setVisibility(View.GONE);
+        if (taskProductionControlButton != null) taskProductionControlButton.setVisibility(View.GONE);
         if (openPendingManagementButton != null) {
             openPendingManagementButton.setVisibility(View.GONE);
         }
@@ -1164,9 +1156,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         if (stylePreview) {
             return;
         }
-        captureNotificationIntent(getIntent());
         if (!managementOnly) {
-            refreshCaptureControl();
+            refreshTaskProductionControl();
         }
         summaryRecoveryWaitAttempts = 0;
         summaryRecoveryUnavailable = false;
@@ -1207,7 +1198,6 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             clearRestoredDetailTargets();
         }
         routeRejectedNotificationWhenReady();
-        captureNotificationIntent(intent);
     }
 
     @Override
@@ -1259,8 +1249,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             return;
         }
         jobStore.clearQueueListener(queueListener);
-        captureControlGeneration++;
-        captureControlBusy = false;
+        taskProductionControlGeneration++;
+        taskProductionControlBusy = false;
         dismissControlDialog();
         if (!managementOnly && translationJobClient != null) {
             activeUiGeneration++;
@@ -1385,8 +1375,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         }
         ioExecutor.shutdownNow();
         activeUiGeneration++;
-        captureControlGeneration++;
-        captureControlBusy = false;
+        taskProductionControlGeneration++;
+        taskProductionControlBusy = false;
         dismissControlDialog();
         pendingActive = false;
         pendingRefreshGeneration++;
@@ -1402,25 +1392,25 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    private void refreshCaptureControl() {
+    private void refreshTaskProductionControl() {
         if (managementOnly || stylePreview) {
             return;
         }
-        capturePaused = RuntimeControlStore.isCapturePaused(this);
-        int icon = capturePaused
+        taskProductionPaused = RuntimeControlStore.isTaskProductionPaused(this);
+        int icon = taskProductionPaused
             ? R.drawable.ic_task_play
             : R.drawable.ic_task_pause;
         String description = getString(
-            capturePaused
-                ? R.string.capture_control_resume
-                : R.string.capture_control_pause
+            taskProductionPaused
+                ? R.string.task_production_control_resume
+                : R.string.task_production_control_pause
         );
-        if (captureControlButton != null) {
-            captureControlButton.setIconResource(icon);
-            captureControlButton.setContentDescription(description);
-            captureControlButton.setText("");
-            captureControlButton.setEnabled(
-                !busy && !captureControlBusy && !isFinishing()
+        if (taskProductionControlButton != null) {
+            taskProductionControlButton.setIconResource(icon);
+            taskProductionControlButton.setContentDescription(description);
+            taskProductionControlButton.setText("");
+            taskProductionControlButton.setEnabled(
+                !busy && !taskProductionControlBusy && !isFinishing()
             );
         }
         MaterialToolbar toolbar = findViewById(
@@ -1430,107 +1420,57 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             toolbar.setNavigationIcon(icon);
             toolbar.setNavigationContentDescription(description);
             toolbar.setNavigationOnClickListener(view ->
-                onCaptureControlClicked()
+                onTaskProductionControlClicked()
             );
             toolbar.getNavigationIcon().setAlpha(
-                !busy && !captureControlBusy && !isFinishing() ? 255 : 128
+                !busy && !taskProductionControlBusy && !isFinishing() ? 255 : 128
             );
         }
-        handleNotificationCaptureControl();
     }
 
-    private void captureNotificationIntent(Intent intent) {
-        if (intent == null
-            || !intent.getBooleanExtra(
-                EXTRA_NOTIFICATION_CAPTURE_CONTROL,
-                false
-            )) {
+    private void onTaskProductionControlClicked() {
+        if (managementOnly || busy || taskProductionControlBusy
+            || taskProductionControlButton == null || !isTaskProductionUiActive()) {
             return;
         }
-        notificationCaptureControlPending = true;
-        notificationCaptureDesiredPaused = intent.getBooleanExtra(
-            EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED,
-            false
-        );
-        // Do not replay the same notification action on a later resume.
-        intent.removeExtra(EXTRA_NOTIFICATION_CAPTURE_CONTROL);
-        intent.removeExtra(EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED);
-        handleNotificationCaptureControl();
-    }
-
-    private void handleNotificationCaptureControl() {
-        if (!notificationCaptureControlPending
-            || managementOnly
-            || busy
-            || captureControlBusy
-            || !isCaptureUiActive()) {
-            return;
-        }
-        boolean currentPaused = RuntimeControlStore.isCapturePaused(this);
-        boolean desiredPaused = notificationCaptureDesiredPaused;
-        if (currentPaused == desiredPaused) {
-            notificationCaptureControlPending = false;
-            refreshCaptureControl();
-            return;
-        }
-        if (desiredPaused) {
-            // Pause is deliberately confirmed. Keep a pending action if
-            // another control dialog is currently visible.
-            if (!canShowControlDialog()) {
-                return;
-            }
-            notificationCaptureControlPending = false;
-            showCapturePauseDialog();
-            return;
-        }
-        notificationCaptureControlPending = false;
-        applyCapturePaused(false);
-    }
-
-    private void onCaptureControlClicked() {
-        if (managementOnly || busy || captureControlBusy
-            || captureControlButton == null || !isCaptureUiActive()) {
-            return;
-        }
-        // The notification action may have changed the durable intent while
-        // this Activity was visible.  Read it again at the decision point.
-        capturePaused = RuntimeControlStore.isCapturePaused(this);
-        refreshCaptureControl();
-        if (capturePaused) {
-            applyCapturePaused(false);
+        // Read the current task-production setting at the decision point.
+        taskProductionPaused = RuntimeControlStore.isTaskProductionPaused(this);
+        refreshTaskProductionControl();
+        if (taskProductionPaused) {
+            applyTaskProductionPaused(false);
         } else {
-            showCapturePauseDialog();
+            showTaskProductionPauseDialog();
         }
     }
 
-    private void showCapturePauseDialog() {
+    private void showTaskProductionPauseDialog() {
         if (!canShowControlDialog()) {
             return;
         }
         AlertDialog dialog = new UiMaterialAlertDialogBuilder(this)
-            .setTitle(R.string.capture_control_pause_title)
-            .setMessage(R.string.capture_control_pause_message)
+            .setTitle(R.string.task_production_control_pause_title)
+            .setMessage(R.string.task_production_control_pause_message)
             .setNegativeButton(R.string.cancel_action, null)
             .setPositiveButton(
-                R.string.capture_control_pause_action,
+                R.string.task_production_control_pause_action,
                 (shown, which) -> {
                     releaseControlDialog(shown);
-                    applyCapturePaused(true);
+                    applyTaskProductionPaused(true);
                 }
             )
             .create();
         showControlDialog(dialog);
     }
 
-    private void applyCapturePaused(boolean paused) {
-        if (managementOnly || busy || captureControlBusy
-            || !isCaptureUiActive()) {
+    private void applyTaskProductionPaused(boolean paused) {
+        if (managementOnly || busy || taskProductionControlBusy
+            || !isTaskProductionUiActive()) {
             return;
         }
-        final int generation = captureControlGeneration;
+        final int generation = taskProductionControlGeneration;
         final android.content.Context appContext = getApplicationContext();
-        captureControlBusy = true;
-        refreshCaptureControl();
+        taskProductionControlBusy = true;
+        refreshTaskProductionControl();
         try {
             ioExecutor.execute(() -> {
                 boolean saved = false;
@@ -1538,7 +1478,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 boolean operationFailed = false;
                 boolean synchronizationFailed = false;
                 try {
-                    saved = RuntimeControlStore.trySetCapturePaused(
+                    saved = RuntimeControlStore.trySetTaskProductionPaused(
                         appContext,
                         paused
                     );
@@ -1547,9 +1487,9 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 }
                 if (saved) {
                     try {
-                        TranslationControlReceiver.CaptureControlWakeResult
+                        TranslationControlReceiver.ControlWakeResult
                             wakeResult = TranslationControlReceiver
-                                .wakeTranslationServiceAndRefresh(appContext);
+                                .wakeTaskProductionControl(appContext);
                         serviceStarted = wakeResult.isServiceStarted();
                         synchronizationFailed =
                             !wakeResult.isNotificationRefreshed();
@@ -1570,15 +1510,15 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 final boolean operationFailedResult = operationFailed;
                 final boolean synchronizationFailedResult = synchronizationFailed;
                 runOnUiThread(() -> {
-                    if (!isCaptureUiActive(generation)) {
+                    if (!isTaskProductionUiActive(generation)) {
                         return;
                     }
-                    captureControlBusy = false;
-                    refreshCaptureControl();
+                    taskProductionControlBusy = false;
+                    refreshTaskProductionControl();
                     if (operationFailedResult || !savedResult) {
                         Toast.makeText(
                             this,
-                            R.string.capture_control_save_failed,
+                            R.string.task_production_control_save_failed,
                             Toast.LENGTH_LONG
                         ).show();
                         return;
@@ -1586,7 +1526,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                     if (synchronizationFailedResult && serviceStartedResult) {
                         Toast.makeText(
                             this,
-                            R.string.capture_control_saved_sync_failed,
+                            R.string.task_production_control_saved_sync_failed,
                             Toast.LENGTH_LONG
                         ).show();
                         return;
@@ -1595,33 +1535,33 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                         this,
                         serviceStartedResult
                             ? paused
-                                ? R.string.capture_control_pause_saved
-                                : R.string.capture_control_resume_saved
-                            : R.string.capture_control_saved_waiting_service,
+                                ? R.string.task_production_control_pause_saved
+                                : R.string.task_production_control_resume_saved
+                            : R.string.task_production_control_saved_waiting_service,
                         Toast.LENGTH_LONG
                     ).show();
                 });
             });
         } catch (RuntimeException error) {
-            captureControlBusy = false;
-            refreshCaptureControl();
+            taskProductionControlBusy = false;
+            refreshTaskProductionControl();
             Toast.makeText(
                 this,
-                R.string.capture_control_save_failed,
+                R.string.task_production_control_save_failed,
                 Toast.LENGTH_LONG
             ).show();
         }
     }
 
-    private boolean isCaptureUiActive() {
+    private boolean isTaskProductionUiActive() {
         return !isDestroyed()
             && !isFinishing()
             && !managementOnly;
     }
 
-    private boolean isCaptureUiActive(int generation) {
-        return isCaptureUiActive()
-            && generation == captureControlGeneration;
+    private boolean isTaskProductionUiActive(int generation) {
+        return isTaskProductionUiActive()
+            && generation == taskProductionControlGeneration;
     }
 
     private boolean canShowControlDialog() {
@@ -2735,8 +2675,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         if (toolbarActions != null) {
             toolbarActions.setVisibility(View.GONE);
         }
-        if (captureControlButton != null) {
-            captureControlButton.setVisibility(View.GONE);
+        if (taskProductionControlButton != null) {
+            taskProductionControlButton.setVisibility(View.GONE);
         }
         if (pageActions != null) {
             pageActions.setVisibility(View.GONE);
@@ -2780,8 +2720,8 @@ public final class TranslationQueueActivity extends AppCompatActivity {
                 managementOnly ? View.GONE : View.VISIBLE
             );
         }
-        if (captureControlButton != null) {
-            captureControlButton.setVisibility(View.GONE);
+        if (taskProductionControlButton != null) {
+            taskProductionControlButton.setVisibility(View.GONE);
         }
         View primaryNavigation = findViewById(R.id.primary_navigation);
         if (primaryNavigation != null) {
@@ -2806,7 +2746,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
         } else {
             toolbar.setTitle(R.string.task_page_title);
             toolbar.setNavigationIcon((android.graphics.drawable.Drawable) null);
-            refreshCaptureControl();
+            refreshTaskProductionControl();
         }
         renderTaskPage();
         if (taskListContent != null) {
@@ -4257,7 +4197,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     }
 
     private void confirmPermanentDeletePending(String pendingKey) {
-        if (!isPendingUiActive() || busy || captureControlBusy
+        if (!isPendingUiActive() || busy || taskProductionControlBusy
             || pendingKey == null
             || !canShowControlDialog()) {
             return;
@@ -5408,7 +5348,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     private void showActiveJobDetails(
         TranslationJobStore.ReviewJob job
     ) {
-        if (stylePreview || managementOnly || busy || captureControlBusy || job == null
+        if (stylePreview || managementOnly || busy || taskProductionControlBusy || job == null
             || isFinishing()
             || !canShowControlDialog()) {
             return;
@@ -5440,7 +5380,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
     }
 
     private void confirmStopRequest(String requestId) {
-        if (stylePreview || managementOnly || busy || captureControlBusy || requestId == null
+        if (stylePreview || managementOnly || busy || taskProductionControlBusy || requestId == null
             || isFinishing()
             || !canShowControlDialog()) {
             return;
@@ -5692,7 +5632,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
             finish();
             return;
         }
-        if (busy || captureControlBusy) {
+        if (busy || taskProductionControlBusy) {
             return;
         }
         if (managementOnly) {
@@ -5757,7 +5697,7 @@ public final class TranslationQueueActivity extends AppCompatActivity {
 
     private void setBusy(boolean value) {
         busy = value;
-        refreshCaptureControl();
+        refreshTaskProductionControl();
         submitButton.setEnabled(
             !value
                 && !managementOnly

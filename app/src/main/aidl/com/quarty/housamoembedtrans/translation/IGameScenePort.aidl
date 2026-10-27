@@ -40,4 +40,7 @@ interface IGameScenePort {
         in ParcelFileDescriptor requestReadFd,
         in ParcelFileDescriptor resultWriteFd
     );
+
+    /** Holds new task admission; accepted jobs and rendering keep running. */
+    void setTaskProductionPaused(boolean paused);
 }

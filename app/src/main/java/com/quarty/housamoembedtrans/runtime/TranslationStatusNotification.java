@@ -43,8 +43,8 @@ public final class TranslationStatusNotification {
     static final int STATUS_FAILED = 3;
     static final int STATUS_BLOCKED = 4;
 
-    static final String ACTION_TOGGLE_CAPTURE =
-        "com.quarty.housamoembedtrans.action.TOGGLE_CAPTURE";
+    static final String ACTION_SET_RENDER_PAUSED =
+        "com.quarty.housamoembedtrans.action.SET_RENDER_PAUSED";
     static final String ACTION_CHOICE_BACK =
         "com.quarty.housamoembedtrans.action.CHOICE_BACK";
 
@@ -1341,20 +1341,10 @@ public final class TranslationStatusNotification {
 
     private static PendingIntent capturePendingIntent(Context context) {
         boolean desiredPaused = !RuntimeControlStore.isCapturePaused(context);
-        Intent intent = new Intent(context, TranslationQueueActivity.class)
-            .putExtra(
-                TranslationQueueActivity.EXTRA_NOTIFICATION_CAPTURE_CONTROL,
-                true
-            )
-            .putExtra(
-                TranslationQueueActivity.EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED,
-                desiredPaused
-            )
-            .addFlags(
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
-            );
-        return PendingIntent.getActivity(
+        Intent intent = new Intent(context, TranslationControlReceiver.class)
+            .setAction(ACTION_SET_RENDER_PAUSED)
+            .putExtra(TranslationControlReceiver.EXTRA_RENDER_PAUSED, desiredPaused);
+        return PendingIntent.getBroadcast(
             context,
             CAPTURE_REQUEST_CODE,
             intent,

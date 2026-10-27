@@ -8,5 +8,5 @@
     <string name="notification_story_translating">Translating</string>
     <string name="notification_story_waiting_connection">Waiting for game</string>
     <string name="notification_story_waiting_position">Waiting for story position</string>
-    <string name="notification_story_capture_active">Capture enabled</string>
+    <string name="notification_story_capture_active">Rendering enabled</string>
 </resources>

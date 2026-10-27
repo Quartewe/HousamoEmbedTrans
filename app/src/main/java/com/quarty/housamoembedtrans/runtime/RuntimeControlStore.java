@@ -8,6 +8,7 @@ public final class RuntimeControlStore {
 
     private static final String PREFS_NAME = "runtime_controls";
     private static final String KEY_CAPTURE_PAUSED = "capture_paused";
+    private static final String KEY_TASK_PRODUCTION_PAUSED = "task_production_paused";
 
     private RuntimeControlStore() {
     }
@@ -51,5 +52,14 @@ public final class RuntimeControlStore {
             PREFS_NAME,
             Context.MODE_PRIVATE
         );
+    }
+
+    public static boolean isTaskProductionPaused(Context context) {
+        return preferences(context).getBoolean(KEY_TASK_PRODUCTION_PAUSED, false);
+    }
+
+    public static boolean trySetTaskProductionPaused(Context context, boolean paused) {
+        return preferences(context).edit()
+            .putBoolean(KEY_TASK_PRODUCTION_PAUSED, paused).commit();
     }
 }

@@ -712,6 +712,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
 
         @Override
+        public void setTaskProductionPaused(boolean paused) {
+            nativeSetTaskProductionPaused(paused);
+        }
+
+        @Override
         public boolean applySceneChanges(
             long generation,
             ParcelFileDescriptor requestReadFd,
@@ -2825,6 +2830,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static native void nativeResetSceneProductionPolicy();
 
     private static native void nativeSetCapturePaused(boolean paused);
+    private static native void nativeSetTaskProductionPaused(boolean paused);
 
     /*
      * Native terminal callback bridge.  The implementations live in

@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include "housamo.hpp"
 #include "bridge/jni_bridge.hpp"
+#include "translation/pipeline/translation_pipeline_internal.hpp"
 
 JavaBridge g_java_bridge;
 
@@ -690,4 +691,14 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeSetCapturePaused(
     jboolean paused
 ) {
     SetCapturePaused(paused == JNI_TRUE);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_quarty_housamoembedtrans_MainHook_nativeSetTaskProductionPaused(
+    JNIEnv*,
+    jclass,
+    jboolean paused
+) {
+    het::translation::translation_dispatcher::SetTaskProductionPaused(
+        paused == JNI_TRUE);
 }

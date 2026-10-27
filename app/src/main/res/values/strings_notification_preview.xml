@@ -25,7 +25,7 @@
     <string name="notification_preview_mutation_pending_message">Waiting for the current sync to finish before replay</string>
     <string name="notification_preview_mutation_error">Local file write failed; waiting to retry</string>
     <string name="notification_preview_idle">Waiting for translation</string>
-    <string name="notification_preview_paused">Capture paused</string>
+    <string name="notification_preview_paused">Rendering paused</string>
     <string name="notification_preview_active">Translation in progress / timer</string>
     <string name="notification_preview_succeeded">Translation completed</string>
     <string name="notification_preview_failed">Translation failed / status</string>

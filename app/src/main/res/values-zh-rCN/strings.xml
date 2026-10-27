@@ -31,7 +31,7 @@
     <string name="notification_translating_scene">正在翻译：%1$s</string>
     <string name="notification_elapsed_time">已用时间</string>
     <string name="notification_waiting">等待剧情</string>
-    <string name="notification_capture_paused">已暂停捕获新剧情</string>
+    <string name="notification_capture_paused">翻译渲染已暂停</string>
     <string name="notification_translation_succeeded">翻译完成：%1$s</string>
     <string name="notification_translation_failed">翻译失败：%1$s</string>
     <string name="notification_translation_needs_user_action">等待处理</string>
@@ -39,8 +39,8 @@
     <string name="notification_startup_failed">服务启动失败，请打开任务队列</string>
     <string name="notification_startup_failed_subtitle">启动失败</string>
     <string name="notification_finished_duration">用时 %1$s</string>
-    <string name="notification_action_pause_capture">暂停捕获</string>
-    <string name="notification_action_resume_capture">继续捕获</string>
+    <string name="notification_action_pause_capture">暂停渲染</string>
+    <string name="notification_action_resume_capture">恢复渲染</string>
     <string name="notification_queued_jobs_waiting">%1$d 个任务待排序，请打开队列安排</string>
     <string name="notification_failed_jobs_waiting">%1$d 个翻译任务失败，请打开队列处理</string>
     <string name="notification_recovery_waiting_with_failures">%1$d 个待排序、%2$d 个失败，请打开队列</string>

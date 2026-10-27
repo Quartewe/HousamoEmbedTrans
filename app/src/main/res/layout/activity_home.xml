@@ -48,9 +48,9 @@
                     android:minHeight="100dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:paddingStart="22dp"
+                    android:paddingStart="18dp"
                     android:paddingTop="12dp"
-                    android:paddingEnd="22dp"
+                    android:paddingEnd="12dp"
                     android:paddingBottom="12dp">
 
                     <ImageView
@@ -64,7 +64,7 @@
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="18dp"
+                        android:layout_marginStart="12dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
@@ -73,11 +73,11 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
-                            android:maxLines="1"
+                            android:maxLines="2"
                             android:ellipsize="end"
                             android:text="@string/home_state_loading"
                             android:textColor="@color/het_on_primary_container"
-                            android:textSize="22sp"
+                            android:textSize="20sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -90,6 +90,36 @@
                             android:text="@string/home_connection_loading"
                             android:textColor="@color/het_on_primary_container"
                             android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/btn_home_render_control"
+                        android:layout_width="64dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:minHeight="64dp"
+                        android:background="@android:color/transparent"
+                        android:foreground="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <ImageView
+                            android:id="@+id/iv_home_render_control"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_task_pause" />
+
+                        <TextView
+                            android:id="@+id/tv_home_render_control"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:importantForAccessibility="no"
+                            android:text="@string/render_control_pause_short"
+                            android:textSize="12sp" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

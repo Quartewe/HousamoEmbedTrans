@@ -8,5 +8,5 @@
     <string name="notification_story_translating">正在翻译</string>
     <string name="notification_story_waiting_connection">等待游戏连接</string>
     <string name="notification_story_waiting_position">等待剧情位置</string>
-    <string name="notification_story_capture_active">捕获已启用</string>
+    <string name="notification_story_capture_active">翻译渲染已开启</string>
 </resources>

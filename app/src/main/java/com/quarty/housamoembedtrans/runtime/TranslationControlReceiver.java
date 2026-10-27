@@ -20,13 +20,14 @@ import com.quarty.housamoembedtrans.logging.Log;
 public final class TranslationControlReceiver extends BroadcastReceiver {
 
     private static final String TAG = "HET.Notification";
+    public static final String EXTRA_RENDER_PAUSED = "render_paused";
 
-    /** Reports each side effect of one explicit capture-control wake. */
-    public static final class CaptureControlWakeResult {
+    /** Reports each side effect of one explicit runtime-control wake. */
+    public static final class ControlWakeResult {
         private final boolean serviceStarted;
         private final boolean notificationRefreshed;
 
-        private CaptureControlWakeResult(
+        private ControlWakeResult(
             boolean serviceStarted,
             boolean notificationRefreshed
         ) {
@@ -44,15 +45,26 @@ public final class TranslationControlReceiver extends BroadcastReceiver {
     }
 
     /** Wakes the Service and rebuilds the notification after a control write. */
-    public static CaptureControlWakeResult wakeTranslationServiceAndRefresh(
+    public static ControlWakeResult wakeTranslationServiceAndRefresh(
         Context context
+    ) {
+        return wakeTranslationServiceAndRefresh(context, false);
+    }
+
+    public static ControlWakeResult wakeTaskProductionControl(Context context) {
+        return wakeTranslationServiceAndRefresh(context, true);
+    }
+
+    private static ControlWakeResult wakeTranslationServiceAndRefresh(
+        Context context, boolean taskProductionOnly
     ) {
         Context appContext = context.getApplicationContext();
         Intent serviceIntent = new Intent(
             appContext,
             TranslationService.class
         )
-            .setAction(HetBridgeContract.ACTION_START_TRANSLATION_SERVICE);
+            .setAction(HetBridgeContract.ACTION_START_TRANSLATION_SERVICE)
+            .putExtra(TranslationService.EXTRA_TASK_PRODUCTION_CONTROL, taskProductionOnly);
         boolean started = true;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -75,7 +87,7 @@ public final class TranslationControlReceiver extends BroadcastReceiver {
             notificationRefreshed = false;
             Log.w(TAG, "Could not refresh capture control notification", e);
         }
-        return new CaptureControlWakeResult(started, notificationRefreshed);
+        return new ControlWakeResult(started, notificationRefreshed);
     }
 
     @Override
@@ -99,41 +111,42 @@ public final class TranslationControlReceiver extends BroadcastReceiver {
             return;
         }
         if (intent == null
-            || !TranslationStatusNotification.ACTION_TOGGLE_CAPTURE.equals(
+            || !TranslationStatusNotification.ACTION_SET_RENDER_PAUSED.equals(
                 intent.getAction()
             )) {
             return;
         }
 
-        // Keep legacy broadcast senders safe: a notification action must not
-        // toggle capture behind the user's back.  Route it through the task
-        // page, which confirms a pause and applies an explicit desired state.
-        boolean desiredPaused = !RuntimeControlStore.isCapturePaused(context);
-        Intent controlIntent = new Intent(
-            context,
-            com.quarty.housamoembedtrans.ui.TranslationQueueActivity.class
-        )
-            .putExtra(
-                com.quarty.housamoembedtrans.ui.TranslationQueueActivity
-                    .EXTRA_NOTIFICATION_CAPTURE_CONTROL,
-                true
-            )
-            .putExtra(
-                com.quarty.housamoembedtrans.ui.TranslationQueueActivity
-                    .EXTRA_NOTIFICATION_CAPTURE_DESIRED_PAUSED,
-                desiredPaused
-            )
-            .addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK
-                    | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
-            );
+        Context appContext = context.getApplicationContext();
+        boolean desiredPaused = intent.getBooleanExtra(EXTRA_RENDER_PAUSED, false);
+        PendingResult pending = goAsync();
+        new Thread(() -> {
+            try {
+                int message = applyRenderPaused(appContext, desiredPaused);
+                if (message != 0) {
+                    new Handler(Looper.getMainLooper()).post(() ->
+                        Toast.makeText(appContext, message, Toast.LENGTH_LONG).show());
+                }
+            } finally {
+                pending.finish();
+            }
+        }, "HET.RenderControl").start();
+    }
+
+    /** Called off the UI thread; home and notification reuse the existing latch. */
+    public static int applyRenderPaused(Context context, boolean paused) {
         try {
-            context.startActivity(controlIntent);
-            Log.i(TAG, "Capture control routed to task-page confirmation");
+            if (!RuntimeControlStore.trySetCapturePaused(context, paused)) {
+                return R.string.render_control_save_failed;
+            }
         } catch (RuntimeException error) {
-            Log.w(TAG, "Could not open task-page capture control", error);
+            Log.w(TAG, "Could not save render pause", error);
+            return R.string.render_control_save_failed;
         }
+        ControlWakeResult result = wakeTranslationServiceAndRefresh(context);
+        if (!result.isServiceStarted()) return R.string.render_control_waiting_service;
+        if (!result.isNotificationRefreshed()) return R.string.render_control_sync_failed;
+        return 0;
     }
 
     private static void showChoiceBackResult(Context context, int result) {
