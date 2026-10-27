@@ -3,7 +3,7 @@
     <string name="scene_sync_title">Scene Sync</string>
     <string name="scene_sync_scope_loading">Loading the current Scene Sync scope…</string>
     <string name="scene_sync_scope_online">Online sync with the game</string>
-    <string name="scene_sync_scope_local">Local scene list only; the game is offline</string>
+    <string name="scene_sync_scope_local">Game not connected. Start the game and wait for a connection before syncing.</string>
     <string name="scene_sync_scope_service_unavailable">Scene Sync service is unavailable</string>
     <string name="scene_sync_scope_description">Compare game and HET scene versions, retain complete conflicts, and show the latest sync results below.</string>
 
@@ -58,7 +58,7 @@ Saved languages: zh-cn, en</string>
     <string name="scene_sync_result_busy">Another Scene operation is active</string>
     <string name="scene_sync_result_deferred">Scene sync is waiting to proceed</string>
     <string name="scene_sync_result_queued">Scene sync queued until startup preparation finishes</string>
-    <string name="scene_sync_result_local_refreshed">Local scene list refreshed</string>
+    <string name="scene_sync_result_local_refreshed">Not synced. Start the game and wait for a connection before syncing.</string>
     <string name="scene_sync_result_succeeded">Scene Sync completed</string>
     <string name="scene_sync_result_needs_attention">Scene Sync needs attention</string>
     <string name="scene_sync_result_failed">Scene Sync failed</string>
@@ -75,6 +75,5 @@ Saved languages: zh-cn, en</string>
     <string name="scene_sync_status_not_processed">Not processed</string>
 
     <string name="scene_sync_action_sync">Sync all scenes</string>
-    <string name="scene_sync_action_refresh_local">Refresh local list</string>
     <string name="scene_sync_action_syncing">Syncing scenes…</string>
 </resources>

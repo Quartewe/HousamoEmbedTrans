@@ -452,11 +452,7 @@ public final class SceneFilesActivity extends AppCompatActivity {
 
         if (syncResult != null) {
             if (refreshRequestPending) {
-                syncResult.setText(
-                    snapshot.serviceAvailable && snapshot.gamePortAvailable
-                        ? R.string.scene_sync_result_preparing
-                        : R.string.scene_sync_result_refreshing_local
-                );
+                syncResult.setText(R.string.scene_sync_result_preparing);
             } else {
                 syncResult.setText(getString(
                     R.string.scene_sync_result_last,
@@ -468,11 +464,8 @@ public final class SceneFilesActivity extends AppCompatActivity {
         if (refreshButton != null) {
             if (snapshot.phase != SceneSyncRuntimeState.Phase.IDLE) {
                 refreshButton.setText(R.string.scene_sync_action_syncing);
-            } else if (snapshot.serviceAvailable
-                && snapshot.gamePortAvailable) {
-                refreshButton.setText(R.string.scene_sync_action_sync);
             } else {
-                refreshButton.setText(R.string.scene_sync_action_refresh_local);
+                refreshButton.setText(R.string.scene_sync_action_sync);
             }
         }
 
@@ -1253,55 +1246,52 @@ public final class SceneFilesActivity extends AppCompatActivity {
     }
 
     private void requestSceneRefresh() {
-        if (stylePreview || runtimeState == null || sceneStore == null
-            || ioExecutor == null || !canRequestSceneRefresh()) {
+        if (stylePreview || runtimeState == null) {
+            return;
+        }
+        runtimeSnapshot = runtimeState.getSnapshot();
+        renderRuntimeSnapshot(runtimeSnapshot);
+        updateActionState();
+        if (!canRequestSceneRefresh()) {
+            return;
+        }
+        if (!runtimeSnapshot.serviceAvailable
+            || !runtimeSnapshot.gamePortAvailable) {
+            Toast.makeText(
+                this,
+                !runtimeSnapshot.serviceAvailable
+                    ? R.string.scene_sync_scope_service_unavailable
+                    : R.string.scene_sync_scope_local,
+                Toast.LENGTH_LONG
+            ).show();
             return;
         }
 
         refreshRequestPending = true;
         renderRuntimeSnapshot(runtimeSnapshot);
         updateActionState();
-
-        ioExecutor.execute(() -> {
-            boolean localReadFailed = false;
-            try {
-                // Keep the existing local-list read as the offline refresh
-                // boundary before asking the runtime controller to sync.
-                sceneStore.listSceneInfos();
-            } catch (RuntimeException error) {
-                localReadFailed = true;
-                Log.e(TAG, "Could not reload local Scenes before refresh", error);
+        try {
+            SceneSyncRuntimeState.Outcome outcome = runtimeState.requestRefresh();
+            if (outcome == SceneSyncRuntimeState.Outcome.LOCAL_ONLY) {
+                Toast.makeText(
+                    this,
+                    R.string.scene_sync_result_local_refreshed,
+                    Toast.LENGTH_LONG
+                ).show();
             }
-            final boolean failed = localReadFailed;
-            runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) {
-                    return;
-                }
-                if (failed) {
-                    refreshRequestPending = false;
-                    runtimeSnapshot = runtimeState.getSnapshot();
-                    renderRuntimeSnapshot(runtimeSnapshot);
-                    updateActionState();
-                    Toast.makeText(
-                        this,
-                        R.string.scene_sync_result_failed,
-                        Toast.LENGTH_LONG
-                    ).show();
-                    return;
-                }
-
-                loadSyncConflictsAsync();
-                try {
-                    runtimeState.requestRefresh();
-                } catch (RuntimeException error) {
-                    Log.e(TAG, "Could not request Scene Sync refresh", error);
-                }
-                refreshRequestPending = false;
-                runtimeSnapshot = runtimeState.getSnapshot();
-                renderRuntimeSnapshot(runtimeSnapshot);
-                updateActionState();
-            });
-        });
+        } catch (RuntimeException error) {
+            Log.e(TAG, "Could not request Scene Sync", error);
+            Toast.makeText(
+                this,
+                R.string.scene_sync_result_failed,
+                Toast.LENGTH_LONG
+            ).show();
+        } finally {
+            refreshRequestPending = false;
+            runtimeSnapshot = runtimeState.getSnapshot();
+            renderRuntimeSnapshot(runtimeSnapshot);
+            updateActionState();
+        }
     }
 
     private boolean canRequestSceneRefresh() {

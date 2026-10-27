@@ -3,7 +3,7 @@
     <string name="scene_sync_title">剧情同步</string>
     <string name="scene_sync_scope_loading">正在读取当前剧情同步范围…</string>
     <string name="scene_sync_scope_online">已连接游戏，可在线同步</string>
-    <string name="scene_sync_scope_local">仅显示本地剧情列表；游戏未运行</string>
+    <string name="scene_sync_scope_local">尚未连接游戏；请先启动游戏，连接后再同步。</string>
     <string name="scene_sync_scope_service_unavailable">剧情同步服务不可用</string>
     <string name="scene_sync_scope_description">比较游戏与 HET 的剧情版本，保留完整冲突，并在下方显示最新同步结果。</string>
 
@@ -58,7 +58,7 @@
     <string name="scene_sync_result_busy">另一个剧情操作正在进行</string>
     <string name="scene_sync_result_deferred">剧情同步正在等待放行</string>
     <string name="scene_sync_result_queued">剧情同步已排队，等待启动准备完成</string>
-    <string name="scene_sync_result_local_refreshed">本地剧情列表已刷新</string>
+    <string name="scene_sync_result_local_refreshed">未同步；请先启动游戏，连接后再同步。</string>
     <string name="scene_sync_result_succeeded">剧情同步已完成</string>
     <string name="scene_sync_result_needs_attention">剧情同步需要处理</string>
     <string name="scene_sync_result_failed">剧情同步失败</string>
@@ -75,6 +75,5 @@
     <string name="scene_sync_status_not_processed">未处理</string>
 
     <string name="scene_sync_action_sync">同步全部剧情</string>
-    <string name="scene_sync_action_refresh_local">刷新本地列表</string>
     <string name="scene_sync_action_syncing">正在同步剧情…</string>
 </resources>
