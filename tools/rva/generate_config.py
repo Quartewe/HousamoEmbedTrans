@@ -2,9 +2,9 @@
 """
 Update app/src/main/assets/runtime.json from Il2CppDumper dump.cs or script.json.
 
-Only the top-level "GameVersion" value and nested "RuntimeConfigs.RVA" object
-are replaced. "RuntimeConfigs.Layout" is preserved exactly so manually
-maintained offsets are not dropped.
+Updates "GameVersion", "RuntimeConfigs.RVA", and an explicitly supplied
+"RuntimeConfigs.ChoiceBack". "Layout" is preserved so manually maintained
+offsets are not dropped. Changing versions requires verified ChoiceBack data.
 
 Edit the constants below for the normal manual workflow, or override them with
 command line arguments.
@@ -508,10 +508,10 @@ def replace_runtime_values(
     runtime_text: str,
     game_version: str,
     rva: Dict[str, str],
+    choice_back: Optional[Dict[str, Any]] = None,
 ) -> str:
-    # Validate first, then patch only the two game-version-bound values. This
-    # keeps hand-maintained Layout fields and surrounding formatting untouched.
-    json.loads(runtime_text)
+    # Patch version-bound values without reformatting hand-maintained Layout.
+    existing = json.loads(runtime_text)
 
     version_start, version_end = find_top_level_value_span(
         runtime_text,
@@ -540,6 +540,18 @@ def replace_runtime_values(
         ),
     ]
 
+    if choice_back is not None:
+        indent = line_indent_at(runtime_text, rva_start)
+        value = format_object_value(choice_back, newline, indent)
+        if "ChoiceBack" in existing["RuntimeConfigs"]:
+            start, end = find_nested_value_span(runtime_text, "RuntimeConfigs", "ChoiceBack")
+            replacements.append((start, end, value))
+        else:
+            start, end, value_rva = replacements[1]
+            replacements[1] = (
+                start, end, value_rva + "," + newline + indent + '"ChoiceBack": ' + value
+            )
+
     result = runtime_text
     for start, end, replacement in sorted(replacements, reverse=True):
         result = result[:start] + replacement + result[end:]
@@ -551,6 +563,7 @@ def main() -> None:
     parser.add_argument("--version", default=GAME_VERSION, help="game version string")
     parser.add_argument("--input", default=INPUT_PATH, help="path to dump.cs or script.json")
     parser.add_argument("--output", default=OUTPUT_PATH, help="path to output runtime.json")
+    parser.add_argument("--choice-back", help="verified ChoiceBack JSON block for the target arm64 library")
     parser.add_argument("--stdout", action="store_true", help="print JSON instead of writing")
     args = parser.parse_args()
 
@@ -560,12 +573,25 @@ def main() -> None:
 
     rva = parse_rva(input_path)
     output_path = Path(args.output)
+    choice_back = None
+    if args.choice_back:
+        choice_back = json.loads(Path(args.choice_back).read_text(encoding="utf-8-sig"))
+        if not isinstance(choice_back, dict):
+            raise ValueError("--choice-back must contain a JSON object")
 
     if output_path.is_file():
         old_text = output_path.read_text(encoding="utf-8")
-        text = replace_runtime_values(old_text, args.version, rva)
+        old = json.loads(old_text)
+        if choice_back is None and (
+            old["GameVersion"] != args.version or "ChoiceBack" not in old["RuntimeConfigs"]
+        ):
+            raise ValueError("supply --choice-back with verified target-library data when changing versions or adding ChoiceBack")
+        text = replace_runtime_values(old_text, args.version, rva, choice_back)
     else:
+        if choice_back is None:
+            raise ValueError("a new runtime requires --choice-back with verified target-library data")
         config = build_config(input_path, args.version)
+        config["RuntimeConfigs"]["ChoiceBack"] = choice_back
         text = json.dumps(config, ensure_ascii=False, indent=4) + "\n"
 
     if args.stdout:

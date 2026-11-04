@@ -17,6 +17,7 @@
 
 #include "scene/scene_production_policy.hpp"
 #include "bridge/native_log.hpp"
+#include "runtime/choice_back.hpp"
 
 // 日志宏
 #define LOG_TAG "HousamoTrans"
@@ -234,6 +235,7 @@ struct RuntimeConfig {
     std::string game_version;
     RvaConfig rva;
     LayoutConfig layout;
+    ChoiceBackConfig choice_back;
     CharacterWeightConfig character_weight;
     int scene_worker_count = 4;
     std::string target_lang;
@@ -505,6 +507,7 @@ bool make_runtime_config(
     const std::string& game_version,
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
+    const ChoiceBackConfig& choice_back,
     const CharacterWeightConfig& character_weight,
     int scene_worker_count,
     const std::string& target_lang,

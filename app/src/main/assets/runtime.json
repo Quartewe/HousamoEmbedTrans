@@ -13,6 +13,29 @@
             "RVA_UguiSelectionClearAll": "0x2486CE4",
             "RVA_UiTextSetText": "0x4E07F48"
         },
+        "ChoiceBack": {
+            "BuildId": "0932a18417303b781de362ee1b8013f2f081937d",
+            "RVA": {
+                "BeginPage": "0x2466FB0",
+                "SavePage": "0x2471B80",
+                "WaitInput": "0x2467D30",
+                "Select": "0x246DFA0",
+                "StartScenario": "0x247C090",
+                "EndScenario": "0x247CB68",
+                "Destroy": "0x24186B0",
+                "Load": "0x2419C18",
+                "MoveLoad": "0x241ABFC",
+                "CreateLoad": "0x2419C54",
+                "StartGame": "0x2419D98"
+            },
+            "SavePageCaller": "0x247F2C4",
+            "PageStatus": {
+                "SendChar": 1,
+                "WaitEffectOnInputInPage": 2,
+                "WaitInputInPage": 3,
+                "WaitInputBrPage": 6
+            }
+        },
         "Layout": {
             "Il2CppString": {
                 "Length": "0x10",

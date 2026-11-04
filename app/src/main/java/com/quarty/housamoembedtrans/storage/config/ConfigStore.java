@@ -1137,6 +1137,7 @@ public final class ConfigStore {
         JSONObject runtime = config.getJSONObject("RuntimeConfigs");
         runtime.getJSONObject("RVA");
         runtime.getJSONObject("Layout");
+        ChoiceBackConfig.validate(runtime.getJSONObject("ChoiceBack"));
     }
 
     private JSONObject normalizeResource(String name, JSONObject json) throws Exception {

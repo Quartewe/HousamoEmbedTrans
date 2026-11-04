@@ -151,6 +151,7 @@ bool make_runtime_config(
     const std::string& game_version,
     const RvaConfig& java_rva,
     const LayoutConfig& java_layout,
+    const ChoiceBackConfig& choice_back,
     const CharacterWeightConfig& character_weight,
     int scene_worker_count,
     const std::string& target_lang,
@@ -189,6 +190,7 @@ bool make_runtime_config(
     out->game_version = game_version;
     out->rva = java_rva;
     out->layout = java_layout;
+    out->choice_back = choice_back;
     out->character_weight = character_weight;
     out->scene_worker_count = scene_worker_count;
     out->target_lang = target_lang;

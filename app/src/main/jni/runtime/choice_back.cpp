@@ -14,22 +14,9 @@
 
 namespace {
 enum Result { Restored = 0, NoTarget = 1, Busy = 2, Unavailable = 3, Failed = 5 };
-enum class PageStatus : int {
-    None = 0,
-    SendChar = 1,
-    WaitEffectOnInputInPage = 2,
-    WaitInputInPage = 3,
-    OtherCommandInPage = 4,
-    WaitEffectOnEndPage = 5,
-    WaitInputBrPage = 6
-};
-
-// Housamo 5.20.0 / 1378, arm64-v8a. The load-image GNU build ID gates every
-// version-specific hook. No address/offset below is used on another image.
-constexpr unsigned char kBuildId[] = {
-    0x30,0xe2,0xc4,0x3b,0x8b,0xba,0x72,0x4a,0xd0,0xfd,
-    0x08,0xad,0x88,0xe1,0x61,0xbf,0xd7,0x3e,0xdd,0xcb
-};
+// Published with the Unity pump hook; immutable after startup. The configured
+// GNU build ID gates every version-specific hook and page-top call site.
+ChoiceBackConfig runtime;
 uintptr_t base = 0;
 bool initialized = false;
 std::atomic<bool> ready{false};
@@ -522,7 +509,7 @@ void SavePage(void* self, void* value, const void* method) {
     const auto caller = reinterpret_cast<uintptr_t>(__builtin_return_address(0));
     saveOriginal(self, value, method);
     if (!ready.load() || !active || unavailable || loadLease || value != engine.Get()
-        || caller != base + 0x2380FC8 || !currentPage.Get()
+        || caller != base + runtime.save_page_caller || !currentPage.Get()
         || CurrentData() != currentPage.Get()) return;
     candidate = Snapshot::Capture(api.Get(self, "get_CurrentAutoSaveData"), currentPage.Get());
     candidateVisit = pageVisit;
@@ -625,8 +612,8 @@ int MatchImage(dl_phdr_info* info, size_t, void* context) {
             if (names > static_cast<size_t>(end - cursor)
                 || descs > static_cast<size_t>(end - cursor) - names) break;
             if (note.n_type == NT_GNU_BUILD_ID && note.n_namesz == 4
-                && std::memcmp(cursor, "GNU", 4) == 0 && note.n_descsz == sizeof(kBuildId)
-                && std::memcmp(cursor + names, kBuildId, sizeof(kBuildId)) == 0) match.matched = true;
+                && std::memcmp(cursor, "GNU", 4) == 0 && note.n_descsz == runtime.build_id.size()
+                && std::memcmp(cursor + names, runtime.build_id.data(), runtime.build_id.size()) == 0) match.matched = true;
             cursor += names + descs;
         }
     }
@@ -645,17 +632,17 @@ bool Install() {
     }
     struct Hook { uintptr_t rva; void* replacement; void** original; void* stub; };
     Hook hooks[] = {
-        {0x2368A04, reinterpret_cast<void*>(BeginPage), reinterpret_cast<void**>(&beginOriginal), nullptr},
-        {0x23735DC, reinterpret_cast<void*>(SavePage), reinterpret_cast<void**>(&saveOriginal), nullptr},
-        {0x2369784, reinterpret_cast<void*>(WaitInput), reinterpret_cast<void**>(&waitOriginal), nullptr},
-        {0x236F9F4, reinterpret_cast<void*>(Select), reinterpret_cast<void**>(&selectOriginal), nullptr},
-        {0x237DD7C, reinterpret_cast<void*>(StartScenario), reinterpret_cast<void**>(&startOriginal), nullptr},
-        {0x237E88C, reinterpret_cast<void*>(EndScenario), reinterpret_cast<void**>(&endOriginal), nullptr},
-        {0x2848B0C, reinterpret_cast<void*>(Destroy), reinterpret_cast<void**>(&destroyOriginal), nullptr},
-        {0x284A00C, reinterpret_cast<void*>(Load), reinterpret_cast<void**>(&loadOriginal), nullptr},
-        {0x231C2F4, reinterpret_cast<void*>(MoveLoad), reinterpret_cast<void**>(&moveOriginal), nullptr},
-        {0x284A048, reinterpret_cast<void*>(CreateLoad), reinterpret_cast<void**>(&loadFactoryOriginal), nullptr},
-        {0x284A194, reinterpret_cast<void*>(StartGame), reinterpret_cast<void**>(&startGameOriginal), nullptr},
+        {runtime.begin_page, reinterpret_cast<void*>(BeginPage), reinterpret_cast<void**>(&beginOriginal), nullptr},
+        {runtime.save_page, reinterpret_cast<void*>(SavePage), reinterpret_cast<void**>(&saveOriginal), nullptr},
+        {runtime.wait_input, reinterpret_cast<void*>(WaitInput), reinterpret_cast<void**>(&waitOriginal), nullptr},
+        {runtime.select, reinterpret_cast<void*>(Select), reinterpret_cast<void**>(&selectOriginal), nullptr},
+        {runtime.start_scenario, reinterpret_cast<void*>(StartScenario), reinterpret_cast<void**>(&startOriginal), nullptr},
+        {runtime.end_scenario, reinterpret_cast<void*>(EndScenario), reinterpret_cast<void**>(&endOriginal), nullptr},
+        {runtime.destroy, reinterpret_cast<void*>(Destroy), reinterpret_cast<void**>(&destroyOriginal), nullptr},
+        {runtime.load, reinterpret_cast<void*>(Load), reinterpret_cast<void**>(&loadOriginal), nullptr},
+        {runtime.move_load, reinterpret_cast<void*>(MoveLoad), reinterpret_cast<void**>(&moveOriginal), nullptr},
+        {runtime.create_load, reinterpret_cast<void*>(CreateLoad), reinterpret_cast<void**>(&loadFactoryOriginal), nullptr},
+        {runtime.start_game, reinterpret_cast<void*>(StartGame), reinterpret_cast<void**>(&startGameOriginal), nullptr},
     };
     for (auto& hook : hooks) {
         hook.stub = shadowhook_hook_func_addr(reinterpret_cast<void*>(base + hook.rva), hook.replacement, hook.original);
@@ -665,7 +652,7 @@ bool Install() {
             return false;
         }
     }
-    LOGI("[ChoiceBack] bound Housamo 5.20.0/1378 arm64 GNU build ID");
+    LOGI("[ChoiceBack] bound configured arm64 GNU build ID");
     return true;
 #endif
 }
@@ -677,12 +664,12 @@ void ProcessRequest() {
     void* manager = api.Get(engine.Get(), "get_SelectionManager");
     waiting = IsWaiting(manager);
     void* page = api.Get(engine.Get(), "get_Page");
-    PageStatus status = PageStatus::None;
+    int32_t status = 0;
     // Sending text and waiting for a page-local effect are ordinary dialogue;
     // only command execution/page transition states must wait before loading.
     bool ordinaryPage = api.Read(page, "status", status)
-        && (status == PageStatus::SendChar || status == PageStatus::WaitEffectOnInputInPage
-            || status == PageStatus::WaitInputInPage || status == PageStatus::WaitInputBrPage);
+        && (status == runtime.send_char || status == runtime.wait_effect_on_input_in_page
+            || status == runtime.wait_input_in_page || status == runtime.wait_input_br_page);
     if (!waiting && (selectedOnPage || !ordinaryPage)) {
         Complete(Busy); return;
     }
@@ -800,7 +787,10 @@ void ProcessOpenStory() {
 }
 } // namespace
 
-void ConfigureChoiceBack(uintptr_t il2cpp_base) { base = il2cpp_base; }
+void ConfigureChoiceBack(uintptr_t il2cpp_base, const ChoiceBackConfig& config) {
+    base = il2cpp_base;
+    runtime = config;
+}
 
 std::string ReadScenarioQuestLabel(void* scenario, void* dataManager) {
     if (!ready.load() || !scenario || !dataManager) return {};

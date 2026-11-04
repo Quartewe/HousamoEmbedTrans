@@ -9,6 +9,7 @@ import com.quarty.housamoembedtrans.scene.sync.GameSceneMirrorSource;
 import com.quarty.housamoembedtrans.scene.sync.SceneMirrorExportCoordinator;
 import com.quarty.housamoembedtrans.scene.sync.SceneSyncStartupSnapshot;
 import com.quarty.housamoembedtrans.storage.config.StartupSettings;
+import com.quarty.housamoembedtrans.storage.config.ChoiceBackConfig;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
@@ -1427,6 +1428,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final class StartupConfig {
         RVA rva;
         Layout layout;
+        ChoiceBackConfig choiceBack;
         CharacterWeight characterWeight;
         int sceneWorkerCount;
         SceneSyncStartupSnapshot sceneSyncSnapshot;
@@ -1758,6 +1760,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         StartupConfig config = new StartupConfig();
         config.rva = Init_RVA(runtimeConfigs);
         config.layout = Init_Layout(runtimeConfigs);
+        config.choiceBack = new ChoiceBackConfig(runtimeConfigs.getJSONObject("ChoiceBack"));
         config.characterWeight = Init_CharacterWeight(userConfig);
         JSONObject userSettings = userConfig.getJSONObject("UserSettings");
         config.sceneSyncSnapshot = SceneSyncStartupSnapshot.of(
@@ -2724,6 +2727,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 startup.gameVersion,
                 startup.rva,
                 startup.layout,
+                startup.choiceBack,
                 startup.characterWeight,
                 startup.sceneWorkerCount,
                 startup.enablePageRecDebug,
@@ -2803,6 +2807,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         String gameVersion,
         RVA rva,
         Layout layout,
+        ChoiceBackConfig choiceBack,
         CharacterWeight characterWeight,
         int sceneWorkerCount,
         boolean enablePageRecDebug,

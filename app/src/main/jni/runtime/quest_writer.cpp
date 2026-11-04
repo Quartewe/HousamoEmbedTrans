@@ -654,7 +654,7 @@ bool StartQuestWriter(uintptr_t il2cpp_base, const RuntimeConfig& config) {
             return;
         }
         g_quest_writes_enabled = !config.enable_page_rec_debug || config.enable_page_rec_tasks;
-        ConfigureChoiceBack(il2cpp_base);
+        ConfigureChoiceBack(il2cpp_base, config.choice_back);
 
         void* invoke = shadowhook_dlsym(g_il2cpp_handle, "il2cpp_runtime_invoke");
         if (!invoke) {

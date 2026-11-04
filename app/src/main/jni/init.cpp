@@ -106,6 +106,32 @@ static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
     return out;
 }
 
+static ChoiceBackConfig jcls_to_choice_back_config(JNIEnv* env, jobject object) {
+    ChoiceBackConfig out;
+    auto build_id = static_cast<jbyteArray>(get_object_field(env, object, "buildId", "[B"));
+    out.build_id.resize(static_cast<size_t>(env->GetArrayLength(build_id)));
+    env->GetByteArrayRegion(build_id, 0, static_cast<jsize>(out.build_id.size()),
+                           reinterpret_cast<jbyte*>(out.build_id.data()));
+    env->DeleteLocalRef(build_id);
+    out.begin_page = get_uintptr_field(env, object, "beginPage");
+    out.save_page = get_uintptr_field(env, object, "savePage");
+    out.wait_input = get_uintptr_field(env, object, "waitInput");
+    out.select = get_uintptr_field(env, object, "select");
+    out.start_scenario = get_uintptr_field(env, object, "startScenario");
+    out.end_scenario = get_uintptr_field(env, object, "endScenario");
+    out.destroy = get_uintptr_field(env, object, "destroy");
+    out.load = get_uintptr_field(env, object, "load");
+    out.move_load = get_uintptr_field(env, object, "moveLoad");
+    out.create_load = get_uintptr_field(env, object, "createLoad");
+    out.start_game = get_uintptr_field(env, object, "startGame");
+    out.save_page_caller = get_uintptr_field(env, object, "savePageCaller");
+    out.send_char = get_int_field(env, object, "sendChar");
+    out.wait_effect_on_input_in_page = get_int_field(env, object, "waitEffectOnInputInPage");
+    out.wait_input_in_page = get_int_field(env, object, "waitInputInPage");
+    out.wait_input_br_page = get_int_field(env, object, "waitInputBrPage");
+    return out;
+}
+
 static CharacterWeightConfig jcls_to_character_weight_config(
     JNIEnv* env,
     jobject characterWeightObj) {
@@ -523,6 +549,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jstring gameVersion,
     jobject rvaConfigObj,
     jobject layOutObj,
+    jobject choiceBackObj,
     jobject characterWeightObj,
     jint sceneWorkerCount,
     jboolean enablePageRecDebug,
@@ -537,6 +564,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
 ) {
     RvaConfig java_rva = jcls_to_rvaconfig(env, rvaConfigObj);
     LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
+    ChoiceBackConfig choice_back = jcls_to_choice_back_config(env, choiceBackObj);
     CharacterWeightConfig character_weight = jcls_to_character_weight_config(env, characterWeightObj);
 
     std::string game_version = jstring_to_string(env, gameVersion);
@@ -556,6 +584,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
             game_version,
             java_rva,
             java_layout,
+            choice_back,
             character_weight,
             static_cast<int>(sceneWorkerCount),
             target_lang,
