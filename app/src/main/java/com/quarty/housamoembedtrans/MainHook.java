@@ -2706,9 +2706,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 String message;
                 if (shadowHookResult == 12
                     && "2.0.0".equals(ShadowHook.getVersion())
-                    && isHoudiniLoaded()) {
-                    message = "安装包版本与运行环境不匹配：当前为 Houdini 模拟器环境。"
-                        + "请安装 x86-houdini 版本后重启游戏。";
+                    && isHoudiniEnvironment()) {
+                    message = "装错了 HET 发布版本：当前模拟器需要 x86-houdini 版本。"
+                        + "请到 HET 发布页下载并安装文件名含 x86-houdini 的 APK，然后重启游戏。";
                 } else {
                     message = "ShadowHook 初始化失败：错误码 " + shadowHookResult
                         + "（" + ShadowHook.toErrmsg(shadowHookResult)
@@ -2789,7 +2789,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         client.setGameStartupFailure(message);
     }
 
-    private static boolean isHoudiniLoaded() {
+    private static boolean isHoudiniEnvironment() {
         try (BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -2798,9 +2798,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 }
             }
         } catch (IOException error) {
-            Log.w("HousamoTrans", "Could not identify native bridge", error);
+            Log.w("HousamoTrans", "Could not read native bridge mappings", error);
         }
-        return false;
+        // Also recognize the system bridge when its host-side mapping is not visible.
+        return new File("/system/lib64/libhoudini.so").isFile()
+            || new File("/system/lib/libhoudini.so").isFile();
     }
 
     private static native void nativeStart(
