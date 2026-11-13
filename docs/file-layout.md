@@ -14,6 +14,8 @@ HET 的 `scenes/<scene>.json` 与游戏 `housamo_embed_trans/scenes/<scene>.json
 
 ## 2. HET 私有文件
 
+游戏更新使用 `getNoBackupFilesDir()/game-update/`（通常为应用私有 `no_backup/game-update/`）：`state.json` 原子保存固定目标 Release、源/目标安装身份、runtime 快照、OBB 就绪阶段和 PackageInstaller session ID，配套 APK/OBB 完整文件用于取消后的重试。完成后清理下载文件；游戏目录中的旧 OBB 不在此清理。该目录不参与系统备份或设备迁移。
+
 ```text
 files/
 ├── config.json                         # 用户设置

@@ -10,6 +10,7 @@
         android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission
         android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
         <package android:name="jp.co.lifewonders.housamo" />
@@ -27,6 +28,9 @@
         android:theme="@style/Theme.HousamoEmbedTrans">
 
         <!-- 设置入口 Activity -->
+        <activity android:name=".ui.GameUpdateActivity" android:exported="false"
+            android:theme="@style/Theme.HET.GameUpdate" />
+        <receiver android:name=".update.GameUpdateInstallReceiver" android:exported="false" />
         <activity
             android:name=".ui.CharacterDictionaryActivity"
             android:exported="false"

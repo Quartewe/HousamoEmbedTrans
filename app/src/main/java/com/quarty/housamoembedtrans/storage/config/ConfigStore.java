@@ -1131,7 +1131,7 @@ public final class ConfigStore {
         }
     }
 
-    private static void validateRuntime(JSONObject config) throws Exception {
+    public static void validateRuntime(JSONObject config) throws Exception {
         requireNonEmptyString(config, "GameVersion", "runtime");
 
         JSONObject runtime = config.getJSONObject("RuntimeConfigs");

@@ -296,7 +296,7 @@ raw 写入后若 Selection 刷新不完整，当前代码记录警告，不把�
 
 运行时资源检查见 [RuntimeResourceUpdater.java](../app/src/main/java/com/quarty/housamoembedtrans/storage/config/RuntimeResourceUpdater.java)。HET 应用开启及手动点击资源版本时，读取主仓库 `runtime.json`，先要求远端 `GameVersion` 匹配已安装游戏，再在配置锁内比较当前本地与远端规范化 JSON 的 SHA-256；hash 不同或本地覆盖无效时原子更新。对象键递归排序，数组保持原序，格式空白不参与 hash。版本一致只是配置准入条件，不代替对新二进制的 RVA 验证。
 
-OBB 走独立的 [GameObbPort.java](../app/src/main/java/com/quarty/housamoembedtrans/bridge/GameObbPort.java) 与 `IGameObbPort`。游戏端负责自己的 OBB 目录操作，HET 负责版本匹配和下载。OBB 资源就绪、Native Hook 安装成功、Scene 捕获成功要分别判断，不能以“服务已连接”证明游戏已完成加载。
+OBB 走独立的 [GameObbPort.java](../app/src/main/java/com/quarty/housamoembedtrans/bridge/GameObbPort.java) 与 `IGameObbPort`。游戏端负责自己的 OBB 目录操作，HET 负责版本匹配和下载。首页游戏更新允许 HET 固定目标 Release，在旧游戏中预写目标 OBB，再走系统确认覆盖 APK；发送端核验目标资产、当前安装身份及同名资源兼容性，接收端协议不变。APK 更新成功后 HET 才提交匹配的 runtime，旧游戏端口不跨安装复用。OBB 资源就绪、Native Hook 安装成功、Scene 捕获成功要分别判断，不能以“服务已连接”证明游戏已完成加载。
 
 ## 8. 调试与版本维护
 

@@ -206,6 +206,9 @@ public final class HomeActivity extends AppCompatActivity {
     }
 
     private void installCardActions() {
+        findViewById(R.id.card_home_game_update).setOnClickListener(view -> {
+            if (!stylePreview) startActivity(new Intent(this, GameUpdateActivity.class));
+        });
         renderControl.setOnClickListener(view -> onRenderControlClicked());
         View resourceEntry = (View) resourceVersionView.getParent();
         resourceEntry.setClickable(true);

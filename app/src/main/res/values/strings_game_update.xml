@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_game_update_title">游戏更新</string>
+    <string name="home_game_update_description">更新游戏、OBB 和运行时资源</string>
+    <string name="game_update_title">游戏与资源更新</string>
+    <string name="game_update_start">开始更新</string>
+    <string name="game_update_start_size">开始更新 · 约 %1$.0f MB</string>
+    <string name="game_update_close">关闭</string>
+    <string name="game_update_recheck">重新检查</string>
+    <string name="game_update_found">发现游戏新版本</string>
+    <string name="game_update_checking">正在检查更新</string>
+    <string name="game_update_current">当前版本资源</string>
+    <string name="game_update_preparing">正在准备更新</string>
+    <string name="game_update_saving_obb">正在保存 OBB</string>
+    <string name="game_update_install">安装游戏更新</string>
+    <string name="game_update_finishing">正在完成资源配置</string>
+    <string name="game_update_complete">更新完成</string>
+    <string name="game_update_connect">先连接游戏</string>
+    <string name="game_update_signature">当前安装包签名不同</string>
+    <string name="game_update_permission">允许 HET 安装更新</string>
+    <string name="game_update_canceled">下载已取消</string>
+    <string name="game_update_incomplete">更新尚未完成</string>
+    <string name="game_update_versions">%1$s　→　%2$s</string>
+    <string name="game_update_version">放学后召唤师 %1$s</string>
+    <string name="game_update_progress">%1$.1f / %2$.1f MB · %3$d%%</string>
+    <string name="game_update_download_step">下载并校验资源</string>
+    <string name="game_update_obb_step">保存 OBB 资源</string>
+    <string name="game_update_apk_step">安装游戏更新</string>
+    <string name="game_update_runtime_step">更新运行时资源</string>
+    <string name="game_update_launch">启动游戏</string>
+    <string name="game_update_allow">去授权</string>
+    <string name="game_update_confirm">确认安装</string>
+    <string name="game_update_continue_install">继续安装</string>
+    <string name="game_update_restart_install">重新发起安装</string>
+    <string name="game_update_restart_message">将关闭尚未完成的安装会话，重新打开系统安装确认。已准备的 APK 和 OBB 会复用。</string>
+    <string name="game_update_retry">重试</string>
+    <string name="game_update_runtime_pending">还差最后一步</string>
+    <string name="game_update_retry_runtime">重试运行时更新</string>
+    <string name="game_update_repair">检查并补齐资源</string>
+    <string name="game_update_repair_current">补齐当前 OBB</string>
+    <string name="game_update_cancel_download">取消下载</string>
+    <string name="game_update_cancel_message">取消后保留已完整下载的文件，重试时可复用。游戏安装和已有 OBB 保持不变。</string>
+    <string name="game_update_keep_downloading">继续下载</string>
+    <string name="game_update_game_missing">未找到游戏启动入口</string>
+</resources>

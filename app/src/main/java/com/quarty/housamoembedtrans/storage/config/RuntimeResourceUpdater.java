@@ -123,7 +123,7 @@ public final class RuntimeResourceUpdater implements Application.ActivityLifecyc
         return version.trim();
     }
 
-    private static JSONObject fetchRuntime() throws Exception {
+    public static JSONObject fetchRuntime() throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(RESOURCE_URL).openConnection();
         connection.setConnectTimeout(20_000);
         connection.setReadTimeout(30_000);
