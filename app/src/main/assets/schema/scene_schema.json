@@ -21,12 +21,13 @@
     "scene": { "type": "string", "minLength": 1, "maxLength": 200 },
     "quest_label": { "type": "string", "minLength": 1 },
     "continuation_source": {
-      "description": "Hashes of the Japanese original and the localized PageRec projection from the same game table. The original hash applies while the current story text, branches and protected tokens match captured_hash.",
+      "description": "Hashes of the Japanese original and localized PageRec view from the same table. Each hashes the complete scene_items tree with protected text restored and translations removed. Earlier files used the tokenized tree and protect table.",
       "type": "object",
       "required": ["original_hash", "captured_hash"],
       "properties": {
         "original_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "captured_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "legacy_original_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Previous-format digest computed from the same Japanese source, for replay of existing records." },
         "positions": {
           "description": "Sparse mapping for localized-only rows and changed option positions. A null original marks a row or choice without a corresponding original position.",
           "type": "array",

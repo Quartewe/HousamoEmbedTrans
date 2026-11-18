@@ -564,6 +564,8 @@ static rapidjson::Value SourceProofJson(const ContinuationSourceProof& proof, Al
     rapidjson::Value identity(rapidjson::kObjectType);
     identity.AddMember("original_hash", JsonString(proof.original_hash, allocator), allocator);
     identity.AddMember("captured_hash", JsonString(proof.captured_hash, allocator), allocator);
+    if (!proof.legacy_original_hash.empty())
+        identity.AddMember("legacy_original_hash", JsonString(proof.legacy_original_hash, allocator), allocator);
     if (!proof.positions.empty()) {
         rapidjson::Value positions(rapidjson::kArrayType);
         for (const auto& pos : proof.positions) {

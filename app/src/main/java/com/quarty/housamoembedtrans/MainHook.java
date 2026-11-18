@@ -4,7 +4,7 @@ import com.bytedance.shadowhook.ShadowHook;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.bridge.SceneSyncWireCodec;
 import com.quarty.housamoembedtrans.bridge.TranslationServiceClient;
-import com.quarty.housamoembedtrans.continuation.ContinuationContent;
+import com.quarty.housamoembedtrans.continuation.ContinuationFingerprint;
 import com.quarty.housamoembedtrans.storage.config.StoryContinuationSettings;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.scene.sync.GameSceneMirrorSource;
@@ -2873,9 +2873,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     public static void closeContinuationInput() { sContinuationUi.leave(); }
     public static void showContinuationError(String message) { sContinuationUi.playbackError(message); }
 
-    public static String continuationSourceHash(String sceneJson) {
+    public static String continuationSourceHash(byte[] sceneJson, boolean legacy) {
         try {
-            return ContinuationContent.fingerprint(new JSONObject(sceneJson));
+            return ContinuationFingerprint.captured(new JSONObject(new String(sceneJson, StandardCharsets.UTF_8)), legacy);
         } catch (Exception e) {
             Log.game("Could not identify continuation source: " + safeMessage(e));
             return "";

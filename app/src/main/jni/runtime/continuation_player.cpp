@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <limits>
 
 namespace het::continuation {
 using namespace utage;
@@ -174,16 +175,23 @@ void Notify(const char* methodName, const std::string* payload = nullptr) {
     } else
         call.env->CallStaticVoidMethod(g_java_bridge.main_hook_class, method);
 }
-std::string SourceHash(const std::string& source_document) {
+std::string SourceHash(const std::string& source_document, bool legacy) {
     JavaCall call;
-    auto method = call.Method("continuationSourceHash", "(Ljava/lang/String;)Ljava/lang/String;");
-    if (!method)
+    auto method = call.Method("continuationSourceHash", "([BZ)Ljava/lang/String;");
+    if (!method || source_document.size() > static_cast<size_t>(std::numeric_limits<jsize>::max()))
         return {};
-    auto data = call.String(source_document);
+    // The Scene store can run on a worker attached only to the JVM.
+    auto size = static_cast<jsize>(source_document.size());
+    auto data = call.env->NewByteArray(size);
     if (!data)
         return {};
-    auto result =
-        static_cast<jstring>(call.env->CallStaticObjectMethod(g_java_bridge.main_hook_class, method, data));
+    call.env->SetByteArrayRegion(data, 0, size, reinterpret_cast<const jbyte*>(source_document.data()));
+    if (call.env->ExceptionCheck()) {
+        call.env->DeleteLocalRef(data);
+        return {};
+    }
+    auto result = static_cast<jstring>(call.env->CallStaticObjectMethod(
+        g_java_bridge.main_hook_class, method, data, static_cast<jboolean>(legacy)));
     call.env->DeleteLocalRef(data);
     if (!result)
         return {};
@@ -577,7 +585,7 @@ void Publish(void* scenario, const ScenarioParseResult& parsed, const QuestPtrSe
         return;
     s->scene = parsed.scene;
     s->hash = parsed.continuation_source.original_hash.empty()
-        ? SourceHash(EncodeContinuationSource(parsed)) : parsed.continuation_source.original_hash;
+        ? HashContinuationSource(EncodeContinuationSource(parsed)) : parsed.continuation_source.original_hash;
     if (s->hash.empty())
         return;
     s->capturedHash = proof.captured_hash.empty() ? s->hash : proof.captured_hash;
@@ -870,8 +878,8 @@ bool Queue(std::string token, std::string record, std::string steps) {
 }
 } // namespace het::continuation
 
-std::string HashContinuationSource(const std::string& source_document) {
-    return het::continuation::SourceHash(source_document);
+std::string HashContinuationSource(const std::string& source_document, bool legacy) {
+    return het::continuation::SourceHash(source_document, legacy);
 }
 void PublishContinuationSource(void* scenario, const ScenarioParseResult& parsed,
                                const QuestPtrSet& targets) {

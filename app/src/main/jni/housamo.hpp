@@ -443,6 +443,7 @@ struct ContinuationSourceProof {
     std::string original_hash;
     std::string captured_hash;
     std::vector<ContinuationPosition> positions;
+    std::string legacy_original_hash; // Same JP projection, for records written before protect normalization.
 };
 using ContinuationTextByOrder = std::unordered_map<OrderKey, std::string, OrderKeyHash>;
 // Runtime-only window at a playback join. The stop command is exclusive.

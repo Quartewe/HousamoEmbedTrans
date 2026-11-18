@@ -1,6 +1,7 @@
 #include "translation/store/scene_store.hpp"
 
 #include "housamo.hpp"
+#include "runtime/continuation_source.hpp"
 #include "scene/scene_identity.hpp"
 
 #include <cerrno>
@@ -131,21 +132,40 @@ bool BackfillStage(const std::string& scene_name,const std::function<std::string
         auto json = EncodeContinuationProof(proof);
         identity.Parse(json.data(), json.size());
         if (!identity.IsObject()) return Fail(error, "could not encode continuation source");
+        // New records already use the restored hash. Keep the old records' alias when only
+        // the token encoding changed on a later capture of the same Japanese and localized trees.
+        if (previous != doc.MemberEnd() && previous->value.IsObject()) {
+            const auto& prior = previous->value;
+            if (prior.HasMember("original_hash") && prior["original_hash"] == identity["original_hash"] &&
+                prior.HasMember("captured_hash") && prior["captured_hash"] == identity["captured_hash"] &&
+                prior.HasMember("legacy_original_hash") && prior["legacy_original_hash"].IsString() &&
+                prior["legacy_original_hash"].GetStringLength() == 64) {
+                identity.RemoveMember("legacy_original_hash");
+                rapidjson::Value alias(prior["legacy_original_hash"], identity.GetAllocator());
+                identity.AddMember("legacy_original_hash", alias, identity.GetAllocator());
+            }
+        }
         need_proof = previous == doc.MemberEnd() || previous->value != identity;
     }
     if (!need_stage && !need_proof) return true;
     if(!doc.HasMember("scene_items") || !doc.HasMember("protect")) return Fail(error,"existing Scene has no source");
-    rapidjson::Document actual;
-    auto bytes=source();
-    actual.Parse(bytes.data(),bytes.size());
-    if(!actual.IsObject() || !actual.HasMember("scene_items") || !actual.HasMember("protect"))
-        return Fail(error,"could not read captured story identity");
-    rapidjson::Value original(doc["scene_items"],actual.GetAllocator());
-    RemoveTranslations(original);
-    RemoveTranslations(actual["scene_items"]);
-    if(original!=actual["scene_items"] || doc["protect"]!=actual["protect"]) return true;
+    if (paired) {
+        // Compare this saved view with the captured view before binding its Japanese source and positions.
+        auto hash = HashContinuationSource(saved);
+        if (hash != proof.captured_hash) return true;
+    } else {
+        rapidjson::Document actual;
+        auto bytes = source();
+        actual.Parse(bytes.data(),bytes.size());
+        if(!actual.IsObject() || !actual.HasMember("scene_items") || !actual.HasMember("protect"))
+            return Fail(error,"could not read captured story identity");
+        rapidjson::Value original(doc["scene_items"],actual.GetAllocator());
+        RemoveTranslations(original);
+        RemoveTranslations(actual["scene_items"]);
+        if(original!=actual["scene_items"] || doc["protect"]!=actual["protect"]) return true;
+    }
     if (need_stage) {
-        bytes=stage();
+        auto bytes=stage();
         rapidjson::Document payload;
         payload.Parse(bytes.data(),bytes.size());
         if(!payload.IsObject()) return Fail(error,"could not encode stage");

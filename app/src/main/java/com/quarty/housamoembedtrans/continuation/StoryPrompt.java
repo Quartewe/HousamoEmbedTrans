@@ -1,5 +1,7 @@
 package com.quarty.housamoembedtrans.continuation;
 
+import static com.quarty.housamoembedtrans.continuation.ContinuationFingerprint.order;
+
 import android.content.Context;
 
 import com.quarty.housamoembedtrans.context.history.SceneSummaryResolver;
@@ -29,8 +31,7 @@ import java.util.regex.Pattern;
 final class StoryPrompt {
     final byte[] bytes;
     final JSONObject scene;
-    final String hash;
-    private final String capturedHash;
+    final ContinuationFingerprint fingerprint;
     private final boolean localizedWithoutPositions;
     private final Positions choicePositions = new Positions();
     private final Positions textPositions = new Positions();
@@ -59,11 +60,11 @@ final class StoryPrompt {
     StoryPrompt(byte[] bytes) throws Exception {
         this.bytes = bytes;
         scene = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
-        capturedHash = ContinuationContent.capturedFingerprint(scene);
-        JSONObject proof = ContinuationContent.sourceProof(scene, capturedHash);
-        hash = proof == null ? capturedHash : proof.getString("original_hash");
+        fingerprint = new ContinuationFingerprint(scene);
+        JSONObject proof = fingerprint.proof;
         JSONArray positions = proof == null ? null : proof.optJSONArray("positions");
-        localizedWithoutPositions = positions == null && !hash.equals(capturedHash);
+        localizedWithoutPositions = positions == null && proof != null
+            && !proof.getString("original_hash").equals(proof.getString("captured_hash"));
         if (positions != null) {
             for (int i = 0; i < positions.length(); i++) {
                 JSONObject pair = positions.getJSONObject(i);
@@ -101,11 +102,6 @@ final class StoryPrompt {
         for (int i = 0; i < entries.length(); i++) destination.add(entries.getJSONObject(i));
     }
 
-    private static String order(JSONObject position) throws JSONException {
-        return position.getInt("label_index") + "/" + position.getInt("page_no") + "/"
-            + position.getInt("cmd_index") + "/" + position.getInt("sub_index");
-    }
-
     private static final class Positions {
         private final Map<String, String> originalToView = new HashMap<>();
         private final Set<String> changedViews = new HashSet<>();
@@ -121,8 +117,8 @@ final class StoryPrompt {
         }
     }
 
-    boolean matchesNode(JSONObject node) throws JSONException {
-        if (!hash.equals(node.getString("source_hash"))) return false;
+    boolean matchesNode(JSONObject node) throws Exception {
+        if (!fingerprint.matchesOriginal(node.getString("source_hash"))) return false;
         JSONObject root = node.optJSONObject("original_order");
         if (root == null) root = node.getJSONObject("source").optJSONObject("order");
         if (root != null && !choices.containsKey(choicePositions.view(order(root)))) return false;
@@ -218,7 +214,7 @@ final class StoryPrompt {
         while ("generated".equals(source.getString("type"))) {
             String id = source.getString("record_id");
             JSONObject parent = ContinuationContent.byId(history, id);
-            if (parent == null || !hash.equals(parent.getString("source_hash"))
+            if (parent == null || !fingerprint.matchesOriginal(parent.getString("source_hash"))
                     || chain.records.put(id, parent) != null) {
                 throw new JSONException("当前节点所属的续写记录不可用");
             }
@@ -273,7 +269,7 @@ final class StoryPrompt {
         JSONObject lastAfter;
     }
 
-    private Window window(JSONArray route, Ancestry chain, String language, JSONArray mergeWindow) throws JSONException {
+    private Window window(JSONArray route, Ancestry chain, String language, JSONArray mergeWindow) throws Exception {
         List<PlayedLine> played = new ArrayList<>();
         for (int i = 0; i < route.length(); i++) {
             JSONObject ref = route.getJSONObject(i);
@@ -287,7 +283,7 @@ final class StoryPrompt {
                 if (position == null) position = ref;
                 String key = order(position);
                 if (ref.has("captured_hash")) {
-                    if (!capturedHash.equals(ref.getString("captured_hash"))) continue;
+                    if (!fingerprint.matchesCaptured(ref.getString("captured_hash"))) continue;
                 } else key = textPositions.view(key);
                 JSONObject item = texts.get(key);
                 if (item == null) continue;

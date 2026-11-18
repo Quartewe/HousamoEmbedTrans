@@ -14,9 +14,7 @@ import com.quarty.housamoembedtrans.util.JobValidator;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.UUID;
 
 /** Business payload and local commit of one story continuation. The service owns task state. */
@@ -31,46 +29,7 @@ public final class ContinuationContent {
     }
 
     public static String fingerprint(JSONObject scene) throws Exception {
-        String captured = capturedFingerprint(scene);
-        JSONObject proof = sourceProof(scene, captured);
-        return proof == null ? captured : proof.getString("original_hash");
-    }
-
-    static String capturedFingerprint(JSONObject scene) throws Exception {
-        // Strip mutable language data from the nested story tree, preserving branch and option order.
-        JSONArray items = new JSONArray(scene.getJSONArray("scene_items").toString());
-        stripTranslations(items);
-        JSONObject source = new JSONObject().put("scene_items", items)
-            .put("protect", scene.getJSONArray("protect"));
-        byte[] digest = MessageDigest.getInstance("SHA-256").digest(
-            SceneTranslationRequestBuilder.toCanonicalBytes(source));
-        StringBuilder hex = new StringBuilder(64);
-        for (byte b : digest) {
-            hex.append(Character.forDigit((b & 255) >>> 4, 16));
-            hex.append(Character.forDigit(b & 15, 16));
-        }
-        return hex.toString();
-    }
-
-    static JSONObject sourceProof(JSONObject scene, String captured) {
-        JSONObject proof = scene.optJSONObject("continuation_source");
-        if (proof != null && captured.equals(proof.optString("captured_hash"))) {
-            String original = proof.optString("original_hash");
-            if (original.matches("[0-9a-f]{64}")) return proof;
-        }
-        return null;
-    }
-
-    private static void stripTranslations(Object value) throws JSONException {
-        if (value instanceof JSONObject) {
-            JSONObject object = (JSONObject)value;
-            object.remove("translations");
-            Iterator<String> keys = object.keys();
-            while (keys.hasNext()) stripTranslations(object.get(keys.next()));
-        } else if (value instanceof JSONArray) {
-            JSONArray array = (JSONArray)value;
-            for (int i = 0; i < array.length(); ++i) stripTranslations(array.get(i));
-        }
+        return new ContinuationFingerprint(scene).original;
     }
 
     private static StoryPrompt latestScene;
@@ -136,25 +95,25 @@ public final class ContinuationContent {
     }
 
     public static JSONArray list(Context c, JSONObject node) throws Exception {
-        current(c,node);
+        StoryPrompt snapshot = current(c,node);
         JSONArray entries = all(c,node.getString("scene"));
         JSONArray rows = new JSONArray();
         for (int i = entries.length()-1; i >= 0; --i) {
             JSONObject r = entries.getJSONObject(i);
-            if (matches(r,node)) rows.put(project(r,"id","input","created_at"));
+            if (matches(r,node,snapshot)) rows.put(project(r,"id","input","created_at"));
         }
         return rows;
     }
 
     public static JSONObject replay(Context c, JSONObject node, String id) throws Exception {
-        current(c,node);
+        StoryPrompt snapshot = current(c,node);
         JSONObject r = byId(all(c,node.getString("scene")), id);
-        if (r == null || !matches(r,node)) throw new IOException("这条续写记录不属于当前选项或原剧本版本");
+        if (r == null || !matches(r,node,snapshot)) throw new IOException("这条续写记录不属于当前选项或原剧本版本");
         return new JSONObject().put("scene",node.getString("scene")).put("record",r);
     }
 
-    private static boolean matches(JSONObject r,JSONObject node) throws Exception {
-        return r.getString("source_hash").equals(node.getString("source_hash"))
+    private static boolean matches(JSONObject r,JSONObject node,StoryPrompt snapshot) throws Exception {
+        return snapshot.fingerprint.matchesOriginal(r.getString("source_hash"))
             && same(r.getJSONObject("source"),node.getJSONObject("source"));
     }
 

@@ -1556,7 +1556,7 @@ public:
         std::string view = HashContinuationSource(EncodeContinuationSource(captured));
         if (view.empty()) return {};
         if ((language_mask_ & 3) == 0) return {view, view};
-        std::string original;
+        std::string original_document;
         std::vector<ContinuationPosition> positions;
         if (has_localized_only_row_) {
             // A translated-only option can change choice grouping/sub_index in the JP projection.
@@ -1564,14 +1564,16 @@ public:
             ScenarioParseRunner jp(scenario_, false, true);
             auto rows = jp.Run();
             if (rows.status != ScenarioParseStatus::ok) return {};
-            original = HashContinuationSource(EncodeContinuationSource(rows.result));
+            original_document = EncodeContinuationSource(rows.result);
             positions = CompareProjectionPositions(captured.scene_items, rows.result.scene_items);
         } else {
-            original = HashContinuationSource(EncodeContinuationSource(
-                captured.scene_items, original_protect_, &original_texts_));
+            original_document = EncodeContinuationSource(captured.scene_items, original_protect_, &original_texts_);
         }
+        std::string original = HashContinuationSource(original_document);
         if (original.empty()) return {};
-        return {std::move(original), std::move(view), std::move(positions)};
+        std::string legacy = original == view ? std::string{} : HashContinuationSource(original_document, true);
+        if (original != view && legacy.empty()) return {};
+        return {std::move(original), std::move(view), std::move(positions), std::move(legacy)};
     }
 
     ScenarioParseOutput Run() {
