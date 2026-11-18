@@ -49,6 +49,8 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
     }
 
     public interface Callback {
+        default void sendSavePending(String requestId, String message) throws Exception {}
+
         void sendCompleted(
             String requestId,
             String scene,
@@ -385,7 +387,16 @@ public final class TerminalDeliveryCoordinator implements AutoCloseable {
         try {
             for (TranslationJobStore.TerminalJob job
                 : store.listPendingTerminalJobs()) {
-                scheduleOne(job, replayGeneration);
+                if (job.hasContinuationSaveError()) {
+                    Callback current;
+                    synchronized (lock) {
+                        if (closed || generation != replayGeneration || callback == null) return;
+                        current = callback;
+                    }
+                    current.sendSavePending(job.getRequestId(), job.getLocalSceneError());
+                } else {
+                    scheduleOne(job, replayGeneration);
+                }
             }
             synchronized (lock) {
                 if (generation == replayGeneration) {

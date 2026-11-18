@@ -125,6 +125,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 }
 
                 @Override
+                public void onContinuationSavePending(String requestId, String message) {
+                    GameContinuationUi ui = sContinuationUi;
+                    if (ui != null) ui.savePending(requestId, message);
+                }
+
+                @Override
                 public void onQuestPatch(
                     String requestId,
                     byte[] patchJson

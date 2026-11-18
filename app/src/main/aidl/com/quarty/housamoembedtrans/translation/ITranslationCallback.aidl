@@ -31,4 +31,5 @@ oneway interface ITranslationCallback {
     );
 
     void onContinuationResult(String requestId, String terminalKind, long connectionGeneration, in ParcelFileDescriptor result);
+    void onContinuationSavePending(String requestId, String message);
 }

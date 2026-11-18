@@ -97,6 +97,8 @@ public final class TranslationTaskExecutor {
         );
 
         /** Notification seam for rejected API results archived by this ticket. */
+        default void onContinuationSavePending(String requestId, String message) {}
+
         default void onRejectedApiResultArchived(JSONObject record) {
         }
 
@@ -462,7 +464,7 @@ public final class TranslationTaskExecutor {
         this.maxWorkers = workerCountForApiConcurrency(maxWorkers);
         this.mainExecutor = new ExecutorDrainScheduler(
             Executors.newScheduledThreadPool(
-                this.maxWorkers,
+                this.maxWorkers + 1,
                 runnable ->
                     new Thread(runnable, "HET-translation-worker")
             )
@@ -470,12 +472,12 @@ public final class TranslationTaskExecutor {
         this.claimSource = new ClaimSource() {
             @Override
             public TranslationJobStore.ClaimedJob claim() throws Exception {
-                return jobStore.claimNextQueuedJob();
+                return jobStore.claimNextQueuedJob(false);
             }
 
             @Override
             public boolean hasPendingJobs() {
-                return jobStore.hasPendingJobs();
+                return jobStore.hasPendingJobs(false);
             }
         };
         this.repairExecutor = Executors.newSingleThreadExecutor(runnable ->
@@ -556,7 +558,26 @@ public final class TranslationTaskExecutor {
         );
     }
 
+    private boolean continuationDrainActive;
+
+    /** Same store, startup boundary and claim loop; one thread stays available when ordinary calls block. */
+    public void scheduleContinuationDrain() {
+        if (jobStore == null || !jobStore.hasPendingJobs(true)) return;
+        synchronized (drainScheduleLock) {
+            if (shutdown || continuationDrainActive) return;
+            continuationDrainActive = true;
+        }
+        try {
+            mainExecutor.execute(() -> drainLoop(true));
+        } catch (RejectedExecutionException e) {
+            synchronized (drainScheduleLock) { continuationDrainActive = false; }
+            if (!shutdown) Log.w(TAG, "Could not schedule continuation drain", e);
+        }
+    }
+
     public void scheduleDrain() {
+        scheduleContinuationDrain();
+        if (jobStore != null && !hasImmediateWork()) return;
         ScheduledHandle retryToCancel;
         int workersToStart;
         synchronized (drainScheduleLock) {
@@ -577,7 +598,7 @@ public final class TranslationTaskExecutor {
         int submitted = 0;
         try {
             for (; submitted < workersToStart; submitted++) {
-                mainExecutor.execute(this::drainLoop);
+                mainExecutor.execute(() -> drainLoop(false));
             }
         } catch (RejectedExecutionException e) {
             synchronized (drainScheduleLock) {
@@ -1387,9 +1408,9 @@ public final class TranslationTaskExecutor {
         }
     }
 
-    private ClaimPreparation claimAndPrepareUnderRoot() throws Exception {
-        TranslationJobStore.ClaimedJob claimed = claimSource.claim();
-        if (claimed == null) {
+    private ClaimPreparation claimAndPrepareUnderRoot(boolean continuation) throws Exception {
+        TranslationJobStore.ClaimedJob claimed = continuation ? jobStore.claimNextQueuedJob(true) : claimSource.claim();
+        if (claimed == null && !continuation) {
             claimed = pollDueDeferredJob();
         }
         if (claimed == null) {
@@ -1406,7 +1427,7 @@ public final class TranslationTaskExecutor {
             );
             JobValidator.RequestInfo requestInfo =
                 JobValidator.validateJobRequest(request);
-            TranslationConfig config = JobValidator.isContinuation(request) ? ContinuationProvider.open(context, request, claimed.getRequestId()) : TranslationConfig.load(context);
+            TranslationConfig config = continuation ? ContinuationProvider.open(context, request, claimed.getRequestId()) : TranslationConfig.load(context);
             JSONObject state = jobStore.readState(claimed.getRequestId());
             JobCoordinator coordinator = new JobCoordinator(
                 claimed.getRequestId(),
@@ -1438,7 +1459,7 @@ public final class TranslationTaskExecutor {
         }
     }
 
-    private void drainLoop() {
+    private void drainLoop(boolean continuation) {
         boolean blockedBySceneSync = false;
         boolean claimFailed = false;
         boolean interrupted = false;
@@ -1453,7 +1474,7 @@ public final class TranslationTaskExecutor {
                 boolean activeClaim = false;
                 String executionRequestId = null;
                 try {
-                    if (gate != null) {
+                    if (!continuation && gate != null) {
                         apiPermit = gate.acquireTranslation();
                     }
                     // Reserve under the coordinator lock, then perform the
@@ -1476,7 +1497,7 @@ public final class TranslationTaskExecutor {
                         // between the durable running transition and the
                         // context/group snapshot used for this attempt.
                         preparation = SceneContextStore.withRootAccess(
-                            this::claimAndPrepareUnderRoot
+                            () -> claimAndPrepareUnderRoot(continuation)
                         );
                         claimFailureCount.set(0);
                     } catch (InterruptedException e) {
@@ -1504,14 +1525,7 @@ public final class TranslationTaskExecutor {
                         return;
                     }
                     executionRequestId = preparation.claimedJob.getRequestId();
-                    TranslationJobStore.ClaimedJob job =
-                        preparation.claimedJob;
-                    if (job == null) {
-                        job = pollDueDeferredJob();
-                    }
-                    if (job == null) {
-                        return;
-                    }
+                    TranslationJobStore.ClaimedJob job = preparation.claimedJob;
 
                     if (coordinator != null) {
                         coordinator.commitApiJobClaim();
@@ -1560,15 +1574,20 @@ public final class TranslationTaskExecutor {
             Log.e(TAG, "Translation drain stopped unexpectedly", e);
         } finally {
             synchronized (drainScheduleLock) {
-                activeDrainWorkers = Math.max(0, activeDrainWorkers - 1);
+                if (continuation) continuationDrainActive = false;
+                else activeDrainWorkers = Math.max(0, activeDrainWorkers - 1);
             }
             // A Scene Sync gate owns the next wake-up.  Self-rescheduling here
             // would spin while FULL_SYNC/pending_auto_sync remains active.
             if (!shutdown
                 && !interrupted
                 && !blockedBySceneSync
-                && hasImmediateWork()) {
-                if (claimFailed) {
+                && (continuation ? jobStore.hasPendingJobs(true) : hasImmediateWork())) {
+                if (continuation && claimFailed) {
+                    mainExecutor.schedule(this::scheduleContinuationDrain, retryDelayMillis, TimeUnit.MILLISECONDS);
+                } else if (continuation) {
+                    scheduleContinuationDrain();
+                } else if (claimFailed) {
                     scheduleClaimRetry(retryDelayMillis);
                 } else {
                     scheduleDrain();
@@ -1779,13 +1798,17 @@ public final class TranslationTaskExecutor {
                     return;
                 }
                 try {
-                    jobStore.completeRunningJob(requestId, resultBytes);
+                    jobStore.completeRunningJob(requestId, resultBytes,
+                        reason -> resultListener.onContinuationSavePending(requestId, reason));
                 } catch (Exception persistFailure) {
                     if (persistFailure
                             instanceof TranslationJobStore.CanceledJobException
                         || isDurablyCanceled(requestId)) {
                         tryArchiveLateCanceledResult(coordinator);
                         return;
+                    }
+                    if (JobValidator.isContinuation(request)) {
+                        resultListener.onContinuationSavePending(requestId, safeMessage(persistFailure));
                     }
                     // result.json may already be durable when state.json
                     // fails.  Do not create an opposing error payload; the
@@ -2344,6 +2367,9 @@ public final class TranslationTaskExecutor {
             bindTransportHandle(currentAttempt, handle);
             try {
                 if (shutdown) throw new InterruptedException("Continuation executor has stopped");
+                if (!jobStore.beginContinuationCall(requestId)) {
+                    throw new TranslationApiClient.IncompleteResponseException("服务在上次生成期间中断，未收到完整结果");
+                }
                 String response = ContinuationProvider.call(config, request, handle);
                 // A complete valid response remains available for the shared late-cancellation archive.
                 JSONObject result = ContinuationContent.finish(request, response);

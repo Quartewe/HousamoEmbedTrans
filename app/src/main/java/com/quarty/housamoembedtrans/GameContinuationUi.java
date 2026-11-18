@@ -95,6 +95,18 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
 
     void playbackError(String message) { main.post(() -> fail(0, message)); }
 
+    void savePending(String id, String message) {
+        main.post(() -> {
+            if (id.equals(requestId) && page == Page.WAIT) {
+                // The persisted result can still arrive after the local record write succeeds.
+                errorResource = 0;
+                errorText = message;
+                page = Page.ERROR;
+                render();
+            }
+        });
+    }
+
     /** Runs on the existing terminal delivery reader. ACK follows UI ownership/visit arbitration. */
     void accept(String id, JSONObject result) throws Exception {
         JSONObject error = result.optJSONObject("error");
@@ -188,7 +200,7 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
                     R.string.continuation_admission_failed, null);
             } catch (android.os.RemoteException e) {
                 // The remote may already have persisted this id when its reply was interrupted.
-                postFailure(id, 0, message(e));
+                savePending(id, message(e));
             } catch (Exception e) {
                 postFailure(id, 0, message(e));
             }

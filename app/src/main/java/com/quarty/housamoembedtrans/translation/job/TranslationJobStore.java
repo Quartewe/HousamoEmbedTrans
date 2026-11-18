@@ -278,6 +278,11 @@ public final class TranslationJobStore {
         public long getUpdatedAt() { return updatedAt; }
         public String getErrorType() { return errorType; }
         public String getErrorMessage() { return errorMessage; }
+        private boolean continuation;
+        public boolean hasContinuationSaveError() {
+            return continuation && STATUS_COMPLETED.equals(status) && !localSceneSaved && !localSceneError.isEmpty();
+        }
+
         public boolean isLocalSceneSaved() { return localSceneSaved; }
         public boolean isLocalSceneMissing() { return localSceneMissing; }
         public boolean isGameSceneMissing() { return gameSceneMissing; }
@@ -415,7 +420,10 @@ public final class TranslationJobStore {
         private final String requestId;
         private final long queueSequence;
 
-        private QueuedJobRef(String requestId, long queueSequence) {
+        private final boolean continuation;
+
+        private QueuedJobRef(String requestId, long queueSequence, boolean continuation) {
+            this.continuation = continuation;
             this.requestId = requestId;
             this.queueSequence = queueSequence;
         }
@@ -509,6 +517,7 @@ public final class TranslationJobStore {
 
     private final Context application;
     private final Set<String> continuationIds = new HashSet<>();
+    private int queuedContinuations;
     private final File jobRoot;
     private final PersistentApiJobStore jobStore;
     private final SceneStore sceneStore;
@@ -661,6 +670,7 @@ public final class TranslationJobStore {
             repairingStartupJobs = false;
             initialAutoSyncFinished = false;
             pendingQueue.clear();
+            queuedContinuations = 0;
             continuationIds.clear();
             pendingRequestIds.clear();
             heldQueuedJobs.clear();
@@ -867,6 +877,7 @@ public final class TranslationJobStore {
             jobStore.ensureRoot();
             finishDeletedJobsLocked();
             pendingQueue.clear();
+            queuedContinuations = 0;
             continuationIds.clear();
             pendingRequestIds.clear();
             heldQueuedJobs.clear();
@@ -1253,13 +1264,13 @@ public final class TranslationJobStore {
                             state.optString("status", "")
                         )) {
                         queued.remove();
-                        pendingRequestIds.remove(job.requestId);
+                        unindexPending(job);
                         localChanged = true;
                         continue;
                     }
                     if (isBlockedByManagementPending(state, references)) {
                         queued.remove();
-                        pendingRequestIds.remove(job.requestId);
+                        unindexPending(job);
                         managementPendingBlockedIds.add(job.requestId);
                         localChanged = true;
                     }
@@ -2615,17 +2626,11 @@ public final class TranslationJobStore {
     }
 
     public ClaimedJob claimNextQueuedJob() throws Exception {
-        ClaimedJob claimedJob = SceneContextStore.withRootAccess(() -> {
-            synchronized (this) {
-                requirePreparedLocked();
-                if (!startupRecoveryCommitted) {
-                    return null;
-                }
-                return claimNextQueuedJobLocked();
-            }
-        });
-        notifyQueueListener();
-        return claimedJob;
+        return claimNextQueuedJob(null);
+    }
+
+    public synchronized boolean hasPendingJobs(boolean continuation) {
+        return continuation ? queuedContinuations > 0 : pendingQueue.size() > queuedContinuations;
     }
 
     public synchronized boolean hasContinuationSubmission(String requestId, String digest) throws Exception {
@@ -2641,6 +2646,32 @@ public final class TranslationJobStore {
 
     public synchronized boolean isContinuation(String requestId) {
         return continuationIds.contains(requestId);
+    }
+
+    private QueuedJobRef nextMatchingJob(Boolean continuation) {
+        QueuedJobRef head = pendingQueue.peek();
+        if (head == null || continuation == null || head.continuation == continuation) return head;
+        if (!hasPendingJobs(continuation)) return null;
+        QueuedJobRef first = null;
+        for (QueuedJobRef ref : pendingQueue) {
+            if (ref.continuation == continuation
+                && (first == null || pendingQueue.comparator().compare(ref, first) < 0)) first = ref;
+        }
+        return first;
+    }
+
+    ClaimedJob claimNextQueuedJob(Boolean continuation) throws Exception {
+        ClaimedJob claimedJob = SceneContextStore.withRootAccess(() -> {
+            synchronized (this) {
+                requirePreparedLocked();
+                if (!startupRecoveryCommitted) {
+                    return null;
+                }
+                return claimNextQueuedJobLocked(continuation);
+            }
+        });
+        notifyQueueListener();
+        return claimedJob;
     }
 
     /** Reads the full persisted state file for one Translation Job. */
@@ -2687,6 +2718,16 @@ public final class TranslationJobStore {
         );
     }
 
+    /** The durable one-call boundary also covers a service restart between socket write and response. */
+    synchronized boolean beginContinuationCall(String requestId) throws Exception {
+        File directory = requireJobDirectoryLocked(requestId);
+        requireRunningStateLocked(directory, requestId);
+        JSONObject progress = readProgress(requestId);
+        if (progress != null && progress.optBoolean("provider_started")) return false;
+        writeProgress(requestId, new JSONObject().put("provider_started", true));
+        return true;
+    }
+
     public synchronized void writeProgress(
         String requestId,
         JSONObject progress
@@ -2730,6 +2771,12 @@ public final class TranslationJobStore {
         String requestId,
         byte[] resultJson
     ) throws Exception {
+        completeRunningJob(requestId, resultJson, null);
+    }
+
+    void completeRunningJob(String requestId, byte[] resultJson,
+        java.util.function.Consumer<String> saveFailed) throws Exception {
+        String saveError = null;
         try {
             synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
                 if (resultJson == null || resultJson.length == 0) {
@@ -2775,11 +2822,17 @@ public final class TranslationJobStore {
                     manualRerunCandidateIds.remove(requestId);
                     // Result/state are durable before Scene I/O. A failed local commit
                     // remains completed and is retried without calling the provider.
-                    saveCompletedSceneLocked(jobDirectory, state);
+                    if (!saveCompletedSceneLocked(jobDirectory, state) && JobValidator.isContinuation(requestJson)) {
+                        saveError = state.optString("local_scene_error");
+                    }
                 }
             }
         } finally {
-            notifyQueueListener();
+            try {
+                if (saveFailed != null && saveError != null) saveFailed.accept(saveError);
+            } finally {
+                notifyQueueListener();
+            }
         }
     }
 
@@ -2937,6 +2990,7 @@ public final class TranslationJobStore {
             errorMessage,
             sceneValidationReason
         );
+        job.continuation = JobValidator.isContinuation(state);
         job.localSceneSaved = state.optBoolean("local_scene_saved", false);
         job.localSceneMissing = state.optBoolean("local_scene_missing", false);
         job.gameSceneMissing = state.optBoolean("game_scene_missing", false);
@@ -3088,8 +3142,11 @@ public final class TranslationJobStore {
     }
 
     /** Lists all durable terminal jobs requiring game acknowledgement. */
-    public List<TerminalJob> listPendingTerminalJobs()
-        throws Exception {
+    public List<TerminalJob> listPendingTerminalJobs() throws Exception {
+        return listPendingTerminalJobs(false);
+    }
+
+    public List<TerminalJob> listPendingTerminalJobs(boolean includeContinuationSaveErrors) throws Exception {
         return SceneContextStore.withRootAccess(() -> {
             synchronized (this) {
                 List<File> directories = jobStore.listValidJobDirectories();
@@ -3115,7 +3172,8 @@ public final class TranslationJobStore {
                                 state,
                                 references
                             )) {
-                            if (saveCompletedSceneLocked(directory, state)) {
+                            if (saveCompletedSceneLocked(directory, state)
+                                || (includeContinuationSaveErrors && JobValidator.isContinuation(state))) {
                                 result.add(readTerminalJob(directory.getName()));
                             }
                         }
@@ -6114,11 +6172,12 @@ public final class TranslationJobStore {
     private void removeJobFromIndexesLocked(String requestId) {
         Iterator<QueuedJobRef> iterator = pendingQueue.iterator();
         while (iterator.hasNext()) {
-            if (requestId.equals(iterator.next().requestId)) {
+            QueuedJobRef ref = iterator.next();
+            if (requestId.equals(ref.requestId)) {
                 iterator.remove();
+                unindexPending(ref);
             }
         }
-        pendingRequestIds.remove(requestId);
         heldQueuedJobs.remove(requestId);
         startupReadyJobs.remove(requestId);
         sceneValidationWaits.remove(requestId);
@@ -6147,9 +6206,9 @@ public final class TranslationJobStore {
         queueListeners.remove(listener);
     }
 
-    private ClaimedJob claimNextQueuedJobLocked() throws Exception {
+    private ClaimedJob claimNextQueuedJobLocked(Boolean continuation) throws Exception {
         while (true) {
-            QueuedJobRef job = pendingQueue.peek();
+            QueuedJobRef job = nextMatchingJob(continuation);
             if (job == null) {
                 return null;
             }
@@ -6519,20 +6578,25 @@ public final class TranslationJobStore {
         if (!pendingRequestIds.add(requestId)) {
             return;
         }
-        pendingQueue.offer(new QueuedJobRef(
-            requestId,
-            queueSequence
-        ));
+        boolean continuation = continuationIds.contains(requestId);
+        pendingQueue.offer(new QueuedJobRef(requestId, queueSequence, continuation));
+        if (continuation) queuedContinuations++;
     }
 
     private void removePendingJobLocked(QueuedJobRef job) {
-        QueuedJobRef removed = pendingQueue.poll();
-        if (removed != job) {
+        if (pendingQueue.peek() == job) {
+            pendingQueue.poll();
+        } else if (!pendingQueue.remove(job)) {
             throw new IllegalStateException(
                 "Translation pending queue head changed unexpectedly"
             );
         }
+        unindexPending(job);
+    }
+
+    private void unindexPending(QueuedJobRef job) {
         pendingRequestIds.remove(job.requestId);
+        if (job.continuation) queuedContinuations--;
     }
 
     private long allocateQueueSequenceLocked() {

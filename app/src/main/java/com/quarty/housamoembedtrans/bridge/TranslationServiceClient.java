@@ -70,6 +70,8 @@ public final class TranslationServiceClient {
         default boolean onContinuationResult(String requestId, byte[] resultJson, String leaseToken,
             long connectionGeneration) { return false; }
 
+        default void onContinuationSavePending(String requestId, String message) {}
+
         void onQuestPatch(String requestId, byte[] patchJson);
 
         boolean onSceneCompleted(
@@ -228,6 +230,11 @@ public final class TranslationServiceClient {
             public void onContinuationResult(String requestId, String terminalKind, long generation, ParcelFileDescriptor fd) {
                 readTerminalPayloadAfterLease("continuation", requestId, terminalKind, generation, fd,
                     (bytes, lease) -> resultSink.onContinuationResult(requestId, bytes, lease, generation));
+            }
+
+            @Override
+            public void onContinuationSavePending(String requestId, String message) {
+                resultSink.onContinuationSavePending(requestId, message);
             }
 
             @Override

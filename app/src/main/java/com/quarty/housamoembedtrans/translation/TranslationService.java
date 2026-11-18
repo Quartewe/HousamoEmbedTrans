@@ -679,6 +679,18 @@ public final class TranslationService extends Service {
             }
 
             @Override
+            public void onContinuationSavePending(String requestId, String message) {
+                CallbackRecord current = getCallback();
+                TerminalDeliveryCoordinator delivery = terminalDelivery;
+                if (current == null || delivery == null || !delivery.isReleased()) return;
+                try {
+                    current.callback.onContinuationSavePending(requestId, truncate(message, 4096));
+                } catch (RemoteException e) {
+                    Log.w(TAG, "Could not report continuation save error " + requestId, e);
+                }
+            }
+
+            @Override
             public void onRejectedApiResultArchived(JSONObject record) {
                 try {
                     TranslationStatusNotification.rejectedApiResultArchived(
@@ -2838,6 +2850,8 @@ public final class TranslationService extends Service {
         // the Summary drain observes an empty queue. This is a scheduling
         // boundary, not a best-effort ordering of two executor submissions.
         if (shouldDeferTranslationDrain(summaryPending, apiConcurrencyGate)) {
+            TranslationTaskExecutor tasks = taskExecutor;
+            if (tasks != null) tasks.scheduleContinuationDrain();
             return;
         }
         scheduleTranslationDrain();
@@ -3548,7 +3562,7 @@ public final class TranslationService extends Service {
                 @Override
                 public List<TranslationJobStore.TerminalJob>
                     listPendingTerminalJobs() throws Exception {
-                    return jobStore.listPendingTerminalJobs();
+                    return jobStore.listPendingTerminalJobs(true);
                 }
 
                 @Override
@@ -5193,6 +5207,11 @@ public final class TranslationService extends Service {
     private TerminalDeliveryCoordinator.Callback
         createTerminalDeliveryCallback(CallbackRecord boundRecord) {
         return new TerminalDeliveryCoordinator.Callback() {
+            @Override
+            public void sendSavePending(String requestId, String message) throws RemoteException {
+                boundRecord.callback.onContinuationSavePending(requestId, truncate(message, 4096));
+            }
+
             private void sendContinuation(String id, String kind, long generation, JSONObject message) throws IOException {
                 if (!sendPayload(id, message.toString().getBytes(StandardCharsets.UTF_8), boundRecord,
                     fd -> boundRecord.callback.onContinuationResult(id, kind, generation, fd))) {
