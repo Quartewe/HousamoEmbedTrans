@@ -66,5 +66,6 @@ density = (speakerScore + showScore + textScore) / sqrt(sceneItemCount)。
     <string name="settings_rebuild_prompt_summary_helper">编辑摘要请求中的自然语言角色、文风和上下文说明。</string>
     <string name="settings_rebuild_prompt_translation_constraints">• 输入字段、目标语言映射和角色上下文由应用固定提供。\n• 保护标签、运行时参数、重试字段和换行转义必须保持原样。\n• 输出固定为按顺序发送的 NDJSON 翻译事件，不能添加额外字段。</string>
     <string name="settings_rebuild_prompt_summary_constraints">• 请求 kind、摘要输入和上下文快照语义由应用固定提供。\n• 输出只能是非空的单对象 summary JSON。\n• 不得添加 Markdown、额外字段或不支持的事件。</string>
+    <string name="settings_rebuild_prompt_continuation_constraints">• 每次续写使用当前设置的目标语言、对白条数目标和演出、额外选项权限。\n• 生成的步骤使用固定 JSON 格式，每条路线都回到原剧情的同一合流点。</string>
     <string name="settings_rebuild_export_logs_partial">已导出 %1$d 个 HET 日志文件。游戏未连接，本次未包含游戏日志。</string>
 </resources>

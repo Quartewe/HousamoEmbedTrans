@@ -17,13 +17,14 @@ import java.nio.charset.StandardCharsets;
  * Persists the editable natural-language portions of the provider prompts.
  *
  * <p>The bundled prompt remains the source of the structured contract.  A
- * saved document only contains the three natural-language sections exposed by
+ * saved document only contains the natural-language sections exposed by
  * the settings UI, so a malformed or incomplete override can never replace
  * the output protocol, input schema, or retry rules.</p>
  */
 public final class PromptStore {
     public static final String TRANSLATION = "translation";
     public static final String SUMMARY = "summary";
+    public static final String CONTINUATION = "continuation";
 
     /** Kept out of the editor and inserted into every translation prompt. */
     public static final String TRANSLATION_PROTOCOL =
@@ -33,12 +34,12 @@ public final class PromptStore {
     private static final int MAX_SECTION_LENGTH = 128 * 1024;
     private static final String TRANSLATION_ASSET = "term/prompt.txt";
     private static final String SUMMARY_ASSET = "summary_prompt.txt";
+    private static final String CONTINUATION_CUSTOM_ASSET = "inject.txt";
     private static final String DIRECTORY_NAME = "prompt_drafts";
-    private static final String TRANSLATION_FILE = "translation.json";
-    private static final String SUMMARY_FILE = "summary.json";
     private static final String KEY_ROLE = "role";
     private static final String KEY_STYLE = "style";
     private static final String KEY_CONTEXT = "context";
+    private static final String KEY_CUSTOM_PROMPT = "custom_prompt";
     private static final String EDITABLE_HEADING = "## HET editable guidance";
     /** Fixed asset text that belongs to the protocol, not the editable style. */
     private static final String TRANSLATION_ASSET_CONTEXT_INTRO =
@@ -66,11 +67,21 @@ public final class PromptStore {
         private final String role;
         private final String style;
         private final String context;
+        private final String customPrompt;
 
         public PromptDocument(String role, String style, String context) {
+            this(role, style, context, "");
+        }
+
+        public PromptDocument(String role, String style, String context, String customPrompt) {
             this.role = requireSection(role, KEY_ROLE);
             this.style = requireSection(style, KEY_STYLE);
             this.context = requireSection(context, KEY_CONTEXT);
+            if (customPrompt.length() > MAX_SECTION_LENGTH) {
+                throw new IllegalArgumentException("custom prompt is too long");
+            }
+            this.customPrompt = customPrompt.codePoints().allMatch(
+                cp -> Character.isWhitespace(cp) || Character.isSpaceChar(cp)) ? "" : customPrompt.trim();
         }
 
         public String getRole() {
@@ -85,26 +96,35 @@ public final class PromptStore {
             return context;
         }
 
-        public JSONObject toJson() throws JSONException {
-            return new JSONObject()
+        public String getCustomPrompt() {
+            return customPrompt;
+        }
+
+        private JSONObject toJson(String kind) throws JSONException {
+            JSONObject json = new JSONObject()
                 .put(KEY_ROLE, role)
                 .put(KEY_STYLE, style)
                 .put(KEY_CONTEXT, context);
+            if (CONTINUATION.equals(kind)) {
+                json.put(KEY_CUSTOM_PROMPT, customPrompt);
+            }
+            return json;
         }
 
-        public static PromptDocument fromJson(JSONObject json) {
+        private static PromptDocument fromJson(String kind, JSONObject json) {
             if (json == null) {
                 throw new IllegalArgumentException("prompt document is null");
             }
             return new PromptDocument(
                 json.optString(KEY_ROLE, ""),
                 json.optString(KEY_STYLE, ""),
-                json.optString(KEY_CONTEXT, "")
+                json.optString(KEY_CONTEXT, ""),
+                CONTINUATION.equals(kind) ? json.optString(KEY_CUSTOM_PROMPT, "") : ""
             );
         }
 
         public PromptDocument copy() {
-            return new PromptDocument(role, style, context);
+            return new PromptDocument(role, style, context, customPrompt);
         }
 
         @Override
@@ -115,14 +135,16 @@ public final class PromptStore {
             PromptDocument document = (PromptDocument) other;
             return role.equals(document.role)
                 && style.equals(document.style)
-                && context.equals(document.context);
+                && context.equals(document.context)
+                && customPrompt.equals(document.customPrompt);
         }
 
         @Override
         public int hashCode() {
             int result = role.hashCode();
             result = 31 * result + style.hashCode();
-            return 31 * result + context.hashCode();
+            result = 31 * result + context.hashCode();
+            return 31 * result + customPrompt.hashCode();
         }
     }
 
@@ -137,48 +159,53 @@ public final class PromptStore {
 
     /** Loads an override, falling back to the bundled natural-language parts. */
     public PromptDocument load(String kind) throws IOException {
-        validateKind(kind);
         synchronized (LOCK) {
-            PromptDocument defaults = loadDefaults(kind);
             File file = fileFor(kind);
             if (!IoUtils.atomicFileExists(file)) {
-                return defaults;
+                return loadDefaults(kind);
             }
             try {
                 JSONObject json = readJson(new AtomicFile(file));
-                return PromptDocument.fromJson(json);
+                if (CONTINUATION.equals(kind) && !json.has(KEY_CUSTOM_PROMPT)) {
+                    json.put(KEY_CUSTOM_PROMPT, readAsset(CONTINUATION_CUSTOM_ASSET));
+                }
+                return PromptDocument.fromJson(kind, json);
             } catch (Exception error) {
                 // A damaged override must not stop translation startup.  The
                 // file remains available for inspection and can be replaced
                 // by the next explicit save from Settings.
-                return defaults;
+                return loadDefaults(kind);
             }
         }
     }
 
     /** Returns the bundled editable sections without reading user state. */
     public PromptDocument loadDefaults(String kind) throws IOException {
-        validateKind(kind);
-        synchronized (LOCK) {
-            return TRANSLATION.equals(kind)
-                ? DEFAULT_TRANSLATION.copy()
-                : DEFAULT_SUMMARY.copy();
+        if (TRANSLATION.equals(kind)) return DEFAULT_TRANSLATION.copy();
+        if (SUMMARY.equals(kind)) return DEFAULT_SUMMARY.copy();
+        if (CONTINUATION.equals(kind)) {
+            return new PromptDocument(
+                "你是《东京放课后召唤师》的剧情续写作者。",
+                "沿用原剧情的叙述节奏和人物口吻，让角色自然回应主角刚说的话。",
+                "参考玩家已经历的对白和当前场景，结合随后原剧情安排这段回应的收尾。",
+                readAsset(CONTINUATION_CUSTOM_ASSET)
+            );
         }
+        throw new IllegalArgumentException("unknown prompt kind: " + kind);
     }
 
-    /** Atomically persists one kind while leaving the other kind untouched. */
+    /** Atomically persists one prompt document. */
     public void save(String kind, PromptDocument document) throws IOException {
-        validateKind(kind);
         if (document == null) {
             throw new IllegalArgumentException("prompt document is null");
         }
         synchronized (LOCK) {
+            File target = fileFor(kind);
             IoUtils.ensureDirectory(directory);
             try {
-                IoUtils.writeAtomically(
-                    fileFor(kind),
-                    document.toJson().toString().getBytes(StandardCharsets.UTF_8)
-                );
+                byte[] bytes = document.toJson(kind).toString().getBytes(StandardCharsets.UTF_8);
+                if (bytes.length > MAX_PROMPT_BYTES) throw new IOException("prompt document is too large");
+                IoUtils.writeAtomically(target, bytes);
             } catch (JSONException error) {
                 throw new IOException("could not encode prompt document", error);
             }
@@ -188,19 +215,23 @@ public final class PromptStore {
     /** Builds the complete translation system prompt for a new request. */
     public String loadTranslationPrompt() throws IOException {
         synchronized (LOCK) {
-            return composeTranslation(readAsset(TRANSLATION), load(TRANSLATION));
+            return composeTranslation(readAsset(TRANSLATION_ASSET), load(TRANSLATION));
         }
     }
 
     /** Builds the complete summary system prompt for a new request. */
     public String loadSummaryPrompt() throws IOException {
         synchronized (LOCK) {
-            return composeSummary(readAsset(SUMMARY), load(SUMMARY));
+            return composeSummary(readAsset(SUMMARY_ASSET), load(SUMMARY));
         }
     }
 
-    private String readAsset(String kind) throws IOException {
-        String path = TRANSLATION.equals(kind) ? TRANSLATION_ASSET : SUMMARY_ASSET;
+    public String loadContinuationPrompt(String fixedInstructions, boolean injectCustomPrompt) throws IOException {
+        String body = assembleEditableSections(fixedInstructions, load(CONTINUATION), injectCustomPrompt);
+        return "[System Directive]\n" + body + "\n[/System Directive]";
+    }
+
+    private String readAsset(String path) throws IOException {
         try (InputStream input = context.getAssets().open(path)) {
             return IoUtils.readUtf8Limited(input, MAX_PROMPT_BYTES);
         }
@@ -219,7 +250,7 @@ public final class PromptStore {
         result = removeFirstExact(result, DEFAULT_TRANSLATION.style);
         result = removeFirstExact(result, TRANSLATION_ASSET_CONTEXT_INTRO);
         result = replaceFirstExact(result, originalRole, "");
-        return assembleEditableSections(result, document);
+        return assembleEditableSections(result, document, false);
     }
 
     private String composeSummary(
@@ -233,7 +264,7 @@ public final class PromptStore {
             ""
         );
         result = removeFirstExact(result, SUMMARY_ASSET_CONCISE_RULE);
-        return assembleEditableSections(result, document);
+        return assembleEditableSections(result, document, false);
     }
 
     private String firstNonEmptyLine(String text) throws IOException {
@@ -245,10 +276,13 @@ public final class PromptStore {
         throw new IOException("prompt asset has no content");
     }
 
-    private String assembleEditableSections(
+    private static String assembleEditableSections(
         String fixedTemplate,
-        PromptDocument document
+        PromptDocument document,
+        boolean injectCustomPrompt
     ) {
+        String extra = injectCustomPrompt && !document.customPrompt.isEmpty()
+            ? document.customPrompt + "\n\n" : "";
         return document.role
             + "\n\n"
             + EDITABLE_HEADING
@@ -257,6 +291,7 @@ public final class PromptStore {
             + "\n\n"
             + document.context
             + "\n\n"
+            + extra
             + removeLeadingLineBreaks(fixedTemplate);
     }
 
@@ -328,16 +363,10 @@ public final class PromptStore {
     }
 
     private File fileFor(String kind) {
-        return new File(
-            directory,
-            TRANSLATION.equals(kind) ? TRANSLATION_FILE : SUMMARY_FILE
-        );
-    }
-
-    private static void validateKind(String kind) {
-        if (!TRANSLATION.equals(kind) && !SUMMARY.equals(kind)) {
+        if (!TRANSLATION.equals(kind) && !SUMMARY.equals(kind) && !CONTINUATION.equals(kind)) {
             throw new IllegalArgumentException("unknown prompt kind: " + kind);
         }
+        return new File(directory, kind + ".json");
     }
 
     private static String requireSection(String value, String name) {

@@ -580,7 +580,7 @@ final class StoryPrompt {
         }
     }
 
-    JSONArray messages(Local local, String input, JSONObject generation, JSONObject catalog) throws JSONException {
+    JSONArray messages(Local local, String input, String systemPrompt, JSONObject catalog) throws JSONException {
         // Give each submission its own payload. Nothing from this input is published to the node cache.
         JSONObject body = new JSONObject(local.body).put("input", input);
         if (catalog.length() > 0) body.put("resources", catalog);
@@ -588,11 +588,11 @@ final class StoryPrompt {
         hits.include(local.baseMatches);
         addProfiles(body, hits);
         return new JSONArray()
-            .put(new JSONObject().put("role", "system").put("content", instructions(generation)))
+            .put(new JSONObject().put("role", "system").put("content", systemPrompt))
             .put(new JSONObject().put("role", "user").put("content", body.toString()));
     }
 
-    private static String instructions(JSONObject generation) throws JSONException {
+    static String instructions(JSONObject generation) throws JSONException {
         int target = generation.getInt("dialogue_target");
         boolean actors = generation.getBoolean("allow_character");
         boolean bg = generation.getBoolean("allow_background");

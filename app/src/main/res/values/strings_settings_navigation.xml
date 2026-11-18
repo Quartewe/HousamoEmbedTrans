@@ -29,8 +29,8 @@
     <string name="settings_home_effect_title">When settings apply</string>
     <string name="settings_home_effect_message">Theme changes apply immediately. Translation settings affect future requests. Capture, sync and recovery settings apply from the next run.</string>
     <string name="settings_home_prompt_title">Prompt drafts</string>
-    <string name="settings_home_prompt_description">Edit translation and summary prompts separately. Request structure and output rules are read-only.</string>
-    <string name="settings_home_prompt_summary">Translation and summary prompts are saved separately on this device</string>
+    <string name="settings_home_prompt_description">Edit instructions for translation, summaries, and story continuation.</string>
+    <string name="settings_home_prompt_summary">Each prompt is saved separately on this device</string>
     <string name="settings_home_reset_defaults">Restore default settings</string>
     <string name="settings_home_reset_defaults_title">Restore default settings?</string>
     <string name="settings_home_reset_defaults_message">Replace saved settings and clear the API key. Theme and prompt drafts are kept.</string>
@@ -167,6 +167,7 @@
     <string name="settings_prompt_subtitle">Edit natural-language instructions. Protocol, input and output rules remain fixed.</string>
     <string name="settings_prompt_translation_tab">Translation prompt</string>
     <string name="settings_prompt_summary_tab">Summary prompt</string>
+    <string name="settings_prompt_continuation_tab">Continuation prompt</string>
     <string name="settings_prompt_role">Role</string>
     <string name="settings_prompt_style">Approach and style</string>
     <string name="settings_prompt_context">Context instructions</string>
@@ -177,7 +178,7 @@
     <string name="settings_prompt_saved">Saved</string>
     <string name="settings_prompt_discard">Discard draft</string>
     <string name="settings_prompt_reset">Restore defaults</string>
-    <string name="settings_prompt_memory_hint">Prompts are saved separately. Both drafts are checked for unsaved changes when leaving.</string>
+    <string name="settings_prompt_memory_hint">Each prompt is saved separately. You will be asked before leaving with unsaved changes.</string>
     <string name="settings_prompt_discard_title">Discard unsaved prompt drafts?</string>
     <string name="settings_prompt_discard_message">Unsaved changes will be lost; the last saved version will be restored.</string>
     <string name="settings_prompt_reset_title">Restore default prompts?</string>

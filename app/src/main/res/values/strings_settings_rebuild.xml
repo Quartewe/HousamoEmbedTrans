@@ -66,5 +66,6 @@ A direct hit scores ≥ TextMentionedScore. A primary character\'s guild, school
     <string name="settings_rebuild_prompt_summary_helper">Edit the natural-language role, style, and context notes in summary requests.</string>
     <string name="settings_rebuild_prompt_translation_constraints">• Input fields, target-language mapping, and character context are supplied by the app.\n• Protected tags, runtime parameters, retry fields, and newline escaping must remain unchanged.\n• Output is ordered NDJSON translation events and cannot contain extra fields.</string>
     <string name="settings_rebuild_prompt_summary_constraints">• Request kind, summary input, and context snapshot semantics are supplied by the app.\n• Output must be one non-empty summary JSON object.\n• Do not add Markdown, extra fields, or unsupported events.</string>
+    <string name="settings_rebuild_prompt_continuation_constraints">• Each request uses the selected language, dialogue target, and permissions for staging and choices.\n• Generated steps follow a fixed JSON format. Each route rejoins the original story at the same point.</string>
     <string name="settings_rebuild_export_logs_partial">Exported %1$d HET log files. Game logs were not included because the game is not connected.</string>
 </resources>

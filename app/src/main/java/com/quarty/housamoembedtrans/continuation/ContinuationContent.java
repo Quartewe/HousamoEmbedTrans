@@ -3,6 +3,7 @@ package com.quarty.housamoembedtrans.continuation;
 import android.content.Context;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.storage.config.PromptStore;
 import com.quarty.housamoembedtrans.storage.config.StoryContinuationSettings;
 import com.quarty.housamoembedtrans.storage.json.AtomicJsonFileIo;
 import com.quarty.housamoembedtrans.translation.request.SceneTranslationRequestBuilder;
@@ -172,7 +173,7 @@ public final class ContinuationContent {
     }
 
     public static JSONObject prepare(Context context, JSONObject submission, JSONObject generation,
-            String targetLanguage) throws Exception {
+            String targetLanguage, boolean injectCustomPrompt) throws Exception {
         StoryPrompt snapshot = current(context, submission);
         String input = submission.getString("input");
         if (!hasText(input)) throw new IOException("请输入主角原话");
@@ -180,13 +181,15 @@ public final class ContinuationContent {
         StoryPrompt.Local local = snapshot.local(context, submission, targetLanguage,
             generation.getBoolean("allow_character"), generation.getBoolean("allow_background"));
         JSONObject resources = local.resources();
+        String systemPrompt = new PromptStore(context).loadContinuationPrompt(
+            StoryPrompt.instructions(generation), injectCustomPrompt);
         return project(submission, "scene", "source", "source_hash", "input")
             .put("generation", generation)
             .put("created_at", System.currentTimeMillis())
             .put("record_id", UUID.randomUUID().toString())
             .put("target_lang", targetLanguage)
             .put("resources", resources)
-            .put("messages", snapshot.messages(local, input, generation, resources));
+            .put("messages", snapshot.messages(local, input, systemPrompt, resources));
     }
 
     public static boolean hasText(String s) {

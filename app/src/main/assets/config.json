@@ -14,6 +14,7 @@
             "AllowCharacter": false,
             "AllowBackground": false,
             "AllowChoices": false,
+            "InjectCustomPrompt": false,
             "DialogueTarget": 20
         },
         "SceneSync": {

@@ -13,6 +13,7 @@ public final class StoryContinuationSettings {
     }
     public static final int DEFAULT_TARGET = 20;
     public final boolean enabled, allowCharacter, allowBackground, allowChoices;
+    public final boolean injectCustomPrompt;
     public final int dialogueTarget;
 
     private StoryContinuationSettings(JSONObject values) throws JSONException {
@@ -20,6 +21,7 @@ public final class StoryContinuationSettings {
         allowCharacter = flag(values, "AllowCharacter");
         allowBackground = flag(values, "AllowBackground");
         allowChoices = flag(values, "AllowChoices");
+        injectCustomPrompt = flag(values, "InjectCustomPrompt");
         Object target = values.opt("DialogueTarget");
         if (target == null) {
             dialogueTarget = DEFAULT_TARGET;

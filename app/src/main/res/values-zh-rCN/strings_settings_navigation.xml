@@ -29,8 +29,8 @@
     <string name="settings_home_effect_title">设置何时生效</string>
     <string name="settings_home_effect_message">主题立即生效；翻译参数只影响后续请求；捕获、同步和恢复策略从下一次流程生效。</string>
     <string name="settings_home_prompt_title">提示词草稿</string>
-    <string name="settings_home_prompt_description">分别编辑翻译和摘要提示词；请求结构和输出约束不可修改。</string>
-    <string name="settings_home_prompt_summary">翻译提示词、摘要提示词各自保存到本地</string>
+    <string name="settings_home_prompt_description">编辑翻译、摘要和剧情续写的提示词。</string>
+    <string name="settings_home_prompt_summary">每份提示词单独保存在本机</string>
     <string name="settings_home_reset_defaults">恢复默认设置</string>
     <string name="settings_home_reset_defaults_title">恢复默认设置？</string>
     <string name="settings_home_reset_defaults_message">将覆盖已保存的设置并清除 API key。主题和提示词草稿不受影响。</string>
@@ -167,6 +167,7 @@
     <string name="settings_prompt_subtitle">可编辑自然语言说明；协议、输入和输出约束固定。</string>
     <string name="settings_prompt_translation_tab">翻译提示词</string>
     <string name="settings_prompt_summary_tab">摘要提示词</string>
+    <string name="settings_prompt_continuation_tab">续写提示词</string>
     <string name="settings_prompt_role">角色定位</string>
     <string name="settings_prompt_style">工作方式与文风</string>
     <string name="settings_prompt_context">上下文说明</string>
@@ -177,7 +178,7 @@
     <string name="settings_prompt_saved">已保存</string>
     <string name="settings_prompt_discard">放弃草稿</string>
     <string name="settings_prompt_reset">恢复默认</string>
-    <string name="settings_prompt_memory_hint">两份提示词分别保存，离开时会检查两份未保存的草稿。</string>
+    <string name="settings_prompt_memory_hint">每份提示词单独保存。有未保存的修改时，离开前会提醒。</string>
     <string name="settings_prompt_discard_title">放弃未保存的提示词草稿？</string>
     <string name="settings_prompt_discard_message">未保存的修改会丢失，并恢复为上次保存的版本。</string>
     <string name="settings_prompt_reset_title">恢复默认提示词？</string>
