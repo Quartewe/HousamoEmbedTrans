@@ -20,6 +20,29 @@
   "properties": {
     "scene": { "type": "string", "minLength": 1, "maxLength": 200 },
     "quest_label": { "type": "string", "minLength": 1 },
+    "continuation_source": {
+      "description": "Hashes of the Japanese original and the localized PageRec projection from the same game table. The original hash applies while the current story text, branches and protected tokens match captured_hash.",
+      "type": "object",
+      "required": ["original_hash", "captured_hash"],
+      "properties": {
+        "original_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "captured_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "positions": {
+          "description": "Sparse mapping for localized-only rows and changed option positions. A null original marks a row or choice without a corresponding original position.",
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["type", "captured", "original"],
+            "properties": {
+              "type": { "enum": ["choice", "text"] },
+              "captured": { "$ref": "#/$defs/orderKey" },
+              "original": { "oneOf": [{ "$ref": "#/$defs/orderKey" }, { "type": "null" }] }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "game_version": { "type": "string", "minLength": 1 },
     "raw_lang": { "type": "string", "minLength": 1 },
     "target_lang": { "type": "string", "minLength": 1 },

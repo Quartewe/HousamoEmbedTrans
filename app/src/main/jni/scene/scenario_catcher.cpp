@@ -3,6 +3,7 @@
 #include "block_queue.hpp"
 #include "scene/page_rec.hpp"
 #include "runtime/continuation_source.hpp"
+#include "runtime/continuation_player.hpp"
 #include "shadowhook.h"
 
 #include <algorithm>
@@ -68,6 +69,7 @@ struct ScenarioParseOutput {
     ScenarioParseStatus status = ScenarioParseStatus::failed;
     ScenarioParseResult result;
     QuestPtrSet target_map;
+    bool has_official_translation = false;
 };
 
 struct ListView {
@@ -1395,10 +1397,80 @@ static bool AssembleLabelBlocks(
     return context.owners.size() == blocks->size();
 }
 
+// The physical Utage command is identified before either language's option numbering.
+struct ProjectionRow {
+    OrderKey order;
+    const ChoiceBlock* group;
+    const std::string* jump;
+};
+struct ProjectionLayout {
+    std::vector<const ChoiceBlock*> groups;
+    std::vector<ProjectionRow> rows;
+};
+static void IndexProjection(const std::vector<SceneItem>& items, ProjectionLayout& layout) {
+    for (const auto& item : items) {
+        if (const auto* text = std::get_if<TextItem>(&item.value)) {
+            layout.rows.push_back({text->order, nullptr, nullptr});
+        } else if (const auto* choice = std::get_if<ChoiceBlock>(&item.value)) {
+            layout.groups.push_back(choice);
+            for (const auto& branch : choice->branches) {
+                for (const auto& option : branch.options)
+                    layout.rows.push_back({option.order, choice, &branch.target_label});
+                IndexProjection(branch.following_text, layout);
+            }
+        } else {
+            IndexProjection(std::get<IfBlock>(item.value).following_text, layout);
+        }
+    }
+}
+
+static std::vector<ContinuationPosition> CompareProjectionPositions(
+        const std::vector<SceneItem>& captured, const std::vector<SceneItem>& original) {
+    ProjectionLayout jp, view;
+    IndexProjection(original, jp);
+    IndexProjection(captured, view);
+    auto physical = [](OrderKey key) { key.sub_index = 0; return key; };
+    std::unordered_map<OrderKey, const ProjectionRow*, OrderKeyHash> commands;
+    for (const auto& row : jp.rows) {
+        auto added = commands.emplace(physical(row.order), &row);
+        if (!added.second) added.first->second = nullptr;
+    }
+    struct GroupMatch { const ChoiceBlock* original = nullptr; size_t shared = 0; bool ambiguous = false; };
+    std::unordered_map<const ChoiceBlock*, GroupMatch> groups;
+    std::vector<ContinuationPosition> positions;
+    for (const auto& row : view.rows) {
+        auto it = commands.find(physical(row.order));
+        const ProjectionRow* other = it == commands.end() ? nullptr : it->second;
+        if (other && (bool(row.group) != bool(other->group) ||
+                      (row.jump && *row.jump != *other->jump))) other = nullptr;
+        if (row.group && it != commands.end()) {
+            auto& match = groups[row.group];
+            if (!other || (match.original && match.original != other->group)) match.ambiguous = true;
+            if (other) {
+                match.original = other->group;
+                ++match.shared;
+            }
+        }
+        if (!other || !(row.order == other->order))
+            positions.push_back({false, row.order, other ? other->order : OrderKey{}});
+    }
+    for (const ChoiceBlock* choice : view.groups) {
+        auto match = groups.find(choice);
+        const auto* other = match == groups.end() ? nullptr : match->second.original;
+        if (other && (match->second.ambiguous || match->second.shared != ChoiceOptionCount(*other) ||
+                      other->merge_label.empty() || other->merge_label != choice->merge_label)) other = nullptr;
+        if (!other || !(choice->order == other->order))
+            positions.push_back({true, choice->order, other ? other->order : OrderKey{}});
+    }
+    return positions;
+}
+
 class ScenarioParseRunner {
 public:
-    explicit ScenarioParseRunner(const RuntimeScenario& scenario, bool page_rec = false)
-        : scenario_(scenario), page_rec_(page_rec) {}
+    explicit ScenarioParseRunner(const RuntimeScenario& scenario, bool page_rec = false,
+                                 bool retain_official = false)
+        : scenario_(scenario), page_rec_(page_rec), retain_official_(page_rec || retain_official),
+          collect_original_(page_rec && retain_official) {}
 
     std::string RawLanguage() const {
         switch (language_mask_) {
@@ -1409,8 +1481,27 @@ public:
         }
     }
 
-    bool HasTargetOfficialTranslation() const {
-        return page_rec_has_target_official_translation_;
+    ContinuationSourceProof PageRecSource(const ScenarioParseResult& captured) const {
+        if (!collect_original_) return {};
+        std::string view = HashContinuationSource(EncodeContinuationSource(captured));
+        if (view.empty()) return {};
+        if ((language_mask_ & 3) == 0) return {view, view};
+        std::string original;
+        std::vector<ContinuationPosition> positions;
+        if (has_localized_only_row_) {
+            // A translated-only option can change choice grouping/sub_index in the JP projection.
+            // Use the ordinary parser's actual tree instead of substituting an empty string.
+            ScenarioParseRunner jp(scenario_, false, true);
+            auto rows = jp.Run();
+            if (rows.status != ScenarioParseStatus::ok) return {};
+            original = HashContinuationSource(EncodeContinuationSource(rows.result));
+            positions = CompareProjectionPositions(captured.scene_items, rows.result.scene_items);
+        } else {
+            original = HashContinuationSource(EncodeContinuationSource(
+                captured.scene_items, original_protect_, &original_texts_));
+        }
+        if (original.empty()) return {};
+        return {std::move(original), std::move(view), std::move(positions)};
     }
 
     ScenarioParseOutput Run() {
@@ -1454,7 +1545,8 @@ public:
         // Export remains complete even if task-mode targets are ambiguous.
         // An empty map prevents task/writeback admission without changing OrderKey.
         if (page_rec_ && !page_rec_targets_valid_) target_map_.clear();
-        return {ScenarioParseStatus::ok, std::move(result_), std::move(target_map_)};
+        return {ScenarioParseStatus::ok, std::move(result_), std::move(target_map_),
+                has_official_translation_};
     }
 
 private:
@@ -1619,7 +1711,7 @@ private:
             }
 
             PageParseResult result = ParsePageJob(job);
-            if (result.official_translation) {
+            if (result.official_translation && !retain_official_) {
                 Abort(AbortReason::official_translation);
             } else if (!result.ok) {
                 Abort(AbortReason::page_parse_failed);
@@ -1689,6 +1781,7 @@ private:
             if (!result.ok) {
                 continue;
             }
+            has_official_translation_ |= result.official_translation;
 
             if (result.label_index < 0
                 || static_cast<size_t>(result.label_index) >= label_blocks.size()) {
@@ -1749,12 +1842,9 @@ private:
         OrderKey order,
         int& protect_index,
         const std::string& current_speaker,
-        std::string* out,
-        void* page_data    
+        TextItem& item,
+        void* page_data
         ) {
-        if (out == nullptr) {
-            return TextStatus::empty;
-        }
         const auto& columns = g_runtime_config.layout.text_columns;
         const char* target_column = nullptr;
 
@@ -1776,16 +1866,18 @@ private:
                 return TextStatus::header_unavailable;
             }
             if (!target_lang_text.empty()) {
-                if (!page_rec_) {
+                if (!retain_official_) {
                     LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
                     return TextStatus::official_translation;
                 }
-                // Keep parsing the complete export; only task admission skips it.
-                page_rec_has_target_official_translation_ = true;
+                // Each worker owns its page. CollectResults combines the flag after joining.
+                result.official_translation = true;
+                if (!page_rec_) item.official_translation = std::move(target_lang_text);
             }
         }
 
         std::string raw_text;
+        std::string japanese;
         if (page_rec_) {
             if (!ReadNamedRowStringColumn(cmd_item, "ChineseSimplified", &raw_text)) {
                 LOGW("[ScenarioCatcher] scene=%s cannot read PageRec table header",
@@ -1801,8 +1893,9 @@ private:
                 }
                 language = 2;
             }
+            if (collect_original_ || raw_text.empty()) japanese = ReadRowStringColumn(cmd_item, columns.raw);
             if (raw_text.empty()) {
-                raw_text = ReadRowStringColumn(cmd_item, columns.raw);
+                raw_text = japanese;
                 language = 4;
             }
             if (!raw_text.empty()) language_mask_ |= language;
@@ -1854,14 +1947,23 @@ private:
             return TextStatus::empty;
         }
 
-        *out = CatchTextLabel(
+        item.text = CatchTextLabel(
             raw_text,
             g_runtime_config.enable_ruby_translation,
             order,
             result.protect,
             protect_index);
-        if (out->empty()) {
+        if (item.text.empty()) {
             return TextStatus::empty;
+        }
+        if (collect_original_) {
+            if (japanese.empty()) {
+                has_localized_only_row_ = true;
+            } else {
+                auto jp = CatchTextLabel(japanese, g_runtime_config.enable_ruby_translation,
+                                         order, original_protect_, original_protect_index_);
+                if (jp != item.text) original_texts_.emplace(order, std::move(jp));
+            }
         }
         return TextStatus::ok;
     }
@@ -1875,6 +1977,7 @@ private:
 
         void* page_data = job.page_data;
         int protect_index = 0;
+        if (collect_original_) original_protect_index_ = 0;
 
         if (!valid_ptr(page_data)) {
             return result;
@@ -1898,7 +2001,6 @@ private:
         std::vector<void*> state_rows;
         std::unordered_map<void*,std::vector<OrderKey>> row_text;
 
-
         for (int i = 0; i < commands.size; ++i) {
             void* cmd_item = ListElement(commands, i);
             if (!valid_ptr(cmd_item)) {
@@ -1906,7 +2008,6 @@ private:
             }
 
             std::string type = read_il2cpp_string(read_ptr(cmd_item, cmd.type));
-
             void* row=read_ptr(cmd_item,cmd.row_data);
             if (row && (type=="Character" || type=="CharacterOff" || type=="Bg" || type=="BgOff")) {
                 if(columns.empty()) columns=StageColumns(cmd_item);
@@ -1934,10 +2035,10 @@ private:
             }
 
             if (type == "Text") {
-                std::string text;
+                TextItem item;
                 OrderKey order = {result.label_index, page_no, i, 0};
 
-                TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text, page_data);
+                TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, item, page_data);
                 if (status == TextStatus::header_unavailable) {
                     return result;
                 }
@@ -1949,12 +2050,10 @@ private:
                     continue;
                 }
 
-                TextItem item;
-                if(row) row_text[row].push_back(order);
                 item.order = order;
+                if(row) row_text[row].push_back(order);
                 item.speaker = current_speaker;
                 AddItemScore(result.speaker_character, current_speaker, 10.0f);
-                item.text = std::move(text);
                 
                 result.scene_items.emplace_back(std::move(item));
                 ++result.stats.text;
@@ -1962,10 +2061,10 @@ private:
             }
 
             if (type == "Selection") {
-                std::string text;
+                TextItem option;
                 OrderKey order = {result.label_index, page_no, i, static_cast<int>(ChoiceOptionCount(pending_choice))};
 
-                TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, &text, page_data);
+                TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, option, page_data);
                 if (status == TextStatus::header_unavailable) {
                     return result;
                 }
@@ -1981,11 +2080,9 @@ private:
                     pending_choice.order = {result.label_index, page_no, i, 0};
                 }
 
-                TextItem option;
                 if(row) row_text[row].push_back(order);
                 option.order = std::move(order);
                 option.speaker = "mc";
-                option.text = std::move(text);
 
                 std::string target_label = ReadSelectionJumpLabel(cmd_item);
                 auto branch_it = std::find_if(
@@ -2046,9 +2143,17 @@ private:
 private:
     const RuntimeScenario& scenario_;
     const bool page_rec_;
+    const bool retain_official_;
+    // PageRec processes its ordered pages on the lookup thread. The alternate
+    // JP text and tag numbering live only for this parse.
+    const bool collect_original_;
+    ContinuationTextByOrder original_texts_;
+    std::vector<ProtectedToken> original_protect_;
+    int original_protect_index_ = 0;
+    bool has_localized_only_row_ = false;
     bool header_logged_ = false; // Owned only by the ordered job submitter.
     int language_mask_ = 0; // PageRec parses synchronously on the hook thread.
-    bool page_rec_has_target_official_translation_ = false; // Same hook-thread ownership.
+    bool has_official_translation_ = false;
     bool page_rec_targets_valid_ = true; // Same hook-thread ownership.
 
     std::atomic<int> abort_reason_{
@@ -2066,8 +2171,14 @@ private:
 };
 
 static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario) {
-    ScenarioParseRunner runner(scenario);
-    return runner.Run();
+    const bool enabled = het::continuation::CaptureEnabled();
+    ScenarioParseRunner runner(scenario, false, enabled);
+    auto output = runner.Run();
+    if (enabled && output.status == ScenarioParseStatus::ok && !output.target_map.empty()) {
+        auto hash = HashContinuationSource(EncodeContinuationSource(output.result));
+        output.result.continuation_source = {hash, hash};
+    }
+    return output;
 }
 
 } // namespace
@@ -2079,16 +2190,20 @@ bool ParsePageRecScene(void* scenario_data, void* data_manager, const std::strin
     RuntimeScenario scenario;
     if (!ParseScenarioLabels(scenario_data, entry_label, &scenario)) return false;
     BuildLabelOrder(&scenario);
-    ScenarioParseRunner runner(scenario, true);
+    const bool continuation = g_runtime_config.enable_page_rec_tasks && het::continuation::CaptureEnabled();
+    ScenarioParseRunner runner(scenario, true, continuation);
     auto output = runner.Run();
     if (output.status != ScenarioParseStatus::ok) return false;
     CompleteStage(output.result.stage,data_manager);
-    if (!runner.HasTargetOfficialTranslation() && !output.target_map.empty())
-        PublishContinuationSource(scenario_data, output.result, output.target_map);
+    if (continuation && !output.target_map.empty()) {
+        output.result.continuation_source = runner.PageRecSource(output.result);
+        if (!output.result.continuation_source.original_hash.empty())
+            PublishContinuationSource(scenario_data, output.result, output.target_map);
+    }
     *scene = BuildSceneDocument(std::move(output.result));
     scene->raw_lang = runner.RawLanguage();
     *labels = scenario.label_order;
-    *has_target_official_translation = runner.HasTargetOfficialTranslation();
+    *has_target_official_translation = output.has_official_translation;
     target_set->scenario_data_ptr = scenario_data;
     target_set->target_map = std::move(output.target_map);
     return true;
@@ -2141,8 +2256,14 @@ bool CatchScenario(
     }
 
     CompleteStage(output.result.stage,data_manager);
-    if (production_lease.allowed() && !BackfillCapturedStage(output.result, captured_epoch)) return false;
     PublishContinuationSource(scenario_data,output.result,output.target_map);
+    if (production_lease.allowed() && !BackfillCapturedStage(output.result, captured_epoch)) return false;
+    if (output.has_official_translation) {
+        if (!production_lease.allowed()) return false;
+        if (GetSceneFileStatus(output.result.scene) != SceneFileStatus::not_found) return true;
+        auto document = std::make_shared<const Scene>(BuildSceneDocument(std::move(output.result)));
+        return SubmitContinuationSourceScene(std::move(document), std::move(production_lease), captured_epoch);
+    }
     target_set.target_map = std::move(output.target_map);
     
     std::string scene_name = scenario.result.scene;

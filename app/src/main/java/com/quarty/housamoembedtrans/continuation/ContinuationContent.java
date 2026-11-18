@@ -30,6 +30,12 @@ public final class ContinuationContent {
     }
 
     public static String fingerprint(JSONObject scene) throws Exception {
+        String captured = capturedFingerprint(scene);
+        JSONObject proof = sourceProof(scene, captured);
+        return proof == null ? captured : proof.getString("original_hash");
+    }
+
+    static String capturedFingerprint(JSONObject scene) throws Exception {
         // Strip mutable language data from the nested story tree, preserving branch and option order.
         JSONArray items = new JSONArray(scene.getJSONArray("scene_items").toString());
         stripTranslations(items);
@@ -43,6 +49,15 @@ public final class ContinuationContent {
             hex.append(Character.forDigit(b & 15, 16));
         }
         return hex.toString();
+    }
+
+    static JSONObject sourceProof(JSONObject scene, String captured) {
+        JSONObject proof = scene.optJSONObject("continuation_source");
+        if (proof != null && captured.equals(proof.optString("captured_hash"))) {
+            String original = proof.optString("original_hash");
+            if (original.matches("[0-9a-f]{64}")) return proof;
+        }
+        return null;
     }
 
     private static void stripTranslations(Object value) throws JSONException {
@@ -71,7 +86,7 @@ public final class ContinuationContent {
 
     public static boolean matchesCurrentSource(Context c, JSONObject node) throws Exception {
         try {
-            return snapshot(c,node).hash.equals(node.getString("source_hash"));
+            return snapshot(c,node).matchesNode(node);
         } catch (SceneStore.RawSceneFailure e) {
             if (e.getCause() instanceof java.io.FileNotFoundException) return false;
             throw e;
@@ -80,7 +95,7 @@ public final class ContinuationContent {
 
     private static StoryPrompt current(Context c, JSONObject node) throws Exception {
         StoryPrompt snapshot = snapshot(c,node);
-        if (!snapshot.hash.equals(node.getString("source_hash")))
+        if (!snapshot.matchesNode(node))
             throw new IOException("当前原剧本与 HET 中的 Scene 不一致");
         return snapshot;
     }

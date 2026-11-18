@@ -113,6 +113,7 @@ public:
         std::vector<GameTerm> character_terms;
         scene.scene = result.scene;
         scene.stage = std::move(result.stage);
+        scene.continuation_source = std::move(result.continuation_source);
         scene.quest_label = std::move(result.quest_label);
         scene.target_lang = g_runtime_config.target_lang;
         scene.protect = std::move(result.protect);

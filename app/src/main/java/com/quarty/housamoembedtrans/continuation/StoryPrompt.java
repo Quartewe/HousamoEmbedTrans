@@ -28,6 +28,10 @@ final class StoryPrompt {
     final byte[] bytes;
     final JSONObject scene;
     final String hash;
+    private final String capturedHash;
+    private final boolean localizedWithoutPositions;
+    private final Positions choicePositions = new Positions();
+    private final Positions textPositions = new Positions();
     private final Map<String, JSONObject> texts = new HashMap<>();
     private final Map<String, JSONObject> choices = new HashMap<>();
     private final Set<String> selectedOptionOrders = new HashSet<>();
@@ -52,7 +56,18 @@ final class StoryPrompt {
     StoryPrompt(byte[] bytes) throws Exception {
         this.bytes = bytes;
         scene = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
-        hash = ContinuationContent.fingerprint(scene);
+        capturedHash = ContinuationContent.capturedFingerprint(scene);
+        JSONObject proof = ContinuationContent.sourceProof(scene, capturedHash);
+        hash = proof == null ? capturedHash : proof.getString("original_hash");
+        JSONArray positions = proof == null ? null : proof.optJSONArray("positions");
+        localizedWithoutPositions = positions == null && !hash.equals(capturedHash);
+        if (positions != null) {
+            for (int i = 0; i < positions.length(); i++) {
+                JSONObject pair = positions.getJSONObject(i);
+                Positions destination = "choice".equals(pair.getString("type")) ? choicePositions : textPositions;
+                destination.add(pair);
+            }
+        }
         JSONArray tokens = scene.getJSONArray("protect");
         for (int i = 0; i < tokens.length(); i++) {
             JSONObject token = tokens.getJSONObject(i);
@@ -76,6 +91,37 @@ final class StoryPrompt {
     private static String order(JSONObject position) throws JSONException {
         return position.getInt("label_index") + "/" + position.getInt("page_no") + "/"
             + position.getInt("cmd_index") + "/" + position.getInt("sub_index");
+    }
+
+    private static final class Positions {
+        private final Map<String, String> originalToView = new HashMap<>();
+        private final Set<String> changedViews = new HashSet<>();
+        void add(JSONObject pair) throws JSONException {
+            String view = order(pair.getJSONObject("captured"));
+            changedViews.add(view);
+            JSONObject original = pair.optJSONObject("original");
+            if (original != null) originalToView.put(order(original), view);
+        }
+        String view(String original) {
+            String view = originalToView.get(original);
+            return view != null ? view : (changedViews.contains(original) ? null : original);
+        }
+    }
+
+    boolean matchesNode(JSONObject node) throws JSONException {
+        if (!hash.equals(node.getString("source_hash"))) return false;
+        JSONObject root = node.optJSONObject("original_order");
+        if (root == null) root = node.getJSONObject("source").optJSONObject("order");
+        if (root != null && !choices.containsKey(choicePositions.view(order(root)))) return false;
+        // A legacy two-hash Scene may still match the choice root when only a later option moved.
+        JSONArray route = localizedWithoutPositions ? node.optJSONArray("route") : null;
+        for (int i = 0; route != null && i < route.length(); i++) {
+            JSONObject ref = route.getJSONObject(i);
+            if (ref.has("record_id") || ref.has("captured_hash") || ref.optBoolean("stage")) continue;
+            JSONObject position = ref.optJSONObject("order");
+            if (!texts.containsKey(order(position == null ? ref : position))) return false;
+        }
+        return true;
     }
 
     // Sibling branches share an immutable tail through their enclosing merge.
@@ -149,7 +195,7 @@ final class StoryPrompt {
 
     private static final class Ancestry {
         final Map<String, JSONObject> records = new HashMap<>();
-        String originalOrder;
+        String viewChoice;
         JSONObject currentChoice;
     }
 
@@ -168,10 +214,11 @@ final class StoryPrompt {
             if (chain.currentChoice == null) chain.currentChoice = step;
             source = parent.getJSONObject("source");
         }
-        chain.originalOrder = order(source.getJSONObject("order"));
-        if (node.has("original_order") && !chain.originalOrder.equals(order(node.getJSONObject("original_order")))) {
+        String stable = order(source.getJSONObject("order"));
+        if (node.has("original_order") && !stable.equals(order(node.getJSONObject("original_order")))) {
             throw new JSONException("续写选项与原合流位置不一致");
         }
+        chain.viewChoice = choicePositions.view(stable);
         return chain;
     }
 
@@ -225,8 +272,12 @@ final class StoryPrompt {
                 position = ref.optJSONObject("order");
                 if (position == null) position = ref;
                 String key = order(position);
+                if (ref.has("captured_hash")) {
+                    if (!capturedHash.equals(ref.getString("captured_hash"))) continue;
+                } else key = textPositions.view(key);
                 JSONObject item = texts.get(key);
                 if (item == null) continue;
+                position = item.getJSONObject("order");
                 rendered = line(item, language);
                 if (selectedOptionOrders.contains(key)) rendered.put("speaker", "mc");
             }
@@ -252,7 +303,7 @@ final class StoryPrompt {
         }
 
         JSONObject previous = null;
-        for (LineTail tail = following.get(chain.originalOrder); tail != null; tail = tail.next) {
+        for (LineTail tail = following.get(chain.viewChoice); tail != null; tail = tail.next) {
             JSONObject position = tail.item.getJSONObject("order");
             int count = window.after.length();
             if (count >= 5 && !question(window.after.getJSONObject(count - 1)) && !samePage(previous, position)) break;
@@ -504,7 +555,7 @@ final class StoryPrompt {
         synchronized (this) {
             if (Arrays.equals(cachedKey, key)) return cachedLocal;
             Ancestry chain = ancestry(node, history);
-            JSONObject original = choices.get(chain.originalOrder);
+            JSONObject original = choices.get(chain.viewChoice);
             if (original == null) throw new JSONException("当前选项在原剧本中没有对应位置");
             Window window = window(node.getJSONArray("route"), chain, language);
             JSONArray options = options(original, chain, language);

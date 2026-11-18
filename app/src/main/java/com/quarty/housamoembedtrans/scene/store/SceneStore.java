@@ -5547,6 +5547,7 @@ public final class SceneStore {
         }
         skeleton.remove("quest_label");
         skeleton.remove("stage");
+        skeleton.remove("continuation_source");
         clearNestedTranslationMaps(skeleton.optJSONArray("scene_items"));
         StringBuilder canonical = new StringBuilder();
         appendCanonicalJson(skeleton, canonical);

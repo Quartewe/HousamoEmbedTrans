@@ -151,12 +151,13 @@ public:
         std::shared_ptr<const Scene> scene;
         het::scene_sync::SceneProductionLease production_lease;
         std::uint64_t captured_epoch = 0;
+        bool translate = true;
     };
 
     bool SubmitCaptured(
         std::shared_ptr<const Scene> scene,
         het::scene_sync::SceneProductionLease production_lease,
-        std::uint64_t captured_epoch) {
+        std::uint64_t captured_epoch, bool translate) {
         if (!scene
             || scene->scene.empty()
             || !production_lease.allowed()
@@ -177,7 +178,8 @@ public:
             scene_queue_.push_back(CapturedWork{
                 std::move(scene),
                 std::move(production_lease),
-                captured_epoch
+                captured_epoch,
+                translate
             });
         }
         scene_cv_.notify_one();
@@ -481,7 +483,7 @@ private:
         if (!document_codec::EncodeCapturedScene(
                 *scene,
                 &scene_json,
-                &request,
+                work.translate ? &request : nullptr,
                 &error)) {
             LOGE(
                 "[NativeTranslationPipeline] Could not encode captured scene=%s reason=%s",
@@ -507,7 +509,9 @@ private:
             committed = scene_store::Commit(
                 scene->scene,
                 scene_json,
-                g_runtime_config.overwrite_existing,
+                // A continuation-source publication may only create a Scene.
+                // A competing save can already contain user translations or pending languages.
+                work.translate && g_runtime_config.overwrite_existing,
                 &error);
             // Another capture may have created the file after admission-time
             // backfill. Preserve that file and fill only its missing entry.
@@ -515,7 +519,7 @@ private:
                 if (!scene_store::BackfillQuestLabel(scene->scene, scene->quest_label, &error)
                     || (!scene->stage.labels.empty() && !scene_store::BackfillStage(scene->scene,
                         [&] { return EncodeContinuationSource(scene->scene_items, scene->protect); },
-                        [&] { return EncodeSceneStage(scene->stage); }, &error))) {
+                        [&] { return EncodeSceneStage(scene->stage); }, scene->continuation_source, &error))) {
                     committed = SceneCommitResult::failed;
                 }
             }
@@ -533,6 +537,7 @@ private:
             return;
         }
 
+        if (!work.translate) return;
         if (committed == SceneCommitResult::already_exists) {
             if (!RebuildRequestFromDisk(
                     scene->scene,
@@ -650,7 +655,7 @@ static bool FillCapturedStage(const Captured& captured,std::uint64_t epoch) {
     std::string error;
     bool ok=scene_store::BackfillStage(captured.scene,
         [&]{return EncodeContinuationSource(captured.scene_items,captured.protect);},
-        [&]{return EncodeSceneStage(captured.stage);},&error);
+        [&]{return EncodeSceneStage(captured.stage);},captured.continuation_source,&error);
     if(!ok) LOGW("[SceneStage] %s: %s",captured.scene.c_str(),error.c_str());
     return ok;
 }
@@ -664,7 +669,15 @@ bool SubmitCapturedScene(
     return GetPipeline().SubmitCaptured(
         std::move(scene),
         std::move(production_lease),
-        captured_epoch);
+        captured_epoch, true);
+}
+
+bool SubmitContinuationSourceScene(
+    std::shared_ptr<const Scene> scene,
+    het::scene_sync::SceneProductionLease production_lease,
+    std::uint64_t captured_epoch) {
+    return GetPipeline().SubmitCaptured(std::move(scene), std::move(production_lease),
+                                       captured_epoch, false);
 }
 
 bool HandleCompletedTranslation(

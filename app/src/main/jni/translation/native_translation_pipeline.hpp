@@ -31,6 +31,11 @@ bool SubmitCapturedScene(
     std::shared_ptr<const Scene> scene,
     het::scene_sync::SceneProductionLease production_lease,
     std::uint64_t captured_epoch);
+// Publishes the original story locally for continuation. This work ends at Scene commit.
+bool SubmitContinuationSourceScene(
+    std::shared_ptr<const Scene> scene,
+    het::scene_sync::SceneProductionLease production_lease,
+    std::uint64_t captured_epoch);
 void NotifyNativeTranslationPipelineStopChanged();
 void ClearNativeTranslationPipelineOnPause();
 

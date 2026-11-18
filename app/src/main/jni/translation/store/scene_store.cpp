@@ -112,7 +112,8 @@ static void RemoveTranslations(rapidjson::Value& value) {
 }
 
 bool BackfillStage(const std::string& scene_name,const std::function<std::string()>& source,
-                   const std::function<std::string()>& stage,std::string* error) {
+                   const std::function<std::string()>& stage, const ContinuationSourceProof& proof,
+                   std::string* error) {
     std::lock_guard<std::recursive_mutex> lock(MutationMutex());
     if(!Exists(scene_name)) return true;
     std::string saved;
@@ -120,7 +121,19 @@ bool BackfillStage(const std::string& scene_name,const std::function<std::string
     rapidjson::Document doc;
     doc.Parse(saved.data(),saved.size());
     if(doc.HasParseError() || !doc.IsObject()) return Fail(error,"existing Scene could not be read");
-    if(doc.HasMember("stage")) return true;
+    const bool need_stage = !doc.HasMember("stage");
+    const auto previous = doc.FindMember("continuation_source");
+    const bool paired = !proof.original_hash.empty() && !proof.captured_hash.empty();
+    const bool localized = paired && proof.original_hash != proof.captured_hash;
+    bool need_proof = paired && previous != doc.MemberEnd();
+    rapidjson::Document identity;
+    if (localized) {
+        auto json = EncodeContinuationProof(proof);
+        identity.Parse(json.data(), json.size());
+        if (!identity.IsObject()) return Fail(error, "could not encode continuation source");
+        need_proof = previous == doc.MemberEnd() || previous->value != identity;
+    }
+    if (!need_stage && !need_proof) return true;
     if(!doc.HasMember("scene_items") || !doc.HasMember("protect")) return Fail(error,"existing Scene has no source");
     rapidjson::Document actual;
     auto bytes=source();
@@ -131,12 +144,22 @@ bool BackfillStage(const std::string& scene_name,const std::function<std::string
     RemoveTranslations(original);
     RemoveTranslations(actual["scene_items"]);
     if(original!=actual["scene_items"] || doc["protect"]!=actual["protect"]) return true;
-    bytes=stage();
-    rapidjson::Document payload;
-    payload.Parse(bytes.data(),bytes.size());
-    if(!payload.IsObject()) return Fail(error,"could not encode stage");
-    rapidjson::Value copy(payload,doc.GetAllocator());
-    doc.AddMember("stage",copy,doc.GetAllocator());
+    if (need_stage) {
+        bytes=stage();
+        rapidjson::Document payload;
+        payload.Parse(bytes.data(),bytes.size());
+        if(!payload.IsObject()) return Fail(error,"could not encode stage");
+        rapidjson::Value copy(payload,doc.GetAllocator());
+        doc.AddMember("stage",copy,doc.GetAllocator());
+    }
+    if (need_proof) {
+        doc.RemoveMember("continuation_source");
+        if (localized) {
+            auto& allocator = doc.GetAllocator();
+            rapidjson::Value copy(identity, allocator);
+            doc.AddMember("continuation_source", copy, allocator);
+        }
+    }
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     if(!doc.Accept(writer)) return Fail(error,"could not encode updated Scene");

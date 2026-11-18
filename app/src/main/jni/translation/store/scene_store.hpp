@@ -4,6 +4,8 @@
 #include <mutex>
 #include <functional>
 
+struct ContinuationSourceProof;
+
 namespace het::translation {
 
 enum class SceneCommitResult {
@@ -18,7 +20,8 @@ namespace scene_store {
 std::recursive_mutex& MutationMutex();
 bool BackfillQuestLabel(const std::string& scene_name, const std::string& label, std::string* error);
 bool BackfillStage(const std::string& scene_name,const std::function<std::string()>& source,
-                   const std::function<std::string()>& stage,std::string* error);
+                   const std::function<std::string()>& stage, const ContinuationSourceProof& proof,
+                   std::string* error);
 
 bool Exists(const std::string& scene_name);
 

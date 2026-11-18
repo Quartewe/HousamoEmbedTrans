@@ -21,6 +21,10 @@ using Allocator = rapidjson::Document::AllocatorType;
 struct RequestBuildContext {
     std::vector<OrderKey> seq_to_order;
     bool valid = true;
+    // Null when deriving only the original-story fingerprint.
+    const std::string* local_target_language = nullptr;
+    const ContinuationTextByOrder* original_texts = nullptr;
+    bool all_items_have_official_text = true;
 
     int AddText(const OrderKey& order) {
         if (seq_to_order.size()
@@ -270,14 +274,22 @@ EncodedSceneItem EncodeText(
         "speaker",
         JsonString(text.speaker, local_allocator),
         local_allocator);
-    result.local.AddMember(
-        "text",
-        JsonString(text.text, local_allocator),
-        local_allocator);
-    result.local.AddMember(
-        "translations",
-        rapidjson::Value(rapidjson::kObjectType),
-        local_allocator);
+    const std::string* local_text = &text.text;
+    if (context.original_texts) {
+        auto original = context.original_texts->find(text.order);
+        if (original != context.original_texts->end()) local_text = &original->second;
+    }
+    result.local.AddMember("text", JsonString(*local_text, local_allocator), local_allocator);
+    if (context.local_target_language) {
+        rapidjson::Value translations(rapidjson::kObjectType);
+        if (text.official_translation.empty()) {
+            context.all_items_have_official_text = false;
+        } else {
+            translations.AddMember(JsonString(*context.local_target_language, local_allocator),
+                JsonString(text.official_translation, local_allocator), local_allocator);
+        }
+        result.local.AddMember("translations", translations, local_allocator);
+    }
 
     result.request.AddMember("type", "text", request_allocator);
     result.request.AddMember("seq", context.AddText(text.order), request_allocator);
@@ -538,7 +550,6 @@ rapidjson::Value StageJson(const SceneStage& stage, Allocator& a) {
     root.AddMember("states",states,a);
     return root;
 }
-
 }  // namespace
 
 std::string StageBytes(const SceneStage& stage) {
@@ -549,10 +560,32 @@ std::string StageBytes(const SceneStage& stage) {
     return {buf.GetString(),buf.GetSize()};
 }
 
-std::string SourceBytes(const std::vector<SceneItem>& items,const std::vector<ProtectedToken>& protect) {
+static rapidjson::Value SourceProofJson(const ContinuationSourceProof& proof, Allocator& allocator) {
+    rapidjson::Value identity(rapidjson::kObjectType);
+    identity.AddMember("original_hash", JsonString(proof.original_hash, allocator), allocator);
+    identity.AddMember("captured_hash", JsonString(proof.captured_hash, allocator), allocator);
+    if (!proof.positions.empty()) {
+        rapidjson::Value positions(rapidjson::kArrayType);
+        for (const auto& pos : proof.positions) {
+            rapidjson::Value pair(rapidjson::kObjectType);
+            pair.AddMember("type", rapidjson::StringRef(pos.choice ? "choice" : "text"), allocator);
+            pair.AddMember("captured", JsonOrderKey(pos.captured, allocator), allocator);
+            if (pos.original.label_index >= 0)
+                pair.AddMember("original", JsonOrderKey(pos.original, allocator), allocator);
+            else pair.AddMember("original", rapidjson::Value(), allocator);
+            positions.PushBack(pair, allocator);
+        }
+        identity.AddMember("positions", positions, allocator);
+    }
+    return identity;
+}
+
+std::string SourceBytes(const std::vector<SceneItem>& items,const std::vector<ProtectedToken>& protect,
+                        const ContinuationTextByOrder* original_texts) {
     rapidjson::Document doc(rapidjson::kObjectType), scratch;
     auto& a=doc.GetAllocator();
     RequestBuildContext index;
+    index.original_texts = original_texts;
     rapidjson::Value rows(rapidjson::kArrayType), tokens, discard;
     for(const auto& item:items) {
         auto entry=EncodeSceneItem(item,a,scratch.GetAllocator(),index);
@@ -573,7 +606,7 @@ bool EncodeCapturedScene(
     if (error) {
         error->clear();
     }
-    if (!scene_json || !request) {
+    if (!scene_json) {
         return Fail(error, "output is null");
     }
     if (!scene_identity::IsValid(scene.scene)) {
@@ -605,6 +638,10 @@ bool EncodeCapturedScene(
         local.AddMember("quest_label", JsonString(scene.quest_label, local_allocator), local_allocator);
     }
     if (!scene.stage.labels.empty()) local.AddMember("stage",StageJson(scene.stage,local_allocator),local_allocator);
+    const auto& proof = scene.continuation_source;
+    if (!proof.original_hash.empty() && proof.original_hash != proof.captured_hash) {
+        local.AddMember("continuation_source", SourceProofJson(proof, local_allocator), local_allocator);
+    }
     AddSharedMember(
         &local,
         &api,
@@ -655,6 +692,7 @@ bool EncodeCapturedScene(
         api_allocator);
 
     RequestBuildContext context;
+    context.local_target_language = &scene.target_lang;
     rapidjson::Value local_items(rapidjson::kArrayType);
     rapidjson::Value api_items(rapidjson::kArrayType);
     for (const SceneItem& item : scene.scene_items) {
@@ -668,6 +706,9 @@ bool EncodeCapturedScene(
     }
     if (!context.valid || context.seq_to_order.empty()) {
         return Fail(error, "scene has no valid translatable items");
+    }
+    if (context.all_items_have_official_text) {
+        local["translated"][scene.target_lang.c_str()].SetBool(true);
     }
 
     rapidjson::Value seq_to_order(rapidjson::kArrayType);
@@ -702,6 +743,10 @@ bool EncodeCapturedScene(
     rapidjson::PrettyWriter<rapidjson::StringBuffer> local_writer(local_buffer);
     if (!local.Accept(local_writer)) {
         return Fail(error, "failed to serialize local scene");
+    }
+    if (!request) {
+        scene_json->assign(local_buffer.GetString(), local_buffer.GetSize());
+        return true;
     }
 
     rapidjson::StringBuffer request_buffer;
@@ -1140,10 +1185,18 @@ bool ApplyTranslationToScene(
 std::string EncodeContinuationSource(const ScenarioParseResult& parsed) {
     return EncodeContinuationSource(parsed.scene_items,parsed.protect);
 }
-std::string EncodeContinuationSource(const std::vector<SceneItem>& items,const std::vector<ProtectedToken>& protect) {
-    return het::translation::document_codec::SourceBytes(items,protect);
+std::string EncodeContinuationSource(const std::vector<SceneItem>& items,const std::vector<ProtectedToken>& protect,
+                                     const ContinuationTextByOrder* original_texts) {
+    return het::translation::document_codec::SourceBytes(items,protect,original_texts);
 }
-
 std::string EncodeSceneStage(const SceneStage& stage) {
     return het::translation::document_codec::StageBytes(stage);
+}
+std::string EncodeContinuationProof(const ContinuationSourceProof& proof) {
+    rapidjson::Document scratch;
+    auto identity = het::translation::document_codec::SourceProofJson(proof, scratch.GetAllocator());
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    identity.Accept(writer);
+    return {buffer.GetString(), buffer.GetSize()};
 }

@@ -3,6 +3,7 @@
 #include "translation/codec/document_codec.hpp"
 #include "translation/native_translation_pipeline.hpp"
 #include "runtime/choice_back.hpp"
+#include "runtime/continuation_player.hpp"
 #include "runtime/continuation_source.hpp"
 
 #include <chrono>
@@ -91,7 +92,8 @@ bool WriteScene(const Scene& scene, std::uint64_t epoch) {
 bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
                          bool has_target_official_translation,
                          const QuestTargetSet& target_set,
-                         const het::scene_sync::SceneProductionLease& batch) {
+                         const het::scene_sync::SceneProductionLease& batch,
+                         void* data_manager, const std::string& entry_label) {
     if (!g_runtime_config.enable_page_rec_tasks) return true;
     auto& record = exported_json.at(scene.scene);
     if (!IsCurrent(epoch)) return false;
@@ -102,6 +104,15 @@ bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
         return false;
     }
     const std::string name = scene.scene;
+    if (has_target_official_translation && het::continuation::CaptureEnabled()) {
+        // A previously saved localized Scene may be the applicable view of the
+        // same table. Repair its proof only when the saved rows still match.
+        if (!BackfillCapturedStage(scene, epoch)) return false;
+        // Keep the PageRec export's language policy. Continuation identity and
+        // the normal Scene use the actual original rows from this same table.
+        return CatchScenario(target_set.scenario_data_ptr, entry_label, std::move(lease),
+                             epoch, scene.quest_label, data_manager);
+    }
     if (!BackfillSceneQuestLabel(name, scene.quest_label, epoch)) return false;
     if (!BackfillCapturedStage(scene,epoch)) return false;
     if (has_target_official_translation) {
@@ -201,12 +212,15 @@ void ExportPageRecScenarios(
         if (!ParsePageRecScene(data, data_manager, entry, &scene, &labels,
                                &has_target_official_translation, &target_set)) return;
         scene.quest_label = ReadScenarioQuestLabel(data, data_manager);
+        auto source = std::move(scene.continuation_source);
+        scene.continuation_source = {};
         if (!WriteScene(scene, epoch)) {
             LOGW("[PageRec] export deferred scene=%s; retry on next lookup", name.c_str());
             return;
         }
+        scene.continuation_source = std::move(source);
         if (!SubmitExportedScene(std::move(scene), epoch,
-                                 has_target_official_translation, target_set, batch)) {
+                                 has_target_official_translation, target_set, batch, data_manager, entry)) {
             // Keep initialized labels pending when sync/pause/admission wins.
             return;
         }

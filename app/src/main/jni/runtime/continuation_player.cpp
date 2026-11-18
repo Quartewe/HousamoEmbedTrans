@@ -18,9 +18,10 @@ namespace {
 std::atomic<bool> installed{false};
 struct Source {
     uint32_t weak = 0;
-    std::string scene, hash;
+    std::string scene, hash, capturedHash;
     std::unordered_map<void*, std::vector<OrderKey>> pages;
     std::unordered_map<OrderKey, std::string, OrderKeyHash> merges;
+    std::unordered_map<OrderKey, OrderKey, OrderKeyHash> choiceForOption, originalText;
     std::unordered_map<std::string, int> labels;
     std::unordered_set<OrderKey, OrderKeyHash> stageOrders;
     ~Source() {
@@ -37,6 +38,7 @@ struct RouteEntry {
     std::string scene, record, path;
     OrderKey order;
     bool stage = false;
+    std::string capturedHash; // Only a localized row with no JP counterpart uses this.
 };
 std::vector<RouteEntry> route;
 struct Node {
@@ -176,14 +178,19 @@ std::string SourceHash(const std::string& source_document) {
     call.env->DeleteLocalRef(result);
     return hash;
 }
-void RecordMerges(Source& source, const std::vector<SceneItem>& items) {
+using PositionMap = std::unordered_map<OrderKey, OrderKey, OrderKeyHash>;
+void RecordMerges(Source& source, const std::vector<SceneItem>& items, const PositionMap& originalGroups) {
     for (const auto& item : items) {
         if (auto* choice = std::get_if<ChoiceBlock>(&item.value)) {
-            source.merges[choice->order] = choice->merge_label;
-            for (const auto& branch : choice->branches)
-                RecordMerges(source, branch.following_text);
+            auto mapped = originalGroups.find(choice->order);
+            const OrderKey group = mapped == originalGroups.end() ? choice->order : mapped->second;
+            if (group.label_index >= 0) source.merges[group] = choice->merge_label;
+            for (const auto& branch : choice->branches) {
+                for (const auto& option : branch.options) source.choiceForOption.emplace(option.order, group);
+                RecordMerges(source, branch.following_text, originalGroups);
+            }
         } else if (auto* condition = std::get_if<IfBlock>(&item.value))
-            RecordMerges(source, condition->following_text);
+            RecordMerges(source, condition->following_text, originalGroups);
     }
 }
 OrderKey CommandOrder(void* page, void* command, void* row = nullptr) {
@@ -194,14 +201,29 @@ OrderKey CommandOrder(void* page, void* command, void* row = nullptr) {
         return {};
     void* list = api.Get(page, "get_CommandList");
     int count = api.Int(list, "get_Count");
+    OrderKey matched;
     for (auto& key : it->second) {
+        if (row && !currentSource->choiceForOption.count(key)) continue;
         if (key.cmd_index < 0 || key.cmd_index >= count)
             continue;
         void* element = Item(list, key.cmd_index);
-        if ((command && element == command) || (row && api.Get(element, "get_RowData") == row))
-            return key;
+        if ((command && element == command) || (row && api.Get(element, "get_RowData") == row)) {
+            if (matched.label_index >= 0 && !(matched == key)) return {};
+            matched = key;
+        }
     }
-    return {};
+    return matched;
+}
+
+void RecordOriginalLine(const OrderKey& view) {
+    if (view.label_index < 0 || !currentSource) return;
+    auto found = currentSource->originalText.find(view);
+    if (found == currentSource->originalText.end())
+        route.push_back({currentSource->scene, {}, {}, view});
+    else if (found->second.label_index >= 0)
+        route.push_back({currentSource->scene, {}, {}, found->second});
+    else
+        route.push_back({currentSource->scene, {}, {}, view, false, currentSource->capturedHash});
 }
 
 Json Screen(Alloc& a) {
@@ -259,6 +281,10 @@ std::string NodeJson() {
             if (entry.stage) {
                 Json ref(rapidjson::kObjectType);
                 ref.AddMember("order", Order(entry.order, a), a).AddMember("stage", true, a);
+                history.PushBack(ref, a);
+            } else if (!entry.capturedHash.empty()) {
+                Json ref(rapidjson::kObjectType);
+                ref.AddMember("captured_hash", Str(entry.capturedHash, a), a).AddMember("order", Order(entry.order, a), a);
                 history.PushBack(ref, a);
             } else
                 history.PushBack(Order(entry.order, a), a);
@@ -395,16 +421,21 @@ void Show(void* manager, const void* method) {
                         currentSheet->record,      it->second.path,          currentSheet->original,
                         currentSheet->lineageStart};
         } else if (currentSource) {
-            auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(first, "get_RowData"));
-            // The first visible option may be conditional. All rows in the
-            // actual group belong to the structural choice with its own order.
-            for (const auto& merge : currentSource->merges) {
-                if (merge.first.label_index == key.label_index && merge.first.page_no == key.page_no &&
-                    merge.first.cmd_index <= key.cmd_index &&
-                    (next.scene.empty() || merge.first.cmd_index > next.original.cmd_index))
-                    next = {currentSource->scene, currentSource->hash, merge.second, {}, {},
-                            merge.first,          route.size()};
+            OrderKey group;
+            int count = api.Int(list, "get_Count");
+            for (int i = 0; i < count; ++i) {
+                auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(Item(list, i), "get_RowData"));
+                auto owner = currentSource->choiceForOption.find(key);
+                if (owner == currentSource->choiceForOption.end()) continue;
+                if (owner->second.label_index < 0 || (group.label_index >= 0 && !(group == owner->second))) {
+                    group = {};
+                    break;
+                }
+                group = owner->second;
             }
+            auto merge = currentSource->merges.find(group);
+            if (merge != currentSource->merges.end())
+                next = {currentSource->scene, currentSource->hash, merge->second, {}, {}, group, route.size()};
         }
         if (!next.scene.empty() && !next.merge.empty()) {
             Root merge(api.string_new(next.merge.c_str()));
@@ -466,8 +497,7 @@ void Text(void* page, void* cmd, const void* method) {
             }
         } else {
             auto key = CommandOrder(currentPage.Get(), cmd);
-            if (key.label_index >= 0)
-                route.push_back({currentSource->scene, {}, {}, key});
+            RecordOriginalLine(key);
         }
     }
     originalText(page, cmd, method);
@@ -486,16 +516,26 @@ void AddHistory(void* self, void* selection, const void* method) {
 void Publish(void* scenario, const ScenarioParseResult& parsed, const QuestPtrSet& targets) {
     if (!installed || !scenario || targets.empty())
         return;
-    if (FindSource(scenario)) return;
+    const auto previous = FindSource(scenario);
+    const auto& proof = parsed.continuation_source;
+    if (previous && (proof.original_hash.empty() || (previous->hash == proof.original_hash
+        && (proof.captured_hash == proof.original_hash || previous->capturedHash == proof.captured_hash))))
+        return;
     auto s = std::make_shared<Source>();
     s->weak = api.gchandle_new_weakref(scenario, false);
     if (!s->weak)
         return;
     s->scene = parsed.scene;
-    s->hash = SourceHash(EncodeContinuationSource(parsed));
+    s->hash = parsed.continuation_source.original_hash.empty()
+        ? SourceHash(EncodeContinuationSource(parsed)) : parsed.continuation_source.original_hash;
     if (s->hash.empty())
         return;
-    RecordMerges(*s, parsed.scene_items);
+    s->capturedHash = proof.captured_hash.empty() ? s->hash : proof.captured_hash;
+    PositionMap originalGroups;
+    for (const auto& pos : proof.positions) {
+        (pos.choice ? originalGroups : s->originalText).emplace(pos.captured, pos.original);
+    }
+    RecordMerges(*s, parsed.scene_items, originalGroups);
     for (size_t i = 0; i < parsed.stage.labels.size(); ++i)
         s->labels.emplace(parsed.stage.labels[i], static_cast<int>(i));
     for (auto& state : parsed.stage.states)
@@ -649,8 +689,7 @@ void Selected(void* selection) {
         }
     } else {
         auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(selection, "get_RowData"));
-        if (key.label_index >= 0)
-            route.push_back({currentSource->scene, {}, {}, key});
+        RecordOriginalLine(key);
     }
     LeaveChoice();
 }
@@ -768,6 +807,9 @@ bool Queue(std::string token, std::string record, std::string steps) {
 }
 } // namespace het::continuation
 
+std::string HashContinuationSource(const std::string& source_document) {
+    return het::continuation::SourceHash(source_document);
+}
 void PublishContinuationSource(void* scenario, const ScenarioParseResult& parsed,
                                const QuestPtrSet& targets) {
     het::continuation::Publish(scenario, parsed, targets);

@@ -12,8 +12,8 @@
 #include <functional>
 #include <atomic>
 #include <mutex>
-#include <map>
 #include <memory>
+#include <map>
 #include <utility>
 
 #include "scene/scene_production_policy.hpp"
@@ -294,6 +294,8 @@ struct TextItem {
     OrderKey order;
     std::string speaker;
     std::string text;
+    // Original target-language cell, when capturing a continuation source.
+    std::string official_translation;
 };
 
 struct JumpItem {
@@ -432,8 +434,20 @@ struct SceneStage {
     std::map<std::string, StageLayer> layers;
     std::vector<StageState> states;
 };
+struct ContinuationPosition {
+    bool choice = false;
+    OrderKey captured;
+    OrderKey original; // Invalid for a localized-only row or a choice with a different merge.
+};
+struct ContinuationSourceProof {
+    std::string original_hash;
+    std::string captured_hash;
+    std::vector<ContinuationPosition> positions;
+};
+using ContinuationTextByOrder = std::unordered_map<OrderKey, std::string, OrderKeyHash>;
 struct ScenarioParseResult {
     SceneStage stage;
+    ContinuationSourceProof continuation_source;
     std::string scene;        // scenarioData.name
     std::string quest_label;  // complete Master_Quest label, when known
     std::string entry_label;  // FindScenarioData(label) 的参数
@@ -449,6 +463,7 @@ struct ScenarioParseResult {
 
 struct Scene {
     SceneStage stage;
+    ContinuationSourceProof continuation_source;
     std::string scene;
     std::string quest_label;
     std::string raw_lang = "ja";
@@ -462,9 +477,11 @@ struct Scene {
 
 using QuestPtrSet = std::unordered_map<OrderKey, void*, OrderKeyHash>;
 std::string EncodeContinuationSource(const ScenarioParseResult& parsed);
-std::string EncodeContinuationSource(const std::vector<SceneItem>& items,
-                                     const std::vector<ProtectedToken>& protect);
 std::string EncodeSceneStage(const SceneStage& stage);
+std::string EncodeContinuationProof(const ContinuationSourceProof& proof);
+std::string EncodeContinuationSource(const std::vector<SceneItem>& items,
+                                     const std::vector<ProtectedToken>& protect,
+                                     const ContinuationTextByOrder* original_texts = nullptr);
 
 struct QuestTargetSet {
     void* scenario_data_ptr = nullptr;
