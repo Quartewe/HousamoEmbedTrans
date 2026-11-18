@@ -119,6 +119,29 @@ public final class ContinuationContent {
             SceneTranslationRequestBuilder.toCanonicalBytes(b));
     }
 
+    public static JSONArray list(Context c, JSONObject node) throws Exception {
+        current(c,node);
+        JSONArray entries = all(c,node.getString("scene"));
+        JSONArray rows = new JSONArray();
+        for (int i = entries.length()-1; i >= 0; --i) {
+            JSONObject r = entries.getJSONObject(i);
+            if (matches(r,node)) rows.put(project(r,"id","input","created_at"));
+        }
+        return rows;
+    }
+
+    public static JSONObject replay(Context c, JSONObject node, String id) throws Exception {
+        current(c,node);
+        JSONObject r = byId(all(c,node.getString("scene")), id);
+        if (r == null || !matches(r,node)) throw new IOException("这条续写记录不属于当前选项或原剧本版本");
+        return new JSONObject().put("scene",node.getString("scene")).put("record",r);
+    }
+
+    private static boolean matches(JSONObject r,JSONObject node) throws Exception {
+        return r.getString("source_hash").equals(node.getString("source_hash"))
+            && same(r.getJSONObject("source"),node.getJSONObject("source"));
+    }
+
     static JSONObject byId(JSONArray records,String id) throws JSONException {
         for (int i=0;i<records.length();i++) {
             JSONObject r=records.getJSONObject(i);

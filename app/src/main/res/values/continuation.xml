@@ -21,11 +21,20 @@
     <string name="continuation_unlimited">Unlimited</string>
     <string name="continuation_input">Your line</string>
     <string name="continuation_input_hint">What do you say?</string>
+    <string name="continuation_records">Continuation history</string>
+    <string name="continuation_records_hint">Read your lines and the responses saved for this Scene.</string>
+    <string name="continuation_no_records">No continuations saved yet.</string>
     <string name="continuation_submit">Submit</string>
     <string name="continuation_wait">Generating response</string>
     <string name="continuation_cancel_generation">Cancel generation</string>
+    <string name="continuation_loading">Loading…</string>
     <string name="continuation_offline">HET is disconnected. Open HET to reconnect.</string>
     <string name="continuation_admission_failed">HET could not accept this request.</string>
     <string name="continuation_playback_failed">Playback could not start at this choice.</string>
     <string name="continuation_error">Story continuation failed</string>
+    <string name="continuation_record_source">Choice position</string>
+    <string name="continuation_model">Model</string>
+    <string name="continuation_time">Generated</string>
+    <string name="continuation_response">Response</string>
+    <string name="continuation_narration">Narration</string>
 </resources>

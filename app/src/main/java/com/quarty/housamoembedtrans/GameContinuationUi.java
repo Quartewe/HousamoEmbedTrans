@@ -17,12 +17,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
@@ -30,6 +33,8 @@ import com.quarty.housamoembedtrans.bridge.TranslationServiceClient;
 import com.quarty.housamoembedtrans.logging.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.text.DateFormat;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -41,7 +46,7 @@ import java.util.function.Supplier;
 
 /** The main looper owns this choice visit, draft and window. Only HET owns the job. */
 final class GameContinuationUi implements Application.ActivityLifecycleCallbacks {
-    private enum Page { CLOSED, INPUT, WAIT, ERROR }
+    private enum Page { CLOSED, INPUT, RECORDS, WAIT, REPLAY, ERROR }
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Supplier<TranslationServiceClient> client;
@@ -58,6 +63,8 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
     private String draft = "";
     private String requestId, errorText;
     private int errorResource;
+    private JSONArray records;
+    private long historyLoad;
 
     GameContinuationUi(Supplier<TranslationServiceClient> client) { this.client = client; }
     void refreshConfig(Runnable read) { io.execute(read); }
@@ -163,6 +170,8 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
         dismissWindow();
         node = null;
         draft = "";
+        records = null;
+        historyLoad++;
         page = Page.CLOSED;
     }
 
@@ -211,6 +220,57 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
         main.post(() -> { if (id.equals(requestId)) fail(res, message); });
     }
 
+    private JSONObject recordQuery(JSONObject visit) throws Exception {
+        JSONObject query = new JSONObject();
+        for (String key : new String[]{"scene", "source", "source_hash"}) query.put(key, visit.get(key));
+        return query;
+    }
+
+    private void showHistory() {
+        JSONObject visit = node;
+        long load = ++historyLoad;
+        records = null;
+        page = Page.RECORDS;
+        render();
+        io.execute(() -> {
+            try {
+                TranslationServiceClient service = client.get();
+                JSONArray found = service == null ? null : service.listContinuations(recordQuery(visit));
+                main.post(() -> {
+                    if (node != visit || page != Page.RECORDS || load != historyLoad) return;
+                    if (found == null) fail(R.string.continuation_offline, null);
+                    else { records = found; render(); }
+                });
+            } catch (Exception e) {
+                main.post(() -> {
+                    if (node == visit && page == Page.RECORDS && load == historyLoad) fail(0, message(e));
+                });
+            }
+        });
+    }
+
+    private void replay(String recordId) {
+        JSONObject visit = node;
+        cancel(requestId);
+        requestId = null;
+        page = Page.REPLAY;
+        render();
+        io.execute(() -> {
+            try {
+                TranslationServiceClient service = client.get();
+                JSONObject result = service == null ? null : service.replayContinuation(recordQuery(visit), recordId);
+                String steps = result == null ? null : result.getJSONArray("steps").toString();
+                main.post(() -> {
+                    if (node != visit || page != Page.REPLAY) return;
+                    if (result == null) fail(R.string.continuation_offline, null);
+                    else play(recordId, steps);
+                });
+            } catch (Exception e) {
+                main.post(() -> { if (node == visit && page == Page.REPLAY) fail(0, message(e)); });
+            }
+        });
+    }
+
     private void play(String recordId, String steps) {
         requestId = null;
         if (MainHook.nativePlayContinuation(node.optString("play_token"), recordId, steps)) closeVisit();
@@ -243,7 +303,7 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
     private void render() {
         dismissWindow();
         if (activity == null || activity.isFinishing() || activity.isDestroyed() ||
-                page == Page.CLOSED) return;
+                page == Page.CLOSED || page == Page.REPLAY) return;
         try {
             if (dialogContext == null) dialogContext = new GameDialogContext(activity);
             MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(dialogContext);
@@ -264,7 +324,9 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
                     .setNegativeButton(R.string.continuation_cancel_generation, (d, w) -> cancelFromWindow());
             } else {
                 LinearLayout body = body(ui);
-                addInput(body, ui);
+                addTabs(body, ui);
+                if (page == Page.INPUT) addInput(body, ui);
+                else addRecords(body, ui);
                 builder.setTitle(R.string.continuation_title).setView(body)
                     .setNegativeButton(android.R.string.cancel, (d, w) -> cancelFromWindow());
                 if (page == Page.INPUT) builder.setPositiveButton(R.string.continuation_submit, null);
@@ -313,6 +375,21 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
         return body;
     }
 
+    private void addTabs(LinearLayout body, Context c) {
+        TabLayout tabs = new TabLayout(c);
+        tabs.addTab(tabs.newTab().setText(R.string.continuation_input), page == Page.INPUT);
+        tabs.addTab(tabs.newTab().setText(R.string.continuation_records), page == Page.RECORDS);
+        body.addView(tabs);
+        tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            public void onTabSelected(TabLayout.Tab tab) {
+                if (tab.getPosition() == 0) { page = Page.INPUT; render(); }
+                else showHistory();
+            }
+            public void onTabUnselected(TabLayout.Tab tab) {}
+            public void onTabReselected(TabLayout.Tab tab) {}
+        });
+    }
+
     private void addInput(LinearLayout body, Context c) {
         TextInputLayout field = new TextInputLayout(c);
         field.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
@@ -328,6 +405,28 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
         p.topMargin = dp(c, 10);
         body.addView(field, p);
+    }
+
+    private void addRecords(LinearLayout body, Context c) {
+        if (records == null || records.length() == 0) {
+            TextView state = new TextView(c);
+            state.setPadding(0, dp(c, 16), 0, dp(c, 16));
+            state.setText(records == null ? R.string.continuation_loading : R.string.continuation_no_records);
+            body.addView(state);
+            return;
+        }
+        final JSONArray shown = records;
+        String[] labels = new String[shown.length()];
+        for (int i = 0; i < labels.length; i++) {
+            JSONObject record = shown.optJSONObject(i);
+            labels[i] = record.optString("input") + "\n"
+                + DateFormat.getDateTimeInstance().format(new Date(record.optLong("created_at")));
+        }
+        ListView list = new ListView(c);
+        list.setAdapter(new ArrayAdapter<>(c, android.R.layout.simple_list_item_1, labels));
+        list.setOnItemClickListener((v, item, i, id) ->
+            replay(shown.optJSONObject(i).optString("id")));
+        body.addView(list, -1, dp(c, Math.min(3, labels.length) * 48));
     }
 
     /** Game window token and input services, together with the module's resources and M3 theme. */

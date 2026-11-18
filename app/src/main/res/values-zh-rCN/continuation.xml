@@ -15,11 +15,20 @@
     <string name="continuation_unlimited">无上限</string>
     <string name="continuation_input">输入原话</string>
     <string name="continuation_input_hint">你想说什么？</string>
+    <string name="continuation_records">续写记录</string>
+    <string name="continuation_records_hint">查看这段剧情中保存的原话和完整回应。</string>
+    <string name="continuation_no_records">暂无续写记录。</string>
     <string name="continuation_submit">提交</string>
     <string name="continuation_wait">正在生成回应</string>
     <string name="continuation_cancel_generation">取消生成</string>
+    <string name="continuation_loading">正在读取…</string>
     <string name="continuation_offline">HET 已断开，请打开 HET 重新连接。</string>
     <string name="continuation_admission_failed">HET 未能接收本次续写请求。</string>
     <string name="continuation_playback_failed">当前选项无法开始播放这段续写。</string>
     <string name="continuation_error">剧情续写失败</string>
+    <string name="continuation_record_source">选项位置</string>
+    <string name="continuation_model">模型</string>
+    <string name="continuation_time">生成时间</string>
+    <string name="continuation_response">完整回应</string>
+    <string name="continuation_narration">旁白</string>
 </resources>

@@ -805,6 +805,10 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         content.addView(metadata, fullWidthParams(0));
 
         addPrototypeLanguageActions();
+        if (!stylePreview) {
+            addPrototypeSummaryCard(getString(R.string.continuation_records),
+                getString(R.string.continuation_records_hint), this::showContinuationRecords);
+        }
         addPrototypeSummaryCard(
             getString(R.string.detail_proto_source_count,
                 getString(R.string.detail_proto_source), sceneData.sourceItems.size()),
@@ -895,6 +899,24 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
         openStoryButton.setStrokeWidth(0);
         openStoryButton.setOnClickListener(view -> openStory());
         addPageAction(openStoryButton, wrapButtonParams(0));
+    }
+
+    private void showContinuationRecords() {
+        ioExecutor.execute(() -> {
+            try {
+                JSONArray records = com.quarty.housamoembedtrans.continuation.ContinuationContent
+                    .all(this, sceneName);
+                runOnUiThread(() -> {
+                    if (isActivityAlive() && resumed) ContinuationRecordDialogs.show(this, records);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    if (isActivityAlive() && resumed) new UiMaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.continuation_records).setMessage(error.getMessage())
+                        .setPositiveButton(android.R.string.ok, null).show();
+                });
+            }
+        });
     }
 
     private void addPrototypeHeading(

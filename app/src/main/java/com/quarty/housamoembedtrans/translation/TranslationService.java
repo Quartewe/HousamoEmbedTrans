@@ -1084,6 +1084,32 @@ public final class TranslationService extends Service {
             }
 
             @Override
+            public ParcelFileDescriptor listContinuations(ParcelFileDescriptor nodeFd) {
+                enforceAllowedCaller();
+                try {
+                    JSONObject node = readContinuationNode(nodeFd);
+                    awaitContinuationMirror(node);
+                    return openPendingControlPipe(new JSONObject().put("records",
+                        ContinuationContent.list(TranslationService.this, node)));
+                } catch (Exception e) {
+                    throw new IllegalStateException(safeStartupMessage(e), e);
+                }
+            }
+
+            @Override
+            public ParcelFileDescriptor replayContinuation(ParcelFileDescriptor nodeFd, String recordId) {
+                enforceAllowedCaller();
+                try {
+                    JSONObject node = readContinuationNode(nodeFd);
+                    awaitContinuationMirror(node);
+                    return openPendingControlPipe(continuationPlayback(
+                        ContinuationContent.replay(TranslationService.this, node, recordId)));
+                } catch (Exception e) {
+                    throw new IllegalStateException(safeStartupMessage(e), e);
+                }
+            }
+
+            @Override
             public int cancelTranslation(String requestId) {
                 enforceAllowedCaller();
                 validateRequestId(requestId);

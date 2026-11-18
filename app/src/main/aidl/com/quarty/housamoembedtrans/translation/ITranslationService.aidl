@@ -109,4 +109,6 @@ interface ITranslationService {
 
     int submitContinuation(String requestId, in ParcelFileDescriptor submission);
     void prepareContinuation(in ParcelFileDescriptor node);
+    ParcelFileDescriptor listContinuations(in ParcelFileDescriptor node);
+    ParcelFileDescriptor replayContinuation(in ParcelFileDescriptor node, String recordId);
 }

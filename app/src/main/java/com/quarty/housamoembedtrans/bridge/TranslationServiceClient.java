@@ -18,6 +18,7 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import java.nio.charset.StandardCharsets;
 
@@ -672,6 +673,13 @@ public final class TranslationServiceClient {
         return result;
     }
 
+    private JSONObject readContinuationResponse(ParcelFileDescriptor result) throws Exception {
+        if (result == null) throw new IOException("无法读取剧情续写服务响应");
+        try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(result)) {
+            return new JSONObject(IoUtils.readUtf8Limited(input, MAX_CALLBACK_BYTES));
+        }
+    }
+
     public boolean submitContinuation(String requestId, JSONObject node, String input) throws Exception {
         ITranslationService service = requireRemote();
         JSONObject submission = new JSONObject(node.toString()).put("input", input);
@@ -692,6 +700,18 @@ public final class TranslationServiceClient {
 
     public int cancelContinuation(String requestId) throws RemoteException {
         return cancelTranslation(requestId);
+    }
+
+    public JSONArray listContinuations(JSONObject node) throws Exception {
+        ITranslationService service = requireRemote();
+        return readContinuationResponse(withRequestPipe(node.toString().getBytes(StandardCharsets.UTF_8),
+            "list continuations", service::listContinuations)).getJSONArray("records");
+    }
+
+    public JSONObject replayContinuation(JSONObject node, String recordId) throws Exception {
+        ITranslationService service = requireRemote();
+        return readContinuationResponse(withRequestPipe(node.toString().getBytes(StandardCharsets.UTF_8),
+            "replay continuation", fd -> service.replayContinuation(fd, recordId)));
     }
 
     public static final class AdmissionRejectedException extends Exception {
