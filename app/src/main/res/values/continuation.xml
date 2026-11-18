@@ -5,7 +5,7 @@
         <item name="colorOnPrimaryContainer">#102E5F</item>
         <item name="colorSurface">#F9F9FF</item>
     </style>
-    <string name="continuation_title">Story continuation</string>
+    <string name="continuation_title">Free input</string>
     <string name="continuation_category_description">Write your own line at a story choice and play the response in the game.</string>
     <string name="continuation_category_scope">Generation settings apply when you submit a new line.</string>
     <string name="continuation_enable">Enable story continuation</string>

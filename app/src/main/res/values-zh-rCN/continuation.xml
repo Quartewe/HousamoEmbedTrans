@@ -1,5 +1,5 @@
 <resources>
-    <string name="continuation_title">剧情续写</string>
+    <string name="continuation_title">自由输入</string>
     <string name="continuation_category_description">在剧情选项处输入主角原话，在游戏中播放续写回应。</string>
     <string name="continuation_category_scope">生成设置从下次提交原话时生效。</string>
     <string name="continuation_enable">开启续写</string>

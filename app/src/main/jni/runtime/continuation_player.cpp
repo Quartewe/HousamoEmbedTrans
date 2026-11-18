@@ -337,7 +337,7 @@ using Binary = void (*)(void*, void*, const void*);
 using AddReadFn = void (*)(void*, void*, int, const void*);
 using Predicate = bool (*)(void*, const void*);
 Unary originalShow = nullptr;
-Binary originalText = nullptr, originalHistory = nullptr;
+Binary originalText = nullptr, originalHistory = nullptr, originalTap = nullptr;
 AddReadFn originalRead = nullptr;
 Predicate originalLoadEnd = nullptr, originalMovePage = nullptr;
 thread_local void* invokingGeneratedPage = nullptr;
@@ -431,9 +431,16 @@ bool MovePage(void* routine, const void* method) {
     }
     return *static_cast<bool*>(api.object_unbox(result));
 }
+void Tap(void* ui, void* item, const void* method) {
+    // In build 1380 OnTap calls Select(data), then Close() even if Select was consumed.
+    if (IsRestoringChoice(api.Get(ui, "get_Engine"))) return;
+    if (button.Get() && HandleSelection(api.Get(item, "get_Data"))) return;
+    originalTap(ui, item, method);
+}
+
 void Show(void* manager, const void* method) {
     void* list = api.Get(manager, "get_Selections");
-    if (installed && Enabled() && CanOfferContinuationAt(currentPage.Get()) && currentEngine.Get() == api.Get(manager, "get_Engine")) {
+    if (installed && Enabled() && currentPage.Get() && currentEngine.Get() == api.Get(manager, "get_Engine")) {
         int count = api.Int(list, "get_Count", 0);
         auto sprites = api.Get(manager, "get_SpriteSelections");
         int spriteCount = api.Int(sprites, "get_Count", 0);
@@ -489,12 +496,12 @@ void Show(void* manager, const void* method) {
             if (!source || source->scene != next.scene || source->hash != next.hash)
                 next = {};
         }
-        if (!next.scene.empty() && !next.merge.empty()) {
+        {
             // Use the game's ordinary selection constructor and prefab layout.
             // The original row supplies the UI/save metadata. The command has
             // no expression and never dispatches its borrowed original branch.
             std::array<uint8_t, 8> emptyNullable{};
-            Root caption(api.string_new("剧情续写")), blank(api.string_new(""));
+            Root caption(api.string_new("自由输入")), blank(api.string_new(""));
             void* args[] = {blank.Get(),
                             caption.Get(),
                             nullptr,
@@ -619,6 +626,7 @@ bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
     };
     Hook hooks[] = {
         {0x246cdb8, reinterpret_cast<void*>(Show), reinterpret_cast<void**>(&originalShow), nullptr},
+        {0x248667c, reinterpret_cast<void*>(Tap), reinterpret_cast<void**>(&originalTap), nullptr},
         {0x2466d40, reinterpret_cast<void*>(Text), reinterpret_cast<void**>(&originalText), nullptr},
         {0x2466ab4, reinterpret_cast<void*>(AddRead), reinterpret_cast<void**>(&originalRead), nullptr},
         {0x246d00c, reinterpret_cast<void*>(AddHistory), reinterpret_cast<void**>(&originalHistory), nullptr},
@@ -649,7 +657,7 @@ void LeaveChoice() {
     bool notify = false;
     {
         std::lock_guard<std::mutex> lock(deliveryMutex);
-        notify = !currentToken.empty();
+        notify = button.Get() || !currentToken.empty();
         currentToken.clear();
         acceptedRecord.clear();
         queued.reset();
@@ -694,7 +702,7 @@ void BeginPage(void* engine, void* page) {
 }
 void AtChoice(void* engine, void* page) {
     if (!installed || !button.Get() || engine != currentEngine.Get() || page != currentPage.Get() ||
-        node.scene.empty())
+        node.scene.empty() || node.merge.empty())
         return;
     if (node.record.empty()) node.lineageStart=route.size();
     {
@@ -714,7 +722,12 @@ bool HandleSelection(void* selection) {
         std::lock_guard<std::mutex> lock(deliveryMutex);
         valid = !currentToken.empty();
     }
-    if (valid && Enabled()) {
+    if (!Enabled()) {
+        ReportError("自由输入已关闭");
+    } else if (!valid) {
+        ReportError(node.scene.empty() ? "无法定位当前选项的原剧本" :
+                    node.merge.empty() ? "这组选项没有可返回的共同剧情位置" : "当前选项没有可用的回退存档");
+    } else {
         std::string json = NodeJson();
         Notify("showContinuationInput", &json);
     }
@@ -773,6 +786,12 @@ bool TakePlaybackFailure(std::string* reason) {
     playbackFailure.clear();
     return true;
 }
+bool RetryAtCurrentChoice() {
+    std::lock_guard<std::mutex> lock(deliveryMutex);
+    if (currentToken.empty()) return false;
+    acceptedRecord.clear();
+    return true;
+}
 bool Play(void* engine, void* page) {
     auto delivery = std::move(claimed);
     if (!delivery || !button.Get() || currentPage.Get() != page || currentEngine.Get() != engine)
@@ -801,7 +820,7 @@ bool Play(void* engine, void* page) {
         return false;
     Root entry(api.string_new(sheet->entry.c_str()));
     void* field = api.Field(button.Get(), "jumpLabel");
-    if (!field) {
+    if (!entry.Get() || !field) {
         UnregisterSheet(*sheet);
         return false;
     }

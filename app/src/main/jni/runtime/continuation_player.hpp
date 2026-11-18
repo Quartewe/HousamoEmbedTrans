@@ -21,5 +21,6 @@ std::string LabelForGeneratedPage(void* page);
 bool TakePlayback();
 bool TakePlaybackFailure(std::string* reason);
 bool Play(void* engine, void* page);
+bool RetryAtCurrentChoice();
 void ReportError(const char* message);
 } // namespace het::continuation

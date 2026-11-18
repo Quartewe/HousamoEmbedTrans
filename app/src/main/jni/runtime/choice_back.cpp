@@ -790,11 +790,16 @@ void PumpChoiceBack() {
         } else return;
     }
     if (!executing) {
-        if (playbackFailure.empty() && active && !unavailable && waiting && choiceRecorded && IsWaiting(api.Get(engine.Get(),"get_SelectionManager"))
-            && continuation::Play(engine.Get(),CurrentData())) {
-            std::lock_guard<std::mutex> lock(mailboxMutex);
-            occupied=false;
-            return;
+        if (playbackFailure.empty() && active && !unavailable && waiting && choiceRecorded &&
+            IsWaiting(api.Get(engine.Get(),"get_SelectionManager"))) {
+            bool played = continuation::Play(engine.Get(),CurrentData());
+            if (played || (waiting && continuation::RetryAtCurrentChoice())) {
+                // A failure before Select leaves the current list and its history entry intact.
+                if (!played) continuation::ReportError("续写剧本启动失败，请重新选择");
+                std::lock_guard<std::mutex> lock(mailboxMutex);
+                occupied = false;
+                return;
+            }
         }
         executing=std::make_unique<Completion>();
         executing->epoch=epoch;
@@ -818,10 +823,8 @@ bool DispatchContinuationSelection(void* manager,void* selection) {
     return ok;
 }
 
-bool CanOfferContinuationAt(void* page) {
-    if (!ready.load() || !active || unavailable || page != currentPage.Get()) return false;
-    if (loadLease) return executing && loadLease->IsPage(page);
-    return !choiceRecorded && candidate && candidateVisit == pageVisit && candidate->IsPage(page);
+bool IsRestoringChoice(void* owner) {
+    return owner == engine.Get() && executing && loadLease;
 }
 
 static void QueueGameRequest(JNIEnv* env, jobject callback, jstring questLabel) {
