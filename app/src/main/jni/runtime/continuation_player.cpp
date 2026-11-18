@@ -50,6 +50,7 @@ std::shared_ptr<Source> currentSource;
 Sheet* currentSheet = nullptr;
 bool enteringSheet = false;
 std::string currentLabel;
+std::string playbackFailure;
 Root runningSelection;
 uint64_t serial = 0;
 const std::string processId = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
@@ -278,6 +279,46 @@ bool HasGeneratedLabel(const std::string& label) {
     }
     return false;
 }
+bool LoadEnd(void* command, const void* method) {
+    bool loaded = originalLoadEnd(command, method);
+    if (!invokingGeneratedPage)
+        return loaded;
+    void* files = api.Get(command, "get_LoadFileList");
+    int count = api.Int(files, "get_Count");
+    for (int i = 0; i < count; ++i) {
+        auto file = Item(files, i);
+        if (!api.Bool(file, "get_IsLoadError"))
+            continue;
+        playbackFailure = "资源加载失败：" + api.Text(api.Get(file, "get_LoadErrorMsg"));
+        return false;
+    }
+    return loaded;
+}
+bool MovePage(void* routine, const void* method) {
+    if (invokingGeneratedPage == routine || sheets.empty())
+        return originalMovePage(routine, method);
+    void* page = nullptr;
+    if (!api.Read(routine, "pageData", page) || !HasGeneratedLabel(PageLabel(page)))
+        return originalMovePage(routine, method);
+    if (!playbackFailure.empty())
+        return true; // Keep coroutine parked until recovery takes ownership.
+    void* prev = invokingGeneratedPage;
+    invokingGeneratedPage = routine;
+    auto m = method ? method : api.Method(api.object_get_class(routine), "MoveNext", 0);
+    void* exception = nullptr;
+    void* result = m ? api.runtime_invoke(m, routine, nullptr, &exception) : nullptr;
+    invokingGeneratedPage = prev;
+    if (exception || !result) {
+        playbackFailure = "剧情演出执行失败";
+        if (exception) {
+            auto detail = api.Text(api.Get(exception, "get_Message"));
+            if (!detail.empty())
+                playbackFailure += "：" + detail;
+        }
+        return true;
+    }
+    return *static_cast<bool*>(api.object_unbox(result));
+}
 void Show(void* manager, const void* method) {
     void* list = api.Get(manager, "get_Selections");
     if (installed && Enabled() && CanOfferContinuationAt(currentPage.Get()) && api.Int(list, "get_Count") > 0 &&
@@ -343,13 +384,13 @@ void Text(void* page, void* cmd, const void* method) {
                     bool hide = true;
                     void* args[] = {empty.Get(), name.Get(), empty.Get(), empty.Get(), &hide, nullptr};
                     if (!api.Call(info.Get(), ".ctor", 6, args)) {
-                        LOGW("[Continuation] dialogue speaker initialization failed");
+                        playbackFailure = "对白姓名初始化失败";
                         return;
                     }
                 }
                 void* set[] = {info.Get()};
                 if (!api.Call(page, "set_CharacterInfo", 1, set)) {
-                    LOGW("[Continuation] dialogue speaker update failed");
+                    playbackFailure = "对白姓名显示失败";
                     return;
                 }
             }
@@ -424,7 +465,8 @@ bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
         {0x2466d40, reinterpret_cast<void*>(Text), reinterpret_cast<void**>(&originalText), nullptr},
         {0x2466ab4, reinterpret_cast<void*>(AddRead), reinterpret_cast<void**>(&originalRead), nullptr},
         {0x246d00c, reinterpret_cast<void*>(AddHistory), reinterpret_cast<void**>(&originalHistory), nullptr},
-    };
+        {0x241cb6c, reinterpret_cast<void*>(LoadEnd), reinterpret_cast<void**>(&originalLoadEnd), nullptr},
+        {0x247dfac, reinterpret_cast<void*>(MovePage), reinterpret_cast<void**>(&originalMovePage), nullptr}};
     for (auto& hook : hooks) {
         hook.stub = shadowhook_hook_func_addr(reinterpret_cast<void*>(base + hook.rva), hook.replacement,
                                               hook.original);
@@ -463,6 +505,7 @@ void EndSession() {
     currentSource.reset();
     currentSheet = nullptr;
     enteringSheet = false;
+    playbackFailure.clear();
     currentPage.Reset();
     currentEngine.Reset();
     currentLabel.clear();
@@ -540,6 +583,13 @@ bool TakePlayback() {
     if (!queued)
         return false;
     claimed = std::move(queued);
+    return true;
+}
+bool TakePlaybackFailure(std::string* reason) {
+    if (playbackFailure.empty())
+        return false;
+    *reason = std::move(playbackFailure);
+    playbackFailure.clear();
     return true;
 }
 bool Play(void* engine, void* page) {

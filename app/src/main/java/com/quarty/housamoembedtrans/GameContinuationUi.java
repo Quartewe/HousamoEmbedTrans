@@ -46,6 +46,9 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Supplier<TranslationServiceClient> client;
     // The IO executor orders submission and subsequent cancellation even if the user backs out immediately.
+    private final Set<String> pendingCancels = new LinkedHashSet<>();
+    private final Runnable retryCancels = () -> io.execute(this::flushCancels);
+    private long cancelRetryMs = 500;
     private Page page = Page.CLOSED;
     private Activity activity;
     private Context dialogContext;
@@ -109,7 +112,41 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
         apply.get();
     }
 
+    void connected() { io.execute(this::flushCancels); }
+
+    private void cancel(String id) {
+        if (id == null) return;
+        io.execute(() -> {
+            pendingCancels.add(id);
+            flushCancels();
+        });
+    }
+
+    private void flushCancels() {
+        main.removeCallbacks(retryCancels);
+        TranslationServiceClient service = client.get();
+        if (service == null) return;
+        Iterator<String> ids = pendingCancels.iterator();
+        while (ids.hasNext()) {
+            String id = ids.next();
+            try {
+                if (service.cancelContinuation(id) != HetBridgeContract.CANCEL_RESULT_RETRYABLE_PERSISTENCE)
+                    ids.remove();
+            } catch (Exception e) {
+                Log.game("Story continuation cancellation pending: " + message(e));
+                break;
+            }
+        }
+        if (pendingCancels.isEmpty()) {
+            cancelRetryMs = 500;
+        } else {
+            main.postDelayed(retryCancels, cancelRetryMs);
+            cancelRetryMs = Math.min(30_000L, cancelRetryMs * 2);
+        }
+    }
+
     private void closeVisit() {
+        cancel(requestId);
         requestId = null;
         dismissWindow();
         node = null;
@@ -118,7 +155,17 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
     }
 
     private void cancelFromWindow() {
-        closeVisit();
+        if (page == Page.WAIT) {
+            cancel(requestId);
+            requestId = null;
+            page = Page.INPUT;
+            render();
+        } else if (page == Page.ERROR && requestId != null) {
+            page = Page.CLOSED;
+            render();
+        } else {
+            closeVisit();
+        }
     }
 
     private void submit() {
@@ -127,6 +174,7 @@ final class GameContinuationUi implements Application.ActivityLifecycleCallbacks
         if (!validLine(line)) return;
         final String id = UUID.randomUUID().toString();
         JSONObject visit = node;
+        cancel(requestId);
         requestId = id;
         page = Page.WAIT;
         render();

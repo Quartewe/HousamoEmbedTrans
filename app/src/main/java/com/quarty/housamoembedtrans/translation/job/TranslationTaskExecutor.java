@@ -890,7 +890,7 @@ public final class TranslationTaskExecutor {
                 lateArchiveRecordId,
                 "translation",
                 requestId,
-                "translation_canceled_by_user",
+                JobValidator.isContinuation(coordinator.request) ? "continuation_canceled_by_user" : "translation_canceled_by_user",
                 "legal",
                 result
             );
@@ -1296,6 +1296,17 @@ public final class TranslationTaskExecutor {
         if (retryToCancel != null) {
             retryToCancel.cancel();
         }
+        List<TranslationApiClient.AttemptHandle> continuationCalls = new ArrayList<>();
+        synchronized (activeJobsLock) {
+            for (Set<JobCoordinator> registered : activeJobs.values()) {
+                for (JobCoordinator job : registered) {
+                    if (JobValidator.isContinuation(job.request)) {
+                        synchronized (job) { continuationCalls.addAll(job.transportHandles); }
+                    }
+                }
+            }
+        }
+        for (TranslationApiClient.AttemptHandle call : continuationCalls) call.cancel();
         mainExecutor.shutdownNow();
         if (repairExecutor != null) {
             for (Runnable pending : repairExecutor.shutdownNow()) {
@@ -4066,7 +4077,7 @@ public final class TranslationTaskExecutor {
             if (lateArchiveClaimed) {
                 return null;
             }
-            JSONObject result = buildLateCanceledResult();
+            JSONObject result = JobValidator.isContinuation(request) ? continuationResult : buildLateCanceledResult();
             if (result == null) return null;
             lateArchiveClaimed = true;
             return result;

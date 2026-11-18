@@ -2716,7 +2716,10 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 );
             client.setConnectionListener(connected -> {
                 if (!isSameClient(sTranslationClient, client)) return;
-                if (connected) sWaitingToastShown = false;
+                if (connected) {
+                    sWaitingToastShown = false;
+                    sContinuationUi.connected();
+                }
                 else if (!sNativeInitializationStarted || s_loaded) showWaitingForHet();
             });
             sTranslationClient = client;

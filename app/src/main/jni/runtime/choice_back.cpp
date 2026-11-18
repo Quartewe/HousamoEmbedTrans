@@ -37,6 +37,7 @@ struct Completion {
     uint64_t epoch = 0;
     bool openStory = false;
     std::u16string questLabel;
+    std::string playbackFailure;
 
     bool TryStart() {
         JNIEnv* env = nullptr;
@@ -255,6 +256,10 @@ void Complete(int result) {
         std::lock_guard<std::mutex> lock(mailboxMutex);
         occupied = false;
     }
+    if (completion && !completion->playbackFailure.empty()) {
+        continuation::ReportError((completion->playbackFailure +
+            (result == Restored ? "，已恢复最近选项" : "，游戏未能恢复最近选项")).c_str());
+    }
     if (completion) completion->Deliver(result);
 }
 
@@ -294,6 +299,7 @@ void NewSession(void* value, bool start) {
         ++epoch;
     }
     if (executing) {
+        executing->playbackFailure.clear();
         Complete(Unavailable);
     }
     ClearHistory();
@@ -514,8 +520,10 @@ bool Install() {
 
 void ProcessRequest() {
     if (!active || unavailable || !engine.Get() || executing->epoch != epoch) { Complete(Unavailable); return; }
-    if (loadLease || api.Bool(engine.Get(), "get_IsLoading", true)
-        || api.Bool(engine.Get(), "get_IsPausingScenario", true)) { Complete(Busy); return; }
+    bool recoverPlayback = !executing->playbackFailure.empty();
+    bool generatedPlayback = continuation::IsPlaying();
+    if (loadLease || (!recoverPlayback && !generatedPlayback && (api.Bool(engine.Get(), "get_IsLoading", true)
+        || api.Bool(engine.Get(), "get_IsPausingScenario", true)))) { Complete(Busy); return; }
     void* manager = api.Get(engine.Get(), "get_SelectionManager");
     waiting = IsWaiting(manager);
     void* page = api.Get(engine.Get(), "get_Page");
@@ -525,16 +533,17 @@ void ProcessRequest() {
     bool ordinaryPage = api.Read(page, "status", status)
         && (status == runtime.send_char || status == runtime.wait_effect_on_input_in_page
             || status == runtime.wait_input_in_page || status == runtime.wait_input_br_page);
-    if (!waiting && (selectedOnPage || !ordinaryPage)) {
+    if (!recoverPlayback && !generatedPlayback && !waiting && (selectedOnPage || !ordinaryPage)) {
         Complete(Busy); return;
     }
-    if (waiting && !choiceRecorded) { Complete(Unavailable); return; }
-    target = waiting && top ? top->previous.get() : top.get();
+    if (!recoverPlayback && waiting && !choiceRecorded) { Complete(Unavailable); return; }
+    target = !recoverPlayback && waiting && top ? top->previous.get() : top.get();
     if (!target) { Complete(NoTarget); return; }
     // A separate deep copy is the load lease: Utage can mutate its loaded
     // buffers without changing the immutable historical snapshot.
     loadLease = target->item.snapshot->CopyForLoad();
     if (!loadLease) { Invalidate("load copy failed"); Complete(Unavailable); return; }
+    continuation::LeaveChoice();
     loadEnded = targetWaiting = loadStartedPage = enteredLoad = false;
     loadEngine = Root(engine.Get());
     deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
@@ -763,17 +772,28 @@ void PumpChoiceBack() {
         }
         if (!executing && loadEnded) { loadLease.reset(); loadEngine.Reset(); loadRoutine.Reset(); }
     }
+    std::string playbackFailure;
     {
         std::lock_guard<std::mutex> lock(mailboxMutex);
-        if (!executing && pending) executing = std::move(pending);
-        else if (!executing && !occupied && !loadLease && !storyChanging && continuation::TakePlayback()) occupied=true;
-        else return;
+        if (!executing && pending) {
+            executing = std::move(pending);
+            if (!executing->openStory) continuation::TakePlaybackFailure(&executing->playbackFailure);
+        }
+        else if (!executing && !occupied && !loadLease && !storyChanging &&
+            (continuation::TakePlaybackFailure(&playbackFailure) || continuation::TakePlayback())) {
+            occupied=true;
+        } else return;
     }
     if (!executing) {
-        bool ok=active && !unavailable && waiting && choiceRecorded && continuation::Play(engine.Get(),CurrentData());
-        { std::lock_guard<std::mutex> lock(mailboxMutex); occupied=false; }
-        if (!ok) continuation::ReportError("续写剧本启动失败");
-        return;
+        if (playbackFailure.empty() && active && !unavailable && waiting && choiceRecorded && IsWaiting(api.Get(engine.Get(),"get_SelectionManager"))
+            && continuation::Play(engine.Get(),CurrentData())) {
+            std::lock_guard<std::mutex> lock(mailboxMutex);
+            occupied=false;
+            return;
+        }
+        executing=std::make_unique<Completion>();
+        executing->epoch=epoch;
+        executing->playbackFailure=playbackFailure.empty() ? "续写剧本启动失败" : std::move(playbackFailure);
     }
     if (executing->openStory) ProcessOpenStory();
     else ProcessRequest();

@@ -18,6 +18,7 @@ void RestoreRoute(size_t size);
 std::string SceneForGeneratedPage(void* page);
 // Claims only a previously accepted delivery for this visit.
 bool TakePlayback();
+bool TakePlaybackFailure(std::string* reason);
 bool Play(void* engine, void* page);
 void ReportError(const char* message);
 } // namespace het::continuation

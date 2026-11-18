@@ -683,6 +683,10 @@ public final class TranslationServiceClient {
         });
     }
 
+    public int cancelContinuation(String requestId) throws RemoteException {
+        return cancelTranslation(requestId);
+    }
+
     public static final class AdmissionRejectedException extends Exception {
         private final String disposition;
 
