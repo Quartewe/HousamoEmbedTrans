@@ -16,15 +16,73 @@ using Document = rapidjson::Document;
 using Alloc = Document::AllocatorType;
 namespace {
 std::atomic<bool> installed{false};
+struct Source {
+    uint32_t weak = 0;
+    std::string scene, hash;
+    std::unordered_map<void*, std::vector<OrderKey>> pages;
+    std::unordered_map<OrderKey, std::string, OrderKeyHash> merges;
+    ~Source() {
+        if (weak)
+            api.gchandle_free(weak);
+    }
+};
+std::mutex sourcesMutex;
+std::unordered_map<void*, std::shared_ptr<Source>> sources;
 std::mutex sheetsMutex;
 std::unordered_set<void*> temporary;
 std::vector<std::unique_ptr<Sheet>> sheets;
-Root currentEngine, currentPage, runningSelection;
+struct RouteEntry {
+    std::string scene, record, path;
+    OrderKey order;
+    bool stage = false;
+};
+std::vector<RouteEntry> route;
+struct Node {
+    std::string scene, hash, merge, record, path;
+    OrderKey original;
+    size_t lineageStart = 0;
+};
+Node node;
+Root button, currentEngine, currentPage;
+// QuestWriter may refresh visible captions off the playback thread. It only compares this identity.
+std::atomic<void*> inputButtonIdentity{nullptr};
+std::shared_ptr<Source> currentSource;
 Sheet* currentSheet = nullptr;
 bool enteringSheet = false;
 std::string currentLabel;
+Root runningSelection;
 uint64_t serial = 0;
 const std::string processId = std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
+struct Delivery {
+    std::string token, record, steps;
+};
+std::mutex deliveryMutex;
+std::string currentToken;
+std::string acceptedRecord;
+std::unique_ptr<Delivery> queued, claimed;
+
+Json Str(const std::string& s, Alloc& a) {
+    return Json(s.data(), static_cast<rapidjson::SizeType>(s.size()), a);
+}
+Json Order(const OrderKey& k, Alloc& a) {
+    Json v(rapidjson::kObjectType);
+    v.AddMember("label_index", k.label_index, a)
+        .AddMember("page_no", k.page_no, a)
+        .AddMember("cmd_index", k.cmd_index, a)
+        .AddMember("sub_index", k.sub_index, a);
+    return v;
+}
+std::string Dump(const Json& v) {
+    rapidjson::StringBuffer b;
+    rapidjson::Writer<rapidjson::StringBuffer> w(b);
+    v.Accept(w);
+    return {b.GetString(), b.GetSize()};
+}
+void* Item(void* list, int index) {
+    void* out = nullptr;
+    void* args[] = {&index};
+    return api.Call(list, "get_Item", 1, args, &out) ? out : nullptr;
+}
 std::string PageLabel(void* page) {
     return api.Text(api.Get(api.Get(page, "get_ScenarioLabelData"), "get_ScenarioLabel"));
 }
@@ -42,10 +100,176 @@ void* PageScenario(void* engine, void* page) {
     return FindScenarioDataForPosition(manager, label,
                                        api.Method(api.object_get_class(manager), "FindScenarioData", 1));
 }
-using Binary = void (*)(void*,void*,const void*);
-using AddReadFn = void (*)(void*,void*,int,const void*);
-Binary originalText=nullptr, originalHistory=nullptr;
-AddReadFn originalRead=nullptr;
+std::shared_ptr<Source> FindSource(void* scenario) {
+    std::lock_guard<std::mutex> lock(sourcesMutex);
+    auto it = sources.find(scenario);
+    return it != sources.end() && api.gchandle_get_target(it->second->weak) == scenario ? it->second
+                                                                                        : nullptr;
+}
+struct JavaCall {
+    JNIEnv* env = nullptr;
+    bool attached = false;
+    JavaCall() {
+        auto& bridge = g_java_bridge;
+        if (!bridge.jvm || !bridge.main_hook_class)
+            return;
+        if (bridge.jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_EDETACHED)
+            attached = bridge.jvm->AttachCurrentThread(&env, nullptr) == JNI_OK;
+    }
+    ~JavaCall() {
+        if (env && env->ExceptionCheck()) {
+            env->ExceptionClear();
+            LOGW("[Continuation] Java callback failed");
+        }
+        if (attached)
+            g_java_bridge.jvm->DetachCurrentThread();
+    }
+    jmethodID Method(const char* name, const char* sig) {
+        return env ? env->GetStaticMethodID(g_java_bridge.main_hook_class, name, sig) : nullptr;
+    }
+    jstring String(const std::string& value) {
+        Root s(api.string_new_len(value.data(), static_cast<uint32_t>(value.size())));
+        return s.Get() ? env->NewString(reinterpret_cast<const jchar*>(api.string_chars(s.Get())),
+                                        api.string_length(s.Get()))
+                       : nullptr;
+    }
+};
+bool Enabled() {
+    JavaCall call;
+    auto method = call.Method("isContinuationEnabled", "()Z");
+    return method && call.env->CallStaticBooleanMethod(g_java_bridge.main_hook_class, method);
+}
+void Notify(const char* methodName, const std::string* payload = nullptr) {
+    JavaCall call;
+    auto method = call.Method(methodName, payload ? "(Ljava/lang/String;)V" : "()V");
+    if (!method)
+        return;
+    if (payload) {
+        jstring str = call.String(*payload);
+        if (str) {
+            call.env->CallStaticVoidMethod(g_java_bridge.main_hook_class, method, str);
+            call.env->DeleteLocalRef(str);
+        }
+    } else
+        call.env->CallStaticVoidMethod(g_java_bridge.main_hook_class, method);
+}
+std::string SourceHash(const std::string& source_document) {
+    JavaCall call;
+    auto method = call.Method("continuationSourceHash", "(Ljava/lang/String;)Ljava/lang/String;");
+    if (!method)
+        return {};
+    auto data = call.String(source_document);
+    if (!data)
+        return {};
+    auto result =
+        static_cast<jstring>(call.env->CallStaticObjectMethod(g_java_bridge.main_hook_class, method, data));
+    call.env->DeleteLocalRef(data);
+    if (!result)
+        return {};
+    auto chars = call.env->GetStringUTFChars(result, nullptr);
+    std::string hash = chars ? chars : "";
+    if (chars)
+        call.env->ReleaseStringUTFChars(result, chars);
+    call.env->DeleteLocalRef(result);
+    return hash;
+}
+void RecordMerges(Source& source, const std::vector<SceneItem>& items) {
+    for (const auto& item : items) {
+        if (auto* choice = std::get_if<ChoiceBlock>(&item.value)) {
+            source.merges[choice->order] = choice->merge_label;
+            for (const auto& branch : choice->branches)
+                RecordMerges(source, branch.following_text);
+        } else if (auto* condition = std::get_if<IfBlock>(&item.value))
+            RecordMerges(source, condition->following_text);
+    }
+}
+OrderKey CommandOrder(void* page, void* command, void* row = nullptr) {
+    if (!currentSource)
+        return {};
+    auto it = currentSource->pages.find(page);
+    if (it == currentSource->pages.end())
+        return {};
+    void* list = api.Get(page, "get_CommandList");
+    int count = api.Int(list, "get_Count");
+    for (auto& key : it->second) {
+        if (key.cmd_index < 0 || key.cmd_index >= count)
+            continue;
+        void* element = Item(list, key.cmd_index);
+        if ((command && element == command) || (row && api.Get(element, "get_RowData") == row))
+            return key;
+    }
+    return {};
+}
+
+Json Screen(Alloc& a) {
+    Json screen(rapidjson::kObjectType), characters(rapidjson::kArrayType);
+    void* graphic = api.Get(currentEngine.Get(), "get_GraphicManager");
+    void* group = api.Get(graphic, "get_BgManager");
+    void* bgArgs[] = {api.Get(graphic, "get_BgSpriteName")};
+    void* bg = nullptr;
+    api.Call(group,"FindObject",1,bgArgs,&bg);
+    auto background=api.Text(api.Get(api.Get(bg,"get_LastResource"),"get_Key"));
+    {
+        group = api.Get(graphic, "get_CharacterManager");
+        Root objects(api.Get(group, "AllGraphics"));
+        int count = api.Int(objects.Get(), "get_Count");
+        for (int i = 0; i < count; ++i) {
+            void* obj = Item(objects.Get(), i);
+            void* last = api.Get(obj, "get_LastResource");
+            if (!last)
+                continue;
+            void* setting = api.Get(last, "get_SettingData");
+            Json info(rapidjson::kObjectType);
+            std::string name = api.Text(api.Get(setting, "get_Name"));
+            if (name.empty())
+                name = api.Text(api.Get(obj, "get_name"));
+            info.AddMember("character", Str(name, a), a)
+                .AddMember("pattern", Str(api.Text(api.Get(setting, "get_Pattern")), a), a);
+            void* layer = api.Get(api.Get(obj, "get_Layer"), "get_SettingData");
+            info.AddMember("layer", Str(api.Text(api.Get(layer, "get_Key")), a), a);
+            Root pos(api.Get(api.Get(obj, "get_transform"), "get_localPosition"));
+            float x = 0, y = 0;
+            if (api.Read(pos.Get(), "x", x) && api.Read(pos.Get(), "y", y) && std::isfinite(x) &&
+                std::isfinite(y))
+                info.AddMember("x", x, a).AddMember("y", y, a);
+            characters.PushBack(info, a);
+        }
+    }
+    screen.AddMember("background", Str(background, a), a).AddMember("characters", characters, a);
+    return screen;
+}
+std::string NodeJson() {
+    Document doc(rapidjson::kObjectType);
+    auto& a = doc.GetAllocator();
+    Json source(rapidjson::kObjectType), history(rapidjson::kArrayType);
+    source.AddMember("type", "original", a).AddMember("order", Order(node.original, a), a);
+    for (size_t i = 0; i < route.size(); ++i) {
+        const auto& entry = route[i];
+        if (entry.scene != node.scene)
+            continue;
+        if (entry.record.empty()) history.PushBack(Order(entry.order,a),a);
+    }
+    doc.AddMember("scene", Str(node.scene, a), a)
+        .AddMember("source_hash", Str(node.hash, a), a)
+        .AddMember("source", source, a)
+        .AddMember("route", history, a)
+        .AddMember("screen", Screen(a), a);
+    std::lock_guard<std::mutex> lock(deliveryMutex);
+    doc.AddMember("play_token", Str(currentToken, a), a);
+    return Dump(doc);
+}
+
+using Unary = void (*)(void*, const void*);
+using Binary = void (*)(void*, void*, const void*);
+using AddReadFn = void (*)(void*, void*, int, const void*);
+using Predicate = bool (*)(void*, const void*);
+Unary originalShow = nullptr;
+Binary originalText = nullptr, originalHistory = nullptr;
+AddReadFn originalRead = nullptr;
+Predicate originalLoadEnd = nullptr, originalMovePage = nullptr;
+thread_local void* invokingGeneratedPage = nullptr;
+Binary originalCharacter = nullptr, originalOff = nullptr, originalBg = nullptr, originalBgOff = nullptr;
+
 bool HasGeneratedLabel(const std::string& label) {
     for (const auto& sheet : sheets) {
         const size_t prefix = sheet->entry.rfind('_') + 1;
@@ -53,6 +277,57 @@ bool HasGeneratedLabel(const std::string& label) {
             return true;
     }
     return false;
+}
+void Show(void* manager, const void* method) {
+    void* list = api.Get(manager, "get_Selections");
+    if (installed && Enabled() && CanOfferContinuationAt(currentPage.Get()) && api.Int(list, "get_Count") > 0 &&
+        currentEngine.Get() == api.Get(manager, "get_Engine")) {
+        auto first = Item(list, 0);
+        Node next;
+        if (currentSource) {
+            auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(first, "get_RowData"));
+            // The first visible option may be conditional. All rows in the
+            // actual group belong to the structural choice with its own order.
+            for (const auto& merge : currentSource->merges) {
+                if (merge.first.label_index == key.label_index && merge.first.page_no == key.page_no &&
+                    merge.first.cmd_index <= key.cmd_index &&
+                    (next.scene.empty() || merge.first.cmd_index > next.original.cmd_index))
+                    next = {currentSource->scene, currentSource->hash, merge.second, {}, {},
+                            merge.first,          route.size()};
+            }
+        }
+        if (!next.scene.empty() && !next.merge.empty()) {
+            Root merge(api.string_new(next.merge.c_str()));
+            void* manager = api.Get(currentEngine.Get(), "get_DataManager");
+            auto method =
+                manager ? api.Method(api.object_get_class(manager), "FindScenarioData", 1) : nullptr;
+            void* actual = method ? FindScenarioDataForPosition(manager, merge.Get(), method) : nullptr;
+            auto source = FindSource(actual);
+            if (!source || source->scene != next.scene || source->hash != next.hash)
+                next = {};
+        }
+        if (!next.scene.empty() && !next.merge.empty()) {
+            // Use the game's ordinary selection constructor and prefab layout.
+            // The original row supplies the UI/save metadata. The command has
+            // no expression and never dispatches its borrowed original branch.
+            std::array<uint8_t, 8> emptyNullable{};
+            Root caption(api.string_new("剧情续写")), blank(api.string_new(""));
+            void* args[] = {blank.Get(),
+                            caption.Get(),
+                            nullptr,
+                            api.Get(first, "get_PrefabName"),
+                            emptyNullable.data(),
+                            emptyNullable.data(),
+                            api.Get(first, "get_RowData")};
+            int index = api.Int(list, "get_Count");
+            if (api.Call(manager, "AddSelection", 7, args) && api.Int(list, "get_Count") == index + 1) {
+                button = Root(Item(list, index));
+                inputButtonIdentity.store(button.Get());
+                node = std::move(next);
+            }
+        }
+    }
+    originalShow(manager, method);
 }
 void Text(void* page, void* cmd, const void* method) {
     if (installed && currentEngine.Get() == api.Get(page, "get_Engine") &&
@@ -78,6 +353,10 @@ void Text(void* page, void* cmd, const void* method) {
                     return;
                 }
             }
+        } else {
+            auto key = CommandOrder(currentPage.Get(), cmd);
+            if (key.label_index >= 0)
+                route.push_back({currentSource->scene, {}, {}, key});
         }
     }
     originalText(page, cmd, method);
@@ -91,6 +370,31 @@ void AddHistory(void* self, void* selection, const void* method) {
     if (selection != runningSelection.Get() && !currentSheet)
         originalHistory(self, selection, method);
 }
+} // namespace
+
+void Publish(void* scenario, const ScenarioParseResult& parsed, const QuestPtrSet& targets) {
+    if (!installed || !scenario || targets.empty())
+        return;
+    if (FindSource(scenario)) return;
+    auto s = std::make_shared<Source>();
+    s->weak = api.gchandle_new_weakref(scenario, false);
+    if (!s->weak)
+        return;
+    s->scene = parsed.scene;
+    s->hash = SourceHash(EncodeContinuationSource(parsed));
+    if (s->hash.empty())
+        return;
+    RecordMerges(*s, parsed.scene_items);
+    for (auto& target : targets)
+        s->pages[target.second].push_back(target.first);
+    std::lock_guard<std::mutex> lock(sourcesMutex);
+    for (auto it = sources.begin(); it != sources.end();) {
+        if (!api.gchandle_get_target(it->second->weak))
+            it = sources.erase(it);
+        else
+            ++it;
+    }
+    sources[scenario] = std::move(s);
 }
 bool IsTemporary(void* scenario) {
     if (!installed || !scenario)
@@ -98,6 +402,8 @@ bool IsTemporary(void* scenario) {
     std::lock_guard<std::mutex> lock(sheetsMutex);
     return temporary.count(scenario) != 0;
 }
+bool CaptureEnabled() { return installed && Enabled(); }
+bool IsPlaying() { return currentSheet != nullptr || enteringSheet; }
 bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
     // update-1380, arm64. choice_back verified the loaded ELF note before
     // reaching this point. Other revisions keep their existing choice tracker.
@@ -114,6 +420,7 @@ bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
         void* stub;
     };
     Hook hooks[] = {
+        {0x246cdb8, reinterpret_cast<void*>(Show), reinterpret_cast<void**>(&originalShow), nullptr},
         {0x2466d40, reinterpret_cast<void*>(Text), reinterpret_cast<void**>(&originalText), nullptr},
         {0x2466ab4, reinterpret_cast<void*>(AddRead), reinterpret_cast<void**>(&originalRead), nullptr},
         {0x246d00c, reinterpret_cast<void*>(AddHistory), reinterpret_cast<void**>(&originalHistory), nullptr},
@@ -131,9 +438,29 @@ bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
     installed = true;
     return true;
 }
+void LeaveChoice() {
+    if (!installed)
+        return;
+    bool notify = false;
+    {
+        std::lock_guard<std::mutex> lock(deliveryMutex);
+        notify = !currentToken.empty();
+        currentToken.clear();
+        acceptedRecord.clear();
+        queued.reset();
+    }
+    inputButtonIdentity.store(nullptr);
+    button.Reset();
+    node = {};
+    if (notify)
+        Notify("closeContinuationInput");
+}
 void EndSession() {
     if (!installed)
         return;
+    LeaveChoice();
+    route.clear();
+    currentSource.reset();
     currentSheet = nullptr;
     enteringSheet = false;
     currentPage.Reset();
@@ -150,31 +477,100 @@ void EndSession() {
 void BeginPage(void* engine, void* page) {
     if (!installed)
         return;
+    LeaveChoice();
     currentPage = Root(page);
     currentEngine = Root(engine);
     currentLabel = PageLabel(page);
     void* scenario = PageScenario(engine, page);
+    currentSource = FindSource(scenario);
     currentSheet = SheetFor(scenario);
     enteringSheet = false;
+}
+void AtChoice(void* engine, void* page) {
+    if (!installed || !button.Get() || engine != currentEngine.Get() || page != currentPage.Get() ||
+        node.scene.empty())
+        return;
+    {
+        std::lock_guard<std::mutex> lock(deliveryMutex);
+        if (!currentToken.empty())
+            return;
+        currentToken = processId + "-" + std::to_string(++serial);
+    }
+    std::string json = NodeJson();
+    Notify("prepareContinuation", &json);
+}
+bool HandleSelection(void* selection) {
+    if (!installed || selection != button.Get() || !selection)
+        return false;
+    bool valid;
+    {
+        std::lock_guard<std::mutex> lock(deliveryMutex);
+        valid = !currentToken.empty();
+    }
+    if (valid && Enabled()) {
+        std::string json = NodeJson();
+        Notify("showContinuationInput", &json);
+    }
+    return true;
+}
+void Selected(void* selection) {
+    if (!installed)
+        return;
+    {
+        auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(selection, "get_RowData"));
+        if (key.label_index >= 0)
+            route.push_back({currentSource->scene, {}, {}, key});
+    }
+    LeaveChoice();
+}
+size_t RouteSize() { return route.size(); }
+void RestoreRoute(size_t size) {
+    if (size < route.size())
+        route.resize(size);
 }
 std::string SceneForGeneratedPage(void* page) {
     return currentSheet && currentPage.Get() == page ? currentSheet->scene : "";
 }
-bool PlayDialogue(void* engine, void* selection, const std::string& scene, const std::string& merge, const rapidjson::Value& steps) {
+void ReportError(const char* message) {
+    std::string text(message);
+    Notify("showContinuationError", &text);
+}
+bool TakePlayback() {
+    std::lock_guard<std::mutex> lock(deliveryMutex);
+    if (!queued)
+        return false;
+    claimed = std::move(queued);
+    return true;
+}
+bool Play(void* engine, void* page) {
+    auto delivery = std::move(claimed);
+    if (!delivery || !button.Get() || currentPage.Get() != page || currentEngine.Get() != engine)
+        return false;
+    {
+        std::lock_guard<std::mutex> lock(deliveryMutex);
+        if (delivery->token != currentToken)
+            return false;
+    }
+    Document steps;
+    if (steps.Parse<rapidjson::kParseIterativeFlag>(delivery->steps.data(), delivery->steps.size())
+            .HasParseError() ||
+        !steps.IsArray())
+        return false;
     Root manager(api.Get(engine, "get_DataManager")), select(api.Get(engine, "get_SelectionManager"));
     auto sheet = std::make_unique<Sheet>();
-    sheet->scene = scene;
-    sheet->merge = merge;
+    sheet->record = delivery->record;
+    sheet->scene = node.scene;
+    sheet->merge = node.merge;
     auto prefix = "HETContinuation_" + processId + "_" + std::to_string(++serial);
     if (!BuildSheet(manager.Get(), steps, prefix, *sheet))
         return false;
     Root entry(api.string_new(sheet->entry.c_str()));
-    void* field = api.Field(selection, "jumpLabel");
+    void* field = api.Field(button.Get(), "jumpLabel");
     if (!field) {
         UnregisterSheet(*sheet);
         return false;
     }
-    api.field_set_value_object(selection, field, entry.Get());
+    api.field_set_value_object(button.Get(), field, entry.Get());
     {
         std::lock_guard<std::mutex> lock(sheetsMutex);
         temporary.insert(sheet->scenario.Get());
@@ -182,17 +578,58 @@ bool PlayDialogue(void* engine, void* selection, const std::string& scene, const
     sheets.push_back(std::move(sheet));
     // Same wait completion, onSelected UI cleanup and jump reservation as an
     // ordinary selection. No original branch expression is attached to this item.
-    runningSelection = Root(selection);
+    runningSelection = Root(button.Get());
     enteringSheet = true;
     bool ok = DispatchContinuationSelection(select.Get(), runningSelection.Get());
     if (!ok) enteringSheet = false;
     runningSelection.Reset();
+    LeaveChoice();
     return ok;
 }
+std::string JniText(JNIEnv* env, jstring s) {
+    if (!s)
+        return {};
+    jclass cls = env->GetObjectClass(s);
+    auto getBytes = env->GetMethodID(cls, "getBytes", "(Ljava/lang/String;)[B");
+    jstring utf = env->NewStringUTF("UTF-8");
+    auto b = static_cast<jbyteArray>(env->CallObjectMethod(s, getBytes, utf));
+    std::string value;
+    if (b) {
+        value.resize(env->GetArrayLength(b));
+        env->GetByteArrayRegion(b, 0, value.size(), reinterpret_cast<jbyte*>(value.data()));
+        env->DeleteLocalRef(b);
+    }
+    env->DeleteLocalRef(utf);
+    env->DeleteLocalRef(cls);
+    return value;
+}
+bool Queue(std::string token, std::string record, std::string steps) {
+    std::lock_guard<std::mutex> lock(deliveryMutex);
+    if (token.empty() || token != currentToken || record.empty())
+        return false;
+    if (!acceptedRecord.empty())
+        return acceptedRecord == record;
+    acceptedRecord = record;
+    queued = std::make_unique<Delivery>(Delivery{std::move(token), std::move(record), std::move(steps)});
+    return true;
+}
+} // namespace het::continuation
+
+void PublishContinuationSource(void* scenario, const ScenarioParseResult& parsed,
+                               const QuestPtrSet& targets) {
+    het::continuation::Publish(scenario, parsed, targets);
 }
 bool IsContinuationScenario(void* scenario) { return het::continuation::IsTemporary(scenario); }
+bool IsContinuationInputButton(void* selection) {
+    return selection && selection == het::continuation::inputButtonIdentity.load();
+}
 bool IsContinuationLabel(const std::string& label) {
     // Init can report the sheet's pages before its scenario is registered in the data manager.
     static const std::string prefix = "HETContinuation_" + het::continuation::processId + "_";
     return label.compare(!label.empty() && label.front() == '*' ? 1 : 0, prefix.size(), prefix) == 0;
+}
+extern "C" JNIEXPORT jboolean JNICALL Java_com_quarty_housamoembedtrans_MainHook_nativePlayContinuation(
+    JNIEnv* env, jclass, jstring token, jstring record, jstring steps) {
+    using namespace het::continuation;
+    return Queue(JniText(env, token), JniText(env, record), JniText(env, steps));
 }

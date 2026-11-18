@@ -1,0 +1,31 @@
+<resources>
+    <style name="Theme.HET.GameContinuation" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#315DA8</item>
+        <item name="colorPrimaryContainer">#D8E3FF</item>
+        <item name="colorOnPrimaryContainer">#102E5F</item>
+        <item name="colorSurface">#F9F9FF</item>
+    </style>
+    <string name="continuation_title">Story continuation</string>
+    <string name="continuation_category_description">Write your own line at a story choice and play the response in the game.</string>
+    <string name="continuation_category_scope">Generation settings apply when you submit a new line.</string>
+    <string name="continuation_enable">Enable story continuation</string>
+    <string name="continuation_enable_hint">Adds a free-input option to story choices.</string>
+    <string name="continuation_character">Allow character staging</string>
+    <string name="continuation_character_hint">Characters can enter, leave, move and change expressions.</string>
+    <string name="continuation_background">Allow background changes</string>
+    <string name="continuation_background_hint">Allow the response to switch between available backgrounds.</string>
+    <string name="continuation_choices">Allow additional choices</string>
+    <string name="continuation_choices_hint">The response can offer new choices with separate branches.</string>
+    <string name="continuation_target">Dialogue target</string>
+    <string name="continuation_target_hint">Approximate dialogue lines per route before it rejoins the story.</string>
+    <string name="continuation_unlimited">Unlimited</string>
+    <string name="continuation_input">Your line</string>
+    <string name="continuation_input_hint">What do you say?</string>
+    <string name="continuation_submit">Submit</string>
+    <string name="continuation_wait">Generating response</string>
+    <string name="continuation_cancel_generation">Cancel generation</string>
+    <string name="continuation_offline">HET is disconnected. Open HET to reconnect.</string>
+    <string name="continuation_admission_failed">HET could not accept this request.</string>
+    <string name="continuation_playback_failed">Playback could not start at this choice.</string>
+    <string name="continuation_error">Story continuation failed</string>
+</resources>

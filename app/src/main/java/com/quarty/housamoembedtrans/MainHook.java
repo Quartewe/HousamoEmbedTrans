@@ -4,6 +4,8 @@ import com.bytedance.shadowhook.ShadowHook;
 import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.bridge.SceneSyncWireCodec;
 import com.quarty.housamoembedtrans.bridge.TranslationServiceClient;
+import com.quarty.housamoembedtrans.continuation.ContinuationContent;
+import com.quarty.housamoembedtrans.storage.config.StoryContinuationSettings;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.scene.sync.GameSceneMirrorSource;
 import com.quarty.housamoembedtrans.scene.sync.SceneMirrorExportCoordinator;
@@ -93,6 +95,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static boolean sNativeInitializationStarted;
     private static boolean sWaitingToastShown;
     private static volatile TranslationServiceClient sTranslationClient;
+    private static volatile GameContinuationUi sContinuationUi;
+    private static volatile boolean sContinuationEnabled;
+    private static boolean sContinuationSettingsObserved;
     private static volatile GameScenePort sGameScenePort;
     private static volatile Context sTargetContext;
     private static volatile boolean sOverwriteExistingJson;
@@ -102,6 +107,23 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final TranslationServiceClient.ResultSink
         TRANSLATION_RESULT_SINK =
             new TranslationServiceClient.ResultSink() {
+                @Override
+                public boolean onContinuationResult(String requestId, byte[] resultJson,
+                        String leaseToken, long connectionGeneration) {
+                    TranslationServiceClient client = sTranslationClient;
+                    GameContinuationUi ui = sContinuationUi;
+                    if (client == null || ui == null) return false;
+                    try {
+                        JSONObject result = new JSONObject(new String(resultJson, StandardCharsets.UTF_8));
+                        ui.accept(requestId, result);
+                        return client.acknowledgeTerminal(requestId,
+                            result.has("error") ? "failed" : "completed", leaseToken, connectionGeneration);
+                    } catch (Exception error) {
+                        Log.game("Could not settle story continuation delivery: " + safeMessage(error));
+                        return false;
+                    }
+                }
+
                 @Override
                 public void onQuestPatch(
                     String requestId,
@@ -1435,6 +1457,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         boolean enablePageRecDebug;
         boolean enablePageRecTasks;
         boolean enableRubyTranslation;
+        boolean continuationEnabled;
         boolean enableParseOnlyDebug;
         boolean overwriteExistingJson;
         String targetLanguage;
@@ -1769,6 +1792,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         config.sceneWorkerCount = config.sceneSyncSnapshot.getSceneWorkerCount();
         config.enablePageRecDebug = Init_EnablePageRecDebug(userConfig);
         config.enableRubyTranslation = StartupSettings.isRubyTranslationEnabled(userSettings);
+        config.continuationEnabled = StoryContinuationSettings.read(userConfig).enabled;
         config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(userConfig);
         config.enablePageRecTasks = config.enablePageRecDebug && !config.enableParseOnlyDebug;
         config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
@@ -2528,6 +2552,9 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Log.initializeGame(application);
         sTargetContext = application;
         sStartupHandler = new Handler(Looper.getMainLooper());
+        GameContinuationUi continuation = new GameContinuationUi(() -> sTranslationClient);
+        sContinuationUi = continuation;
+        application.registerActivityLifecycleCallbacks(continuation);
         // Retain Application, never an Activity, for the lifetime of this game process.
         sStartupAttempt = () -> {
             try {
@@ -2610,6 +2637,29 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
+    private static void observeContinuationSettings(Context context) {
+        if (sContinuationSettingsObserved) return;
+        android.database.ContentObserver observer = new android.database.ContentObserver(sStartupHandler) {
+            @Override public void onChange(boolean selfChange) {
+                sContinuationUi.refreshConfig(() -> {
+                    try {
+                        sContinuationEnabled = StoryContinuationSettings.read(new JSONObject(
+                            readPreferredModuleJson(context, CONFIG_FILE_NAME))).enabled;
+                    } catch (Exception error) {
+                        Log.game("Could not refresh story continuation setting: " + safeMessage(error));
+                    }
+                });
+            }
+        };
+        try {
+            context.getContentResolver().registerContentObserver(StoryContinuationSettings.configUri(), false, observer);
+            sContinuationSettingsObserved = true;
+            observer.onChange(false);
+        } catch (SecurityException error) {
+            Log.game("Could not observe story continuation settings: " + safeMessage(error));
+        }
+    }
+
     private static void showWaitingForHet() {
         if (sWaitingToastShown) return;
         sWaitingToastShown = true;
@@ -2648,6 +2698,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // observe one immutable worker choice for this game process.
             StartupConfig startup = loadStartupConfig(context);
             sOverwriteExistingJson = startup.overwriteExistingJson;
+            sContinuationEnabled = startup.continuationEnabled;
+            observeContinuationSettings(context);
             // Only pre-native diagnostic clients can be replaced here. Their
             // native-dependent result callbacks have never been registered.
             TranslationServiceClient previous = sTranslationClient;
@@ -2804,6 +2856,24 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return new File("/system/lib64/libhoudini.so").isFile()
             || new File("/system/lib/libhoudini.so").isFile();
     }
+
+    // Native calls on the Unity thread. UI operations transfer their own data to Android's main looper.
+    public static boolean isContinuationEnabled() { return sContinuationEnabled; }
+    public static void prepareContinuation(String nodeJson) { sContinuationUi.prepare(nodeJson); }
+    public static void showContinuationInput(String nodeJson) { sContinuationUi.open(nodeJson); }
+    public static void closeContinuationInput() { sContinuationUi.leave(); }
+    public static void showContinuationError(String message) { sContinuationUi.playbackError(message); }
+
+    public static String continuationSourceHash(String sceneJson) {
+        try {
+            return ContinuationContent.fingerprint(new JSONObject(sceneJson));
+        } catch (Exception e) {
+            Log.game("Could not identify continuation source: " + safeMessage(e));
+            return "";
+        }
+    }
+
+    static native boolean nativePlayContinuation(String playToken, String recordId, String stepsJson);
 
     private static native void nativeStart(
         String gameVersion,

@@ -102,6 +102,21 @@ public final class SceneSyncCoordinator implements AutoCloseable {
     private boolean pendingAutoSync;
     private boolean closed;
     private long operationGeneration;
+    private long lastFinishedFullSync;
+
+    /** Generation and port are captured under the same reservation lock as pendingAutoSync. */
+    private static final class PublishedSceneWait {
+        final Object expectedPort;
+        final long portGeneration;
+        long generation;
+        PortSnapshot port;
+
+        PublishedSceneWait(Object expectedPort, long portGeneration) {
+            this.expectedPort = expectedPort;
+            this.portGeneration = portGeneration;
+        }
+    }
+
     private volatile OperationFinishedListener operationFinishedListener;
 
     public SceneSyncCoordinator(
@@ -166,6 +181,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 generation,
                 sceneWorkerCount
             );
+            lock.notifyAll();
             if (state == State.FULL_SYNC
                 || state == State.MANUAL_REFRESH) {
                 // The running cycle remains bound to activePort. The newly
@@ -198,7 +214,28 @@ public final class SceneSyncCoordinator implements AutoCloseable {
         return requestAutoSync(true);
     }
 
+    /** Called off the operation executor and without a Scene root/mutation lock. */
+    public void awaitPublishedSceneSync(Object expectedPort, long portGeneration) throws InterruptedException, java.io.IOException {
+        PublishedSceneWait wait = new PublishedSceneWait(expectedPort, portGeneration);
+        TriggerResult result = requestAutoSync(true, wait);
+        if (result != TriggerResult.STARTED && result != TriggerResult.DEFERRED_BUSY) {
+            throw new java.io.IOException("剧情 Scene 同步不可用：" + result);
+        }
+        synchronized (lock) {
+            while (!closed && currentPort == wait.port && lastFinishedFullSync < wait.generation) {
+                lock.wait();
+            }
+            if (closed || currentPort != wait.port) {
+                throw new java.io.IOException("剧情 Scene 同步期间游戏连接已结束");
+            }
+        }
+    }
+
     private TriggerResult requestAutoSync(boolean publishedScene) {
+        return requestAutoSync(publishedScene, null);
+    }
+
+    private TriggerResult requestAutoSync(boolean publishedScene, PublishedSceneWait wait) {
         boolean schedule = false;
         TriggerResult result;
         synchronized (lock) {
@@ -207,6 +244,15 @@ public final class SceneSyncCoordinator implements AutoCloseable {
             }
             if (currentPort == null) {
                 return TriggerResult.LOCAL_ONLY;
+            }
+            if (wait != null) {
+                if (currentPort.port != wait.expectedPort || currentPort.generation != wait.portGeneration) {
+                    return TriggerResult.LOCAL_ONLY;
+                }
+                wait.port = currentPort;
+                // With a busy coordinator the successor is reserved by startPendingAutoSyncLocked
+                // before the current operation releases the monitor.
+                wait.generation = operationGeneration + 1;
             }
             if (state != State.NONE) {
                 if (!publishedScene
@@ -394,6 +440,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
             if (currentPort != null && currentPort.port == expectedPort) {
                 currentPort = null;
                 pendingAutoSync = false;
+                lock.notifyAll();
             }
             if (state == State.MANUAL_APPLY
                 && activePort != null
@@ -448,6 +495,7 @@ public final class SceneSyncCoordinator implements AutoCloseable {
             pendingAutoSync = false;
             state = State.NONE;
             operationGeneration++;
+            lock.notifyAll();
         }
         if (actionToCancel != null) {
             actionToCancel.cancel();
@@ -540,6 +588,8 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                     && activePort == snapshot) {
                     state = State.NONE;
                     activePort = null;
+                    lastFinishedFullSync = Math.max(lastFinishedFullSync, generation);
+                    lock.notifyAll();
                     schedulePending = startPendingAutoSyncLocked();
                 }
             }
@@ -588,13 +638,15 @@ public final class SceneSyncCoordinator implements AutoCloseable {
             });
             return success;
         } catch (RuntimeException e) {
+            boolean schedulePending;
             synchronized (lock) {
-                if (state == expectedState
-                    && operationGeneration == generation) {
+                if (state == expectedState && operationGeneration == generation) {
                     state = State.NONE;
                     activePort = null;
                 }
+                schedulePending = startPendingAutoSyncLocked();
             }
+            if (schedulePending) enqueueFullSync();
             return TriggerResult.FAILED;
         }
     }
@@ -657,6 +709,8 @@ public final class SceneSyncCoordinator implements AutoCloseable {
                 && activePort == snapshot) {
                 state = State.NONE;
                 activePort = null;
+                lastFinishedFullSync = Math.max(lastFinishedFullSync, generation);
+                lock.notifyAll();
                 cleaned = true;
             }
             if (cleaned) {

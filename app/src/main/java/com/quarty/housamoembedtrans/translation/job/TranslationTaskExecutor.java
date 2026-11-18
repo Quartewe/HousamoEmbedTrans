@@ -27,6 +27,8 @@ import com.quarty.housamoembedtrans.util.IoUtils;
 import com.quarty.housamoembedtrans.util.JobValidator;
 import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 
+import com.quarty.housamoembedtrans.continuation.ContinuationContent;
+
 import android.content.Context;
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
@@ -778,7 +780,7 @@ public final class TranslationTaskExecutor {
             JobCoordinator candidate = null;
             for (LinkedHashSet<JobCoordinator> registered : activeJobs.values()) {
                 for (JobCoordinator coordinator : registered) {
-                    if (coordinator.cancelRequested || coordinator.terminal) {
+                    if (coordinator.cancelRequested || coordinator.terminal || JobValidator.isContinuation(coordinator.request)) {
                         continue;
                     }
                     if (coordinator.requestId.equals(preferredRequestId)) {
@@ -799,6 +801,7 @@ public final class TranslationTaskExecutor {
             for (LinkedHashSet<JobCoordinator> registered : activeJobs.values()) {
                 for (JobCoordinator coordinator : registered) {
                     if (!coordinator.cancelRequested && !coordinator.terminal
+                        && !JobValidator.isContinuation(coordinator.request)
                         && scene.equals(coordinator.requestInfo.getScene())
                         && !coordinator.requestInfo.isTargetAlreadyTranslated()) {
                         return new ActiveTranslationSnapshot(coordinator);
@@ -1392,7 +1395,7 @@ public final class TranslationTaskExecutor {
             );
             JobValidator.RequestInfo requestInfo =
                 JobValidator.validateJobRequest(request);
-            TranslationConfig config = TranslationConfig.load(context);
+            TranslationConfig config = JobValidator.isContinuation(request) ? ContinuationProvider.open(context, request, claimed.getRequestId()) : TranslationConfig.load(context);
             JSONObject state = jobStore.readState(claimed.getRequestId());
             JobCoordinator coordinator = new JobCoordinator(
                 claimed.getRequestId(),
@@ -1683,7 +1686,7 @@ public final class TranslationTaskExecutor {
                     "request"
                 );
                 requestInfo = JobValidator.validateJobRequest(request);
-                config = TranslationConfig.load(context);
+                config = JobValidator.isContinuation(request) ? ContinuationProvider.open(context, request, requestId) : TranslationConfig.load(context);
                 state = jobStore.readState(requestId);
                 final JSONObject requestForCoordinator = request;
                 final JobValidator.RequestInfo infoForCoordinator = requestInfo;
@@ -1892,7 +1895,7 @@ public final class TranslationTaskExecutor {
             );
             try {
                 JSONObject error = errorObject(
-                    "client",
+                    jobStore != null && jobStore.isContinuation(requestId) ? "request_failed" : "client",
                     safeMessage(e),
                     Collections.emptySet()
                 );
@@ -2276,6 +2279,13 @@ public final class TranslationTaskExecutor {
                 config.isContextAutoCompressionEnabled();
             this.contextSummaryOptions.continueAfterManual =
                 config.isContinueAutoSummaryAfterManual();
+            if (JobValidator.isContinuation(request)) {
+                this.validator = null;
+                this.blocks = Collections.emptyList();
+                this.closedBlocks = new boolean[0];
+                currentAttempt = new MainAttemptState(++attemptTokenCounter);
+                return;
+            }
             this.validator = new TranslationResultValidator(
                 request,
                 requestInfo
@@ -2315,7 +2325,54 @@ public final class TranslationTaskExecutor {
             }
         }
 
+        private JSONObject continuationResult;
+        private String continuationError = "request_failed";
+
+        private void runContinuation() throws Exception {
+            TranslationApiClient.AttemptHandle handle = TranslationApiClient.newAttemptHandle();
+            bindTransportHandle(currentAttempt, handle);
+            try {
+                if (shutdown) throw new InterruptedException("Continuation executor has stopped");
+                String response = ContinuationProvider.call(config, request, handle);
+                // A complete valid response remains available for the shared late-cancellation archive.
+                JSONObject result = ContinuationContent.finish(request, response);
+                if (result.toString().getBytes(StandardCharsets.UTF_8).length > TranslationJobStore.MAX_RESULT_BYTES) {
+                    throw new ContinuationContent.OutputError("invalid_output", "续写结果超过持久任务的大小限制");
+                }
+                continuationResult = result;
+                successful = true;
+            } catch (ContinuationContent.OutputError e) {
+                continuationError = e.code;
+                failureMessage = safeMessage(e);
+            } catch (TranslationApiClient.GenerationStoppedException e) {
+                continuationError = e.isRefusal() ? "refused" : "incomplete";
+                failureMessage = safeMessage(e);
+            } catch (TranslationApiClient.ListenerFailure e) {
+                if (e.getCause() instanceof ContinuationContent.OutputError) {
+                    ContinuationContent.OutputError output = (ContinuationContent.OutputError)e.getCause();
+                    continuationError = output.code;
+                    failureMessage = safeMessage(output);
+                } else {
+                    failureMessage = safeMessage(e);
+                }
+            } catch (TranslationApiClient.IncompleteResponseException e) {
+                continuationError = "incomplete";
+                failureMessage = safeMessage(e);
+            } catch (InterruptedException e) {
+                throw e;
+            } catch (Exception e) {
+                failureMessage = safeMessage(e);
+            } finally {
+                terminal = true;
+                clearTransportHandle(currentAttempt, handle);
+            }
+        }
+
         private void run() throws Exception {
+            if (JobValidator.isContinuation(request)) {
+                runContinuation();
+                return;
+            }
             try {
                 synchronized (this) {
                     if (cancelRequested || blockedStatus != null) {
@@ -3889,6 +3946,7 @@ public final class TranslationTaskExecutor {
         }
 
         private JSONObject buildFinalResult() throws Exception {
+            if (continuationResult != null) return continuationResult;
             Map<Integer, String> translations = new LinkedHashMap<>();
             for (ItemProgress item : items.values()) {
                 if (!item.isFinalValid()) {
@@ -4009,6 +4067,7 @@ public final class TranslationTaskExecutor {
                 return null;
             }
             JSONObject result = buildLateCanceledResult();
+            if (result == null) return null;
             lateArchiveClaimed = true;
             return result;
         }
@@ -4019,6 +4078,7 @@ public final class TranslationTaskExecutor {
         }
 
         private JSONObject buildFailure() throws Exception {
+            if (JobValidator.isContinuation(request)) return errorObject(continuationError, failureMessage, Collections.emptySet());
             return errorObject(
                 fatalProviderFailure ? "network" : "validation",
                 failureMessage,

@@ -11,6 +11,7 @@ public final class SettingsCategory {
     public static final String TRANSLATION_SERVICE = "translation-service";
     public static final String TRANSLATION_REPAIR = "translation-repair";
     public static final String CAPTURE_SYNC = "capture-sync";
+    public static final String STORY_CONTINUATION = "story-continuation";
     public static final String CONTEXT_SUMMARY = "context-summary";
     public static final String TASK_RECOVERY = "task-recovery";
     public static final String CHARACTER_MATCHING = "character-matching";
@@ -53,6 +54,12 @@ public final class SettingsCategory {
             R.string.settings_category_capture_sync,
             R.string.settings_category_capture_sync_description,
             R.string.settings_category_capture_sync_scope
+        ),
+        new Definition(
+            STORY_CONTINUATION,
+            R.string.continuation_title,
+            R.string.continuation_category_description,
+            R.string.continuation_category_scope
         ),
         new Definition(
             CONTEXT_SUMMARY,
@@ -167,6 +174,11 @@ public final class SettingsCategory {
                 context == null ? 30 : context.optInt("DefaultRecentPercent", 30),
                 context == null ? 10 : context.optInt("DefaultRecentSceneLimit", 10)
             );
+        }
+        if (STORY_CONTINUATION.equals(definition.id)) {
+            JSONObject continuation = userSettings.optJSONObject("StoryContinuation");
+            return uiContext.getString(continuation != null && continuation.optBoolean("Enabled")
+                ? R.string.settings_summary_on : R.string.settings_summary_off);
         }
         if (TASK_RECOVERY.equals(definition.id)) {
             return uiContext.getString(

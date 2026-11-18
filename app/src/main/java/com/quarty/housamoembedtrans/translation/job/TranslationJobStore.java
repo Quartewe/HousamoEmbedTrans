@@ -13,6 +13,8 @@ import com.quarty.housamoembedtrans.util.JobValidator;
 import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 import com.quarty.housamoembedtrans.translation.request.TranslationSchemaValidator;
 
+import com.quarty.housamoembedtrans.continuation.ContinuationContent;
+
 import android.content.Context;
 import android.util.AtomicFile;
 import com.quarty.housamoembedtrans.logging.Log;
@@ -505,6 +507,8 @@ public final class TranslationJobStore {
         }
     }
 
+    private final Context application;
+    private final Set<String> continuationIds = new HashSet<>();
     private final File jobRoot;
     private final PersistentApiJobStore jobStore;
     private final SceneStore sceneStore;
@@ -628,6 +632,7 @@ public final class TranslationJobStore {
     private TranslationJobStore(Context context) {
         Context appContext = context.getApplicationContext();
         Context safeContext = appContext != null ? appContext : context;
+        application = safeContext;
         jobRoot = new File(safeContext.getFilesDir(), DIRECTORY_NAME);
         jobStore = PersistentApiJobStore.createForAndroid(
             jobRoot,
@@ -656,6 +661,7 @@ public final class TranslationJobStore {
             repairingStartupJobs = false;
             initialAutoSyncFinished = false;
             pendingQueue.clear();
+            continuationIds.clear();
             pendingRequestIds.clear();
             heldQueuedJobs.clear();
             startupRepairCandidates.clear();
@@ -861,6 +867,7 @@ public final class TranslationJobStore {
             jobStore.ensureRoot();
             finishDeletedJobsLocked();
             pendingQueue.clear();
+            continuationIds.clear();
             pendingRequestIds.clear();
             heldQueuedJobs.clear();
             manualRerunCandidateIds.clear();
@@ -896,6 +903,7 @@ public final class TranslationJobStore {
                                 "pre-boundary admission state is missing"
                             );
                         }
+                        if (JobValidator.isContinuation(admittedState)) continuationIds.add(requestId);
                         readOptionalQueueSequence(
                             admittedState,
                             requestId
@@ -958,6 +966,7 @@ public final class TranslationJobStore {
                     state
                 );
 
+                if (JobValidator.isContinuation(state)) continuationIds.add(requestId);
                 String status = state.optString("status", "");
                 final long queueSequence;
                 try {
@@ -993,6 +1002,7 @@ public final class TranslationJobStore {
                 }
 
                 if (isTerminalStatus(status)) {
+                    if (JobValidator.isContinuation(state)) ContinuationProvider.release(application, requestId);
                     // Terminal payloads are checked by the same background
                     // reconciliation path as interrupted jobs.  This keeps
                     // damaged/conflicting payloads out of replay without
@@ -2618,6 +2628,21 @@ public final class TranslationJobStore {
         return claimedJob;
     }
 
+    public synchronized boolean hasContinuationSubmission(String requestId, String digest) throws Exception {
+        validateRequestId(requestId);
+        File directory = jobStore.jobDirectory(requestId);
+        if (!directory.isDirectory() || !IoUtils.atomicFileExists(new File(directory, REQUEST_FILE_NAME))) return false;
+        JSONObject request = JobValidator.parseJsonObject(readRequest(directory), MAX_REQUEST_BYTES, "request");
+        if (!JobValidator.isContinuation(request) || !digest.equals(request.optString("submission_sha256"))) {
+            throw new IllegalArgumentException("Request ID already belongs to a different submission");
+        }
+        return true;
+    }
+
+    public synchronized boolean isContinuation(String requestId) {
+        return continuationIds.contains(requestId);
+    }
+
     /** Reads the full persisted state file for one Translation Job. */
     public synchronized JSONObject readState(String requestId)
         throws Exception {
@@ -2809,7 +2834,7 @@ public final class TranslationJobStore {
                 if (sceneValidation) {
                     manualRerunCandidateIds.remove(requestId);
                 } else {
-                    manualRerunCandidateIds.add(requestId);
+                    if (!isContinuation(requestId)) manualRerunCandidateIds.add(requestId);
                 }
             }
         }
@@ -2896,7 +2921,7 @@ public final class TranslationJobStore {
             if (isSceneValidationErrorLocked(jobDirectory)) {
                 manualRerunCandidateIds.remove(requestId);
             } else {
-                manualRerunCandidateIds.add(requestId);
+                if (!isContinuation(requestId)) manualRerunCandidateIds.add(requestId);
             }
         } else {
             manualRerunCandidateIds.remove(requestId);
@@ -2924,14 +2949,22 @@ public final class TranslationJobStore {
         if (!STATUS_COMPLETED.equals(state.optString("status"))) {
             return true;
         }
+        if (JobValidator.isContinuation(state) && state.optBoolean("local_scene_saved")) {
+            // The independent record is immutable after its successful atomic append.
+            return true;
+        }
         try {
             JSONObject request = JobValidator.parseJsonObject(readRequest(directory), MAX_REQUEST_BYTES, "request");
             byte[] bytes = readCompletedResult(directory.getName());
             JSONObject result = JobValidator.parseJsonObject(bytes, MAX_RESULT_BYTES, "result");
-            validateCompletedResult(request, JobValidator.validateRequest(request), result);
-            sceneStore.applyTranslationResult(request, result);
+            validateCompletedResult(request, JobValidator.validateJobRequest(request), result);
+            if (JobValidator.isContinuation(request)) {
+                ContinuationContent.commit(application, result);
+            } else {
+                sceneStore.applyTranslationResult(request, result);
+            }
         } catch (Exception error) {
-            boolean missing = error instanceof JobValidator.SceneMissingException
+            boolean missing = !JobValidator.isContinuation(state) && error instanceof JobValidator.SceneMissingException
                 && sceneStore.isSceneFileMissing(state.getString("scene"));
             String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
             if (state.optBoolean("local_scene_saved", false)
@@ -2969,7 +3002,8 @@ public final class TranslationJobStore {
                         JSONObject state = readState(directory);
                         String previous = state == null ? "" : state.toString();
                         if (state != null && STATUS_RUNNING.equals(state.optString("status"))
-                            && IoUtils.atomicFileExists(new File(directory, RESULT_FILE_NAME))) {
+                            && (IoUtils.atomicFileExists(new File(directory, RESULT_FILE_NAME))
+                                || (JobValidator.isContinuation(state) && IoUtils.atomicFileExists(new File(directory, ERROR_FILE_NAME))))) {
                             // Result write won, but the following state write failed.
                             // ROOT/store locks exclude the completion writer; retained
                             // terminal evidence also prevents cancellation or another claim.
@@ -3153,7 +3187,7 @@ public final class TranslationJobStore {
         throws Exception {
         List<TerminalJob> result = new ArrayList<>();
         for (TerminalJob job : listRetainedFailedJobs()) {
-            if (!job.isSceneValidationFailure()) {
+            if (!job.isSceneValidationFailure() && !isContinuation(job.getRequestId())) {
                 result.add(job);
             }
         }
@@ -3182,6 +3216,7 @@ public final class TranslationJobStore {
                     continue;
                 }
                 String status = state.optString("status", "");
+                if (JobValidator.isContinuation(state)) continue;
                 if (canceledOnly ? !STATUS_CANCELED.equals(status)
                     : (!STATUS_QUEUED.equals(status) && !STATUS_RUNNING.equals(status))) {
                     continue;
@@ -3238,7 +3273,7 @@ public final class TranslationJobStore {
             synchronized (this) {
                 for (File directory : jobStore.listValidJobDirectories()) {
                     JSONObject state = readState(directory);
-                    if (state == null
+                    if (state == null || JobValidator.isContinuation(state)
                         || !scene.equals(state.optString("scene", ""))) {
                         continue;
                     }
@@ -3678,7 +3713,7 @@ public final class TranslationJobStore {
                     throw new AdmissionException("execution_not_settled",
                         "Wait for startup recovery before rerunning the task");
                 }
-                JobValidator.RequestInfo info = JobValidator.validateRequest(
+                JobValidator.RequestInfo info = JobValidator.validateJobRequest(
                     JobValidator.parseJsonObject(readRequest(directory), MAX_REQUEST_BYTES, "request"));
                 requireManagementAdmissionAllowedLocked(info, state.opt("history_mapping"));
                 rerunRetainedJobLocked(directory, requestId, state);
@@ -3888,6 +3923,9 @@ public final class TranslationJobStore {
         boolean enqueueNow
     ) throws Exception {
         String status = state.optString("status", "");
+        if (JobValidator.isContinuation(state)) {
+            throw new AdmissionException("new_input_required", "请在剧情选项中重新提交续写");
+        }
         TerminalOutcome.DeliveryState delivery = isTerminalStatus(status)
             ? normalizeDeliveryStateLocked(directory, state)
             : null;
@@ -3937,7 +3975,7 @@ public final class TranslationJobStore {
             MAX_REQUEST_BYTES,
             "request"
         );
-        JobValidator.RequestInfo info = JobValidator.validateRequest(request);
+        JobValidator.RequestInfo info = JobValidator.validateJobRequest(request);
         finishResettingLocked(
             directory,
             requestId,
@@ -3978,7 +4016,7 @@ public final class TranslationJobStore {
             && result != ProcessResult.VALID
             && result != ProcessResult.REPAIRED
             && result != ProcessResult.SCENE_MISSING;
-        boolean addManualCandidate = !startupAdmission
+        boolean addManualCandidate = !startupAdmission && !continuationIds.contains(requestId)
             && (result == ProcessResult.FAILED
                 || (result == ProcessResult.TERMINAL
                     && manualRerunCandidateIds.contains(requestId)));
@@ -4089,6 +4127,10 @@ public final class TranslationJobStore {
         JobValidator.RequestInfo requestInfo,
         JSONObject result
     ) throws Exception {
+        if (JobValidator.isContinuation(request)) {
+            ContinuationContent.validateStored(request, result);
+            return;
+        }
         resultSchemaValidator.validate(result);
 
         TranslationResultValidator semanticValidator =
@@ -4223,7 +4265,17 @@ public final class TranslationJobStore {
 
         JobValidator.RequestInfo basicRequestInfo;
         try {
-            basicRequestInfo = JobValidator.validateRequest(request);
+            basicRequestInfo = JobValidator.validateJobRequest(request);
+            if (JobValidator.isContinuation(request)) {
+                continuationIds.add(jobDirectory.getName());
+                if (validationMode == ValidationMode.STARTUP_RECOVERY
+                    && executionReferences.containsKey(jobDirectory.getName())) {
+                    // An earlier Service epoch in this process still owns the call or its final commit.
+                    throw new IOException("Previous continuation execution is still settling");
+                }
+            } else {
+                continuationIds.remove(jobDirectory.getName());
+            }
         } catch (JobValidator.ValidationException e) {
             if (terminalEvidence) {
                 return markDamagedWithoutRequestLocked(
@@ -4292,6 +4344,7 @@ public final class TranslationJobStore {
                 requestSha256,
                 validationMode == ValidationMode.RUNTIME_SELF_ONLY
                     || isTerminalStatus(existingStatus)
+                    || JobValidator.isContinuation(request)
                     || (stateReadFailure != null && terminalEvidence)
             );
         if (terminalPayloadResult != null) {
@@ -4299,7 +4352,7 @@ public final class TranslationJobStore {
         }
 
         if (validationMode == ValidationMode.RUNTIME_SELF_ONLY
-            || historyMembershipPending) {
+            || JobValidator.isContinuation(request) || historyMembershipPending) {
             // Runtime admission and claim are intentionally independent from
             // the Scene Mirror.  A request/state/hash-consistent job can be
             // queued and claimed while the game is offline or before its
@@ -4601,7 +4654,8 @@ public final class TranslationJobStore {
                 false,
                 historyMapping,
                 false,
-                true
+                true,
+                false
             )
         );
     }
@@ -4619,8 +4673,14 @@ public final class TranslationJobStore {
             overwrite,
             historyMapping,
             historyMembershipPending,
+            false,
             false
         );
+    }
+
+    public boolean createContinuationJob(String requestId, InputStream prepared) throws Exception {
+        return SceneContextStore.withRootAccess(() -> createQueuedJobUnderRoot(
+            requestId, prepared, false, JSONObject.NULL, false, false, true));
     }
 
     private boolean createQueuedJobUnderRoot(
@@ -4629,7 +4689,8 @@ public final class TranslationJobStore {
         boolean overwrite,
         Object historyMapping,
         boolean historyMembershipPending,
-        boolean deferReviewPublication
+        boolean deferReviewPublication,
+        boolean continuation
     ) throws Exception {
         if (requestInput == null) {
             throw new IllegalArgumentException("Request input cannot be null");
@@ -4649,8 +4710,11 @@ public final class TranslationJobStore {
             MAX_REQUEST_BYTES,
             "request"
         );
+        if (JobValidator.isContinuation(request) != continuation) {
+            throw new IllegalArgumentException("Job type does not match its admission endpoint");
+        }
         JobValidator.RequestInfo requestInfo =
-            JobValidator.validateRequest(request);
+            JobValidator.validateJobRequest(request);
         String requestSha256 = JobValidator.sha256Hex(requestBytes);
         if (historyMapping == null) {
             historyMapping = JSONObject.NULL;
@@ -4799,6 +4863,11 @@ public final class TranslationJobStore {
                         )
                         .put("history_mapping", historyMapping);
 
+                    if (JobValidator.isContinuation(request)) {
+                        continuationIds.add(requestId);
+                    } else {
+                        continuationIds.remove(requestId);
+                    }
                     if (membershipPending) {
                         state.put(HISTORY_MEMBERSHIP_PENDING_FIELD, true);
                     }
@@ -5506,7 +5575,7 @@ public final class TranslationJobStore {
                 if (isSceneValidationErrorLocked(jobDirectory)) {
                     manualRerunCandidateIds.remove(jobDirectory.getName());
                 } else {
-                    manualRerunCandidateIds.add(jobDirectory.getName());
+                    if (!isContinuation(jobDirectory.getName())) manualRerunCandidateIds.add(jobDirectory.getName());
                 }
                 return ProcessResult.TERMINAL;
             }
@@ -5750,7 +5819,7 @@ public final class TranslationJobStore {
             jobDirectory.getName(),
             failedState
         );
-        manualRerunCandidateIds.add(jobDirectory.getName());
+        if (!isContinuation(jobDirectory.getName())) manualRerunCandidateIds.add(jobDirectory.getName());
         Log.i(
             TAG,
             "Marked translation job failed from persisted API error requestId="
@@ -6774,7 +6843,11 @@ public final class TranslationJobStore {
         File jobDirectory,
         JSONObject state
     ) throws Exception {
+        if (continuationIds.contains(jobDirectory.getName())) state.put("task_type", "continuation");
         jobStore.writeState(jobDirectory, state);
+        if (JobValidator.isContinuation(state) && isTerminalStatus(state.optString("status"))) {
+            ContinuationProvider.release(application, jobDirectory.getName());
+        }
     }
 
     private static String requireRequestString(

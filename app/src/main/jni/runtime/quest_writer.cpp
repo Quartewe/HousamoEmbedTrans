@@ -3,6 +3,7 @@
 #include "translation/pipeline/translation_pipeline_internal.hpp"
 #include "housamo.hpp"
 #include "runtime/choice_back.hpp"
+#include "runtime/continuation_source.hpp"
 #include "scene/block_queue.hpp"
 #include "shadowhook.h"
 #include "rapidjson/document.h"
@@ -150,6 +151,7 @@ namespace {
                 complete = false;
                 continue;
             }
+            if (IsContinuationInputButton(data)) continue;
             void* row_data = read_ptr(data, layout.adv_selection.row_data);
             for (const auto& affected : affected_items) {
                 if (affected.page_data != current_data || affected.row_data != row_data) {

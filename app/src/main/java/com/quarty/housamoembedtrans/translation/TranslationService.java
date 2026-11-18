@@ -38,6 +38,10 @@ import com.quarty.housamoembedtrans.summary.job.SummaryJobWakeup;
 import com.quarty.housamoembedtrans.util.IoUtils;
 import com.quarty.housamoembedtrans.util.JobValidator;
 
+import com.quarty.housamoembedtrans.continuation.ContinuationContent;
+import com.quarty.housamoembedtrans.translation.job.ContinuationProvider;
+import com.quarty.housamoembedtrans.storage.config.StoryContinuationSettings;
+
 import android.app.Notification;
 import android.app.Service;
 import android.content.Intent;
@@ -67,6 +71,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -421,6 +427,8 @@ public final class TranslationService extends Service {
         Executors.newCachedThreadPool(runnable ->
             new Thread(runnable, "HET-callback-io")
         );
+    // Only in-progress mirror reads, keyed by connection, Scene and the game's source fingerprint.
+    private final Map<String, CompletableFuture<Void>> continuationMirrors = new HashMap<>();
     private final Object payloadWriterLock = new Object();
     private final Map<String, PayloadWriter> activePayloadWriters =
         new HashMap<>();
@@ -485,7 +493,7 @@ public final class TranslationService extends Service {
 
     private final ScenePolicyPublisher scenePolicyPublisher =
         new ScenePolicyPublisher();
-    private ScenePortRecord currentScenePort;
+    private volatile ScenePortRecord currentScenePort;
     /** One notification per generation, Scene identity, and rejection cause. */
     private final Set<String> notifiedSceneProductionRejections =
         new HashSet<>();
@@ -980,6 +988,86 @@ public final class TranslationService extends Service {
                     if (sceneSyncRequired) {
                         requestAdmittedSceneSync(requestId);
                     }
+                }
+            }
+
+            @Override
+            public int submitContinuation(String requestId, ParcelFileDescriptor submissionFd) {
+                enforceAllowedCaller();
+                validateRequestId(requestId);
+                try {
+                    JSONObject submission = readContinuationNode(submissionFd);
+                    String digest = JobValidator.sha256Hex(submission.toString().getBytes(StandardCharsets.UTF_8));
+                    synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
+                        ensureTranslationJobStore();
+                        if (jobStore.hasContinuationSubmission(requestId, digest)) {
+                            requestTerminalReplayScan();
+                            return HetBridgeContract.ENQUEUE_RESULT_EXISTING;
+                        }
+                    }
+                    ConfigStore.TranslationConfigSnapshot snapshot =
+                        new ConfigStore(TranslationService.this).loadTranslationConfigSnapshot();
+                    StoryContinuationSettings settings = StoryContinuationSettings.read(snapshot.config);
+                    if (!settings.enabled) throw new IllegalStateException("剧情续写已关闭");
+                    awaitContinuationMirror(submission);
+                    synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
+                        if (jobStore.hasContinuationSubmission(requestId, digest)) {
+                            requestTerminalReplayScan();
+                            return HetBridgeContract.ENQUEUE_RESULT_EXISTING;
+                        }
+                        requireContinuationConflictResolved(submission);
+                        JSONObject user = snapshot.config.getJSONObject("UserSettings");
+                        String language = user.getString("TargetLanguage");
+                        JSONObject generation = new JSONObject()
+                            .put("model", user.getJSONObject("TranslationApi").getString("Model"))
+                            .put("allow_character", settings.allowCharacter)
+                            .put("allow_background", settings.allowBackground)
+                            .put("allow_choices", settings.allowChoices)
+                            .put("dialogue_target", settings.dialogueTarget);
+                        JSONObject prepared = ContinuationContent.prepare(TranslationService.this, submission, generation, language)
+                            .put("task_type", "continuation").put("target_lang", language)
+                            .put("submission_sha256", digest);
+                        ContinuationProvider.freeze(TranslationService.this, snapshot, requestId, jobStore.getRootDirectory());
+                        try {
+                            jobStore.createContinuationJob(requestId,
+                                new ByteArrayInputStream(prepared.toString().getBytes(StandardCharsets.UTF_8)));
+                        } catch (Exception e) {
+                            if (!jobStore.hasContinuationSubmission(requestId, digest)) {
+                                ContinuationProvider.release(TranslationService.this, requestId);
+                            }
+                            throw e;
+                        }
+                    }
+                    return HetBridgeContract.ENQUEUE_RESULT_CREATED;
+                } catch (Exception e) {
+                    throw new IllegalStateException(safeStartupMessage(e), e);
+                }
+            }
+
+            @Override
+            public void prepareContinuation(ParcelFileDescriptor nodeFd) {
+                enforceAllowedCaller();
+                try {
+                    JSONObject node = readContinuationNode(nodeFd);
+                    callbackIoExecutor.execute(() -> {
+                        try {
+                            prepareContinuationMirror(node).whenComplete((ignored, error) -> {
+                                if (error != null) {
+                                    Log.w(TAG, "Could not prepare continuation source", error);
+                                    return;
+                                }
+                                try {
+                                    ContinuationContent.prepareNode(TranslationService.this, node);
+                                } catch (Exception failure) {
+                                    Log.w(TAG, "Could not prepare continuation context", failure);
+                                }
+                            });
+                        } catch (Exception error) {
+                            Log.w(TAG, "Could not prepare continuation source", error);
+                        }
+                    });
+                } catch (Exception e) {
+                    throw new IllegalStateException(safeStartupMessage(e), e);
                 }
             }
 
@@ -1722,6 +1810,7 @@ public final class TranslationService extends Service {
         // submitted to a closing executor; SummaryJobWakeup also keeps an
         // explicit Service-start safety net for that admission.
         acceptingSummaryWake = false;
+        synchronized (startupLock) { startupLock.notifyAll(); }
         foregroundStarted = false;
         apiWorkOpen = false;
         pendingProcessManager = null;
@@ -2254,6 +2343,95 @@ public final class TranslationService extends Service {
         }
     }
 
+    private void requireContinuationConflictResolved(JSONObject node) throws Exception {
+        ConflictStore conflicts = conflictStore;
+        if (conflicts == null) conflicts = new ConflictStore(this);
+        if (conflicts.hasFormalConflict(node.getString("scene"))) {
+            throw new IOException("当前 Scene 存在同步冲突，请在 HET 解决后重试");
+        }
+    }
+
+    private void awaitContinuationMirror(JSONObject node) throws Exception {
+        try {
+            prepareContinuationMirror(node).get();
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception) throw (Exception) cause;
+            throw new IOException("读取剧情 Scene 失败", cause);
+        }
+    }
+
+    private CompletableFuture<Void> prepareContinuationMirror(JSONObject node) throws Exception {
+        if (ContinuationContent.matchesCurrentSource(this, node)) {
+            requireContinuationConflictResolved(node);
+            return CompletableFuture.completedFuture(null);
+        }
+        final ScenePortRecord port;
+        synchronized (scenePortLock) { port = currentScenePort; }
+        if (port == null) throw new IOException("游戏 Scene 同步端口尚未连接");
+        String key = port.generation + "/" + node.getString("source_hash") + "/" + node.getString("scene");
+        CompletableFuture<Void> result;
+        synchronized (continuationMirrors) {
+            result = continuationMirrors.get(key);
+            if (result != null) return result;
+            result = new CompletableFuture<>();
+            continuationMirrors.put(key, result);
+        }
+        final CompletableFuture<Void> owner = result;
+        try {
+            callbackIoExecutor.execute(() -> {
+                try {
+                    // Startup owns port replay. Drop all file, dispatch and native production locks while waiting.
+                    synchronized (startupLock) {
+                        while (acceptingSummaryWake && currentScenePort == port && startupStarted && !startupPreparationComplete) {
+                            startupLock.wait();
+                        }
+                    }
+                    SceneSyncCoordinator coordinator = sceneSyncCoordinator;
+                    synchronized (scenePortLock) {
+                        if (currentScenePort != port || coordinator == null || !acceptingSummaryWake) {
+                            throw new IOException("游戏 Scene 同步连接已结束");
+                        }
+                    }
+                    registerScenePortWithCoordinator(port.port, port.binder, port.generation, port.sceneWorkerCount);
+                    // The initial registration sync may already have committed this exact source.
+                    if (!ContinuationContent.matchesCurrentSource(this, node)) {
+                        coordinator.awaitPublishedSceneSync(port.port, port.generation);
+                    }
+                    synchronized (scenePortLock) {
+                        if (currentScenePort != port) throw new IOException("游戏 Scene 同步连接已更换");
+                    }
+                    requireContinuationConflictResolved(node);
+                    if (!ContinuationContent.matchesCurrentSource(this, node)) {
+                        throw new IOException("同步后的 Scene 与当前原剧本不一致");
+                    }
+                    owner.complete(null);
+                } catch (Exception e) {
+                    owner.completeExceptionally(e);
+                } finally {
+                    synchronized (continuationMirrors) { continuationMirrors.remove(key, owner); }
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            synchronized (continuationMirrors) { continuationMirrors.remove(key, owner); }
+            owner.completeExceptionally(e);
+        }
+        return owner;
+    }
+
+    private static JSONObject readContinuationNode(ParcelFileDescriptor descriptor) throws Exception {
+        if (descriptor == null) throw new IllegalArgumentException("缺少续写节点");
+        try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(descriptor)) {
+            return JobValidator.parseJsonObject(IoUtils.readAllBytesLimited(input, TranslationJobStore.MAX_REQUEST_BYTES),
+                TranslationJobStore.MAX_REQUEST_BYTES, "continuation submission");
+        }
+    }
+
+    private static JSONObject continuationPlayback(JSONObject result) throws Exception {
+        JSONObject record = result.getJSONObject("record");
+        return new JSONObject().put("record_id", record.getString("id")).put("steps", record.getJSONArray("steps"));
+    }
+
     private void enforceAllowedCaller() {
         try {
             CallerVerifier.enforceAllowedCaller(
@@ -2735,7 +2913,7 @@ public final class TranslationService extends Service {
 
     private void scheduleTranslationDrain() {
         TranslationTaskExecutor executor = taskExecutor;
-        if (!foregroundStarted
+        if (!apiWorkOpen || !foregroundStarted
             || executor == null
             || jobStore == null
             || !jobStore.hasPendingJobs()) {
@@ -3185,7 +3363,10 @@ public final class TranslationService extends Service {
         }
         try {
             prepareStartupStoresOnce();
-            startupPreparationComplete = true;
+            synchronized (startupLock) {
+                startupPreparationComplete = true;
+                startupLock.notifyAll();
+            }
         } catch (Exception | Error failure) {
             closeIncompleteStartupRuntime();
             throw failure;
@@ -4535,6 +4716,7 @@ public final class TranslationService extends Service {
                 dispatchScenePortRegisteredLocked(published);
             }
         }
+        synchronized (startupLock) { startupLock.notifyAll(); }
         if (rejectedAfterRemoteWork) {
             deactivateScenePortGeneration(port, generation);
             if (linked) {
@@ -4621,6 +4803,7 @@ public final class TranslationService extends Service {
             unlinkScenePort(removed);
         }
         if (removed != null) {
+            synchronized (startupLock) { startupLock.notifyAll(); }
             Log.i(TAG, "Game Scene port detached");
         }
     }
@@ -5010,6 +5193,13 @@ public final class TranslationService extends Service {
     private TerminalDeliveryCoordinator.Callback
         createTerminalDeliveryCallback(CallbackRecord boundRecord) {
         return new TerminalDeliveryCoordinator.Callback() {
+            private void sendContinuation(String id, String kind, long generation, JSONObject message) throws IOException {
+                if (!sendPayload(id, message.toString().getBytes(StandardCharsets.UTF_8), boundRecord,
+                    fd -> boundRecord.callback.onContinuationResult(id, kind, generation, fd))) {
+                    throw new IOException("Could not deliver continuation " + id);
+                }
+            }
+
             @Override
             public void sendCompleted(
                 String requestId,
@@ -5018,6 +5208,11 @@ public final class TranslationService extends Service {
                 long connectionGeneration,
                 byte[] resultJson
             ) throws Exception {
+                if (jobStore.isContinuation(requestId)) {
+                    JSONObject result = JobValidator.parseJsonObject(resultJson, TranslationJobStore.MAX_RESULT_BYTES, "continuation result");
+                    sendContinuation(requestId, "completed", connectionGeneration, continuationPlayback(result));
+                    return;
+                }
                 if (!sendPayload(
                     requestId,
                     resultJson,
@@ -5041,6 +5236,11 @@ public final class TranslationService extends Service {
                 String message,
                 long connectionGeneration
             ) throws Exception {
+                if (jobStore.isContinuation(requestId)) {
+                    sendContinuation(requestId, "failed", connectionGeneration,
+                        new JSONObject().put("error", new JSONObject().put("code", errorType).put("message", message)));
+                    return;
+                }
                 try {
                     boundRecord.callback.onTranslationFailed(
                         requestId,

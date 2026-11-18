@@ -486,6 +486,22 @@ void AddSharedMember(
 
 }  // namespace
 
+std::string SourceBytes(const std::vector<SceneItem>& items,const std::vector<ProtectedToken>& protect) {
+    rapidjson::Document doc(rapidjson::kObjectType), scratch;
+    auto& a=doc.GetAllocator();
+    RequestBuildContext index;
+    rapidjson::Value rows(rapidjson::kArrayType), tokens, discard;
+    for(const auto& item:items) {
+        auto entry=EncodeSceneItem(item,a,scratch.GetAllocator(),index);
+        rows.PushBack(entry.local,a);
+    }
+    AddProtectArrays(protect,&tokens,&discard,a,scratch.GetAllocator());
+    doc.AddMember("scene_items",rows,a).AddMember("protect",tokens,a);
+    rapidjson::StringBuffer buf; rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+    if(!doc.Accept(writer)) return {};
+    return {buf.GetString(),buf.GetSize()};
+}
+
 bool EncodeCapturedScene(
     const Scene& scene,
     std::string* scene_json,
@@ -1056,3 +1072,10 @@ bool ApplyTranslationToScene(
 }
 
 }  // namespace het::translation::document_codec
+
+std::string EncodeContinuationSource(const ScenarioParseResult& parsed) {
+    return EncodeContinuationSource(parsed.scene_items,parsed.protect);
+}
+std::string EncodeContinuationSource(const std::vector<SceneItem>& items,const std::vector<ProtectedToken>& protect) {
+    return het::translation::document_codec::SourceBytes(items,protect);
+}

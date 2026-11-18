@@ -440,6 +440,9 @@ struct Scene {
 };
 
 using QuestPtrSet = std::unordered_map<OrderKey, void*, OrderKeyHash>;
+std::string EncodeContinuationSource(const ScenarioParseResult& parsed);
+std::string EncodeContinuationSource(const std::vector<SceneItem>& items,
+                                     const std::vector<ProtectedToken>& protect);
 
 struct QuestTargetSet {
     void* scenario_data_ptr = nullptr;

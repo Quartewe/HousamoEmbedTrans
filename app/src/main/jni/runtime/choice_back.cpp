@@ -143,7 +143,7 @@ public:
     }
 };
 
-struct Item { std::unique_ptr<Snapshot> snapshot; };
+struct Item { std::unique_ptr<Snapshot> snapshot; size_t routeSize = 0; };
 struct Node {
     Item item;
     std::unique_ptr<Node> previous;
@@ -384,10 +384,12 @@ bool WaitInput(void* self, const void* method) {
     auto node = std::unique_ptr<Node>(new (std::nothrow) Node);
     if (!node) { Invalidate("choice history allocation failed"); return result; }
     node->item.snapshot = std::move(candidate);
+    node->item.routeSize = continuation::RouteSize();
     node->previous = std::move(top);
     top = std::move(node);
     choiceRecorded = true;
     currentScene = SceneForPage(CurrentData());
+    continuation::AtChoice(engine.Get(),CurrentData());
     PublishPosition();
     LOGI("[ChoiceBack] recorded natural choice visit=%llu", static_cast<unsigned long long>(pageVisit));
     return result;
@@ -400,7 +402,8 @@ void Select(void* self, void* selection, const void* method) {
         return;
     }
     if (ours && executing && loadLease) return; // Unity owns the restore transaction.
-    if (ours) { selectedOnPage = true; waiting = false; }
+    if (ours && continuation::HandleSelection(selection)) return;
+    if (ours) { continuation::Selected(selection); selectedOnPage = true; waiting = false; }
     selectOriginal(self, selection, method);
 }
 void StartScenario(void* self, void* label, int page, const void* method) {
@@ -749,6 +752,8 @@ void PumpChoiceBack() {
             loadEngine.Reset();
             loadRoutine.Reset();
             currentScene = SceneForPage(CurrentData());
+            continuation::RestoreRoute(top->item.routeSize);
+            continuation::AtChoice(engine.Get(),CurrentData());
             PublishPosition();
             Complete(Restored);
         } else if (executing && std::chrono::steady_clock::now() >= deadline) {
@@ -761,7 +766,14 @@ void PumpChoiceBack() {
     {
         std::lock_guard<std::mutex> lock(mailboxMutex);
         if (!executing && pending) executing = std::move(pending);
+        else if (!executing && !occupied && !loadLease && !storyChanging && continuation::TakePlayback()) occupied=true;
         else return;
+    }
+    if (!executing) {
+        bool ok=active && !unavailable && waiting && choiceRecorded && continuation::Play(engine.Get(),CurrentData());
+        { std::lock_guard<std::mutex> lock(mailboxMutex); occupied=false; }
+        if (!ok) continuation::ReportError("续写剧本启动失败");
+        return;
     }
     if (executing->openStory) ProcessOpenStory();
     else ProcessRequest();
@@ -781,6 +793,11 @@ bool DispatchContinuationSelection(void* manager,void* selection) {
     return ok;
 }
 
+bool CanOfferContinuationAt(void* page) {
+    if (!ready.load() || !active || unavailable || page != currentPage.Get()) return false;
+    if (loadLease) return executing && loadLease->IsPage(page);
+    return !choiceRecorded && candidate && candidateVisit == pageVisit && candidate->IsPage(page);
+}
 
 static void QueueGameRequest(JNIEnv* env, jobject callback, jstring questLabel) {
     jclass klass = env->GetObjectClass(callback);

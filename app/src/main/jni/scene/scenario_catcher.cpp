@@ -2,6 +2,7 @@
 #include "translation/native_translation_pipeline.hpp"
 #include "block_queue.hpp"
 #include "scene/page_rec.hpp"
+#include "runtime/continuation_source.hpp"
 #include "shadowhook.h"
 
 #include <algorithm>
@@ -1994,6 +1995,8 @@ bool ParsePageRecScene(void* scenario_data, const std::string& entry_label,
     ScenarioParseRunner runner(scenario, true);
     auto output = runner.Run();
     if (output.status != ScenarioParseStatus::ok) return false;
+    if (!runner.HasTargetOfficialTranslation() && !output.target_map.empty())
+        PublishContinuationSource(scenario_data, output.result, output.target_map);
     *scene = BuildSceneDocument(std::move(output.result));
     scene->raw_lang = runner.RawLanguage();
     *labels = scenario.label_order;
@@ -2049,6 +2052,7 @@ bool CatchScenario(
         return false;
     }
 
+    PublishContinuationSource(scenario_data,output.result,output.target_map);
     target_set.target_map = std::move(output.target_map);
     
     std::string scene_name = scenario.result.scene;

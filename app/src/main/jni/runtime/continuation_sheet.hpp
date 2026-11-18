@@ -14,6 +14,7 @@ struct Sheet {
     utage::Root key;
     std::string entry;
     std::string scene;
+    std::string record;
     std::string merge;
     std::unordered_map<std::string, GeneratedStep> steps;
 };

@@ -2,12 +2,22 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include "rapidjson/document.h"
 
 namespace het::continuation {
 bool Install(uintptr_t base, const std::vector<unsigned char>& buildId);
+bool CaptureEnabled();
+bool IsPlaying();
 void EndSession();
+void LeaveChoice();
 void BeginPage(void* engine, void* page);
+void AtChoice(void* engine, void* page);
+bool HandleSelection(void* selection);
+void Selected(void* selection);
+size_t RouteSize();
+void RestoreRoute(size_t size);
 std::string SceneForGeneratedPage(void* page);
-bool PlayDialogue(void* engine, void* selection, const std::string& scene, const std::string& merge, const rapidjson::Value& steps);
-}
+// Claims only a previously accepted delivery for this visit.
+bool TakePlayback();
+bool Play(void* engine, void* page);
+void ReportError(const char* message);
+} // namespace het::continuation

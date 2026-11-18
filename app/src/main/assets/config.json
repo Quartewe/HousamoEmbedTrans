@@ -9,6 +9,13 @@
         "DebugOmitThinkingParameters": true,
         "OverwriteExistingJson": false,
         "SceneWorkerCount": 4,
+        "StoryContinuation": {
+            "Enabled": false,
+            "AllowCharacter": false,
+            "AllowBackground": false,
+            "AllowChoices": false,
+            "DialogueTarget": 20
+        },
         "SceneSync": {
             "AutoSyncOnNewTranslation": true,
             "ConflictResolutionMode": "manual"

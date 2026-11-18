@@ -18,6 +18,8 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 
+import org.json.JSONObject;
+import java.nio.charset.StandardCharsets;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,6 +67,9 @@ public final class TranslationServiceClient {
     }
 
     public interface ResultSink {
+        default boolean onContinuationResult(String requestId, byte[] resultJson, String leaseToken,
+            long connectionGeneration) { return false; }
+
         void onQuestPatch(String requestId, byte[] patchJson);
 
         boolean onSceneCompleted(
@@ -217,6 +222,12 @@ public final class TranslationServiceClient {
                         connectionGeneration
                     )
                 );
+            }
+
+            @Override
+            public void onContinuationResult(String requestId, String terminalKind, long generation, ParcelFileDescriptor fd) {
+                readTerminalPayloadAfterLease("continuation", requestId, terminalKind, generation, fd,
+                    (bytes, lease) -> resultSink.onContinuationResult(requestId, bytes, lease, generation));
             }
 
             @Override
@@ -652,6 +663,24 @@ public final class TranslationServiceClient {
             throw failure.get();
         }
         return result;
+    }
+
+    public boolean submitContinuation(String requestId, JSONObject node, String input) throws Exception {
+        ITranslationService service = requireRemote();
+        JSONObject submission = new JSONObject(node.toString()).put("input", input);
+        int status = withRequestPipe(submission.toString().getBytes(StandardCharsets.UTF_8), requestId,
+            fd -> service.submitContinuation(requestId, fd));
+        if (status == HetBridgeContract.ENQUEUE_RESULT_EXISTING) return true;
+        if (status != HetBridgeContract.ENQUEUE_RESULT_CREATED) throw new IOException("剧情续写未能加入任务队列");
+        return true;
+    }
+
+    public void prepareContinuation(JSONObject node) throws Exception {
+        ITranslationService service = requireRemote();
+        withRequestPipe(node.toString().getBytes(StandardCharsets.UTF_8), "prepare continuation", fd -> {
+            service.prepareContinuation(fd);
+            return null;
+        });
     }
 
     public static final class AdmissionRejectedException extends Exception {

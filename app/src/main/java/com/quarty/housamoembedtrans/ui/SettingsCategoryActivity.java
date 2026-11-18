@@ -731,11 +731,15 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
             slider.setValueFrom((float) spec.min);
             slider.setValueTo((float) spec.max);
             slider.setStepSize((float) spec.step);
+            if ("dialogue-target".equals(spec.id)) {
+                slider.setLabelFormatter(value -> formatSliderValue(spec, value));
+            }
             slider.setTrackHeight(dp(6));
             slider.setThumbRadius(dp(10));
             slider.setHaloRadius(dp(16));
             slider.setTickVisible(false);
-            float value = (float) readDouble(spec.path, spec.min);
+            float value = (float) readDouble(spec.path, "dialogue-target".equals(spec.id)
+                ? com.quarty.housamoembedtrans.storage.config.StoryContinuationSettings.DEFAULT_TARGET : spec.min);
             value = Math.max((float) spec.min, Math.min((float) spec.max, value));
             slider.setValue(value);
             valueView.setText(formatSliderValue(spec, value));
@@ -1114,6 +1118,9 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
     }
 
     private String formatSliderValue(FieldSpec spec, float value) {
+        if ("dialogue-target".equals(spec.id) && value == 0) {
+            return getString(R.string.continuation_unlimited);
+        }
         if (spec.integerSlider) {
             return String.valueOf(Math.round(value));
         }
@@ -1157,6 +1164,16 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
     }
 
     private void updateConditionalVisibility() {
+        if (hasField("continuation-enabled")) {
+            boolean enabled = isChecked("continuation-enabled");
+            for (String id : new String[]{"allow-character", "allow-background", "allow-choices"}) {
+                View control = controls.get(id);
+                if (control != null) {
+                    control.setEnabled(enabled);
+                    rows.get(id).setAlpha(enabled ? 1f : 0.5f);
+                }
+            }
+        }
         boolean streaming = isChecked("enable-streaming-response");
         setRowVisibility("repair-gradient-count", streaming);
         setRowVisibility("use-full-scene-for-repair", streaming);
@@ -1544,6 +1561,19 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
     }
 
     private static List<FieldSpec> fieldsFor(String categoryId) {
+        if (SettingsCategory.STORY_CONTINUATION.equals(categoryId)) {
+            return Arrays.asList(
+                bool("continuation-enabled", R.string.continuation_enable, R.string.continuation_enable_hint,
+                    new String[]{"StoryContinuation", "Enabled"}),
+                bool("allow-character", R.string.continuation_character, R.string.continuation_character_hint,
+                    new String[]{"StoryContinuation", "AllowCharacter"}),
+                bool("allow-background", R.string.continuation_background, R.string.continuation_background_hint,
+                    new String[]{"StoryContinuation", "AllowBackground"}),
+                bool("allow-choices", R.string.continuation_choices, R.string.continuation_choices_hint,
+                    new String[]{"StoryContinuation", "AllowChoices"}),
+                slider("dialogue-target", R.string.continuation_target, R.string.continuation_target_hint,
+                    new String[]{"StoryContinuation", "DialogueTarget"}, 0, 100, 5, true));
+        }
         if (SettingsCategory.TRANSLATION_SERVICE.equals(categoryId)) {
             return Arrays.asList(
                 select("protocol", R.string.settings_field_protocol, R.string.settings_field_hint_protocol,

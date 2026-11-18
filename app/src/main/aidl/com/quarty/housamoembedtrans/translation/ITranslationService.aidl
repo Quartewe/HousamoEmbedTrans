@@ -106,4 +106,7 @@ interface ITranslationService {
     /** Read-only extension probe. Zero/unsupported means no choice capability. */
     int getChoiceBackProtocolVersion();
     void requestOpenStory(String questLabel, IChoiceBackCallback callback);
+
+    int submitContinuation(String requestId, in ParcelFileDescriptor submission);
+    void prepareContinuation(in ParcelFileDescriptor node);
 }

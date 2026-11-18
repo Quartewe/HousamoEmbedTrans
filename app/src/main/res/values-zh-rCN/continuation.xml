@@ -1,0 +1,25 @@
+<resources>
+    <string name="continuation_title">剧情续写</string>
+    <string name="continuation_category_description">在剧情选项处输入主角原话，在游戏中播放续写回应。</string>
+    <string name="continuation_category_scope">生成设置从下次提交原话时生效。</string>
+    <string name="continuation_enable">开启续写</string>
+    <string name="continuation_enable_hint">在剧情选项中显示自由输入入口。</string>
+    <string name="continuation_character">允许修改角色演出</string>
+    <string name="continuation_character_hint">角色可以入场、退场、移动和切换表情。</string>
+    <string name="continuation_background">允许修改背景演出</string>
+    <string name="continuation_background_hint">续写可以切换本段剧情提供的背景。</string>
+    <string name="continuation_choices">允许节点内提供额外选项</string>
+    <string name="continuation_choices_hint">续写中可以出现新的剧情选项和对应分支。</string>
+    <string name="continuation_target">对白目标数量</string>
+    <string name="continuation_target_hint">每条路线在回到原剧情前预计生成的对白条数。</string>
+    <string name="continuation_unlimited">无上限</string>
+    <string name="continuation_input">输入原话</string>
+    <string name="continuation_input_hint">你想说什么？</string>
+    <string name="continuation_submit">提交</string>
+    <string name="continuation_wait">正在生成回应</string>
+    <string name="continuation_cancel_generation">取消生成</string>
+    <string name="continuation_offline">HET 已断开，请打开 HET 重新连接。</string>
+    <string name="continuation_admission_failed">HET 未能接收本次续写请求。</string>
+    <string name="continuation_playback_failed">当前选项无法开始播放这段续写。</string>
+    <string name="continuation_error">剧情续写失败</string>
+</resources>

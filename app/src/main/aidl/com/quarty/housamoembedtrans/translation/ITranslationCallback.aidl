@@ -29,4 +29,6 @@ oneway interface ITranslationCallback {
         String message,
         long connectionGeneration
     );
+
+    void onContinuationResult(String requestId, String terminalKind, long connectionGeneration, in ParcelFileDescriptor result);
 }

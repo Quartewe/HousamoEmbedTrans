@@ -1,0 +1,514 @@
+package com.quarty.housamoembedtrans.continuation;
+
+import android.content.Context;
+
+import com.quarty.housamoembedtrans.context.history.SceneSummaryResolver;
+import com.quarty.housamoembedtrans.context.store.SceneContextStore;
+import com.quarty.housamoembedtrans.logging.Log;
+import com.quarty.housamoembedtrans.translation.request.SceneTranslationRequestBuilder;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/** Immutable source indexes and one reusable choice window for this exact Scene revision. */
+final class StoryPrompt {
+    final byte[] bytes;
+    final JSONObject scene;
+    final String hash;
+    private final Map<String, JSONObject> texts = new HashMap<>();
+    private final Map<String, JSONObject> choices = new HashMap<>();
+    private final Set<String> selectedOptionOrders = new HashSet<>();
+    private final Map<String, LineTail> following = new HashMap<>();
+    private final Map<String, String> protect = new HashMap<>();
+    private final List<JSONObject> characters = new ArrayList<>();
+    private final List<JSONObject> terms = new ArrayList<>();
+
+    private byte[] cachedKey;
+    private Local cachedLocal;
+
+    private static final class LineTail {
+        final JSONObject item;
+        final LineTail next;
+
+        LineTail(JSONObject item, LineTail next) {
+            this.item = item;
+            this.next = next;
+        }
+    }
+
+    StoryPrompt(byte[] bytes) throws Exception {
+        this.bytes = bytes;
+        scene = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
+        hash = ContinuationContent.fingerprint(scene);
+        JSONArray tokens = scene.getJSONArray("protect");
+        for (int i = 0; i < tokens.length(); i++) {
+            JSONObject token = tokens.getJSONObject(i);
+            protect.put(token.getString("label"), token.getString("origin"));
+        }
+        index(scene.getJSONArray("scene_items"), null);
+
+        JSONObject cast = scene.optJSONObject("character");
+        if (cast != null) {
+            addEntries(characters, cast.optJSONArray("high_weight"));
+            addEntries(characters, cast.optJSONArray("low_weight"));
+        }
+        addEntries(terms, scene.optJSONArray("game_terms"));
+    }
+
+    private static void addEntries(List<JSONObject> destination, JSONArray entries) throws JSONException {
+        if (entries == null) return;
+        for (int i = 0; i < entries.length(); i++) destination.add(entries.getJSONObject(i));
+    }
+
+    private static String order(JSONObject position) throws JSONException {
+        return position.getInt("label_index") + "/" + position.getInt("page_no") + "/"
+            + position.getInt("cmd_index") + "/" + position.getInt("sub_index");
+    }
+
+    // Sibling branches share an immutable tail through their enclosing merge.
+    private void index(JSONArray items, LineTail next) throws JSONException {
+        for (int i = items.length() - 1; i >= 0; i--) {
+            JSONObject item = items.getJSONObject(i);
+            String key = order(item.getJSONObject("order"));
+            switch (item.getString("type")) {
+                case "text":
+                    texts.put(key, item);
+                    next = new LineTail(item, next);
+                    break;
+                case "choice":
+                    choices.put(key, item);
+                    following.put(key, next);
+                    JSONArray branches = item.getJSONArray("branches");
+                    for (int j = 0; j < branches.length(); j++) {
+                        JSONObject branch = branches.getJSONObject(j);
+                        JSONArray options = branch.getJSONArray("options");
+                        for (int k = 0; k < options.length(); k++) {
+                            JSONObject option = options.getJSONObject(k);
+                            String optionOrder = order(option.getJSONObject("order"));
+                            texts.put(optionOrder, option);
+                            selectedOptionOrders.add(optionOrder);
+                        }
+                        index(branch.getJSONArray("following_text"), next);
+                    }
+                    next = null;
+                    break;
+                case "if":
+                    index(item.getJSONArray("following_text"), next);
+                    next = null;
+                    break;
+                default:
+                    throw new JSONException("未知原剧情条目");
+            }
+        }
+    }
+
+    private JSONObject line(JSONObject item, String language) throws JSONException {
+        JSONObject translations = item.optJSONObject("translations");
+        String text = translations == null ? "" : translations.optString(language);
+        if (!ContinuationContent.hasText(text)) text = item.getString("text");
+        if (text.contains("__HET__")) {
+            for (Map.Entry<String, String> token : protect.entrySet()) {
+                text = text.replace(token.getKey(), token.getValue());
+            }
+        }
+        return new JSONObject().put("speaker", item.optString("speaker")).put("text", text);
+    }
+
+    private static final class PlayedLine {
+        final JSONObject text;
+        final JSONObject order;
+        final int routeIndex;
+
+        PlayedLine(JSONObject text, JSONObject order, int routeIndex) {
+            this.text = text;
+            this.order = order;
+            this.routeIndex = routeIndex;
+        }
+    }
+
+    private static final class Window {
+        final JSONArray recent = new JSONArray();
+        final JSONArray after = new JSONArray();
+        final Set<String> originalLines = new HashSet<>();
+    }
+
+    private Window window(JSONArray route, String originalOrder, String language) throws JSONException {
+        List<PlayedLine> played = new ArrayList<>();
+        for (int i = 0; i < route.length(); i++) {
+            JSONObject ref = route.getJSONObject(i);
+            JSONObject rendered;
+            JSONObject position = null;
+            position = ref.optJSONObject("order");
+            if (position == null) position = ref;
+            String key = order(position);
+            JSONObject item = texts.get(key);
+            if (item == null) continue;
+            rendered = line(item, language);
+            if (selectedOptionOrders.contains(key)) rendered.put("speaker", "mc");
+            if (rendered != null) played.add(new PlayedLine(rendered, position, i));
+        }
+
+        Window window = new Window();
+        int start = Math.max(0, played.size() - 10);
+        while (start > 0) {
+            PlayedLine previous = played.get(start - 1);
+            if (!question(previous.text) && !samePage(previous.order, played.get(start).order)) break;
+            start--;
+        }
+        for (int i = start; i < played.size(); i++) {
+            PlayedLine row = played.get(i);
+            window.recent.put(row.text);
+            if (row.order != null) window.originalLines.add(order(row.order));
+        }
+        JSONObject previous = null;
+        for (LineTail tail = following.get(originalOrder); tail != null; tail = tail.next) {
+            JSONObject position = tail.item.getJSONObject("order");
+            int count = window.after.length();
+            if (count >= 5 && !question(window.after.getJSONObject(count - 1)) && !samePage(previous, position)) break;
+            window.after.put(line(tail.item, language));
+            window.originalLines.add(order(position));
+            previous = position;
+        }
+        return window;
+    }
+
+    private JSONArray options(JSONObject original, String language) throws JSONException {
+        JSONArray result = new JSONArray();
+        JSONArray branches = original.getJSONArray("branches");
+        for (int i = 0; i < branches.length(); i++) {
+            JSONArray choices = branches.getJSONObject(i).getJSONArray("options");
+            for (int j = 0; j < choices.length(); j++) result.put(line(choices.getJSONObject(j), language).getString("text"));
+        }
+        return result;
+    }
+    private static JSONObject screen(JSONObject screen, boolean actors) throws JSONException {
+        JSONObject view = ContinuationContent.project(screen, "background");
+        JSONArray cast = screen.optJSONArray("characters");
+        JSONArray visible = new JSONArray();
+        if (cast != null) {
+            for (int i = 0; i < cast.length(); i++) {
+                JSONObject actor = cast.getJSONObject(i);
+                visible.put(ContinuationContent.project(actor, "character", "name", "pattern"));
+            }
+        }
+        return view.put("characters", visible);
+    }
+
+    // Only human-readable fields in the local story are evidence of a name or term.
+    private static String corpus(Window window, JSONArray options, JSONArray branches, JSONObject view)
+            throws JSONException {
+        StringBuilder story = new StringBuilder();
+        appendLines(story, window.recent);
+        appendLines(story, window.after);
+        appendOptions(story, options);
+        for (int i = 0; i < branches.length(); i++) {
+            JSONObject branch = branches.getJSONObject(i);
+            appendOptions(story, branch.getJSONArray("options"));
+            appendLines(story, branch.getJSONArray("evidence"));
+        }
+        append(story, view.optString("background"));
+        JSONArray visible = view.getJSONArray("characters");
+        for (int i = 0; i < visible.length(); i++) {
+            JSONObject actor = visible.getJSONObject(i);
+            append(story, actor.optString("name"));
+            append(story, actor.optString("character"));
+        }
+        return story.toString();
+    }
+
+    private static void append(StringBuilder story, String text) {
+        if (!text.isEmpty()) story.append(text).append('\n');
+    }
+
+    private static void appendLines(StringBuilder story, JSONArray lines) throws JSONException {
+        for (int i = 0; i < lines.length(); i++) {
+            JSONObject row = lines.getJSONObject(i);
+            if (row.opt("speaker") instanceof String) append(story, row.getString("speaker"));
+            append(story, row.getString("text"));
+        }
+    }
+
+    private static void appendOptions(StringBuilder story, JSONArray options) throws JSONException {
+        for (int i = 0; i < options.length(); i++) append(story, options.getString(i));
+    }
+
+    private static final class Matches {
+        final Set<JSONObject> cast = new HashSet<>();
+        final Set<JSONObject> aliases = new HashSet<>();
+        final Set<JSONObject> terms = new HashSet<>();
+        final Set<String> relationshipTargets = new HashSet<>();
+
+        void include(Matches other) {
+            cast.addAll(other.cast);
+            aliases.addAll(other.aliases);
+            terms.addAll(other.terms);
+            relationshipTargets.addAll(other.relationshipTargets);
+        }
+    }
+
+    private Matches matches(String corpus) throws JSONException {
+        Matches hits = new Matches();
+        for (JSONObject person : characters) {
+            boolean involved = mentioned(person, corpus, "name");
+            JSONArray aliases = person.optJSONArray("aliases");
+            if (aliases != null) {
+                for (int i = 0; i < aliases.length(); i++) {
+                    JSONObject alias = aliases.getJSONObject(i);
+                    if (mentioned(alias, corpus, "name")) {
+                        hits.aliases.add(alias);
+                        involved = true;
+                    }
+                }
+            }
+            if (involved) {
+                hits.cast.add(person);
+                // Relationship targets in Scene use the source name, even if the dialogue used a translation.
+                hits.relationshipTargets.add(person.getString("name"));
+            }
+            // A target can be mentioned directly even when there is no profile for them in this Scene.
+            JSONArray relationships = person.optJSONArray("relationships");
+            if (relationships != null) {
+                for (int i = 0; i < relationships.length(); i++) {
+                    String target = relationships.getJSONObject(i).getString("target");
+                    if (!target.isEmpty() && corpus.contains(target)) hits.relationshipTargets.add(target);
+                }
+            }
+        }
+        for (JSONObject term : terms) {
+            if (mentioned(term, corpus, "term")) hits.terms.add(term);
+        }
+        return hits;
+    }
+
+    private void addProfiles(JSONObject input, Matches hits) throws JSONException {
+        JSONArray profiles = new JSONArray();
+        for (JSONObject person : characters) {
+            if (!hits.cast.contains(person)) continue;
+            JSONObject brief = ContinuationContent.project(person, "name", "i18n", "speech_style");
+            JSONArray aliases = person.optJSONArray("aliases");
+            JSONArray matched = new JSONArray();
+            if (aliases != null) {
+                for (int i = 0; i < aliases.length(); i++) {
+                    JSONObject alias = aliases.getJSONObject(i);
+                    if (hits.aliases.contains(alias)) matched.put(alias);
+                }
+            }
+            if (matched.length() > 0) brief.put("aliases", matched);
+            JSONArray relationships = person.optJSONArray("relationships");
+            JSONArray related = new JSONArray();
+            if (relationships != null) {
+                for (int i = 0; i < relationships.length(); i++) {
+                    JSONObject relationship = relationships.getJSONObject(i);
+                    if (hits.relationshipTargets.contains(relationship.getString("target"))) related.put(relationship);
+                }
+            }
+            if (related.length() > 0) brief.put("relationships", related);
+            profiles.put(brief);
+        }
+        JSONArray matchedTerms = new JSONArray();
+        for (JSONObject term : terms) {
+            if (hits.terms.contains(term)) matchedTerms.put(term);
+        }
+        input.put("characters", profiles).put("terms", matchedTerms);
+    }
+
+    static final class Local {
+        final String body;
+        final String catalog;
+        final Matches baseMatches;
+
+        Local(JSONObject body, JSONObject catalog, Matches baseMatches) {
+            this.body = body.toString();
+            this.catalog = catalog.toString();
+            this.baseMatches = baseMatches;
+        }
+
+        JSONObject resources() throws JSONException {
+            return new JSONObject(catalog);
+        }
+    }
+
+    Local local(Context context, JSONObject node, String language, boolean actors, boolean backgrounds) throws Exception {
+        JSONObject identity = ContinuationContent.project(node, "scene", "source_hash", "source", "route", "screen");
+        String summary = previousSummary(context, scene.getString("scene"), language);
+        byte[] key = SceneTranslationRequestBuilder.toCanonicalBytes(identity
+            .put("language", language).put("allow_character", actors).put("allow_background", backgrounds)
+            .put("previous_summary", summary));
+        synchronized (this) {
+            if (Arrays.equals(cachedKey, key)) return cachedLocal;
+            String originalOrder = order(node.getJSONObject("source").getJSONObject("order"));
+            JSONObject original = choices.get(originalOrder);
+            if (original == null) throw new JSONException("当前选项在原剧本中没有对应位置");
+            Window window = window(node.getJSONArray("route"), originalOrder, language);
+            JSONArray options = options(original, language);
+            JSONArray premises = branchReferences(original.getJSONArray("branches"), window.after, language);
+            JSONObject view = screen(node.getJSONObject("screen"), actors);
+            JSONObject catalog = new JSONObject();
+            JSONObject body = new JSONObject()
+                .put("recent", window.recent)
+                .put("current_options", options)
+                .put("after_merge", window.after)
+                .put("screen", view)
+                .put("language", language)
+                .put("previous_summary", summary);
+            if (premises.length() > 0) body.put("alternative_branch_references", premises);
+            Matches hits = matches(corpus(window, options, premises, view));
+            Local prepared = new Local(body, catalog, hits);
+            cachedLocal = prepared;
+            cachedKey = key;
+            return prepared;
+        }
+    }
+
+    JSONArray messages(Local local, String input, JSONObject generation, JSONObject catalog) throws JSONException {
+        // Give each submission its own payload. Nothing from this input is published to the node cache.
+        JSONObject body = new JSONObject(local.body).put("input", input);
+        if (catalog.length() > 0) body.put("resources", catalog);
+        Matches hits = matches(input);
+        hits.include(local.baseMatches);
+        addProfiles(body, hits);
+        return new JSONArray()
+            .put(new JSONObject().put("role", "system").put("content", instructions(generation)))
+            .put(new JSONObject().put("role", "user").put("content", body.toString()));
+    }
+
+    private static String instructions(JSONObject generation) throws JSONException {
+        int target = generation.getInt("dialogue_target");
+        StringBuilder instructions = new StringBuilder(
+            "玩家输入是主角刚说出的原话。从其他角色的回应或旁白开始，使用 language 指定的语言。"
+            + "recent 是实际经历，current_options 是眼前可选的发言，after_merge 是随后原剧情。"
+            + "alternative_branch_references 是未发生的原分支备选依据。写到能自然回到合流位置为止。"
+            + "只输出一个 JSON 对象。成功时返回 status 为 ok 和有序的 steps 数组。"
+            + "dialogue step 的字段是 type=dialogue、speaker、text。旁白可用空名字。每条完整路线至少有一条对白。");
+        if (target != 0) instructions.append("每条路线生成 ").append(target).append(" 条左右的对白。");
+        return instructions.append("只用上文列出的类型和动作，不返回跳转标签。")
+            .append("拒绝时返回 status=error、error={code:refused,message:原因}。").toString();
+    }
+
+    private static boolean samePage(JSONObject a, JSONObject b) throws JSONException {
+        return a != null && b != null && a.getInt("label_index") == b.getInt("label_index")
+            && a.getInt("page_no") == b.getInt("page_no");
+    }
+
+    private static boolean beforeOrAt(JSONObject a, JSONObject b) throws JSONException {
+        int page = Integer.compare(a.getInt("page_no"), b.getInt("page_no"));
+        return page < 0 || page == 0 && a.getInt("cmd_index") <= b.getInt("cmd_index");
+    }
+
+    private static final Pattern NAMED_REFERENCE =
+        Pattern.compile("[「『《“]([^「」『』《》“”\\n]{2,40})[」』》”]");
+
+    // Cite a branch only when the merge text shares a term or a quoted name.
+    private JSONArray branchReferences(JSONArray branches, JSONArray after, String language) throws JSONException {
+        StringBuilder upcoming = new StringBuilder();
+        for (int i = 0; i < after.length(); i++) append(upcoming, after.getJSONObject(i).getString("text"));
+        String text = upcoming.toString();
+        Set<String> anchors = new HashSet<>();
+        Matcher names = NAMED_REFERENCE.matcher(text);
+        while (names.find()) anchors.add(names.group(1));
+        for (JSONObject term : terms) {
+            if (!mentioned(term, text, "term")) continue;
+            String canonical = term.getString("term");
+            if (!canonical.isEmpty()) anchors.add(canonical);
+            JSONObject translations = term.optJSONObject("i18n");
+            if (translations == null) continue;
+            for (Iterator<String> it = translations.keys(); it.hasNext();) {
+                String translated = translations.optString(it.next());
+                if (!translated.isEmpty()) anchors.add(translated);
+            }
+        }
+
+        JSONArray references = new JSONArray();
+        if (anchors.isEmpty()) return references;
+        for (int i = 0; i < branches.length(); i++) {
+            JSONObject branch = branches.getJSONObject(i);
+            JSONArray rows = branch.getJSONArray("following_text");
+            JSONArray evidence = new JSONArray();
+            JSONObject previous = null;
+            boolean previousIncluded = false;
+            boolean includeAnswer = false;
+            for (int j = 0; j < rows.length(); j++) {
+                JSONObject row = rows.getJSONObject(j);
+                if (!"text".equals(row.getString("type"))) {
+                    previous = null;
+                    previousIncluded = false;
+                    includeAnswer = false;
+                    continue;
+                }
+                JSONObject candidate = line(row, language);
+                String sentence = candidate.getString("text");
+                boolean matches = false;
+                for (String anchor : anchors) {
+                    if (sentence.contains(anchor)) {
+                        matches = true;
+                        break;
+                    }
+                }
+                if (matches && !previousIncluded && previous != null && question(previous)) evidence.put(previous);
+                previousIncluded = matches || includeAnswer;
+                if (previousIncluded) evidence.put(candidate);
+                includeAnswer = matches && question(candidate);
+                previous = candidate;
+            }
+            if (evidence.length() > 0) {
+                JSONArray options = new JSONArray();
+                JSONArray entries = branch.getJSONArray("options");
+                for (int j = 0; j < entries.length(); j++) {
+                    options.put(line(entries.getJSONObject(j), language).getString("text"));
+                }
+                references.put(new JSONObject().put("options", options).put("evidence", evidence));
+            }
+        }
+        return references;
+    }
+
+    private static boolean question(JSONObject line) {
+        String text = line.optString("text").trim();
+        return text.endsWith("？") || text.endsWith("?") || text.endsWith("？」");
+    }
+
+    private static boolean mentioned(JSONObject item, String corpus, String key) {
+        String name = item.optString(key);
+        if (!name.isEmpty() && corpus.contains(name)) return true;
+        JSONObject translated = item.optJSONObject("i18n");
+        if (translated == null) return false;
+        for (Iterator<String> it = translated.keys(); it.hasNext();) {
+            String value = translated.optString(it.next());
+            if (!value.isEmpty() && corpus.contains(value)) return true;
+        }
+        return false;
+    }
+
+    private static String previousSummary(Context context, String scene, String language) {
+        try {
+            SceneContextStore store = new SceneContextStore(context);
+            String active = store.getActiveContextId();
+            if (active == null || active.isEmpty()) return null;
+            JSONArray scenes = store.getContext(active).getJSONArray("scenes");
+            String previous = null;
+            for (int i = 0; i < scenes.length(); i++) {
+                JSONObject entry = scenes.getJSONObject(i);
+                if (scene.equals(entry.getString("scene"))) return previous;
+                SceneSummaryResolver.Resolved resolved =
+                    SceneSummaryResolver.resolve(entry.optJSONObject("summaries"), language);
+                if (resolved != null) previous = resolved.text;
+            }
+        } catch (Exception e) {
+            Log.w("HET.Continuation", "前情摘要不可用", e);
+        }
+        return null;
+    }
+}

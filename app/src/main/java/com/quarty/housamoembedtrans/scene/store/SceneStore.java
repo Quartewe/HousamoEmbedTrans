@@ -2379,7 +2379,7 @@ public final class SceneStore {
         if (!IoUtils.atomicFileExists(file)) {
             throw new RawSceneFailure(
                 RawSceneFailureKind.READ,
-                new IOException("scene file does not exist")
+                new java.io.FileNotFoundException("scene file does not exist")
             );
         }
         byte[] raw;

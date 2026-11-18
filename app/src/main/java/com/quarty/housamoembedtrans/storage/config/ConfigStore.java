@@ -336,6 +336,9 @@ public final class ConfigStore {
             File userFile = getUserFile(name);
             rejectPendingDictionaryKeys(name, json);
             writeJsonUnrestricted(userFile, name, json);
+            if (CONFIG_FILE_NAME.equals(name)) {
+                context.getContentResolver().notifyChange(StoryContinuationSettings.configUri(), null);
+            }
         }
     }
 
@@ -851,6 +854,9 @@ public final class ConfigStore {
                     return null;
                 }
             );
+            if (CONFIG_FILE_NAME.equals(name)) {
+                context.getContentResolver().notifyChange(StoryContinuationSettings.configUri(), null);
+            }
         }
     }
 
@@ -966,6 +972,7 @@ public final class ConfigStore {
 
         JSONObject userSettings = config.getJSONObject("UserSettings");
         StartupSettings.isRubyTranslationEnabled(userSettings);
+        StoryContinuationSettings.read(config);
         userSettings.getBoolean("EnablePageRecDebug");
         if (userSettings.has("EnableParseOnlyDebug")
             && !(userSettings.get("EnableParseOnlyDebug") instanceof Boolean)) {
