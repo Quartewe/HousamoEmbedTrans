@@ -287,7 +287,9 @@ namespace {
             }
         }
 
+        auto originals = GetContinuationOriginalRows(target_set.scenario_data_ptr);
         for (const ItemWriteBlock& write_block : write_blocks) {
+            if (originals) originals->BeforeWrite(write_block.strings, *write_block.raw_slot);
             g_write_barrier(write_block.strings, write_block.raw_slot, write_block.managed_string);
         }
 

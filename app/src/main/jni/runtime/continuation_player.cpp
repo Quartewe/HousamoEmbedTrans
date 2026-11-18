@@ -19,7 +19,6 @@ using Alloc = Document::AllocatorType;
 namespace {
 std::atomic<bool> installed{false};
 struct Source {
-    uint32_t weak = 0;
     std::string scene, hash, capturedHash;
     std::unordered_map<void*, std::vector<OrderKey>> pages;
     struct ContextAdvance {
@@ -40,13 +39,16 @@ struct Source {
             nextContext.push_back({label.next_context, label.stop});
         }
     }
-    ~Source() {
-        if (weak)
-            api.gchandle_free(weak);
-    }
+};
+struct LiveScenario {
+    uint32_t weak;
+    ContinuationOriginalRows originals;
+    std::shared_ptr<Source> published;
+    explicit LiveScenario(uint32_t handle) : weak(handle) {}
+    ~LiveScenario() { api.gchandle_free(weak); }
 };
 std::mutex sourcesMutex;
-std::unordered_map<void*, std::shared_ptr<Source>> sources;
+std::unordered_map<void*, std::shared_ptr<LiveScenario>> sources;
 std::mutex sheetsMutex;
 std::unordered_set<void*> temporary;
 std::vector<std::unique_ptr<Sheet>> sheets;
@@ -122,11 +124,28 @@ void* PageScenario(void* engine, void* page) {
     return FindScenarioDataForPosition(manager, label,
                                        api.Method(api.object_get_class(manager), "FindScenarioData", 1));
 }
+// Caller holds sourcesMutex. Validate the handle even if an address is reused.
+std::shared_ptr<LiveScenario> FindLive(void* scenario) {
+    auto it = sources.find(scenario);
+    if (it == sources.end() || api.gchandle_get_target(it->second->weak) != scenario) return {};
+    return it->second;
+}
+std::shared_ptr<LiveScenario> GetLive(void* scenario) {
+    if (!installed || !scenario) return {};
+    std::lock_guard<std::mutex> lock(sourcesMutex);
+    if (auto live = FindLive(scenario)) return live;
+    for (auto it = sources.begin(); it != sources.end();) {
+        if (!api.gchandle_get_target(it->second->weak)) it = sources.erase(it);
+        else ++it;
+    }
+    auto weak = api.gchandle_new_weakref(scenario, false);
+    if (!weak) return {};
+    return sources[scenario] = std::make_shared<LiveScenario>(weak);
+}
 std::shared_ptr<Source> FindSource(void* scenario) {
     std::lock_guard<std::mutex> lock(sourcesMutex);
-    auto it = sources.find(scenario);
-    return it != sources.end() && api.gchandle_get_target(it->second->weak) == scenario ? it->second
-                                                                                        : nullptr;
+    auto live = FindLive(scenario);
+    return live ? live->published : nullptr;
 }
 struct JavaCall {
     JNIEnv* env = nullptr;
@@ -573,16 +592,26 @@ void AddHistory(void* self, void* selection, const void* method) {
 void Publish(void* scenario, const ScenarioParseResult& parsed, const QuestPtrSet& targets) {
     if (!installed || !scenario || targets.empty())
         return;
-    const auto previous = FindSource(scenario);
+    auto live = GetLive(scenario);
+    if (!live) return;
     const auto& proof = parsed.continuation_source;
-    if (previous && (!previous->nextContext.empty() || parsed.continuation_flow.empty()) &&
-        (proof.original_hash.empty() || (previous->hash == proof.original_hash
-        && (proof.captured_hash == proof.original_hash || previous->capturedHash == proof.captured_hash))))
-        return;
+    decltype(Source::pages) pages;
+    for (const auto& target : targets)
+        pages[target.second].push_back(target.first);
+    auto keepPublished = [&] {
+        const auto& previous = live->published;
+        if (!previous || (previous->nextContext.empty() && !parsed.continuation_flow.empty())) return false;
+        if (proof.original_hash.empty()) return true;
+        if (previous->hash != proof.original_hash) return false;
+        // An ordinary capture can follow a richer PageRec projection.
+        if (proof.captured_hash == proof.original_hash && previous->capturedHash != previous->hash) return true;
+        return previous->capturedHash == proof.captured_hash && previous->pages == pages;
+    };
+    {
+        std::lock_guard<std::mutex> lock(sourcesMutex);
+        if (keepPublished()) return;
+    }
     auto s = std::make_shared<Source>(parsed);
-    s->weak = api.gchandle_new_weakref(scenario, false);
-    if (!s->weak)
-        return;
     s->scene = parsed.scene;
     s->hash = parsed.continuation_source.original_hash.empty()
         ? HashContinuationSource(EncodeContinuationSource(parsed)) : parsed.continuation_source.original_hash;
@@ -598,16 +627,10 @@ void Publish(void* scenario, const ScenarioParseResult& parsed, const QuestPtrSe
         s->labels.emplace(parsed.stage.labels[i], static_cast<int>(i));
     for (auto& state : parsed.stage.states)
         s->stageOrders.insert(state.order);
-    for (auto& target : targets)
-        s->pages[target.second].push_back(target.first);
     std::lock_guard<std::mutex> lock(sourcesMutex);
-    for (auto it = sources.begin(); it != sources.end();) {
-        if (!api.gchandle_get_target(it->second->weak))
-            it = sources.erase(it);
-        else
-            ++it;
-    }
-    sources[scenario] = std::move(s);
+    if (keepPublished()) return;
+    s->pages = std::move(pages);
+    live->published = std::move(s);
 }
 bool IsTemporary(void* scenario) {
     if (!installed || !scenario)
@@ -878,6 +901,21 @@ bool Queue(std::string token, std::string record, std::string steps) {
 }
 } // namespace het::continuation
 
+void ContinuationOriginalRows::BeforeWrite(void* column_array, void* current_text) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!rows_.count(column_array)) rows_.emplace(column_array, read_il2cpp_string(current_text));
+}
+bool ContinuationOriginalRows::Restore(void* column_array, std::string& text) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = rows_.find(column_array);
+    if (it == rows_.end()) return false;
+    text = it->second;
+    return true;
+}
+std::shared_ptr<ContinuationOriginalRows> GetContinuationOriginalRows(void* scenario) {
+    auto live = het::continuation::GetLive(scenario);
+    return live ? std::shared_ptr<ContinuationOriginalRows>(live, &live->originals) : nullptr;
+}
 std::string HashContinuationSource(const std::string& source_document, bool legacy) {
     return het::continuation::SourceHash(source_document, legacy);
 }

@@ -86,6 +86,7 @@ struct RuntimeLabelNode {
 };
 
 struct RuntimeScenario {
+    void* instance = nullptr;
     ScenarioResult result;
     std::unordered_map<std::string, RuntimeLabelNode> labels;
     std::vector<std::string> label_order;
@@ -244,7 +245,7 @@ static std::string ReadLabelName(void* label_data) {
     return read_il2cpp_string(label_ptr);
 }
 
-static std::string ReadRowStringColumn(void* cmd_item, int column_index) {
+static std::string ReadRowStringColumn(void* cmd_item, int column_index, void** column_array = nullptr) {
     if (column_index < 0) {
         return {};
     }
@@ -263,6 +264,7 @@ static std::string ReadRowStringColumn(void* cmd_item, int column_index) {
     }
 
     void* text_ptr = read_ptr(strings, array.first_element + column_index * array.pointer_size);
+    if (column_array) *column_array = strings;
     return read_il2cpp_string(text_ptr);
 }
 
@@ -541,6 +543,7 @@ static bool ParseScenarioLabels(
     const auto& array = layout.il2cpp_array;
     const auto& label_layout = layout.scenario_label_data;
 
+    out->instance = scenario_data;
     out->result.entry_label = entry_label;
     out->result.scene = read_il2cpp_string(read_ptr(scenario_data, scenario.name));
 
@@ -1540,7 +1543,8 @@ public:
     explicit ScenarioParseRunner(const RuntimeScenario& scenario, bool page_rec = false,
                                  bool retain_official = false)
         : scenario_(scenario), page_rec_(page_rec), retain_official_(page_rec || retain_official),
-          collect_original_(page_rec && retain_official), collect_flow_(retain_official) {}
+          collect_original_(page_rec && retain_official), collect_flow_(retain_official),
+          originals_((!page_rec || collect_original_) ? GetContinuationOriginalRows(scenario.instance) : nullptr) {}
 
     std::string RawLanguage() const {
         switch (language_mask_) {
@@ -1555,11 +1559,11 @@ public:
         if (!collect_original_) return {};
         std::string view = HashContinuationSource(EncodeContinuationSource(captured));
         if (view.empty()) return {};
-        if ((language_mask_ & 3) == 0) return {view, view};
+        if ((language_mask_ & 3) == 0 && !raw_was_replaced_) return {view, view};
         std::string original_document;
         std::vector<ContinuationPosition> positions;
-        if (has_localized_only_row_) {
-            // A translated-only option can change choice grouping/sub_index in the JP projection.
+        if (different_projection_rows_) {
+            // An added or missing option can change choice grouping/sub_index in the JP projection.
             // Use the ordinary parser's actual tree instead of substituting an empty string.
             ScenarioParseRunner jp(scenario_, false, true);
             auto rows = jp.Run();
@@ -1968,14 +1972,23 @@ private:
                 }
                 language = 2;
             }
-            if (collect_original_ || raw_text.empty()) japanese = ReadRowStringColumn(cmd_item, columns.raw);
-            if (raw_text.empty()) {
-                raw_text = japanese;
-                language = 4;
+            if (collect_original_ || raw_text.empty()) {
+                void* column_array = nullptr;
+                japanese = ReadRowStringColumn(cmd_item, columns.raw, &column_array);
+                if (raw_text.empty()) {
+                    raw_text = japanese;
+                    language = 4;
+                }
+                if (originals_ && originals_->Restore(column_array, japanese)) {
+                    raw_was_replaced_ = true;
+                    if (raw_text.empty() && !japanese.empty()) different_projection_rows_ = true;
+                }
             }
             if (!raw_text.empty()) language_mask_ |= language;
         } else {
-            raw_text = ReadRowStringColumn(cmd_item, columns.raw);
+            void* column_array = nullptr;
+            raw_text = ReadRowStringColumn(cmd_item, columns.raw, &column_array);
+            if (originals_) originals_->Restore(column_array, raw_text);
         }
         if (raw_text.empty()) {
             return TextStatus::empty;
@@ -2033,7 +2046,7 @@ private:
         }
         if (collect_original_) {
             if (japanese.empty()) {
-                has_localized_only_row_ = true;
+                different_projection_rows_ = true;
             } else {
                 auto jp = CatchTextLabel(japanese, g_runtime_config.enable_ruby_translation,
                                          order, original_protect_, original_protect_index_);
@@ -2250,10 +2263,12 @@ private:
     // JP text and tag numbering live only for this parse.
     const bool collect_original_;
     const bool collect_flow_;
+    std::shared_ptr<ContinuationOriginalRows> originals_;
     ContinuationTextByOrder original_texts_;
     std::vector<ProtectedToken> original_protect_;
     int original_protect_index_ = 0;
-    bool has_localized_only_row_ = false;
+    bool raw_was_replaced_ = false;
+    bool different_projection_rows_ = false;
     bool header_logged_ = false; // Owned only by the ordered job submitter.
     int language_mask_ = 0; // PageRec parses synchronously on the hook thread.
     bool has_official_translation_ = false;
