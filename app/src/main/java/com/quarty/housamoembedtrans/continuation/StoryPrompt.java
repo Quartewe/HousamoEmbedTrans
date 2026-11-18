@@ -522,7 +522,7 @@ final class StoryPrompt {
         JSONArray profiles = new JSONArray();
         for (JSONObject person : characters) {
             if (!hits.cast.contains(person)) continue;
-            JSONObject brief = ContinuationContent.project(person, "name", "i18n", "speech_style");
+            JSONObject brief = ContinuationContent.project(person, "name", "i18n", "info", "speech_style");
             JSONArray aliases = person.optJSONArray("aliases");
             JSONArray matched = new JSONArray();
             if (aliases != null) {
@@ -626,7 +626,9 @@ final class StoryPrompt {
         boolean actors = generation.getBoolean("allow_character");
         boolean bg = generation.getBoolean("allow_background");
         StringBuilder instructions = new StringBuilder(
-            "玩家输入是主角刚说出的原话。从其他角色的回应或旁白开始，使用 language 指定的语言。"
+            "玩家输入台词时，说话人是主角。玩家输入动作时，默认由主角执行，除非原文明示其他执行者。"
+            + "保留玩家使用的人称和代词，指代不明确时使用角色名。"
+            + "从其他角色的回应或旁白开始，使用 language 指定的语言。"
             + "recent 是实际经历，current_options 是眼前可选的发言，after_merge 是随后原剧情。"
             + "alternative_branch_references 是未发生的原分支备选依据。写到能自然回到合流位置为止。"
             + "只输出一个 JSON 对象。成功时返回 status 为 ok 和有序的 steps 数组。"

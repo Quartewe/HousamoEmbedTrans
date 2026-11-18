@@ -186,7 +186,7 @@ public final class PromptStore {
         if (CONTINUATION.equals(kind)) {
             return new PromptDocument(
                 "你是《东京放课后召唤师》的剧情续写作者。",
-                "沿用原剧情的叙述节奏和人物口吻，让角色自然回应主角刚说的话。",
+                "沿用原剧情的叙述节奏和人物口吻，让角色自然回应玩家输入的台词或动作。",
                 "参考玩家已经历的对白和当前场景，结合随后原剧情安排这段回应的收尾。",
                 readAsset(CONTINUATION_CUSTOM_ASSET)
             );
