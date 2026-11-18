@@ -349,6 +349,13 @@ public final class TranslationRequestFactory {
             systemPrompt = InternalTermsPrompt.appendTo(systemPrompt);
         }
 
+        JSONObject providerRequest = buildMessageBody(config, systemPrompt, userContent);
+        return new PreparedApiRequest(config, providerRequest, userContent, historyPayload);
+    }
+
+    public static JSONObject buildMessageBody(
+        TranslationConfig config, String systemPrompt, String userContent
+    ) throws Exception {
         JSONObject providerRequest;
         if ("openai".equals(config.getProtocol())) {
             JSONArray messages = new JSONArray()
@@ -392,12 +399,7 @@ public final class TranslationRequestFactory {
             }
         }
 
-        return new PreparedApiRequest(
-            config,
-            providerRequest,
-            userContent,
-            historyPayload
-        );
+        return providerRequest;
     }
 
     private static JSONObject buildBlockContext(

@@ -1391,7 +1391,7 @@ public final class TranslationTaskExecutor {
                 "request"
             );
             JobValidator.RequestInfo requestInfo =
-                JobValidator.validateRequest(request);
+                JobValidator.validateJobRequest(request);
             TranslationConfig config = TranslationConfig.load(context);
             JSONObject state = jobStore.readState(claimed.getRequestId());
             JobCoordinator coordinator = new JobCoordinator(
@@ -1682,7 +1682,7 @@ public final class TranslationTaskExecutor {
                     32 * 1024 * 1024,
                     "request"
                 );
-                requestInfo = JobValidator.validateRequest(request);
+                requestInfo = JobValidator.validateJobRequest(request);
                 config = TranslationConfig.load(context);
                 state = jobStore.readState(requestId);
                 final JSONObject requestForCoordinator = request;

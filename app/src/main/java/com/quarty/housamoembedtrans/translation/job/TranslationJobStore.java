@@ -379,7 +379,7 @@ public final class TranslationJobStore {
     public static final int MAX_REQUEST_BYTES = 32 * 1024 * 1024;
     private static final int MAX_STATE_BYTES = 64 * 1024;
     private static final int MAX_PROGRESS_BYTES = 32 * 1024 * 1024;
-    private static final int MAX_RESULT_BYTES = 32 * 1024 * 1024;
+    public static final int MAX_RESULT_BYTES = 32 * 1024 * 1024;
 
     private static final String REQUEST_FILE_NAME = "request.json";
     private static final String STATE_FILE_NAME = "state.json";
@@ -2732,7 +2732,7 @@ public final class TranslationJobStore {
                         MAX_REQUEST_BYTES,
                         "request"
                     );
-                    JobValidator.RequestInfo requestInfo = JobValidator.validateRequest(requestJson);
+                    JobValidator.RequestInfo requestInfo = JobValidator.validateJobRequest(requestJson);
                     validateCompletedResult(requestJson, requestInfo, result);
 
                     IoUtils.writeAtomically(

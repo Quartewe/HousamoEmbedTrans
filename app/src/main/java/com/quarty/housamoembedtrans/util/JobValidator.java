@@ -350,6 +350,19 @@ public final class JobValidator {
      * Validates an original, complete API request and returns its ordered
      * translatable texts.
      */
+    public static boolean isContinuation(JSONObject request) {
+        return request != null && "continuation".equals(request.optString("task_type"));
+    }
+
+    public static RequestInfo validateJobRequest(JSONObject request) throws ValidationException {
+        if (!isContinuation(request)) return validateRequest(request);
+        String scene = requireNonBlankString(request, "scene", "$request");
+        String language = requireNonBlankString(request, "target_lang", "$request");
+        requireNonBlankString(request, "record_id", "$request");
+        requireArray(request, "messages", "$request");
+        return new RequestInfo(scene, language, Collections.emptyMap(), Collections.emptyList(), false);
+    }
+
     public static RequestInfo validateRequest(JSONObject request)
         throws ValidationException {
         if (request == null) {

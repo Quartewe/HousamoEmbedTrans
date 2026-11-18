@@ -285,7 +285,7 @@ public final class SceneTranslationRequestBuilder {
 
     // ── Canonical compact JSON (lexicographic object keys) ─────────────
 
-    private static byte[] toCanonicalBytes(JSONObject root) throws Exception {
+    public static byte[] toCanonicalBytes(JSONObject root) throws Exception {
         return toCanonicalString(root).getBytes(StandardCharsets.UTF_8);
     }
 

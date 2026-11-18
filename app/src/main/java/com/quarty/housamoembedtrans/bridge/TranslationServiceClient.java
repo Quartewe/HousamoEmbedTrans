@@ -18,6 +18,7 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -570,44 +571,8 @@ public final class TranslationServiceClient {
             }
         }
 
-        ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
-        ParcelFileDescriptor readEnd = pipe[0];
-        ParcelFileDescriptor writeEnd = pipe[1];
-        AtomicReference<IOException> writerFailure = new AtomicReference<>();
-
-        Thread writer = new Thread(() -> {
-            try (OutputStream output =
-                     new ParcelFileDescriptor.AutoCloseOutputStream(
-                         writeEnd
-                     )) {
-                output.write(requestJson);
-                output.flush();
-            } catch (IOException e) {
-                writerFailure.set(e);
-            }
-        }, "HET-request-writer");
-        writer.start();
-
-        int enqueueResult;
-        try (ParcelFileDescriptor requestFd = readEnd) {
-            enqueueResult = service.enqueueTranslation(
-                requestId,
-                requestFd,
-                overwrite
-            );
-        } catch (Exception e) {
-            throw e;
-        } finally {
-            joinWriter(writer, requestId);
-        }
-
-        IOException failure = writerFailure.get();
-        if (failure != null) {
-            throw new IOException(
-                "Could not write translation request " + requestId,
-                failure
-            );
-        }
+        int enqueueResult = withRequestPipe(requestJson, requestId,
+            fd -> service.enqueueTranslation(requestId, fd, overwrite));
 
         final boolean created;
         if (enqueueResult == HetBridgeContract.ENQUEUE_RESULT_CREATED) {
@@ -660,6 +625,33 @@ public final class TranslationServiceClient {
                 + created
         );
         return created;
+    }
+
+    @FunctionalInterface
+    private interface PipeCall<T> { T invoke(ParcelFileDescriptor fd) throws Exception; }
+
+    private <T> T withRequestPipe(byte[] payload, String label, PipeCall<T> call) throws Exception {
+        ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
+        AtomicReference<IOException> failure = new AtomicReference<>();
+        Thread writer = new Thread(() -> {
+            try (OutputStream output = new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])) {
+                output.write(payload);
+            } catch (IOException error) {
+                failure.set(error);
+            }
+        }, "HET-request-writer");
+        writer.start();
+        T result;
+        try (ParcelFileDescriptor input = pipe[0]) {
+            result = call.invoke(input);
+        } finally {
+            joinWriter(writer, label);
+        }
+        if (failure.get() != null) {
+            if (result instanceof ParcelFileDescriptor) closeQuietly((ParcelFileDescriptor) result);
+            throw failure.get();
+        }
+        return result;
     }
 
     public static final class AdmissionRejectedException extends Exception {

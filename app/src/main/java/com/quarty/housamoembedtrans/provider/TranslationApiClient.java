@@ -198,7 +198,25 @@ public final class TranslationApiClient {
         transport = replacement == null ? REAL_TRANSPORT : replacement;
     }
 
+    public static final class IncompleteResponseException extends IOException {
+        public IncompleteResponseException(String message) { super(message); }
+    }
+
+    public static final class GenerationStoppedException extends IllegalArgumentException {
+        public final String reason;
+        GenerationStoppedException(String reason) {
+            super("provider generation stopped abnormally: " + reason);
+            this.reason = reason;
+        }
+        public boolean isRefusal() {
+            return "refusal".equals(reason) || "content_filter".equals(reason);
+        }
+    }
+
     public interface StreamListener {
+        /** Continuations require the protocol end marker before exposing a complete story. */
+        default boolean requiresStreamTerminator() { return false; }
+
         /** A network retry starts a fresh provider stream and NDJSON fragment. */
         void onAttemptStarted(int attemptNumber) throws Exception;
 
@@ -351,6 +369,7 @@ public final class TranslationApiClient {
 
     private static final class ProviderStreamState {
         private boolean terminalEventSeen;
+        private boolean streamTerminated;
         private String stopReason = "";
     }
 
@@ -707,6 +726,9 @@ public final class TranslationApiClient {
             ProviderStreamState state = new ProviderStreamState();
             StreamListener tracedListener = new StreamListener() {
                 @Override
+                public boolean requiresStreamTerminator() { return listener.requiresStreamTerminator(); }
+
+                @Override
                 public void onAttemptStarted(int attemptNumber) throws Exception {
                     listener.onAttemptStarted(attemptNumber);
                 }
@@ -771,12 +793,23 @@ public final class TranslationApiClient {
                         config.getApiKey()
                     );
                     trace.stage("stream_eof");
+                } catch (IOException e) {
+                    if (listener.requiresStreamTerminator() && trace.events > 0
+                        && !(e instanceof SocketTimeoutException)) {
+                        throw new IncompleteResponseException("provider stream was interrupted before completion");
+                    }
+                    throw e;
                 }
             }
 
             trace.stage("validating_stream");
-            if (!state.terminalEventSeen) {
-                throw new IOException(
+            if (listener.requiresStreamTerminator()
+                && ("refusal".equals(state.stopReason) || "content_filter".equals(state.stopReason))) {
+                throw new GenerationStoppedException(state.stopReason);
+            }
+            if (!state.terminalEventSeen || (config.isStreamingResponseEnabled()
+                && listener.requiresStreamTerminator() && !state.streamTerminated)) {
+                throw new IncompleteResponseException(
                     "provider stream ended without a terminal event"
                 );
             }
@@ -784,14 +817,7 @@ public final class TranslationApiClient {
                     config.getProtocol(),
                     state.stopReason
                 )) {
-                throw new IllegalArgumentException(
-                    "provider generation stopped abnormally: "
-                        + (
-                            state.stopReason.isEmpty()
-                                ? "<missing>"
-                                : state.stopReason
-                        )
-                );
+                throw new GenerationStoppedException(state.stopReason.isEmpty() ? "<missing>" : state.stopReason);
             }
             try {
                 trace.stage("completion_callback");
@@ -825,7 +851,15 @@ public final class TranslationApiClient {
         String text;
         if ("openai".equals(protocol)) {
             JSONObject choice = response.getJSONArray("choices").getJSONObject(0);
-            Object content = choice.getJSONObject("message").opt("content");
+            JSONObject message = choice.getJSONObject("message");
+            if (listener.requiresStreamTerminator() && message.opt("refusal") instanceof String
+                && !message.getString("refusal").isEmpty()) {
+                throw new GenerationStoppedException("refusal");
+            }
+            if (listener.requiresStreamTerminator() && "content_filter".equals(choice.optString("finish_reason"))) {
+                throw new GenerationStoppedException("content_filter");
+            }
+            Object content = message.opt("content");
             if (!(content instanceof String)) {
                 throw new IllegalArgumentException("provider response message.content must be a string");
             }
@@ -920,6 +954,7 @@ public final class TranslationApiClient {
         ProviderStreamState state
     ) throws Exception {
         if ("[DONE]".equals(data)) {
+            state.streamTerminated = true;
             state.terminalEventSeen = true;
             return;
         }
@@ -942,6 +977,10 @@ public final class TranslationApiClient {
         }
         JSONObject delta = choice.optJSONObject("delta");
         if (delta != null) {
+            if (listener.requiresStreamTerminator() && delta.opt("refusal") instanceof String
+                && !delta.getString("refusal").isEmpty()) {
+                throw new GenerationStoppedException("refusal");
+            }
             Object content = delta.opt("content");
             if (content instanceof String && !((String) content).isEmpty()) {
                 try {
@@ -1006,6 +1045,7 @@ public final class TranslationApiClient {
             return;
         }
         if ("message_stop".equals(type)) {
+            state.streamTerminated = true;
             state.terminalEventSeen = true;
         }
     }
