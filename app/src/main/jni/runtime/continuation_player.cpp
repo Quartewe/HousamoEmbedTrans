@@ -2,6 +2,7 @@
 #include "runtime/continuation_source.hpp"
 #include "runtime/continuation_sheet.hpp"
 #include "runtime/choice_back.hpp"
+#include "scene/choice_join.hpp"
 #include "bridge/jni_bridge.hpp"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
@@ -20,10 +21,24 @@ struct Source {
     uint32_t weak = 0;
     std::string scene, hash, capturedHash;
     std::unordered_map<void*, std::vector<OrderKey>> pages;
-    std::unordered_map<OrderKey, std::string, OrderKeyHash> merges;
+    struct ContextAdvance {
+        int nextLabel;
+        OrderKey stop;
+    };
+    std::vector<ContextAdvance> nextContext;
+    ChoiceJoins joins;
+    const std::vector<std::string> labelNames;
     std::unordered_map<OrderKey, OrderKey, OrderKeyHash> choiceForOption, originalText;
     std::unordered_map<std::string, int> labels;
     std::unordered_set<OrderKey, OrderKeyHash> stageOrders;
+    explicit Source(const ScenarioParseResult& parsed) :
+        joins(parsed.continuation_flow.size()), labelNames(parsed.stage.labels) {
+        for (const auto& label : parsed.continuation_flow) {
+            int from = static_cast<int>(nextContext.size());
+            for (int to : label.targets) joins.add(from, to);
+            nextContext.push_back({label.next_context, label.stop});
+        }
+    }
     ~Source() {
         if (weak)
             api.gchandle_free(weak);
@@ -45,6 +60,7 @@ struct Node {
     std::string scene, hash, merge, record, path;
     OrderKey original;
     size_t lineageStart = 0;
+    ContinuationWindow mergeWindow;
 };
 Node node;
 Root button, currentEngine, currentPage;
@@ -179,18 +195,17 @@ std::string SourceHash(const std::string& source_document) {
     return hash;
 }
 using PositionMap = std::unordered_map<OrderKey, OrderKey, OrderKeyHash>;
-void RecordMerges(Source& source, const std::vector<SceneItem>& items, const PositionMap& originalGroups) {
+void RecordChoices(Source& source, const std::vector<SceneItem>& items, const PositionMap& originalGroups) {
     for (const auto& item : items) {
         if (auto* choice = std::get_if<ChoiceBlock>(&item.value)) {
             auto mapped = originalGroups.find(choice->order);
             const OrderKey group = mapped == originalGroups.end() ? choice->order : mapped->second;
-            if (group.label_index >= 0) source.merges[group] = choice->merge_label;
             for (const auto& branch : choice->branches) {
                 for (const auto& option : branch.options) source.choiceForOption.emplace(option.order, group);
-                RecordMerges(source, branch.following_text, originalGroups);
+                RecordChoices(source, branch.following_text, originalGroups);
             }
         } else if (auto* condition = std::get_if<IfBlock>(&item.value))
-            RecordMerges(source, condition->following_text, originalGroups);
+            RecordChoices(source, condition->following_text, originalGroups);
     }
 }
 OrderKey CommandOrder(void* page, void* command, void* row = nullptr) {
@@ -304,6 +319,14 @@ std::string NodeJson() {
         .AddMember("original_order", Order(node.original, a), a)
         .AddMember("route", history, a)
         .AddMember("screen", Screen(a), a);
+    Json window(rapidjson::kArrayType);
+    for (const auto& span : node.mergeWindow) {
+        Json segment(rapidjson::kObjectType);
+        segment.AddMember("label_index", span.label_index, a);
+        if (span.stop.label_index >= 0) segment.AddMember("stop", Order(span.stop, a), a);
+        window.PushBack(segment, a);
+    }
+    doc.AddMember("merge_window", window, a);
     std::lock_guard<std::mutex> lock(deliveryMutex);
     doc.AddMember("play_token", Str(currentToken, a), a);
     return Dump(doc);
@@ -410,21 +433,32 @@ bool MovePage(void* routine, const void* method) {
 }
 void Show(void* manager, const void* method) {
     void* list = api.Get(manager, "get_Selections");
-    if (installed && Enabled() && CanOfferContinuationAt(currentPage.Get()) && api.Int(list, "get_Count") > 0 &&
-        currentEngine.Get() == api.Get(manager, "get_Engine")) {
-        auto first = Item(list, 0);
+    if (installed && Enabled() && CanOfferContinuationAt(currentPage.Get()) && currentEngine.Get() == api.Get(manager, "get_Engine")) {
+        int count = api.Int(list, "get_Count", 0);
+        auto sprites = api.Get(manager, "get_SpriteSelections");
+        int spriteCount = api.Int(sprites, "get_Count", 0);
+        if (count + spriteCount == 0) { originalShow(manager, method); return; }
+        for (int i = 0; button.Get() && i < count; ++i) {
+            if (Item(list, i) == button.Get()) { originalShow(manager, method); return; }
+        }
+        if (button.Get()) LeaveChoice();
+        auto first = Item(count ? list : sprites, 0);
         Node next;
         if (currentSheet) {
             auto it = currentSheet->steps.find(currentLabel);
             if (it != currentSheet->steps.end() && it->second.choice)
                 next = {currentSheet->scene,       currentSheet->sourceHash, currentSheet->merge,
                         currentSheet->record,      it->second.path,          currentSheet->original,
-                        currentSheet->lineageStart};
-        } else if (currentSource) {
+                        currentSheet->lineageStart, currentSheet->mergeWindow};
+        } else if (currentSource && !currentSource->nextContext.empty()) {
             OrderKey group;
-            int count = api.Int(list, "get_Count");
-            for (int i = 0; i < count; ++i) {
-                auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(Item(list, i), "get_RowData"));
+            std::vector<int> starts;
+            for (int i = 0; i < count + spriteCount; ++i) {
+                auto selection = i < count ? Item(list, i) : Item(sprites, i - count);
+                auto label = currentSource->labels.find(api.Text(api.Get(selection, "get_JumpLabel")));
+                int target = label == currentSource->labels.end() ? -1 : label->second;
+                if (std::find(starts.begin(), starts.end(), target) == starts.end()) starts.push_back(target);
+                auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(selection, "get_RowData"));
                 auto owner = currentSource->choiceForOption.find(key);
                 if (owner == currentSource->choiceForOption.end()) continue;
                 if (owner->second.label_index < 0 || (group.label_index >= 0 && !(group == owner->second))) {
@@ -433,9 +467,17 @@ void Show(void* manager, const void* method) {
                 }
                 group = owner->second;
             }
-            auto merge = currentSource->merges.find(group);
-            if (merge != currentSource->merges.end())
-                next = {currentSource->scene, currentSource->hash, merge->second, {}, {}, group, route.size()};
+            if (group.label_index >= 0) {
+                next = {currentSource->scene, currentSource->hash, {}, {}, {}, group, route.size(), {}};
+                int at = currentSource->joins.nearest(starts);
+                if (at >= 0) next.merge = currentSource->labelNames[at];
+                std::unordered_set<int> visited;
+                while (at >= 0 && visited.insert(at).second) {
+                    const auto& nextSpan = currentSource->nextContext[at];
+                    next.mergeWindow.push_back({at, nextSpan.stop});
+                    at = nextSpan.nextLabel;
+                }
+            }
         }
         if (!next.scene.empty() && !next.merge.empty()) {
             Root merge(api.string_new(next.merge.c_str()));
@@ -518,10 +560,11 @@ void Publish(void* scenario, const ScenarioParseResult& parsed, const QuestPtrSe
         return;
     const auto previous = FindSource(scenario);
     const auto& proof = parsed.continuation_source;
-    if (previous && (proof.original_hash.empty() || (previous->hash == proof.original_hash
+    if (previous && (!previous->nextContext.empty() || parsed.continuation_flow.empty()) &&
+        (proof.original_hash.empty() || (previous->hash == proof.original_hash
         && (proof.captured_hash == proof.original_hash || previous->capturedHash == proof.captured_hash))))
         return;
-    auto s = std::make_shared<Source>();
+    auto s = std::make_shared<Source>(parsed);
     s->weak = api.gchandle_new_weakref(scenario, false);
     if (!s->weak)
         return;
@@ -535,7 +578,7 @@ void Publish(void* scenario, const ScenarioParseResult& parsed, const QuestPtrSe
     for (const auto& pos : proof.positions) {
         (pos.choice ? originalGroups : s->originalText).emplace(pos.captured, pos.original);
     }
-    RecordMerges(*s, parsed.scene_items, originalGroups);
+    RecordChoices(*s, parsed.scene_items, originalGroups);
     for (size_t i = 0; i < parsed.stage.labels.size(); ++i)
         s->labels.emplace(parsed.stage.labels[i], static_cast<int>(i));
     for (auto& state : parsed.stage.states)
@@ -750,6 +793,7 @@ bool Play(void* engine, void* page) {
     sheet->scene = node.scene;
     sheet->sourceHash = node.hash;
     sheet->merge = node.merge;
+    sheet->mergeWindow = node.mergeWindow;
     sheet->original = node.original;
     sheet->lineageStart = node.lineageStart;
     auto prefix = "HETContinuation_" + processId + "_" + std::to_string(++serial);

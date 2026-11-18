@@ -18,6 +18,7 @@ struct Sheet {
     std::string scene;
     std::string record;
     std::string merge;
+    ContinuationWindow mergeWindow;
     std::string sourceHash;
     OrderKey original;
     size_t lineageStart = 0;

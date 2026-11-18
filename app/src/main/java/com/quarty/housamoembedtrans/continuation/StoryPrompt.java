@@ -14,6 +14,8 @@ import org.json.JSONObject;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -33,6 +35,7 @@ final class StoryPrompt {
     private final Positions choicePositions = new Positions();
     private final Positions textPositions = new Positions();
     private final Map<String, JSONObject> texts = new HashMap<>();
+    private final Map<Integer, List<JSONObject>> dialogueByLabel = new HashMap<>();
     private final Map<String, JSONObject> choices = new HashMap<>();
     private final Set<String> selectedOptionOrders = new HashSet<>();
     private final Map<String, LineTail> following = new HashMap<>();
@@ -74,6 +77,16 @@ final class StoryPrompt {
             protect.put(token.getString("label"), token.getString("origin"));
         }
         index(scene.getJSONArray("scene_items"), null);
+        for (Map.Entry<String, JSONObject> entry : texts.entrySet()) {
+            if (selectedOptionOrders.contains(entry.getKey())) continue;
+            JSONObject row = entry.getValue();
+            int label = row.getJSONObject("order").getInt("label_index");
+            dialogueByLabel.computeIfAbsent(label, ignored -> new ArrayList<>()).add(row);
+        }
+        for (List<JSONObject> rows : dialogueByLabel.values()) {
+            rows.sort(Comparator.comparingInt((JSONObject row) -> row.optJSONObject("order").optInt("page_no"))
+                .thenComparingInt(row -> row.optJSONObject("order").optInt("cmd_index")));
+        }
 
         JSONObject cast = scene.optJSONObject("character");
         if (cast != null) {
@@ -257,9 +270,10 @@ final class StoryPrompt {
         final Set<String> originalLines = new HashSet<>();
         final Set<String> actualStage = new HashSet<>();
         final Map<Integer, JSONObject> futureEnds = new HashMap<>();
+        JSONObject lastAfter;
     }
 
-    private Window window(JSONArray route, Ancestry chain, String language) throws JSONException {
+    private Window window(JSONArray route, Ancestry chain, String language, JSONArray mergeWindow) throws JSONException {
         List<PlayedLine> played = new ArrayList<>();
         for (int i = 0; i < route.length(); i++) {
             JSONObject ref = route.getJSONObject(i);
@@ -302,17 +316,34 @@ final class StoryPrompt {
             if (ref.optBoolean("stage")) window.actualStage.add(order(ref.getJSONObject("order")));
         }
 
-        JSONObject previous = null;
-        for (LineTail tail = following.get(chain.viewChoice); tail != null; tail = tail.next) {
-            JSONObject position = tail.item.getJSONObject("order");
-            int count = window.after.length();
-            if (count >= 5 && !question(window.after.getJSONObject(count - 1)) && !samePage(previous, position)) break;
-            window.after.put(line(tail.item, language));
-            window.originalLines.add(order(position));
-            window.futureEnds.put(position.getInt("label_index"), position);
-            previous = position;
+        if (mergeWindow == null) {
+            for (LineTail tail = following.get(chain.viewChoice); tail != null; tail = tail.next)
+                if (!appendAfter(window, tail.item, language)) break;
+            return window;
+        }
+        for (int i = 0; i < mergeWindow.length(); ++i) {
+            JSONObject span = mergeWindow.getJSONObject(i);
+            int label = span.getInt("label_index");
+            JSONObject stop = span.optJSONObject("stop");
+            for (JSONObject row : dialogueByLabel.getOrDefault(label, Collections.emptyList())) {
+                if (stop != null && beforeOrAt(stop, row.getJSONObject("order"))) break;
+                if (!appendAfter(window, row, language)) return window;
+            }
+            window.futureEnds.put(label, stop);
         }
         return window;
+    }
+
+    private boolean appendAfter(Window window, JSONObject row, String language) throws JSONException {
+        JSONObject position = row.getJSONObject("order");
+        int count = window.after.length();
+        if (count >= 5 && !question(window.after.getJSONObject(count - 1)) && !samePage(window.lastAfter, position))
+            return false;
+        window.after.put(line(row, language));
+        window.originalLines.add(order(position));
+        window.futureEnds.put(position.getInt("label_index"), position);
+        window.lastAfter = position;
+        return true;
     }
 
     private JSONArray options(JSONObject original, Ancestry chain, String language) throws JSONException {
@@ -329,7 +360,7 @@ final class StoryPrompt {
         }
         return result;
     }
-    private JSONArray stageReferences(Window window, JSONObject original, boolean actors, boolean backgrounds)
+    private JSONArray stageReferences(Window window, JSONObject original, boolean actors, boolean backgrounds, boolean legacyWindow)
             throws JSONException {
         JSONArray result = new JSONArray();
         JSONObject stage = scene.optJSONObject("stage");
@@ -337,7 +368,7 @@ final class StoryPrompt {
 
         // Include independent stage instructions in the merge label up to the selected text.
         JSONArray labels = stage.optJSONArray("labels");
-        if (labels != null && window.after.length() > 0) {
+        if (legacyWindow && labels != null && window.after.length() > 0) {
             String merge = original.getString("merge_label");
             for (int i = 0; i < labels.length(); i++) {
                 if (merge.equals(labels.getString(i)) && !window.futureEnds.containsKey(i)) window.futureEnds.put(i, null);
@@ -540,7 +571,7 @@ final class StoryPrompt {
     }
 
     Local local(Context context, JSONObject node, String language, boolean actors, boolean backgrounds) throws Exception {
-        JSONObject identity = ContinuationContent.project(node, "scene", "source_hash", "source", "original_order", "route", "screen");
+        JSONObject identity = ContinuationContent.project(node, "scene", "source_hash", "source", "original_order", "route", "screen", "merge_window");
         String summary = previousSummary(context, scene.getString("scene"), language);
         byte[] key = SceneTranslationRequestBuilder.toCanonicalBytes(identity
             .put("language", language).put("allow_character", actors).put("allow_background", backgrounds)
@@ -557,10 +588,12 @@ final class StoryPrompt {
             Ancestry chain = ancestry(node, history);
             JSONObject original = choices.get(chain.viewChoice);
             if (original == null) throw new JSONException("当前选项在原剧本中没有对应位置");
-            Window window = window(node.getJSONArray("route"), chain, language);
+            JSONArray spans = node.optJSONArray("merge_window");
+            Window window = window(node.getJSONArray("route"), chain, language, spans);
             JSONArray options = options(original, chain, language);
-            JSONArray premises = branchReferences(original.getJSONArray("branches"), window.after, language);
-            JSONArray states = stageReferences(window, original, actors, backgrounds);
+            JSONArray branches = original.getJSONArray("branches");
+            JSONArray premises = branches.length() > 1 ? branchReferences(branches, window.after, language) : new JSONArray();
+            JSONArray states = stageReferences(window, original, actors, backgrounds, spans == null);
             JSONObject view = screen(node.getJSONObject("screen"), actors);
             JSONObject catalog = resources(actors, backgrounds);
             JSONObject body = new JSONObject()

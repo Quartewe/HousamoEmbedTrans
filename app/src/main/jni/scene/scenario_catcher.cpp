@@ -117,6 +117,13 @@ struct OrderedJump {
 };
 
 struct PageParseResult {
+    enum class TransferKind { jump, conditionalJump, choice, beginIf, elseIf, otherwise, endIf, exit };
+    struct Transfer {
+        OrderKey order;
+        std::vector<std::string> targets;
+        TransferKind kind;
+    };
+    std::vector<Transfer> transfers;
     std::vector<StageState> stage_states;
     bool ok = false;
     bool official_translation = false;
@@ -658,6 +665,69 @@ struct LabelBlock {
 };
 
 static constexpr const char* kVirtualExit = "\x1fHET_VIRTUAL_EXIT";
+
+// Extraction can nest a whole single-target branch under a choice. Playback
+// instead needs the earliest actual label shared by its original routes.
+static void BuildContinuationFlow(const std::vector<PageParseResult>& pages,
+                                  const std::vector<LabelBlock>& labels,
+                                  const std::unordered_map<std::string, size_t>& indices,
+                                  ScenarioParseResult& parsed) {
+    auto index = [&](const std::string& label) {
+        auto found = indices.find(label);
+        return found == indices.end() ? -1 : static_cast<int>(found->second);
+    };
+    auto& flow = parsed.continuation_flow;
+    flow.resize(labels.size());
+    using Kind = PageParseResult::TransferKind;
+    struct Conditional {
+        bool entered;
+        bool fallsThrough = false;
+        bool hasElse = false;
+    };
+    std::vector<std::vector<Conditional>> conditions(labels.size());
+    std::vector<bool> reachable(labels.size(), true);
+    for (const auto& page : pages) {
+        const int label = page.label_index;
+        auto& current = flow[label];
+        for (const auto& transfer : page.transfers) {
+            auto& stack = conditions[label];
+            if (reachable[label] && current.stop.label_index < 0) {
+                current.stop = transfer.order;
+                if (transfer.kind == Kind::jump)
+                    current.next_context = index(transfer.targets.front());
+            }
+            if (transfer.kind == Kind::beginIf) {
+                stack.push_back({reachable[label]});
+                continue;
+            }
+            if (transfer.kind == Kind::elseIf || transfer.kind == Kind::otherwise || transfer.kind == Kind::endIf) {
+                if (stack.empty()) {
+                    current.targets.push_back(-1);
+                    continue;
+                }
+                auto& arm = stack.back();
+                arm.fallsThrough |= reachable[label];
+                if (transfer.kind == Kind::endIf) {
+                    reachable[label] = arm.fallsThrough || (arm.entered && !arm.hasElse);
+                    stack.pop_back();
+                } else {
+                    reachable[label] = arm.entered;
+                    arm.hasElse = transfer.kind == Kind::otherwise;
+                }
+                continue;
+            }
+            if (!reachable[label]) continue;
+            for (const auto& target : transfer.targets) current.targets.push_back(index(target));
+            reachable[label] = transfer.kind == Kind::conditionalJump;
+        }
+    }
+    for (size_t i = 0; i < labels.size(); ++i) {
+        int next = index(labels[i].next_label);
+        if (!conditions[i].empty()) flow[i].targets.push_back(-1);
+        if (reachable[i]) flow[i].targets.push_back(next);
+        if (flow[i].stop.label_index < 0) flow[i].next_context = next;
+    }
+}
 
 static bool OrderedJumpLess(const OrderedJump& a, const OrderedJump& b) {
     if (a.page_index != b.page_index) {
@@ -1458,7 +1528,7 @@ static std::vector<ContinuationPosition> CompareProjectionPositions(
         auto match = groups.find(choice);
         const auto* other = match == groups.end() ? nullptr : match->second.original;
         if (other && (match->second.ambiguous || match->second.shared != ChoiceOptionCount(*other) ||
-                      other->merge_label.empty() || other->merge_label != choice->merge_label)) other = nullptr;
+                      other->merge_label != choice->merge_label)) other = nullptr;
         if (!other || !(choice->order == other->order))
             positions.push_back({true, choice->order, other ? other->order : OrderKey{}});
     }
@@ -1470,7 +1540,7 @@ public:
     explicit ScenarioParseRunner(const RuntimeScenario& scenario, bool page_rec = false,
                                  bool retain_official = false)
         : scenario_(scenario), page_rec_(page_rec), retain_official_(page_rec || retain_official),
-          collect_original_(page_rec && retain_official) {}
+          collect_original_(page_rec && retain_official), collect_flow_(retain_official) {}
 
     std::string RawLanguage() const {
         switch (language_mask_) {
@@ -1808,6 +1878,9 @@ private:
             MoveAppend(block.scene_items, result.scene_items);
         }
 
+        if (collect_flow_)
+            BuildContinuationFlow(page_results, label_blocks, label_indices, result_);
+
         for (LabelBlock& block : label_blocks) {
             if (!InitializeContinuation(&block)) {
                 Abort(AbortReason::branch_assembly_failed);
@@ -2008,6 +2081,33 @@ private:
             }
 
             std::string type = read_il2cpp_string(read_ptr(cmd_item, cmd.type));
+            if (collect_flow_) {
+                // Control flow belongs to the command even when its localized text is empty.
+                using Kind = PageParseResult::TransferKind;
+                OrderKey order{result.label_index, page_no, i, 0};
+                auto& transfers = result.transfers;
+                if (type == "Selection") {
+                    if (transfers.empty() || transfers.back().kind != Kind::choice ||
+                        transfers.back().order.cmd_index + static_cast<int>(transfers.back().targets.size()) != i)
+                        transfers.push_back({order, {}, Kind::choice});
+                    transfers.back().targets.push_back(ReadSelectionJumpLabel(cmd_item));
+                } else if (type == "Jump") {
+                    bool conditional = !ReadRowStringColumn(cmd_item, layout.adv_command_jump.condition_column).empty();
+                    transfers.push_back({order, {ReadJumpLabel(cmd_item)}, conditional ? Kind::conditionalJump : Kind::jump});
+                } else if (type == "If") {
+                    transfers.push_back({order, {}, Kind::beginIf});
+                } else if (type == "ElseIf") {
+                    transfers.push_back({order, {}, Kind::elseIf});
+                } else if (type == "Else") {
+                    transfers.push_back({order, {}, Kind::otherwise});
+                } else if (type == "EndIf") {
+                    transfers.push_back({order, {}, Kind::endIf});
+                } else if (type == "EndScenario" || type == "EndSubroutine" || type == "EndThread" ||
+                           type == "EndSceneGallery" || type == "SelectionClick" || type == "JumpRandom" ||
+                           type == "JumpSubroutine" || type == "JumpSubroutineRandom") {
+                    transfers.push_back({order, {""}, Kind::exit});
+                }
+            }
             void* row=read_ptr(cmd_item,cmd.row_data);
             if (row && (type=="Character" || type=="CharacterOff" || type=="Bg" || type=="BgOff")) {
                 if(columns.empty()) columns=StageColumns(cmd_item);
@@ -2147,6 +2247,7 @@ private:
     // PageRec processes its ordered pages on the lookup thread. The alternate
     // JP text and tag numbering live only for this parse.
     const bool collect_original_;
+    const bool collect_flow_;
     ContinuationTextByOrder original_texts_;
     std::vector<ProtectedToken> original_protect_;
     int original_protect_index_ = 0;

@@ -445,7 +445,19 @@ struct ContinuationSourceProof {
     std::vector<ContinuationPosition> positions;
 };
 using ContinuationTextByOrder = std::unordered_map<OrderKey, std::string, OrderKeyHash>;
+// Runtime-only window at a playback join. The stop command is exclusive.
+struct ContinuationSpan {
+    int label_index;
+    OrderKey stop;
+};
+using ContinuationWindow = std::vector<ContinuationSpan>;
+struct ContinuationLabelFlow {
+    std::vector<int> targets;
+    OrderKey stop;
+    int next_context = -1;
+};
 struct ScenarioParseResult {
+    std::vector<ContinuationLabelFlow> continuation_flow;
     SceneStage stage;
     ContinuationSourceProof continuation_source;
     std::string scene;        // scenarioData.name
