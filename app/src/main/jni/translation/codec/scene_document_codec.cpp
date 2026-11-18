@@ -490,6 +490,20 @@ rapidjson::Value StageJson(const SceneStage& stage, Allocator& a) {
     for (const auto& label:stage.labels) labels.PushBack(JsonString(label,a),a);
     root.AddMember("labels",labels,a);
     Value chars(rapidjson::kObjectType), layers(rapidjson::kObjectType), bgs(rapidjson::kArrayType);
+    for (const auto& character:stage.characters) {
+        Value item(rapidjson::kObjectType), patterns(rapidjson::kArrayType);
+        for (const auto& pattern:character.second) patterns.PushBack(JsonString(pattern,a),a);
+        item.AddMember("patterns",patterns,a);
+        chars.AddMember(JsonString(character.first,a),item,a);
+    }
+    for(const auto& layer:stage.layers) {
+        const auto& cfg=layer.second;
+        Value item(rapidjson::kObjectType);
+        item.AddMember("x",cfg.x,a).AddMember("y",cfg.y,a).AddMember("order",cfg.order,a)
+            .AddMember("scale_x",cfg.scale_x,a).AddMember("scale_y",cfg.scale_y,a)
+            .AddMember("flip_x",cfg.flip_x,a).AddMember("flip_y",cfg.flip_y,a);
+        layers.AddMember(JsonString(layer.first,a),item,a);
+    }
     for(const auto& bg:stage.backgrounds) bgs.PushBack(JsonString(bg,a),a);
     resources.AddMember("characters",chars,a).AddMember("layers",layers,a).AddMember("backgrounds",bgs,a);
     root.AddMember("resources",resources,a);

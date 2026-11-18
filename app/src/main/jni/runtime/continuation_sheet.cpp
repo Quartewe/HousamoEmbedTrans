@@ -40,7 +40,13 @@ void Compile(const rapidjson::Value& steps, const std::string& prefix, Sheet& ou
                 std::string action = Cell(step, "action"), fade = Cell(step, "fade");
                 if (action == "bg")
                     rows.push_back({"Bg", Cell(step, "bg"), "", "", "", "", fade});
-                else
+                else if (action == "character")
+                    rows.push_back({"Character", Cell(step, "character"), Cell(step, "pattern"),
+                                    Cell(step, "layer"), Cell(step, "x"), Cell(step, "y"), fade});
+                else if (action == "character_off") {
+                    auto target = Cell(step, "target");
+                    rows.push_back({"CharacterOff", target == "all" ? "" : target, "", "", "", "", fade});
+                } else
                     WaitFade(rows);
         }
     }

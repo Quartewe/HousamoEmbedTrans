@@ -237,11 +237,11 @@ final class StoryPrompt {
             JSONObject clean = ContinuationContent.project(state, "visibility");
             JSONObject actor = state.optJSONObject("character");
             JSONObject background = state.optJSONObject("background");
-            if (actor != null) clean.put("character", ContinuationContent.project(actor, "label", "pattern"));
+            if (actor != null) clean.put("character", actors ? actor : ContinuationContent.project(actor, "label", "pattern"));
             if (background != null) {
                 clean.put("background", backgrounds ? background : ContinuationContent.project(background, "resource"));
             }
-            if (background != null && backgrounds) clean.put("transition", state.opt("transition"));
+            if (actor != null && actors || background != null && backgrounds) clean.put("transition", state.opt("transition"));
             result.put(clean);
         }
         return result;
@@ -254,7 +254,7 @@ final class StoryPrompt {
         if (cast != null) {
             for (int i = 0; i < cast.length(); i++) {
                 JSONObject actor = cast.getJSONObject(i);
-                visible.put(ContinuationContent.project(actor, "character", "name", "pattern"));
+                visible.put(actors ? actor : ContinuationContent.project(actor, "character", "name", "pattern"));
             }
         }
         return view.put("characters", visible);
@@ -265,6 +265,10 @@ final class StoryPrompt {
         JSONObject catalog = stage == null ? null : stage.optJSONObject("resources");
         JSONObject allowed = new JSONObject();
         if (catalog == null) return allowed;
+        if (actors) {
+            allowed.put("characters", catalog.optJSONObject("characters"));
+            allowed.put("layers", catalog.optJSONObject("layers"));
+        }
         if (backgrounds) allowed.put("backgrounds", catalog.optJSONArray("backgrounds"));
         return allowed;
     }
@@ -458,6 +462,7 @@ final class StoryPrompt {
 
     private static String instructions(JSONObject generation) throws JSONException {
         int target = generation.getInt("dialogue_target");
+        boolean actors = generation.getBoolean("allow_character");
         boolean bg = generation.getBoolean("allow_background");
         StringBuilder instructions = new StringBuilder(
             "玩家输入是主角刚说出的原话。从其他角色的回应或旁白开始，使用 language 指定的语言。"
@@ -466,8 +471,13 @@ final class StoryPrompt {
             + "只输出一个 JSON 对象。成功时返回 status 为 ok 和有序的 steps 数组。"
             + "dialogue step 的字段是 type=dialogue、speaker、text。旁白可用空名字。每条完整路线至少有一条对白。");
         if (target != 0) instructions.append("每条路线生成 ").append(target).append(" 条左右的对白。");
+        if (actors) {
+            instructions.append("可用 type=stage 的 action=character（character、可选 pattern/layer/x/y/fade）")
+                .append("或 character_off（target、可选 fade）。target 也可为图层或 all。")
+                .append("坐标是相对图层基准的原生单位，可为负数或位于屏幕外。");
+        }
         if (bg) instructions.append("可用 type=stage 的 action=bg（bg、可选 fade）。");
-        if (bg) {
+        if (actors || bg) {
             instructions.append("只选 resources 中的资源。fade 是非负秒数，可省略使用默认。可用无参数 action=wait_fade 等待过渡。");
         }
         return instructions.append("只用上文列出的类型和动作，不返回跳转标签。")

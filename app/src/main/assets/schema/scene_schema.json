@@ -54,6 +54,8 @@
         "resources": {
           "type": "object",
           "properties": {
+            "characters": { "type": "object" },
+            "layers": { "type": "object" },
             "backgrounds": { "type": "array", "items": { "type": "string" } }
           }
         },

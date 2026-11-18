@@ -31,8 +31,27 @@ final class StorySteps {
         return dialogue;
     }
     private static void action(JSONObject s,JSONObject settings,JSONObject res) throws JSONException {
-        boolean bg=settings.getBoolean("allow_background");
+        JSONObject chars=res.optJSONObject("characters"), layers=res.optJSONObject("layers");
+        boolean character=settings.getBoolean("allow_character"),bg=settings.getBoolean("allow_background");
         switch (word(s,"action")) {
+            case "character":
+                require(character,"未允许修改角色演出");
+                keys(s,"type","action","character","pattern","layer","x","y","fade");
+                String key=word(s,"character");
+                require(chars!=null && chars.has(key),"不可用立绘："+key);
+                if (s.has("pattern")) require(contains(chars.getJSONObject(key).optJSONArray("patterns"),
+                    word(s,"pattern")),"此立绘没有指定表情");
+                if (s.has("layer")) require(layers!=null && layers.has(word(s,"layer")),"不可用角色图层");
+                if (s.has("x")) number(s,"x");
+                if (s.has("y")) number(s,"y");
+                break;
+            case "character_off":
+                require(character,"未允许角色退场");
+                keys(s,"type","action","target","fade");
+                String target=word(s,"target");
+                require(target.equals("all") || (chars!=null && chars.has(target)) || (layers!=null && layers.has(target)),
+                    "不可用退场对象："+target);
+                break;
             case "bg":
                 require(bg,"未允许修改背景");
                 keys(s,"type","action","bg","fade");
@@ -40,7 +59,7 @@ final class StorySteps {
                 break;
             case "wait_fade":
                 keys(s,"type","action");
-                require(bg,"纯对白模式不能编排过渡");
+                require(character || bg,"纯对白模式不能编排过渡");
                 return;
             default: throw new JSONException("未知演出动作");
         }

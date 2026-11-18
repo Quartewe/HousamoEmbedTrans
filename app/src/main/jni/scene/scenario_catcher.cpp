@@ -325,14 +325,51 @@ static std::map<std::string,int> StageColumns(void* command) {
     return result;
 }
 
+static void* FieldObject(void* owner,const char* name) {
+    void* value=nullptr;
+    return ReadGridField(owner,name,&value) ? value : nullptr;
+}
 
 // Read settings on the lookup thread. SceneStage contains only owned strings and values.
 static void CompleteStage(SceneStage& stage,void* data_manager) {
-    std::unordered_set<std::string> seen;
+    std::unordered_set<std::string> referenced;
+    std::unordered_set<std::string> backgrounds;
     for (const auto& state : stage.states) {
         auto arg=state.parameters.find("Arg1");
-        if (state.kind=="Bg" && arg!=state.parameters.end() && !arg->second.empty() && seen.insert(arg->second).second)
-            stage.backgrounds.push_back(arg->second);
+        if (arg==state.parameters.end() || arg->second.empty()) continue;
+        if (state.kind=="Character") referenced.insert(arg->second);
+        if (state.kind=="Bg" && backgrounds.insert(arg->second).second) stage.backgrounds.push_back(arg->second);
+    }
+    void* settings=FieldObject(data_manager,"settingDataManager");
+    auto settings_list=[&](const char* name) {
+        return ReadList(FieldObject(FieldObject(settings,name),"<List>k__BackingField"),1000000);
+    };
+    const auto chars=settings_list("characterSetting");
+    for(int i=0;chars.ok && i<chars.size;++i) {
+        void* item=ListElement(chars,i);
+        auto name=read_il2cpp_string(FieldObject(item,"name"));
+        if(!referenced.count(name)) continue;
+        auto& patterns=stage.characters[name];
+        auto pattern=read_il2cpp_string(FieldObject(item,"pattern"));
+        if(!pattern.empty() && std::find(patterns.begin(),patterns.end(),pattern)==patterns.end())
+            patterns.push_back(std::move(pattern));
+    }
+    const auto layers=settings_list("layerSetting");
+    for(int i=0;layers.ok && i<layers.size;++i) {
+        void* item=ListElement(layers,i);
+        int type=-1;
+        if(!ReadGridField(item,"<Type>k__BackingField",&type) || type!=1) continue;
+        auto name=read_il2cpp_string(FieldObject(item,"key"));
+        float scale[3]{};
+        StageLayer layer{};
+        if(name.empty() || !ReadGridField(FieldObject(item,"<Horizontal>k__BackingField"),"position",&layer.x)
+            || !ReadGridField(FieldObject(item,"<Vertical>k__BackingField"),"position",&layer.y)
+            || !ReadGridField(item,"<Scale>k__BackingField",scale)
+            || !ReadGridField(item,"<Order>k__BackingField",&layer.order)
+            || !ReadGridField(item,"<FlipX>k__BackingField",&layer.flip_x)
+            || !ReadGridField(item,"<FlipY>k__BackingField",&layer.flip_y)) continue;
+        layer.scale_x=scale[0]; layer.scale_y=scale[1];
+        stage.layers.emplace(std::move(name),layer);
     }
 }
 
@@ -1871,7 +1908,7 @@ private:
             std::string type = read_il2cpp_string(read_ptr(cmd_item, cmd.type));
 
             void* row=read_ptr(cmd_item,cmd.row_data);
-            if (row && (type=="Bg" || type=="BgOff")) {
+            if (row && (type=="Character" || type=="CharacterOff" || type=="Bg" || type=="BgOff")) {
                 if(columns.empty()) columns=StageColumns(cmd_item);
                 StageState state{{result.label_index,page_no,i,0},{},type,{}};
                 for(const auto& col:columns) state.parameters.emplace(col.first,ReadRowStringColumn(cmd_item,col.second));

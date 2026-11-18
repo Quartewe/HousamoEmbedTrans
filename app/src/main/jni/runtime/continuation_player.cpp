@@ -304,6 +304,14 @@ void StageExecuted(void* command, void* engine) {
     if (currentSource->stageOrders.count(key))
         route.push_back({currentSource->scene, {}, {}, key, true});
 }
+void Character(void* cmd, void* engine, const void* m) {
+    originalCharacter(cmd, engine, m);
+    StageExecuted(cmd, engine);
+}
+void CharacterOff(void* cmd, void* engine, const void* m) {
+    originalOff(cmd, engine, m);
+    StageExecuted(cmd, engine);
+}
 void Background(void* cmd, void* engine, const void* m) {
     originalBg(cmd, engine, m);
     StageExecuted(cmd, engine);
@@ -510,6 +518,9 @@ bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
         {0x2466d40, reinterpret_cast<void*>(Text), reinterpret_cast<void**>(&originalText), nullptr},
         {0x2466ab4, reinterpret_cast<void*>(AddRead), reinterpret_cast<void**>(&originalRead), nullptr},
         {0x246d00c, reinterpret_cast<void*>(AddHistory), reinterpret_cast<void**>(&originalHistory), nullptr},
+        {0x2424c5c, reinterpret_cast<void*>(Character), reinterpret_cast<void**>(&originalCharacter),
+         nullptr},
+        {0x24250a8, reinterpret_cast<void*>(CharacterOff), reinterpret_cast<void**>(&originalOff), nullptr},
         {0x2424818, reinterpret_cast<void*>(Background), reinterpret_cast<void**>(&originalBg), nullptr},
         {0x2424b80, reinterpret_cast<void*>(BackgroundOff), reinterpret_cast<void**>(&originalBgOff),
          nullptr},
