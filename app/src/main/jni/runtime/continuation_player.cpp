@@ -245,7 +245,12 @@ std::string NodeJson() {
     Document doc(rapidjson::kObjectType);
     auto& a = doc.GetAllocator();
     Json source(rapidjson::kObjectType), history(rapidjson::kArrayType);
-    source.AddMember("type", "original", a).AddMember("order", Order(node.original, a), a);
+    if (node.record.empty())
+        source.AddMember("type", "original", a).AddMember("order", Order(node.original, a), a);
+    else
+        source.AddMember("type", "generated", a)
+            .AddMember("record_id", Str(node.record, a), a)
+            .AddMember("node_path", Str(node.path, a), a);
     for (size_t i = 0; i < route.size(); ++i) {
         const auto& entry = route[i];
         if (entry.scene != node.scene)
@@ -257,11 +262,20 @@ std::string NodeJson() {
                 history.PushBack(ref, a);
             } else
                 history.PushBack(Order(entry.order, a), a);
+        } else if (!node.record.empty() && i >= node.lineageStart) {
+            Json ref(rapidjson::kObjectType);
+            ref.AddMember("record_id", Str(entry.record, a), a);
+            if (entry.path.empty())
+                ref.AddMember("input", true, a);
+            else
+                ref.AddMember("node_path", Str(entry.path, a), a);
+            history.PushBack(ref, a);
         }
     }
     doc.AddMember("scene", Str(node.scene, a), a)
         .AddMember("source_hash", Str(node.hash, a), a)
         .AddMember("source", source, a)
+        .AddMember("original_order", Order(node.original, a), a)
         .AddMember("route", history, a)
         .AddMember("screen", Screen(a), a);
     std::lock_guard<std::mutex> lock(deliveryMutex);
@@ -374,7 +388,13 @@ void Show(void* manager, const void* method) {
         currentEngine.Get() == api.Get(manager, "get_Engine")) {
         auto first = Item(list, 0);
         Node next;
-        if (currentSource) {
+        if (currentSheet) {
+            auto it = currentSheet->steps.find(currentLabel);
+            if (it != currentSheet->steps.end() && it->second.choice)
+                next = {currentSheet->scene,       currentSheet->sourceHash, currentSheet->merge,
+                        currentSheet->record,      it->second.path,          currentSheet->original,
+                        currentSheet->lineageStart};
+        } else if (currentSource) {
             auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(first, "get_RowData"));
             // The first visible option may be conditional. All rows in the
             // actual group belong to the structural choice with its own order.
@@ -426,6 +446,7 @@ void Text(void* page, void* cmd, const void* method) {
             auto it = currentSheet->steps.find(currentLabel);
             if (it != currentSheet->steps.end()) {
                 auto& step = it->second;
+                route.push_back({currentSheet->scene, currentSheet->record, step.path, {}});
                 Root info, empty(api.string_new(""));
                 if (!step.speaker.empty()) {
                     info = NewObject("Utage", "AdvCharacterInfo");
@@ -592,6 +613,7 @@ void AtChoice(void* engine, void* page) {
     if (!installed || !button.Get() || engine != currentEngine.Get() || page != currentPage.Get() ||
         node.scene.empty())
         return;
+    if (node.record.empty()) node.lineageStart=route.size();
     {
         std::lock_guard<std::mutex> lock(deliveryMutex);
         if (!currentToken.empty())
@@ -618,7 +640,14 @@ bool HandleSelection(void* selection) {
 void Selected(void* selection) {
     if (!installed)
         return;
-    {
+    if (currentSheet) {
+        auto it = currentSheet->steps.find(currentLabel);
+        if (it != currentSheet->steps.end()) {
+            auto option = it->second.optionPaths.find(api.Text(api.Get(selection, "get_JumpLabel")));
+            if (option != it->second.optionPaths.end())
+                route.push_back({currentSheet->scene, currentSheet->record, option->second, {}});
+        }
+    } else {
         auto key = CommandOrder(currentPage.Get(), nullptr, api.Get(selection, "get_RowData"));
         if (key.label_index >= 0)
             route.push_back({currentSource->scene, {}, {}, key});
@@ -680,7 +709,10 @@ bool Play(void* engine, void* page) {
     auto sheet = std::make_unique<Sheet>();
     sheet->record = delivery->record;
     sheet->scene = node.scene;
+    sheet->sourceHash = node.hash;
     sheet->merge = node.merge;
+    sheet->original = node.original;
+    sheet->lineageStart = node.lineageStart;
     auto prefix = "HETContinuation_" + processId + "_" + std::to_string(++serial);
     if (!BuildSheet(manager.Get(), steps, prefix, *sheet))
         return false;
@@ -696,6 +728,7 @@ bool Play(void* engine, void* page) {
         temporary.insert(sheet->scenario.Get());
     }
     sheets.push_back(std::move(sheet));
+    route.push_back({node.scene, delivery->record, {}, {}});
     // Same wait completion, onSelected UI cleanup and jump reservation as an
     // ordinary selection. No original branch expression is attached to this item.
     runningSelection = Root(button.Get());

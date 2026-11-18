@@ -127,6 +127,71 @@ final class StoryPrompt {
         return new JSONObject().put("speaker", item.optString("speaker")).put("text", text);
     }
 
+    private static JSONObject atPath(JSONObject record, String path) throws JSONException {
+        if (!path.startsWith("/steps/")) throw new JSONException("无效生成内容位置");
+        Object value = record;
+        for (String part : path.substring(1).split("/", -1)) {
+            if (value instanceof JSONObject) {
+                value = ((JSONObject) value).get(part);
+            } else if (value instanceof JSONArray) {
+                try {
+                    value = ((JSONArray) value).get(Integer.parseInt(part));
+                } catch (NumberFormatException e) {
+                    throw new JSONException("无效生成分支位置");
+                }
+            } else {
+                throw new JSONException("未知生成节点");
+            }
+        }
+        if (!(value instanceof JSONObject)) throw new JSONException("生成位置未对应节点");
+        return (JSONObject) value;
+    }
+
+    private static final class Ancestry {
+        final Map<String, JSONObject> records = new HashMap<>();
+        String originalOrder;
+        JSONObject currentChoice;
+    }
+
+    private Ancestry ancestry(JSONObject node, JSONArray history) throws Exception {
+        JSONObject source = node.getJSONObject("source");
+        Ancestry chain = new Ancestry();
+        while ("generated".equals(source.getString("type"))) {
+            String id = source.getString("record_id");
+            JSONObject parent = ContinuationContent.byId(history, id);
+            if (parent == null || !hash.equals(parent.getString("source_hash"))
+                    || chain.records.put(id, parent) != null) {
+                throw new JSONException("当前节点所属的续写记录不可用");
+            }
+            JSONObject step = atPath(parent, source.getString("node_path"));
+            if (!"choice".equals(step.optString("type"))) throw new JSONException("生成位置未对应选项");
+            if (chain.currentChoice == null) chain.currentChoice = step;
+            source = parent.getJSONObject("source");
+        }
+        chain.originalOrder = order(source.getJSONObject("order"));
+        if (node.has("original_order") && !chain.originalOrder.equals(order(node.getJSONObject("original_order")))) {
+            throw new JSONException("续写选项与原合流位置不一致");
+        }
+        return chain;
+    }
+
+    private static JSONObject generatedLine(JSONObject ref, Ancestry chain) throws JSONException {
+        JSONObject parent = chain.records.get(ref.getString("record_id"));
+        if (parent == null) return null;
+        if (ref.optBoolean("input")) {
+            return new JSONObject().put("speaker", "mc").put("text", parent.getString("input"));
+        }
+        JSONObject entry = atPath(parent, ref.getString("node_path"));
+        if ("dialogue".equals(entry.optString("type"))) {
+            return ContinuationContent.project(entry, "speaker", "text");
+        }
+        // A selected option is a {text,steps} object, including when its nested list is empty.
+        if (entry.has("text") && entry.has("steps")) {
+            return new JSONObject().put("speaker", "mc").put("text", entry.getString("text"));
+        }
+        return null;
+    }
+
     private static final class PlayedLine {
         final JSONObject text;
         final JSONObject order;
@@ -147,20 +212,24 @@ final class StoryPrompt {
         final Map<Integer, JSONObject> futureEnds = new HashMap<>();
     }
 
-    private Window window(JSONArray route, String originalOrder, String language) throws JSONException {
+    private Window window(JSONArray route, Ancestry chain, String language) throws JSONException {
         List<PlayedLine> played = new ArrayList<>();
         for (int i = 0; i < route.length(); i++) {
             JSONObject ref = route.getJSONObject(i);
             if (ref.optBoolean("stage")) continue;
             JSONObject rendered;
             JSONObject position = null;
-            position = ref.optJSONObject("order");
-            if (position == null) position = ref;
-            String key = order(position);
-            JSONObject item = texts.get(key);
-            if (item == null) continue;
-            rendered = line(item, language);
-            if (selectedOptionOrders.contains(key)) rendered.put("speaker", "mc");
+            if (ref.has("record_id")) {
+                rendered = generatedLine(ref, chain);
+            } else {
+                position = ref.optJSONObject("order");
+                if (position == null) position = ref;
+                String key = order(position);
+                JSONObject item = texts.get(key);
+                if (item == null) continue;
+                rendered = line(item, language);
+                if (selectedOptionOrders.contains(key)) rendered.put("speaker", "mc");
+            }
             if (rendered != null) played.add(new PlayedLine(rendered, position, i));
         }
 
@@ -183,7 +252,7 @@ final class StoryPrompt {
         }
 
         JSONObject previous = null;
-        for (LineTail tail = following.get(originalOrder); tail != null; tail = tail.next) {
+        for (LineTail tail = following.get(chain.originalOrder); tail != null; tail = tail.next) {
             JSONObject position = tail.item.getJSONObject("order");
             int count = window.after.length();
             if (count >= 5 && !question(window.after.getJSONObject(count - 1)) && !samePage(previous, position)) break;
@@ -195,8 +264,13 @@ final class StoryPrompt {
         return window;
     }
 
-    private JSONArray options(JSONObject original, String language) throws JSONException {
+    private JSONArray options(JSONObject original, Ancestry chain, String language) throws JSONException {
         JSONArray result = new JSONArray();
+        if (chain.currentChoice != null) {
+            JSONArray choices = chain.currentChoice.getJSONArray("options");
+            for (int i = 0; i < choices.length(); i++) result.put(choices.getJSONObject(i).getString("text"));
+            return result;
+        }
         JSONArray branches = original.getJSONArray("branches");
         for (int i = 0; i < branches.length(); i++) {
             JSONArray choices = branches.getJSONObject(i).getJSONArray("options");
@@ -415,18 +489,25 @@ final class StoryPrompt {
     }
 
     Local local(Context context, JSONObject node, String language, boolean actors, boolean backgrounds) throws Exception {
-        JSONObject identity = ContinuationContent.project(node, "scene", "source_hash", "source", "route", "screen");
+        JSONObject identity = ContinuationContent.project(node, "scene", "source_hash", "source", "original_order", "route", "screen");
         String summary = previousSummary(context, scene.getString("scene"), language);
         byte[] key = SceneTranslationRequestBuilder.toCanonicalBytes(identity
             .put("language", language).put("allow_character", actors).put("allow_background", backgrounds)
             .put("previous_summary", summary));
         synchronized (this) {
             if (Arrays.equals(cachedKey, key)) return cachedLocal;
-            String originalOrder = order(node.getJSONObject("source").getJSONObject("order"));
-            JSONObject original = choices.get(originalOrder);
+        }
+
+        // Read Context and saved records outside the cache lock. Ancestor records are immutable by ID.
+        JSONArray history = "generated".equals(node.getJSONObject("source").getString("type"))
+            ? ContinuationContent.all(context, node.getString("scene")) : new JSONArray();
+        synchronized (this) {
+            if (Arrays.equals(cachedKey, key)) return cachedLocal;
+            Ancestry chain = ancestry(node, history);
+            JSONObject original = choices.get(chain.originalOrder);
             if (original == null) throw new JSONException("当前选项在原剧本中没有对应位置");
-            Window window = window(node.getJSONArray("route"), originalOrder, language);
-            JSONArray options = options(original, language);
+            Window window = window(node.getJSONArray("route"), chain, language);
+            JSONArray options = options(original, chain, language);
             JSONArray premises = branchReferences(original.getJSONArray("branches"), window.after, language);
             JSONArray states = stageReferences(window, original, actors, backgrounds);
             JSONObject view = screen(node.getJSONObject("screen"), actors);

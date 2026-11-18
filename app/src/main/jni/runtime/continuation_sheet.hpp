@@ -18,6 +18,9 @@ struct Sheet {
     std::string scene;
     std::string record;
     std::string merge;
+    std::string sourceHash;
+    OrderKey original;
+    size_t lineageStart = 0;
     std::unordered_map<std::string, GeneratedStep> steps;
 };
 bool BuildSheet(void* manager, const rapidjson::Value& steps, const std::string& prefix, Sheet& sheet);
