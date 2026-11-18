@@ -92,6 +92,15 @@ final class ContinuationRecordDialogs {
                     }
                     body.append("]\n");
                     break;
+                case "choice":
+                    JSONArray options = step.optJSONArray("options");
+                    for (int n = 0; options != null && n < options.length(); n++) {
+                        JSONObject option = options.optJSONObject(n);
+                        body.append(indent).append(context.getString(R.string.continuation_option, n + 1))
+                            .append(" · ").append(option.optString("text")).append('\n');
+                        appendSteps(context, body, option.optJSONArray("steps"), indent + "    ");
+                    }
+                    break;
             }
         }
     }

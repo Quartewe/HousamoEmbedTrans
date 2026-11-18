@@ -471,6 +471,9 @@ final class StoryPrompt {
             + "只输出一个 JSON 对象。成功时返回 status 为 ok 和有序的 steps 数组。"
             + "dialogue step 的字段是 type=dialogue、speaker、text。旁白可用空名字。每条完整路线至少有一条对白。");
         if (target != 0) instructions.append("每条路线生成 ").append(target).append(" 条左右的对白。");
+        if (generation.getBoolean("allow_choices")) {
+            instructions.append("可用 type=choice，options 是 {text,steps} 数组。主角的候选发言写在选项里。分支后继续外层步骤。");
+        }
         if (actors) {
             instructions.append("可用 type=stage 的 action=character（character、可选 pattern/layer/x/y/fade）")
                 .append("或 character_off（target、可选 fade）。target 也可为图层或 all。")

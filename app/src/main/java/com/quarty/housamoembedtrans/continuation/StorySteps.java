@@ -25,6 +25,20 @@ final class StorySteps {
                 case "stage":
                     action(step,settings,resources);
                     break;
+                case "choice":
+                    require(settings.getBoolean("allow_choices"),"未开启额外选项");
+                    keys(step,"type","options");
+                    JSONArray options=step.getJSONArray("options");
+                    require(options.length()>0,"选项列表为空");
+                    boolean all=true;
+                    for (int j=0;j<options.length();j++) {
+                        JSONObject item=options.getJSONObject(j);
+                        keys(item,"text","steps");
+                        word(item,"text");
+                        all &= sequence(item.getJSONArray("steps"),settings,resources);
+                    }
+                    dialogue |= all;
+                    break;
                 default: throw new JSONException("未知 step 类型");
             }
         }

@@ -633,6 +633,17 @@ void RestoreRoute(size_t size) {
 std::string SceneForGeneratedPage(void* page) {
     return currentSheet && currentPage.Get() == page ? currentSheet->scene : "";
 }
+std::string LabelForGeneratedPage(void* page) {
+    if (sheets.empty())
+        return {};
+    const auto label = PageLabel(page);
+    for (const auto& sheet : sheets) {
+        auto found = sheet->steps.find(label);
+        if (found != sheet->steps.end() && found->second.choice)
+            return "续写选项 " + found->second.path;
+    }
+    return {};
+}
 void ReportError(const char* message) {
     std::string text(message);
     Notify("showContinuationError", &text);

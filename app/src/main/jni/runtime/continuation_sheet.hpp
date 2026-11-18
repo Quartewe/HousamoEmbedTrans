@@ -7,6 +7,8 @@ namespace het::continuation {
 struct GeneratedStep {
     std::string path;
     std::string speaker;
+    bool choice = false;
+    std::unordered_map<std::string, std::string> optionPaths;
 };
 struct Sheet {
     utage::Root scenario;

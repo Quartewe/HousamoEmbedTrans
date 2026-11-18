@@ -23,20 +23,54 @@ std::string Cell(const rapidjson::Value& value, const char* key) {
     return {buffer.GetString(), buffer.GetSize()};
 }
 
+// Every step gets its own label. Branch leaves jump to the next enclosing
+// step, including empty options. The only handoff to original content is at end.
+struct Block {
+    const rapidjson::Value* list;
+    std::string path, entry, after;
+};
 void WaitFade(Rows& rows) {
     rows.push_back({"WaitFadeObjects", "AllCharacterLayers"});
     rows.push_back({"WaitFadeObjects", "AllBgLayers"});
 }
 void Compile(const rapidjson::Value& steps, const std::string& prefix, Sheet& out, Rows& rows) {
-    out.entry = prefix + "_0";
-    for (rapidjson::SizeType i = 0; i < steps.Size(); ++i) {
-        const auto& step = steps[i];
-        const auto label = prefix + "_" + std::to_string(i);
-        rows.push_back({"*" + label});
-        if (Cell(step, "type") == "dialogue") {
-            out.steps[label].speaker = Cell(step, "speaker");
-            rows.push_back({"Text", "", "", "", "", "", "", Cell(step, "text")});
-        } else {
+    size_t sequence = 0;
+    auto label = [&]() { return prefix + "_" + std::to_string(++sequence); };
+    std::string end = label();
+    out.entry = label();
+    std::vector<Block> pending{{&steps, "/steps", out.entry, end}};
+    while (!pending.empty()) {
+        Block block = std::move(pending.back());
+        pending.pop_back();
+        std::string here = block.entry;
+        if (block.list->Empty()) {
+            rows.push_back({"*" + here});
+            rows.push_back({"Jump", "*" + block.after});
+        }
+        for (rapidjson::SizeType i = 0; i < block.list->Size(); ++i) {
+            const auto& step = (*block.list)[i];
+            const std::string next = i + 1 == block.list->Size() ? block.after : label();
+            const std::string path = block.path + "/" + std::to_string(i);
+            rows.push_back({"*" + here});
+            auto& metadata = out.steps[here];
+            metadata.path = path;
+            std::string type = Cell(step, "type");
+            if (type == "dialogue") {
+                metadata.speaker = Cell(step, "speaker");
+                rows.push_back({"Text", "", "", "", "", "", "", Cell(step, "text")});
+            } else if (type == "choice") {
+                metadata.choice = true;
+                const auto& options = step["options"];
+                for (rapidjson::SizeType j = 0; j < options.Size(); ++j) {
+                    const auto& option = options[j];
+                    const std::string branch = label();
+                    std::string optionPath = path + "/options/" + std::to_string(j);
+                    metadata.optionPaths[branch] = optionPath;
+                    rows.push_back({"Selection", "*" + branch, "", "", "", "", "", Cell(option, "text")});
+                    pending.push_back({&option["steps"], optionPath + "/steps", branch, next});
+                }
+                // Utage inserts SelectionEnd when the next command is a different type.
+            } else {
                 std::string action = Cell(step, "action"), fade = Cell(step, "fade");
                 if (action == "bg")
                     rows.push_back({"Bg", Cell(step, "bg"), "", "", "", "", fade});
@@ -48,10 +82,15 @@ void Compile(const rapidjson::Value& steps, const std::string& prefix, Sheet& ou
                     rows.push_back({"CharacterOff", target == "all" ? "" : target, "", "", "", "", fade});
                 } else
                     WaitFade(rows);
+            }
+            rows.push_back({"Jump", "*" + next});
+            here = next;
         }
     }
+    rows.push_back({"*" + end});
     WaitFade(rows);
-    rows.push_back({"Jump", "*" + out.merge});
+    if (!out.merge.empty())
+        rows.push_back({"Jump", "*" + out.merge});
 }
 } // namespace
 

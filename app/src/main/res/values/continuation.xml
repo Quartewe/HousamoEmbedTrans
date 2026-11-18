@@ -36,5 +36,6 @@
     <string name="continuation_model">Model</string>
     <string name="continuation_time">Generated</string>
     <string name="continuation_response">Response</string>
+    <string name="continuation_option">Choice %1$d</string>
     <string name="continuation_narration">Narration</string>
 </resources>

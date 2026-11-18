@@ -228,8 +228,13 @@ void PublishPosition() {
     }
     if (!env) return;
     jstring scene = !active || !currentScene.empty() ? env->NewStringUTF(currentScene.c_str()) : nullptr;
-    jstring label = choiceKnown && !env->ExceptionCheck()
-        ? env->NewString(reinterpret_cast<const jchar*>(choice.data()), static_cast<jsize>(choice.size())) : nullptr;
+    jstring label = nullptr;
+    if (choiceKnown && !env->ExceptionCheck()) {
+        auto generated=top ? continuation::LabelForGeneratedPage(top->item.snapshot->Page()) : std::string{};
+        label = generated.empty()
+            ? env->NewString(reinterpret_cast<const jchar*>(choice.data()),static_cast<jsize>(choice.size()))
+            : env->NewStringUTF(generated.c_str());
+    }
     if (!env->ExceptionCheck()) {
         env->CallStaticVoidMethod(bridge.main_hook_class, bridge.report_story_position_method,
             scene, label, static_cast<jint>(pageNo));

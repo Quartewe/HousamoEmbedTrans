@@ -16,6 +16,7 @@ void Selected(void* selection);
 size_t RouteSize();
 void RestoreRoute(size_t size);
 std::string SceneForGeneratedPage(void* page);
+std::string LabelForGeneratedPage(void* page);
 // Claims only a previously accepted delivery for this visit.
 bool TakePlayback();
 bool TakePlaybackFailure(std::string* reason);

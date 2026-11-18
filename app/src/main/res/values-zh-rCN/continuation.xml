@@ -30,5 +30,6 @@
     <string name="continuation_model">模型</string>
     <string name="continuation_time">生成时间</string>
     <string name="continuation_response">完整回应</string>
+    <string name="continuation_option">选项 %1$d</string>
     <string name="continuation_narration">旁白</string>
 </resources>
