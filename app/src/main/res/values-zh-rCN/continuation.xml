@@ -21,6 +21,10 @@
     <string name="continuation_records">续写记录</string>
     <string name="continuation_records_hint">查看这段剧情中保存的原话和完整回应。</string>
     <string name="continuation_no_records">暂无续写记录。</string>
+    <string name="continuation_delete">删除记录</string>
+    <string name="continuation_delete_confirm">永久删除「%1$s」的续写记录？</string>
+    <string name="continuation_delete_child">请先删除子记录「%1$s」。</string>
+    <string name="continuation_delete_pending">这条记录有续写任务正在处理，请在任务结束后再删除。</string>
     <string name="continuation_submit">提交</string>
     <string name="continuation_wait">正在生成回应</string>
     <string name="continuation_cancel_generation">取消生成</string>

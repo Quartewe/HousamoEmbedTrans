@@ -7,12 +7,13 @@ import org.json.JSONObject;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.function.Consumer;
 
-/** Read-only presentation of every branch stored in a Scene's continuation records. */
+/** Scene history and individual saved responses in HET. */
 final class ContinuationRecordDialogs {
     private ContinuationRecordDialogs() {}
 
-    static void show(Context context, JSONArray records) {
+    static void show(Context context, JSONArray records, Consumer<String> deleteRecord) {
         UiMaterialAlertDialogBuilder list = new UiMaterialAlertDialogBuilder(context);
         list.setTitle(R.string.continuation_records);
         if (records.length() == 0) {
@@ -24,7 +25,7 @@ final class ContinuationRecordDialogs {
                 labels[i] = record.optString("input") + "\n" + timestamp(record);
             }
             list.setItems(labels, (dialog, index) -> detail(context, records,
-                records.optJSONObject(records.length() - 1 - index)));
+                records.optJSONObject(records.length() - 1 - index), deleteRecord));
         }
         list.setNegativeButton(android.R.string.cancel, null).show();
     }
@@ -33,7 +34,7 @@ final class ContinuationRecordDialogs {
         return DateFormat.getDateTimeInstance().format(new Date(record.optLong("created_at")));
     }
 
-    private static void detail(Context context, JSONArray records, JSONObject record) {
+    private static void detail(Context context, JSONArray records, JSONObject record, Consumer<String> deleteRecord) {
         JSONObject generation = record.optJSONObject("generation");
         JSONObject source = record.optJSONObject("source");
         StringBuilder body = new StringBuilder();
@@ -58,7 +59,17 @@ final class ContinuationRecordDialogs {
         appendSteps(context, body, record.optJSONArray("steps"), "");
         new UiMaterialAlertDialogBuilder(context)
             .setTitle(R.string.continuation_records).setMessage(body)
-            .setNegativeButton(R.string.continuation_records, (d, w) -> show(context, records))
+            .setNegativeButton(R.string.continuation_records, (d, w) -> show(context, records, deleteRecord))
+            .setNeutralButton(R.string.continuation_delete, (d, w) -> {
+                Runnable back = () -> detail(context, records, record, deleteRecord);
+                new UiMaterialAlertDialogBuilder(context)
+                    .setTitle(R.string.continuation_delete)
+                    .setMessage(context.getString(R.string.continuation_delete_confirm, record.optString("input")))
+                    .setNegativeButton(android.R.string.cancel, (confirm, button) -> back.run())
+                    .setOnCancelListener(confirm -> back.run())
+                    .setPositiveButton(R.string.continuation_delete, (confirm, button) -> deleteRecord.accept(record.optString("id")))
+                    .show();
+            })
             .setPositiveButton(android.R.string.ok, null).show();
     }
 

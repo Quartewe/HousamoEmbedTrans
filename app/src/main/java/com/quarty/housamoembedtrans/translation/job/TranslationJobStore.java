@@ -14,6 +14,7 @@ import com.quarty.housamoembedtrans.util.TranslationJobStatus;
 import com.quarty.housamoembedtrans.translation.request.TranslationSchemaValidator;
 
 import com.quarty.housamoembedtrans.continuation.ContinuationContent;
+import com.quarty.housamoembedtrans.R;
 
 import android.content.Context;
 import android.util.AtomicFile;
@@ -2646,6 +2647,33 @@ public final class TranslationJobStore {
 
     public synchronized boolean isContinuation(String requestId) {
         return continuationIds.contains(requestId);
+    }
+
+    public JSONArray deleteContinuationRecord(String scene, String recordId) throws Exception {
+        // Use the same lock order as submission and local result recovery.
+        synchronized (SceneContextStore.ROOT_ACCESS_LOCK) {
+            synchronized (this) {
+                for (File directory : jobStore.listValidJobDirectories()) {
+                    if (preparedForServiceStart && !continuationIds.contains(directory.getName())) continue;
+                    JSONObject state = readState(directory);
+                    if (state != null) {
+                        if (!JobValidator.isContinuation(state) || !scene.equals(state.optString("scene"))) continue;
+                        String status = state.optString("status");
+                        if (isTerminalStatus(status) &&
+                            (!STATUS_COMPLETED.equals(status) || state.optBoolean("local_scene_saved"))) continue;
+                    } else if (!IoUtils.atomicFileExists(new File(directory, REQUEST_FILE_NAME))) {
+                        continue;
+                    }
+                    JSONObject request = JobValidator.parseJsonObject(readRequest(directory), MAX_REQUEST_BYTES, "request");
+                    if (!JobValidator.isContinuation(request) || !scene.equals(request.optString("scene"))) continue;
+                    if (recordId.equals(request.getString("record_id")) ||
+                        ContinuationContent.isChildOf(request, recordId)) {
+                        throw new IOException(application.getString(R.string.continuation_delete_pending));
+                    }
+                }
+                return ContinuationContent.deleteLeaf(application, scene, recordId);
+            }
+        }
     }
 
     private QueuedJobRef nextMatchingJob(Boolean continuation) {

@@ -1,6 +1,7 @@
 package com.quarty.housamoembedtrans.continuation;
 
 import android.content.Context;
+import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 import com.quarty.housamoembedtrans.storage.config.PromptStore;
@@ -87,6 +88,37 @@ public final class ContinuationContent {
 
     public static JSONArray all(Context c, String scene) throws Exception {
         synchronized (RECORD_WRITES) { return document(c,scene).getJSONArray("records"); }
+    }
+
+    /** Called by the job store while new submissions and completion writes are excluded. */
+    public static JSONArray deleteLeaf(Context context, String scene, String recordId) throws Exception {
+        synchronized (RECORD_WRITES) {
+            JSONObject doc = document(context, scene);
+            JSONArray records = doc.getJSONArray("records");
+            if (removeLeaf(records, recordId, context.getString(R.string.continuation_delete_child))) {
+                IO.write(file(context, scene), doc.toString().getBytes(StandardCharsets.UTF_8));
+                // A prepared generated choice may still refer to the deleted parent.
+                synchronized (ContinuationContent.class) { latestScene = null; }
+            }
+            return records;
+        }
+    }
+
+    static boolean removeLeaf(JSONArray records, String recordId, String childMessage) throws Exception {
+        int index = -1;
+        for (int i = 0; i < records.length(); i++) {
+            JSONObject record = records.getJSONObject(i);
+            if (recordId.equals(record.getString("id"))) index = i;
+            if (isChildOf(record, recordId)) {
+                throw new IOException(String.format(childMessage, record.getString("input")));
+            }
+        }
+        return index >= 0 && records.remove(index) != null;
+    }
+
+    public static boolean isChildOf(JSONObject record, String parentId) throws JSONException {
+        JSONObject source = record.getJSONObject("source");
+        return "generated".equals(source.getString("type")) && parentId.equals(source.getString("record_id"));
     }
 
     static boolean same(JSONObject a, JSONObject b) throws Exception {

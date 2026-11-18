@@ -4,6 +4,7 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 
 import com.quarty.housamoembedtrans.R;
+import com.quarty.housamoembedtrans.continuation.ContinuationContent;
 import com.quarty.housamoembedtrans.context.store.SceneContextStore;
 import com.quarty.housamoembedtrans.scene.store.SceneStore;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
@@ -11,6 +12,7 @@ import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.bridge.StoryOpenResult;
 import com.quarty.housamoembedtrans.translation.IChoiceBackCallback;
 import com.quarty.housamoembedtrans.translation.TranslationService;
+import com.quarty.housamoembedtrans.translation.job.TranslationJobStore;
 
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -902,18 +904,29 @@ public final class SceneManagementDetailActivity extends AppCompatActivity {
     }
 
     private void showContinuationRecords() {
+        loadContinuationRecords(null);
+    }
+
+    private void loadContinuationRecords(String deleteRecordId) {
         ioExecutor.execute(() -> {
             try {
-                JSONArray records = com.quarty.housamoembedtrans.continuation.ContinuationContent
-                    .all(this, sceneName);
+                JSONArray records = deleteRecordId == null ? ContinuationContent.all(this, sceneName)
+                    : TranslationJobStore.getInstance(this).deleteContinuationRecord(sceneName, deleteRecordId);
                 runOnUiThread(() -> {
-                    if (isActivityAlive() && resumed) ContinuationRecordDialogs.show(this, records);
+                    if (isActivityAlive() && resumed) ContinuationRecordDialogs.show(this, records, this::loadContinuationRecords);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
-                    if (isActivityAlive() && resumed) new UiMaterialAlertDialogBuilder(this)
-                        .setTitle(R.string.continuation_records).setMessage(error.getMessage())
-                        .setPositiveButton(android.R.string.ok, null).show();
+                    if (!isActivityAlive() || !resumed) return;
+                    UiMaterialAlertDialogBuilder dialog = new UiMaterialAlertDialogBuilder(this);
+                    dialog.setTitle(deleteRecordId == null ? R.string.continuation_records : R.string.continuation_delete)
+                        .setMessage(error.getMessage());
+                    if (deleteRecordId != null) {
+                        dialog.setPositiveButton(R.string.continuation_records, (d, w) -> showContinuationRecords());
+                    } else {
+                        dialog.setPositiveButton(android.R.string.ok, null);
+                    }
+                    dialog.show();
                 });
             }
         });
