@@ -36,3 +36,4 @@ std::string ReadScenarioQuestLabel(void* scenario, void* data_manager);
 
 // Resolves a played page's label through the original lookup, without starting capture again.
 void* FindScenarioDataForPosition(void* manager, void* label, const void* method);
+bool DispatchContinuationSelection(void* manager, void* selection);

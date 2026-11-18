@@ -4,6 +4,7 @@
 #include "scene/page_rec.hpp"
 #include "shadowhook.h"
 #include "runtime/choice_back.hpp"
+#include "runtime/continuation_source.hpp"
 
 #include <atomic>
 #include <cstdint>
@@ -46,6 +47,7 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
     if (RawFindScenarioData) {
         scenario_data = RawFindScenarioData(self, label, method);
     }
+    if (IsContinuationScenario(scenario_data)) return scenario_data;
 
     if (stop_reason.load(std::memory_order_acquire) == StopReason::user_pause
         || captured_epoch != capture_pause_epoch.load(

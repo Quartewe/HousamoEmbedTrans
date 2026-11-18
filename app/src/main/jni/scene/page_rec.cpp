@@ -3,6 +3,7 @@
 #include "translation/codec/document_codec.hpp"
 #include "translation/native_translation_pipeline.hpp"
 #include "runtime/choice_back.hpp"
+#include "runtime/continuation_source.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -154,7 +155,7 @@ bool CommandExamine(void* page_data, const std::string&) {
     void* label_data = read_ptr(page_data, layout.adv_scenario_page_data.scenario_label_data);
     if (!valid_ptr(label_data)) return false;
     std::string label = read_il2cpp_string(read_ptr(label_data, layout.scenario_label_data.scenario_label));
-    if (label.empty()) return false;
+    if (label.empty() || IsContinuationLabel(label)) return false;
     std::lock_guard<std::mutex> lock(labels_mutex);
     if (!IsCurrent(epoch)) return false;
     pending_labels[std::move(label)] = ++revision;
@@ -185,7 +186,7 @@ void ExportPageRecScenarios(
     std::unordered_set<std::string> covered;
     std::unordered_set<std::string> attempted;
     auto capture = [&](void* data, const std::string& entry) {
-        if (!valid_ptr(data) || !IsCurrent(epoch)) return;
+        if (!valid_ptr(data) || !IsCurrent(epoch) || IsContinuationScenario(data)) return;
         const std::string name = read_il2cpp_string(
             read_ptr(data, g_runtime_config.layout.adv_scenario_data.name));
         if (!het::translation::scene_identity::IsValid(name)) return;
