@@ -143,12 +143,15 @@ final class StoryPrompt {
         final JSONArray recent = new JSONArray();
         final JSONArray after = new JSONArray();
         final Set<String> originalLines = new HashSet<>();
+        final Set<String> actualStage = new HashSet<>();
+        final Map<Integer, JSONObject> futureEnds = new HashMap<>();
     }
 
     private Window window(JSONArray route, String originalOrder, String language) throws JSONException {
         List<PlayedLine> played = new ArrayList<>();
         for (int i = 0; i < route.length(); i++) {
             JSONObject ref = route.getJSONObject(i);
+            if (ref.optBoolean("stage")) continue;
             JSONObject rendered;
             JSONObject position = null;
             position = ref.optJSONObject("order");
@@ -173,6 +176,12 @@ final class StoryPrompt {
             window.recent.put(row.text);
             if (row.order != null) window.originalLines.add(order(row.order));
         }
+        int firstRoute = start == 0 ? 0 : played.get(start - 1).routeIndex + 1;
+        for (int i = firstRoute; i < route.length(); i++) {
+            JSONObject ref = route.getJSONObject(i);
+            if (ref.optBoolean("stage")) window.actualStage.add(order(ref.getJSONObject("order")));
+        }
+
         JSONObject previous = null;
         for (LineTail tail = following.get(originalOrder); tail != null; tail = tail.next) {
             JSONObject position = tail.item.getJSONObject("order");
@@ -180,6 +189,7 @@ final class StoryPrompt {
             if (count >= 5 && !question(window.after.getJSONObject(count - 1)) && !samePage(previous, position)) break;
             window.after.put(line(tail.item, language));
             window.originalLines.add(order(position));
+            window.futureEnds.put(position.getInt("label_index"), position);
             previous = position;
         }
         return window;
@@ -194,6 +204,49 @@ final class StoryPrompt {
         }
         return result;
     }
+    private JSONArray stageReferences(Window window, JSONObject original, boolean actors, boolean backgrounds)
+            throws JSONException {
+        JSONArray result = new JSONArray();
+        JSONObject stage = scene.optJSONObject("stage");
+        if (stage == null) return result;
+
+        // Include independent stage instructions in the merge label up to the selected text.
+        JSONArray labels = stage.optJSONArray("labels");
+        if (labels != null && window.after.length() > 0) {
+            String merge = original.getString("merge_label");
+            for (int i = 0; i < labels.length(); i++) {
+                if (merge.equals(labels.getString(i)) && !window.futureEnds.containsKey(i)) window.futureEnds.put(i, null);
+            }
+        }
+        JSONArray states = stage.optJSONArray("states");
+        if (states == null) return result;
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < states.length(); i++) {
+            JSONObject state = states.getJSONObject(i);
+            JSONObject position = state.getJSONObject("order");
+            String key = order(position);
+            int label = position.getInt("label_index");
+            JSONObject end = window.futureEnds.get(label);
+            boolean selected = window.actualStage.contains(key)
+                || window.futureEnds.containsKey(label) && (end == null || beforeOrAt(position, end));
+            JSONArray linked = state.getJSONArray("text_orders");
+            for (int j = 0; !selected && j < linked.length(); j++) {
+                selected = window.originalLines.contains(order(linked.getJSONObject(j)));
+            }
+            if (!selected || !seen.add(key)) continue;
+            JSONObject clean = ContinuationContent.project(state, "visibility");
+            JSONObject actor = state.optJSONObject("character");
+            JSONObject background = state.optJSONObject("background");
+            if (actor != null) clean.put("character", ContinuationContent.project(actor, "label", "pattern"));
+            if (background != null) {
+                clean.put("background", backgrounds ? background : ContinuationContent.project(background, "resource"));
+            }
+            if (background != null && backgrounds) clean.put("transition", state.opt("transition"));
+            result.put(clean);
+        }
+        return result;
+    }
+
     private static JSONObject screen(JSONObject screen, boolean actors) throws JSONException {
         JSONObject view = ContinuationContent.project(screen, "background");
         JSONArray cast = screen.optJSONArray("characters");
@@ -207,8 +260,17 @@ final class StoryPrompt {
         return view.put("characters", visible);
     }
 
+    private JSONObject resources(boolean actors, boolean backgrounds) throws JSONException {
+        JSONObject stage = scene.optJSONObject("stage");
+        JSONObject catalog = stage == null ? null : stage.optJSONObject("resources");
+        JSONObject allowed = new JSONObject();
+        if (catalog == null) return allowed;
+        if (backgrounds) allowed.put("backgrounds", catalog.optJSONArray("backgrounds"));
+        return allowed;
+    }
+
     // Only human-readable fields in the local story are evidence of a name or term.
-    private static String corpus(Window window, JSONArray options, JSONArray branches, JSONObject view)
+    private static String corpus(Window window, JSONArray options, JSONArray branches, JSONObject view, JSONArray states)
             throws JSONException {
         StringBuilder story = new StringBuilder();
         appendLines(story, window.recent);
@@ -225,6 +287,13 @@ final class StoryPrompt {
             JSONObject actor = visible.getJSONObject(i);
             append(story, actor.optString("name"));
             append(story, actor.optString("character"));
+        }
+        for (int i = 0; i < states.length(); i++) {
+            JSONObject state = states.getJSONObject(i);
+            JSONObject actor = state.optJSONObject("character");
+            JSONObject background = state.optJSONObject("background");
+            if (actor != null) append(story, actor.optString("label"));
+            if (background != null) append(story, background.optString("resource"));
         }
         return story.toString();
     }
@@ -355,17 +424,19 @@ final class StoryPrompt {
             Window window = window(node.getJSONArray("route"), originalOrder, language);
             JSONArray options = options(original, language);
             JSONArray premises = branchReferences(original.getJSONArray("branches"), window.after, language);
+            JSONArray states = stageReferences(window, original, actors, backgrounds);
             JSONObject view = screen(node.getJSONObject("screen"), actors);
-            JSONObject catalog = new JSONObject();
+            JSONObject catalog = resources(actors, backgrounds);
             JSONObject body = new JSONObject()
                 .put("recent", window.recent)
                 .put("current_options", options)
                 .put("after_merge", window.after)
                 .put("screen", view)
+                .put("stage_reference", states)
                 .put("language", language)
                 .put("previous_summary", summary);
             if (premises.length() > 0) body.put("alternative_branch_references", premises);
-            Matches hits = matches(corpus(window, options, premises, view));
+            Matches hits = matches(corpus(window, options, premises, view, states));
             Local prepared = new Local(body, catalog, hits);
             cachedLocal = prepared;
             cachedKey = key;
@@ -387,6 +458,7 @@ final class StoryPrompt {
 
     private static String instructions(JSONObject generation) throws JSONException {
         int target = generation.getInt("dialogue_target");
+        boolean bg = generation.getBoolean("allow_background");
         StringBuilder instructions = new StringBuilder(
             "玩家输入是主角刚说出的原话。从其他角色的回应或旁白开始，使用 language 指定的语言。"
             + "recent 是实际经历，current_options 是眼前可选的发言，after_merge 是随后原剧情。"
@@ -394,6 +466,10 @@ final class StoryPrompt {
             + "只输出一个 JSON 对象。成功时返回 status 为 ok 和有序的 steps 数组。"
             + "dialogue step 的字段是 type=dialogue、speaker、text。旁白可用空名字。每条完整路线至少有一条对白。");
         if (target != 0) instructions.append("每条路线生成 ").append(target).append(" 条左右的对白。");
+        if (bg) instructions.append("可用 type=stage 的 action=bg（bg、可选 fade）。");
+        if (bg) {
+            instructions.append("只选 resources 中的资源。fade 是非负秒数，可省略使用默认。可用无参数 action=wait_fade 等待过渡。");
+        }
         return instructions.append("只用上文列出的类型和动作，不返回跳转标签。")
             .append("拒绝时返回 status=error、error={code:refused,message:原因}。").toString();
     }

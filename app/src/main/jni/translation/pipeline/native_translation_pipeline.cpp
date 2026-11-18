@@ -511,9 +511,13 @@ private:
                 &error);
             // Another capture may have created the file after admission-time
             // backfill. Preserve that file and fill only its missing entry.
-            if (committed == SceneCommitResult::already_exists
-                && !scene_store::BackfillQuestLabel(scene->scene, scene->quest_label, &error)) {
-                committed = SceneCommitResult::failed;
+            if (committed == SceneCommitResult::already_exists) {
+                if (!scene_store::BackfillQuestLabel(scene->scene, scene->quest_label, &error)
+                    || (!scene->stage.labels.empty() && !scene_store::BackfillStage(scene->scene,
+                        [&] { return EncodeContinuationSource(scene->scene_items, scene->protect); },
+                        [&] { return EncodeSceneStage(scene->stage); }, &error))) {
+                    committed = SceneCommitResult::failed;
+                }
             }
         }
         if (committed == SceneCommitResult::failed) {
@@ -637,6 +641,21 @@ bool SubmitExistingScene(
     std::uint64_t captured_epoch) {
     return GetPipeline().SubmitExisting(scene_name, captured_epoch);
 }
+
+template <typename Captured>
+static bool FillCapturedStage(const Captured& captured,std::uint64_t epoch) {
+    if(captured.stage.labels.empty()) return true;
+    std::lock_guard<std::mutex> transition(capture_transition_mutex);
+    if(!IsCaptureEpochCurrent(epoch)) return false;
+    std::string error;
+    bool ok=scene_store::BackfillStage(captured.scene,
+        [&]{return EncodeContinuationSource(captured.scene_items,captured.protect);},
+        [&]{return EncodeSceneStage(captured.stage);},&error);
+    if(!ok) LOGW("[SceneStage] %s: %s",captured.scene.c_str(),error.c_str());
+    return ok;
+}
+bool BackfillCapturedStage(const ScenarioParseResult& captured,std::uint64_t epoch) { return FillCapturedStage(captured,epoch); }
+bool BackfillCapturedStage(const Scene& captured,std::uint64_t epoch) { return FillCapturedStage(captured,epoch); }
 
 bool SubmitCapturedScene(
     std::shared_ptr<const Scene> scene,

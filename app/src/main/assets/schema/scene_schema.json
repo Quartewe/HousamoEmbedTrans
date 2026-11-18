@@ -46,6 +46,30 @@
       "items": { "$ref": "#/$defs/protectedToken" }
     },
     "summary": { "$ref": "#/$defs/languageStringMap" },
+    "stage": {
+      "type": "object",
+      "required": ["labels", "resources", "states"],
+      "properties": {
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "backgrounds": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["order", "text_orders"],
+            "properties": {
+              "order": { "$ref": "#/$defs/orderKey" },
+              "text_orders": { "type": "array", "items": { "$ref": "#/$defs/orderKey" } }
+            }
+          }
+        }
+      }
+    },
     "scene_items": {
       "type": "array",
       "items": { "$ref": "#/$defs/sceneItem" }

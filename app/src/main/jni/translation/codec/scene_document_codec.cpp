@@ -484,7 +484,56 @@ void AddSharedMember(
         request->GetAllocator());
 }
 
+rapidjson::Value StageJson(const SceneStage& stage, Allocator& a) {
+    using rapidjson::Value;
+    Value root(rapidjson::kObjectType), labels(rapidjson::kArrayType), resources(rapidjson::kObjectType);
+    for (const auto& label:stage.labels) labels.PushBack(JsonString(label,a),a);
+    root.AddMember("labels",labels,a);
+    Value chars(rapidjson::kObjectType), layers(rapidjson::kObjectType), bgs(rapidjson::kArrayType);
+    for(const auto& bg:stage.backgrounds) bgs.PushBack(JsonString(bg,a),a);
+    resources.AddMember("characters",chars,a).AddMember("layers",layers,a).AddMember("backgrounds",bgs,a);
+    root.AddMember("resources",resources,a);
+    Value states(rapidjson::kArrayType);
+    for(const auto& state:stage.states) {
+        Value item(rapidjson::kObjectType),orders(rapidjson::kArrayType),display(rapidjson::kObjectType);
+        for(const auto& order:state.text_orders) orders.PushBack(JsonOrderKey(order,a),a);
+        item.AddMember("order",JsonOrderKey(state.order,a),a).AddMember("text_orders",orders,a);
+        auto arg=[&](Value& v,const char* key,const char* col) {
+            auto it=state.parameters.find(col);
+            if(it!=state.parameters.end()) v.AddMember(rapidjson::StringRef(key),JsonString(it->second,a),a);
+        };
+        const bool actor=state.kind=="Character";
+        if(actor || state.kind=="Bg") {
+            arg(display,actor?"label":"resource","Arg1");
+            if(actor) arg(display,"pattern","Arg2");
+            arg(display,"layer","Arg3"); arg(display,"x","Arg4"); arg(display,"y","Arg5");
+            item.AddMember(rapidjson::StringRef(actor?"character":"background"),display,a);
+        } else {
+            Value visibility(rapidjson::kObjectType);
+            bool off=state.kind=="CharacterOff";
+            if(off) arg(display,"target","Arg1");
+            display.AddMember("visible",false,a);
+            visibility.AddMember(rapidjson::StringRef(off?"characters":"background"),display,a);
+            item.AddMember("visibility",visibility,a);
+        }
+        Value transition(rapidjson::kObjectType);
+        arg(transition,"fade","Arg6"); arg(transition,"wait_type","WaitType");
+        if(!transition.ObjectEmpty()) item.AddMember("transition",transition,a);
+        states.PushBack(item,a);
+    }
+    root.AddMember("states",states,a);
+    return root;
+}
+
 }  // namespace
+
+std::string StageBytes(const SceneStage& stage) {
+    rapidjson::Document doc;
+    auto data=StageJson(stage,doc.GetAllocator());
+    rapidjson::StringBuffer buf; rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+    if (!data.Accept(writer)) return {};
+    return {buf.GetString(),buf.GetSize()};
+}
 
 std::string SourceBytes(const std::vector<SceneItem>& items,const std::vector<ProtectedToken>& protect) {
     rapidjson::Document doc(rapidjson::kObjectType), scratch;
@@ -541,6 +590,7 @@ bool EncodeCapturedScene(
     if (!scene.quest_label.empty()) {
         local.AddMember("quest_label", JsonString(scene.quest_label, local_allocator), local_allocator);
     }
+    if (!scene.stage.labels.empty()) local.AddMember("stage",StageJson(scene.stage,local_allocator),local_allocator);
     AddSharedMember(
         &local,
         &api,
@@ -1078,4 +1128,8 @@ std::string EncodeContinuationSource(const ScenarioParseResult& parsed) {
 }
 std::string EncodeContinuationSource(const std::vector<SceneItem>& items,const std::vector<ProtectedToken>& protect) {
     return het::translation::document_codec::SourceBytes(items,protect);
+}
+
+std::string EncodeSceneStage(const SceneStage& stage) {
+    return het::translation::document_codec::StageBytes(stage);
 }

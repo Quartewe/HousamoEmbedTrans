@@ -39,6 +39,8 @@ public:
 
         const size_t item_count = result.scene_items.size();
         const size_t protect_count = result.protect.size();
+        auto source = EncodeContinuationSource(result);
+        auto stage = EncodeSceneStage(result.stage);
 
         {
             // The transition mutex makes the epoch check and the dedupe
@@ -55,8 +57,7 @@ public:
                 latest_epoch_ == captured_epoch &&
                 result.scene == latest_scene_->scene &&
                 g_runtime_config.target_lang == latest_scene_->target_lang &&
-                item_count == latest_scene_->scene_items.size() &&
-                protect_count == latest_scene_->protect.size()
+                source == latest_source_ && stage == latest_stage_
             ) {
                 LOGW("[SceneBuilder] parse result received but scene unchanged, items=%zu protect=%zu",
                     item_count,
@@ -88,8 +89,7 @@ public:
                 latest_epoch_ == captured_epoch &&
                 scene_ptr->scene == latest_scene_->scene &&
                 scene_ptr->target_lang == latest_scene_->target_lang &&
-                scene_ptr->scene_items.size() == latest_scene_->scene_items.size() &&
-                scene_ptr->protect.size() == latest_scene_->protect.size()) {
+                source == latest_source_ && stage == latest_stage_) {
                 LOGW("[SceneBuilder] built scene became duplicate during processing, items=%zu protect=%zu",
                     item_count,
                     protect_count);
@@ -97,6 +97,8 @@ public:
             }
             latest_scene_ = scene_ptr;
             latest_epoch_ = captured_epoch;
+            latest_source_ = std::move(source);
+            latest_stage_ = std::move(stage);
         }
 
         SubmitCapturedScene(
@@ -110,6 +112,7 @@ public:
         const size_t item_count = result.scene_items.size();
         std::vector<GameTerm> character_terms;
         scene.scene = result.scene;
+        scene.stage = std::move(result.stage);
         scene.quest_label = std::move(result.quest_label);
         scene.target_lang = g_runtime_config.target_lang;
         scene.protect = std::move(result.protect);
@@ -357,6 +360,8 @@ private:
 private:
     std::mutex mutex_;
     std::shared_ptr<const Scene> latest_scene_;
+    std::string latest_source_;
+    std::string latest_stage_;
     std::uint64_t latest_epoch_ = 0;
 };
 

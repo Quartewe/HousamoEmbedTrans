@@ -12,6 +12,7 @@
 #include <functional>
 #include <atomic>
 #include <mutex>
+#include <map>
 #include <memory>
 #include <utility>
 
@@ -413,7 +414,26 @@ struct AliasScore {
     float score = 0.0f;
 };
 
+struct StageState {
+    OrderKey order;
+    std::vector<OrderKey> text_orders;
+    std::string kind;
+    std::map<std::string, std::string> parameters;
+};
+struct StageLayer {
+    float x, y, scale_x, scale_y;
+    int order;
+    bool flip_x, flip_y;
+};
+struct SceneStage {
+    std::vector<std::string> labels;
+    std::map<std::string, std::vector<std::string>> characters;
+    std::vector<std::string> backgrounds;
+    std::map<std::string, StageLayer> layers;
+    std::vector<StageState> states;
+};
 struct ScenarioParseResult {
+    SceneStage stage;
     std::string scene;        // scenarioData.name
     std::string quest_label;  // complete Master_Quest label, when known
     std::string entry_label;  // FindScenarioData(label) 的参数
@@ -428,6 +448,7 @@ struct ScenarioParseResult {
 };
 
 struct Scene {
+    SceneStage stage;
     std::string scene;
     std::string quest_label;
     std::string raw_lang = "ja";
@@ -443,6 +464,7 @@ using QuestPtrSet = std::unordered_map<OrderKey, void*, OrderKeyHash>;
 std::string EncodeContinuationSource(const ScenarioParseResult& parsed);
 std::string EncodeContinuationSource(const std::vector<SceneItem>& items,
                                      const std::vector<ProtectedToken>& protect);
+std::string EncodeSceneStage(const SceneStage& stage);
 
 struct QuestTargetSet {
     void* scenario_data_ptr = nullptr;
@@ -502,7 +524,7 @@ bool CatchScenario(
     const std::string& entry_label,
     het::scene_sync::SceneProductionLease production_lease,
     std::uint64_t captured_epoch,
-    const std::string& quest_label);
+    const std::string& quest_label, void* data_manager);
 std::vector<AcHit> AcScan(const std::string& text);
 bool FindCharacterItem(const std::string& name, CharacterItem* out);
 bool FindGameTerm(const std::string& term, GameTerm* out);

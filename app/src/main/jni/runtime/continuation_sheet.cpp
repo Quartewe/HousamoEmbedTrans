@@ -23,6 +23,10 @@ std::string Cell(const rapidjson::Value& value, const char* key) {
     return {buffer.GetString(), buffer.GetSize()};
 }
 
+void WaitFade(Rows& rows) {
+    rows.push_back({"WaitFadeObjects", "AllCharacterLayers"});
+    rows.push_back({"WaitFadeObjects", "AllBgLayers"});
+}
 void Compile(const rapidjson::Value& steps, const std::string& prefix, Sheet& out, Rows& rows) {
     out.entry = prefix + "_0";
     for (rapidjson::SizeType i = 0; i < steps.Size(); ++i) {
@@ -32,8 +36,15 @@ void Compile(const rapidjson::Value& steps, const std::string& prefix, Sheet& ou
         if (Cell(step, "type") == "dialogue") {
             out.steps[label].speaker = Cell(step, "speaker");
             rows.push_back({"Text", "", "", "", "", "", "", Cell(step, "text")});
+        } else {
+                std::string action = Cell(step, "action"), fade = Cell(step, "fade");
+                if (action == "bg")
+                    rows.push_back({"Bg", Cell(step, "bg"), "", "", "", "", fade});
+                else
+                    WaitFade(rows);
         }
     }
+    WaitFade(rows);
     rows.push_back({"Jump", "*" + out.merge});
 }
 } // namespace

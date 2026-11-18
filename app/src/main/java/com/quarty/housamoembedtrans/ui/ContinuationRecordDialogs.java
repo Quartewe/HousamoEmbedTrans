@@ -82,6 +82,16 @@ final class ContinuationRecordDialogs {
                         ? context.getString(R.string.continuation_narration) : speaker)
                         .append(" · ").append(step.optString("text")).append('\n');
                     break;
+                case "stage":
+                    body.append(indent).append('[').append(step.optString("action"));
+                    Iterator<String> fields = step.keys();
+                    while (fields.hasNext()) {
+                        String key = fields.next();
+                        if (!"type".equals(key) && !"action".equals(key))
+                            body.append("  ").append(key).append('=').append(step.opt(key));
+                    }
+                    body.append("]\n");
+                    break;
             }
         }
     }

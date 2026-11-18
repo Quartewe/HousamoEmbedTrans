@@ -104,6 +104,45 @@ std::recursive_mutex& MutationMutex() {
     return mutex;
 }
 
+static void RemoveTranslations(rapidjson::Value& value) {
+    if(value.IsObject()) {
+        value.RemoveMember("translations");
+        for(auto it=value.MemberBegin();it!=value.MemberEnd();++it) RemoveTranslations(it->value);
+    } else if(value.IsArray()) for(auto& item:value.GetArray()) RemoveTranslations(item);
+}
+
+bool BackfillStage(const std::string& scene_name,const std::function<std::string()>& source,
+                   const std::function<std::string()>& stage,std::string* error) {
+    std::lock_guard<std::recursive_mutex> lock(MutationMutex());
+    if(!Exists(scene_name)) return true;
+    std::string saved;
+    if(!Read(scene_name,&saved,error)) return false;
+    rapidjson::Document doc;
+    doc.Parse(saved.data(),saved.size());
+    if(doc.HasParseError() || !doc.IsObject()) return Fail(error,"existing Scene could not be read");
+    if(doc.HasMember("stage")) return true;
+    if(!doc.HasMember("scene_items") || !doc.HasMember("protect")) return Fail(error,"existing Scene has no source");
+    rapidjson::Document actual;
+    auto bytes=source();
+    actual.Parse(bytes.data(),bytes.size());
+    if(!actual.IsObject() || !actual.HasMember("scene_items") || !actual.HasMember("protect"))
+        return Fail(error,"could not read captured story identity");
+    rapidjson::Value original(doc["scene_items"],actual.GetAllocator());
+    RemoveTranslations(original);
+    RemoveTranslations(actual["scene_items"]);
+    if(original!=actual["scene_items"] || doc["protect"]!=actual["protect"]) return true;
+    bytes=stage();
+    rapidjson::Document payload;
+    payload.Parse(bytes.data(),bytes.size());
+    if(!payload.IsObject()) return Fail(error,"could not encode stage");
+    rapidjson::Value copy(payload,doc.GetAllocator());
+    doc.AddMember("stage",copy,doc.GetAllocator());
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    if(!doc.Accept(writer)) return Fail(error,"could not encode updated Scene");
+    return Commit(scene_name,std::string(buffer.GetString(),buffer.GetSize()),true,error)==SceneCommitResult::committed;
+}
+
 bool BackfillQuestLabel(const std::string& scene_name, const std::string& label, std::string* error) {
     if (label.empty()) return true;
     std::lock_guard<std::recursive_mutex> lock(MutationMutex());

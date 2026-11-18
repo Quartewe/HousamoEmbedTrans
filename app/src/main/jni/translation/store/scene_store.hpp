@@ -2,6 +2,7 @@
 
 #include <string>
 #include <mutex>
+#include <functional>
 
 namespace het::translation {
 
@@ -16,6 +17,8 @@ namespace scene_store {
 // One lock spans read/modify/commit; individual store calls also acquire it.
 std::recursive_mutex& MutationMutex();
 bool BackfillQuestLabel(const std::string& scene_name, const std::string& label, std::string* error);
+bool BackfillStage(const std::string& scene_name,const std::function<std::string()>& source,
+                   const std::function<std::string()>& stage,std::string* error);
 
 bool Exists(const std::string& scene_name);
 

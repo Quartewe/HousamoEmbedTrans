@@ -7,6 +7,8 @@
 #include "scene/scene_production_policy.hpp"
 
 struct Scene;
+struct SceneStage;
+struct ScenarioParseResult;
 
 enum class SceneFileStatus {
     not_found,
@@ -15,6 +17,8 @@ enum class SceneFileStatus {
 };
 
 SceneFileStatus GetSceneFileStatus(const std::string& scene_name);
+bool BackfillCapturedStage(const ScenarioParseResult& source, std::uint64_t epoch);
+bool BackfillCapturedStage(const Scene& source, std::uint64_t epoch);
 // Caller holds the Scene production lease, including sync-drain admission.
 bool BackfillSceneQuestLabel(const std::string& scene_name, const std::string& label,
                             std::uint64_t captured_epoch);

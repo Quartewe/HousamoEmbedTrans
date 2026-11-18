@@ -103,7 +103,7 @@ static void* HookFindScenarioData(void* self, void* label, void* method) {
             entry_label,
             std::move(production_lease),
             captured_epoch,
-            ReadScenarioQuestLabel(scenario_data, self))) {
+            ReadScenarioQuestLabel(scenario_data, self), self)) {
         LOGE("[FindScenarioData] failed to catch scenario scene=%s entry=%s",
              scene_name.c_str(), entry_label.c_str());
     }

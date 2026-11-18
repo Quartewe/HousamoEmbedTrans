@@ -21,6 +21,8 @@ struct Source {
     std::string scene, hash;
     std::unordered_map<void*, std::vector<OrderKey>> pages;
     std::unordered_map<OrderKey, std::string, OrderKeyHash> merges;
+    std::unordered_map<std::string, int> labels;
+    std::unordered_set<OrderKey, OrderKeyHash> stageOrders;
     ~Source() {
         if (weak)
             api.gchandle_free(weak);
@@ -248,7 +250,14 @@ std::string NodeJson() {
         const auto& entry = route[i];
         if (entry.scene != node.scene)
             continue;
-        if (entry.record.empty()) history.PushBack(Order(entry.order,a),a);
+        if (entry.record.empty()) {
+            if (entry.stage) {
+                Json ref(rapidjson::kObjectType);
+                ref.AddMember("order", Order(entry.order, a), a).AddMember("stage", true, a);
+                history.PushBack(ref, a);
+            } else
+                history.PushBack(Order(entry.order, a), a);
+        }
     }
     doc.AddMember("scene", Str(node.scene, a), a)
         .AddMember("source_hash", Str(node.hash, a), a)
@@ -271,6 +280,38 @@ Predicate originalLoadEnd = nullptr, originalMovePage = nullptr;
 thread_local void* invokingGeneratedPage = nullptr;
 Binary originalCharacter = nullptr, originalOff = nullptr, originalBg = nullptr, originalBgOff = nullptr;
 
+void StageExecuted(void* command, void* engine) {
+    if (currentEngine.Get() != engine || !currentPage.Get())
+        return;
+    if (currentSheet) {
+        auto step = currentSheet->steps.find(currentLabel);
+        if (step != currentSheet->steps.end())
+            route.push_back({currentSheet->scene, currentSheet->record, step->second.path, {}, true});
+        return;
+    }
+    if (!currentSource)
+        return;
+    auto found = currentSource->labels.find(currentLabel);
+    if (found == currentSource->labels.end())
+        return;
+    void* list = api.Get(currentPage.Get(), "get_CommandList");
+    void* index = nullptr;
+    void* args[] = {command};
+    if (!api.Call(list, "IndexOf", 1, args, &index) || !index)
+        return;
+    OrderKey key{found->second, api.Int(currentPage.Get(), "get_PageNo"),
+                 *static_cast<int*>(api.object_unbox(index)), 0};
+    if (currentSource->stageOrders.count(key))
+        route.push_back({currentSource->scene, {}, {}, key, true});
+}
+void Background(void* cmd, void* engine, const void* m) {
+    originalBg(cmd, engine, m);
+    StageExecuted(cmd, engine);
+}
+void BackgroundOff(void* cmd, void* engine, const void* m) {
+    originalBgOff(cmd, engine, m);
+    StageExecuted(cmd, engine);
+}
 bool HasGeneratedLabel(const std::string& label) {
     for (const auto& sheet : sheets) {
         const size_t prefix = sheet->entry.rfind('_') + 1;
@@ -426,6 +467,10 @@ void Publish(void* scenario, const ScenarioParseResult& parsed, const QuestPtrSe
     if (s->hash.empty())
         return;
     RecordMerges(*s, parsed.scene_items);
+    for (size_t i = 0; i < parsed.stage.labels.size(); ++i)
+        s->labels.emplace(parsed.stage.labels[i], static_cast<int>(i));
+    for (auto& state : parsed.stage.states)
+        s->stageOrders.insert(state.order);
     for (auto& target : targets)
         s->pages[target.second].push_back(target.first);
     std::lock_guard<std::mutex> lock(sourcesMutex);
@@ -465,6 +510,9 @@ bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
         {0x2466d40, reinterpret_cast<void*>(Text), reinterpret_cast<void**>(&originalText), nullptr},
         {0x2466ab4, reinterpret_cast<void*>(AddRead), reinterpret_cast<void**>(&originalRead), nullptr},
         {0x246d00c, reinterpret_cast<void*>(AddHistory), reinterpret_cast<void**>(&originalHistory), nullptr},
+        {0x2424818, reinterpret_cast<void*>(Background), reinterpret_cast<void**>(&originalBg), nullptr},
+        {0x2424b80, reinterpret_cast<void*>(BackgroundOff), reinterpret_cast<void**>(&originalBgOff),
+         nullptr},
         {0x241cb6c, reinterpret_cast<void*>(LoadEnd), reinterpret_cast<void**>(&originalLoadEnd), nullptr},
         {0x247dfac, reinterpret_cast<void*>(MovePage), reinterpret_cast<void**>(&originalMovePage), nullptr}};
     for (auto& hook : hooks) {

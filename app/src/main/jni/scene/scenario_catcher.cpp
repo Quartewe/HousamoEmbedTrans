@@ -115,6 +115,7 @@ struct OrderedJump {
 };
 
 struct PageParseResult {
+    std::vector<StageState> stage_states;
     bool ok = false;
     bool official_translation = false;
     int label_index = -1;
@@ -306,6 +307,33 @@ static void* ReadStoryTableHeader(void* command, int* header_index) {
         return nullptr;
     }
     return strings;
+}
+
+static std::map<std::string,int> StageColumns(void* command) {
+    int header_index = -1;
+    void* header = ReadStoryTableHeader(command, &header_index);
+    std::map<std::string,int> result;
+    if (!header) return result;
+    const auto& a = g_runtime_config.layout.il2cpp_array;
+    const int count = read_int(header,a.length);
+    if (count < 1 || count > 4096) return result;
+    for (int i=0;i<count;++i) {
+        const auto name=read_il2cpp_string(read_ptr(header,a.first_element+i*a.pointer_size));
+        if (name == "WaitType" || (name.size()==4 && name.compare(0,3,"Arg")==0))
+            result.emplace(name,i);
+    }
+    return result;
+}
+
+
+// Read settings on the lookup thread. SceneStage contains only owned strings and values.
+static void CompleteStage(SceneStage& stage,void* data_manager) {
+    std::unordered_set<std::string> seen;
+    for (const auto& state : stage.states) {
+        auto arg=state.parameters.find("Arg1");
+        if (state.kind=="Bg" && arg!=state.parameters.end() && !arg->second.empty() && seen.insert(arg->second).second)
+            stage.backgrounds.push_back(arg->second);
+    }
 }
 
 // A missing language column is a successful empty read. An unreadable header
@@ -1350,6 +1378,7 @@ public:
 
     ScenarioParseOutput Run() {
         result_.scene = scenario_.result.scene;
+        result_.stage.labels = scenario_.label_order;
         result_.entry_label = scenario_.result.entry_label;
 
         if (!page_rec_) StartWorkers();
@@ -1643,6 +1672,7 @@ private:
             MergeAliases(result_.aliases, result.aliases);
 
             MoveAppend(result_.protect, result.protect);
+            MoveAppend(result_.stage.states,result.stage_states);
             LabelBlock& block = label_blocks[static_cast<size_t>(result.label_index)];
             MoveAppend(block.jumps, result.jumps);
             MoveAppend(block.scene_items, result.scene_items);
@@ -1827,6 +1857,11 @@ private:
         std::string current_speaker;
         ChoiceBlock pending_choice;
 
+        std::map<std::string,int> columns;
+        std::vector<void*> state_rows;
+        std::unordered_map<void*,std::vector<OrderKey>> row_text;
+
+
         for (int i = 0; i < commands.size; ++i) {
             void* cmd_item = ListElement(commands, i);
             if (!valid_ptr(cmd_item)) {
@@ -1834,6 +1869,17 @@ private:
             }
 
             std::string type = read_il2cpp_string(read_ptr(cmd_item, cmd.type));
+
+            void* row=read_ptr(cmd_item,cmd.row_data);
+            if (row && (type=="Bg" || type=="BgOff")) {
+                if(columns.empty()) columns=StageColumns(cmd_item);
+                StageState state{{result.label_index,page_no,i,0},{},type,{}};
+                for(const auto& col:columns) state.parameters.emplace(col.first,ReadRowStringColumn(cmd_item,col.second));
+                if(type!="Character" || !state.parameters["Arg1"].empty()) {
+                    result.stage_states.emplace_back(std::move(state));
+                    state_rows.push_back(row);
+                }
+            }
 
             if (type != "Selection") {
                 FlushChoiceBlock(pending_choice, result);
@@ -1867,6 +1913,7 @@ private:
                 }
 
                 TextItem item;
+                if(row) row_text[row].push_back(order);
                 item.order = order;
                 item.speaker = current_speaker;
                 AddItemScore(result.speaker_character, current_speaker, 10.0f);
@@ -1898,6 +1945,7 @@ private:
                 }
 
                 TextItem option;
+                if(row) row_text[row].push_back(order);
                 option.order = std::move(order);
                 option.speaker = "mc";
                 option.text = std::move(text);
@@ -1951,6 +1999,8 @@ private:
 
         FlushChoiceBlock(pending_choice, result);
 
+        for(size_t i=0;i<state_rows.size();++i)
+            result.stage_states[i].text_orders=row_text[state_rows[i]];
         result.ok = true;
         return result;
     }
@@ -1985,7 +2035,7 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 
 } // namespace
 
-bool ParsePageRecScene(void* scenario_data, const std::string& entry_label,
+bool ParsePageRecScene(void* scenario_data, void* data_manager, const std::string& entry_label,
                       Scene* scene, std::vector<std::string>* labels,
                       bool* has_target_official_translation,
                       QuestTargetSet* target_set) {
@@ -1995,6 +2045,7 @@ bool ParsePageRecScene(void* scenario_data, const std::string& entry_label,
     ScenarioParseRunner runner(scenario, true);
     auto output = runner.Run();
     if (output.status != ScenarioParseStatus::ok) return false;
+    CompleteStage(output.result.stage,data_manager);
     if (!runner.HasTargetOfficialTranslation() && !output.target_map.empty())
         PublishContinuationSource(scenario_data, output.result, output.target_map);
     *scene = BuildSceneDocument(std::move(output.result));
@@ -2011,7 +2062,7 @@ bool CatchScenario(
     const std::string& entry_label,
     het::scene_sync::SceneProductionLease production_lease,
     std::uint64_t captured_epoch,
-    const std::string& quest_label) {
+    const std::string& quest_label, void* data_manager) {
     uintptr_t scenario_key = reinterpret_cast<uintptr_t>(scenario_data);
 
     QuestTargetSet target_set;
@@ -2052,6 +2103,8 @@ bool CatchScenario(
         return false;
     }
 
+    CompleteStage(output.result.stage,data_manager);
+    if (production_lease.allowed() && !BackfillCapturedStage(output.result, captured_epoch)) return false;
     PublishContinuationSource(scenario_data,output.result,output.target_map);
     target_set.target_map = std::move(output.target_map);
     

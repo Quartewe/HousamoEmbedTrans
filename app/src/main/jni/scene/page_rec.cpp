@@ -103,6 +103,7 @@ bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
     }
     const std::string name = scene.scene;
     if (!BackfillSceneQuestLabel(name, scene.quest_label, epoch)) return false;
+    if (!BackfillCapturedStage(scene,epoch)) return false;
     if (has_target_official_translation) {
         LOGI("[PageRec] task skipped scene=%s reason=official_translation target=%s",
              name.c_str(), g_runtime_config.target_lang.c_str());
@@ -197,7 +198,7 @@ void ExportPageRecScenarios(
         QuestTargetSet target_set;
         std::vector<std::string> labels;
         bool has_target_official_translation = false;
-        if (!ParsePageRecScene(data, entry, &scene, &labels,
+        if (!ParsePageRecScene(data, data_manager, entry, &scene, &labels,
                                &has_target_official_translation, &target_set)) return;
         scene.quest_label = ReadScenarioQuestLabel(data, data_manager);
         if (!WriteScene(scene, epoch)) {
