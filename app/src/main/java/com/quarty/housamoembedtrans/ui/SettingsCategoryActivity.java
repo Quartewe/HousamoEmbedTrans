@@ -35,6 +35,7 @@ import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -55,6 +56,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
     private static final int TYPE_BOOLEAN = 5;
     private static final int TYPE_SECRET = 6;
     private static final int TYPE_SLIDER = 7;
+    private static final String CONTINUATION_API = "ContinuationApi";
 
     private static final String STATE_CATEGORY =
         "settings_category_state_category";
@@ -149,7 +151,6 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
 
     private ConfigStore configStore;
     private SettingsCategory.Definition definition;
-    private JSONObject currentConfig;
     private JSONObject userSettings;
     private String currentApiKey = "";
     private String initialSignature;
@@ -237,9 +238,12 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
     private boolean loadConfig() {
         try {
             ConfigStore.LoadResult result = configStore.load();
-            currentConfig = result.config;
-            userSettings = currentConfig.getJSONObject("UserSettings");
-            currentApiKey = configStore.loadApiKey();
+            userSettings = categoryFields(result.config);
+            if (isContinuationCategory()) {
+                currentApiKey = userSettings.getJSONObject(CONTINUATION_API).optString("ApiKey");
+            } else if (SettingsCategory.TRANSLATION_SERVICE.equals(definition.id)) {
+                currentApiKey = configStore.loadApiKey();
+            }
             return true;
         } catch (Exception error) {
             Toast.makeText(
@@ -249,6 +253,23 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
             ).show();
             return false;
         }
+    }
+
+    private boolean isContinuationCategory() {
+        return SettingsCategory.STORY_CONTINUATION.equals(definition.id);
+    }
+
+    private JSONObject categoryFields(JSONObject config) throws Exception {
+        JSONObject settings = config.getJSONObject("UserSettings");
+        if (!isContinuationCategory()) return settings;
+        JSONObject story = settings.optJSONObject("StoryContinuation");
+        if (story == null) {
+            story = new JSONObject();
+            settings.put("StoryContinuation", story);
+        }
+        // Only the story object belongs to config.json. The form edits the API profile separately.
+        return new JSONObject().put("StoryContinuation", story)
+            .put(CONTINUATION_API, configStore.loadContinuationApiProfile());
     }
 
     private void renderFields() {
@@ -1173,6 +1194,10 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                     rows.get(id).setAlpha(enabled ? 1f : 0.5f);
                 }
             }
+            boolean dedicatedApi = isChecked("dedicated-api");
+            for (String id : new String[]{"protocol", "base-url", "api-key", "model", "continuation-max-tokens"}) {
+                setRowVisibility(id, dedicatedApi);
+            }
         }
         boolean streaming = isChecked("enable-streaming-response");
         setRowVisibility("repair-gradient-count", streaming);
@@ -1217,10 +1242,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
             // over changes made by another screen or by the background service.
             ConfigStore.LoadResult latest = configStore.load();
             JSONObject updated = new JSONObject(latest.config.toString());
-            JSONObject updatedSettings = updated.optJSONObject("UserSettings");
-            if (updatedSettings == null) {
-                throw new IllegalStateException("missing UserSettings");
-            }
+            JSONObject updatedSettings = categoryFields(updated);
             for (FieldSpec spec : fieldsFor(definition.id)) {
                 if (spec.type == TYPE_BOOLEAN) {
                     putPath(updatedSettings, spec.path, isChecked(spec.id));
@@ -1254,6 +1276,11 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                         spec.path,
                         spec.integerSlider ? Math.round(value) : value
                     );
+                } else if ("continuation-max-tokens".equals(spec.id)) {
+                    EditText input = (EditText) controls.get(spec.id);
+                    String limit = textOf(input);
+                    if (isChecked("dedicated-api") && !limit.isEmpty()) parseNumber(spec, input);
+                    putPath(updatedSettings, spec.path, limit.isEmpty() ? null : limit);
                 } else {
                     putPath(
                         updatedSettings,
@@ -1263,11 +1290,18 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                 }
             }
             validateCrossFields(updatedSettings);
-            configStore.save(updated);
-            if (hasField("api-key")) {
-                configStore.saveApiKey(currentApiKey);
+            if (isContinuationCategory()) {
+                JSONObject profile = updatedSettings.getJSONObject(CONTINUATION_API);
+                configStore.saveContinuationSettings(updated, profile.put("ApiKey", currentApiKey));
+            } else if (hasField("api-key")) {
+                ConfigStore.withConfigAccess(() -> {
+                    configStore.save(updated);
+                    configStore.saveApiKey(currentApiKey);
+                    return null;
+                });
+            } else {
+                configStore.save(updated);
             }
-            currentConfig = updated;
             userSettings = updatedSettings;
             initialSignature = captureSignature();
             updateSaveButton();
@@ -1286,6 +1320,9 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
 
     private void validateCrossFields(JSONObject settings)
         throws ValidationException {
+        if (isContinuationCategory() && isChecked("dedicated-api")) {
+            requireText((EditText) controls.get("model"));
+        }
         if (!SettingsCategory.CHARACTER_MATCHING.equals(definition.id)) {
             return;
         }
@@ -1416,7 +1453,9 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                         ));
                         modelQueryStatus.setTextColor(getColor(R.color.het_good));
                     }
-                    showModelPicker(models);
+                    if (rows.get("model").getVisibility() == View.VISIBLE) {
+                        showModelPicker(models);
+                    }
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -1425,6 +1464,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                     }
                     queryModelsButton.setEnabled(true);
                     queryModelsButton.setText(R.string.settings_rebuild_model_query_retry);
+                    if (rows.get("model").getVisibility() != View.VISIBLE) return;
                     if (modelQueryStatus != null) {
                         modelQueryStatus.setText(getString(
                             R.string.settings_rebuild_model_query_failure,
@@ -1562,7 +1602,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
 
     private static List<FieldSpec> fieldsFor(String categoryId) {
         if (SettingsCategory.STORY_CONTINUATION.equals(categoryId)) {
-            return Arrays.asList(
+            List<FieldSpec> fields = new ArrayList<>(Arrays.asList(
                 bool("continuation-enabled", R.string.continuation_enable, R.string.continuation_enable_hint,
                     new String[]{"StoryContinuation", "Enabled"}),
                 bool("allow-character", R.string.continuation_character, R.string.continuation_character_hint,
@@ -1574,22 +1614,26 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                 bool("inject-custom-prompt", R.string.continuation_inject_custom_prompt,
                     R.string.continuation_inject_custom_prompt_hint, new String[]{"StoryContinuation", "InjectCustomPrompt"}),
                 slider("dialogue-target", R.string.continuation_target, R.string.continuation_target_hint,
-                    new String[]{"StoryContinuation", "DialogueTarget"}, 0, 100, 5, true));
+                    new String[]{"StoryContinuation", "DialogueTarget"}, 0, 100, 5, true),
+                bool("dedicated-api", R.string.continuation_dedicated_api, R.string.continuation_dedicated_api_hint,
+                    new String[]{CONTINUATION_API, "Enabled"})));
+            fields.addAll(providerFields(CONTINUATION_API));
+            fields.add(number("continuation-max-tokens", R.string.settings_field_max_output_tokens,
+                R.string.continuation_max_tokens_hint, new String[]{CONTINUATION_API, "MaxTokens"},
+                1, Integer.MAX_VALUE));
+            return fields;
         }
         if (SettingsCategory.TRANSLATION_SERVICE.equals(categoryId)) {
-            return Arrays.asList(
-                select("protocol", R.string.settings_field_protocol, R.string.settings_field_hint_protocol,
-                    new String[] {"openai", "anthropic"}, new int[] {R.string.settings_option_openai, R.string.settings_option_anthropic}, new String[] {"TranslationApi", "Protocol"}),
-                text("base-url", R.string.settings_field_base_url, R.string.settings_field_hint_base_url, new String[] {"TranslationApi", "BaseUrl"}, 500),
-                secret("api-key", R.string.settings_field_api_key, R.string.settings_field_hint_api_key),
-                text("model", R.string.settings_field_model, R.string.settings_field_hint_model, new String[] {"TranslationApi", "Model"}, 200),
+            List<FieldSpec> fields = providerFields("TranslationApi");
+            fields.addAll(Arrays.asList(
                 select("target-language", R.string.settings_field_target_language, R.string.settings_field_hint_target_language,
                     new String[] {"zh-cn", "zh-tw", "en", "custom"}, new int[] {R.string.settings_option_zh_cn, R.string.settings_option_zh_tw, R.string.settings_option_en, R.string.settings_category_target_custom}, new String[] {"TargetLanguage"}),
                 number("max-output-tokens", R.string.settings_field_max_output_tokens, R.string.settings_field_hint_max_output_tokens, new String[] {"TranslationApi", "MaxTokens"}, 1, Integer.MAX_VALUE),
                 number("context-length", R.string.settings_field_context_length, R.string.settings_field_hint_context_length, new String[] {"Api", "context_length"}, 1, 1_000_000),
                 slider("max-concurrent-requests", R.string.settings_field_api_concurrency, R.string.settings_field_hint_api_concurrency, new String[] {"Api", "max_concurrent_requests"}, 1, 8, 1, true),
                 slider("network-retry-count", R.string.settings_field_network_retry_count, R.string.settings_field_hint_network_retry_count, new String[] {"TranslationApi", "NetworkRetryCount"}, 0, 5, 1, true)
-            );
+            ));
+            return fields;
         }
         if (SettingsCategory.TRANSLATION_REPAIR.equals(categoryId)) {
             return Arrays.asList(
@@ -1651,6 +1695,18 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                     new String[] {"none", "minimal", "low", "medium", "high", "xhigh", "max"}, new int[] {R.string.settings_option_thinking_none, R.string.settings_option_thinking_minimal, R.string.settings_option_thinking_low, R.string.settings_option_thinking_medium, R.string.settings_option_thinking_high, R.string.settings_option_thinking_xhigh, R.string.settings_option_thinking_max}, new String[] {"Api", "ThinkingStrength"}),
             bool("omit-thinking-parameters", R.string.settings_field_omit_thinking_parameters, R.string.settings_field_hint_omit_thinking_parameters, new String[] {"DebugOmitThinkingParameters"})
         );
+    }
+
+    private static List<FieldSpec> providerFields(String section) {
+        return new ArrayList<>(Arrays.asList(
+            select("protocol", R.string.settings_field_protocol, R.string.settings_field_hint_protocol,
+                new String[]{"openai", "anthropic"}, new int[]{R.string.settings_option_openai, R.string.settings_option_anthropic},
+                new String[]{section, "Protocol"}),
+            text("base-url", R.string.settings_field_base_url, R.string.settings_field_hint_base_url,
+                new String[]{section, "BaseUrl"}, 500),
+            secret("api-key", R.string.settings_field_api_key, R.string.settings_field_hint_api_key),
+            text("model", R.string.settings_field_model, R.string.settings_field_hint_model,
+                new String[]{section, "Model"}, 200)));
     }
 
     private static FieldSpec text(String id, int label, int hint, String[] path) {

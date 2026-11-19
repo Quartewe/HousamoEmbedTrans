@@ -33,7 +33,7 @@
     <string name="settings_home_prompt_summary">Each prompt is saved separately on this device</string>
     <string name="settings_home_reset_defaults">Restore default settings</string>
     <string name="settings_home_reset_defaults_title">Restore default settings?</string>
-    <string name="settings_home_reset_defaults_message">Replace saved settings and clear the API key. Theme and prompt drafts are kept.</string>
+    <string name="settings_home_reset_defaults_message">Replace saved settings and clear the translation and continuation API keys. Theme and prompt drafts are kept.</string>
     <string name="settings_category_translation_service">Translation service</string>
     <string name="settings_category_translation_service_description">Protocol, URL, credentials, model, target language and request options</string>
     <string name="settings_category_translation_service_scope">Applies to future requests; requests already sent are unchanged.</string>

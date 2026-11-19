@@ -1018,7 +1018,7 @@ public final class TranslationService extends Service {
                         }
                     }
                     ConfigStore.TranslationConfigSnapshot snapshot =
-                        new ConfigStore(TranslationService.this).loadTranslationConfigSnapshot();
+                        new ConfigStore(TranslationService.this).loadContinuationConfigSnapshot();
                     StoryContinuationSettings settings = StoryContinuationSettings.read(snapshot.config);
                     if (!settings.enabled) throw new IllegalStateException("剧情续写已关闭");
                     awaitContinuationMirror(submission);

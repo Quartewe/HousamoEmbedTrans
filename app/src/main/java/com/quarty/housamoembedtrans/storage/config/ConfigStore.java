@@ -11,6 +11,7 @@ import android.content.Context;
 import android.util.AtomicFile;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -77,6 +78,7 @@ public final class ConfigStore {
     private static final String TERM_ASSET_DIRECTORY = "term/";
     private static final String PREFS_NAME = "housamo_trans_prefs";
     private static final String KEY_API_KEY = "api_key";
+    private static final String KEY_CONTINUATION_API = "continuation_api";
     private static final Object CONFIG_ACCESS_LOCK = new Object();
     private JSONObject characterEditBase;
 
@@ -200,6 +202,52 @@ public final class ConfigStore {
                 result.config,
                 loadApiKeyUnlocked()
             );
+        }
+    }
+
+    public TranslationConfigSnapshot loadContinuationConfigSnapshot() throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            return continuationSnapshot(loadConfigUnlocked().config, loadApiKeyUnlocked(),
+                loadContinuationApiProfile());
+        }
+    }
+
+    // Each load owns its config JSON. Only the continuation caller sees these overrides.
+    static TranslationConfigSnapshot continuationSnapshot(JSONObject config, String sharedKey,
+                                                         JSONObject profile) throws JSONException {
+        if (!profile.optBoolean("Enabled")) return new TranslationConfigSnapshot(config, sharedKey);
+        JSONObject api = config.getJSONObject("UserSettings").getJSONObject("TranslationApi");
+        api.put("Protocol", profile.getString("Protocol"));
+        api.put("BaseUrl", profile.getString("BaseUrl"));
+        api.put("Model", profile.getString("Model"));
+        if (profile.has("MaxTokens")) api.put("MaxTokens", profile.getInt("MaxTokens"));
+        return new TranslationConfigSnapshot(config, profile.getString("ApiKey"));
+    }
+
+    public JSONObject loadContinuationApiProfile() throws JSONException {
+        String value = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_CONTINUATION_API, "{}");
+        return new JSONObject(value);
+    }
+
+    public void saveContinuationSettings(JSONObject config, JSONObject profile) throws IOException {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            save(config);
+            // Store the endpoint and its credential together in HET's private preferences.
+            if (!context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .putString(KEY_CONTINUATION_API, profile.toString()).commit()) {
+                throw new IOException("could not save continuation API settings");
+            }
+        }
+    }
+
+    public void resetSettings() throws Exception {
+        synchronized (CONFIG_ACCESS_LOCK) {
+            save(loadBundledDefault());
+            if (!context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .remove(KEY_API_KEY).remove(KEY_CONTINUATION_API).commit()) {
+                throw new IOException("could not reset API settings");
+            }
         }
     }
 

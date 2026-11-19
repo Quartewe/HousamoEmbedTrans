@@ -33,7 +33,7 @@
     <string name="settings_home_prompt_summary">每份提示词单独保存在本机</string>
     <string name="settings_home_reset_defaults">恢复默认设置</string>
     <string name="settings_home_reset_defaults_title">恢复默认设置？</string>
-    <string name="settings_home_reset_defaults_message">将覆盖已保存的设置并清除 API key。主题和提示词草稿不受影响。</string>
+    <string name="settings_home_reset_defaults_message">将覆盖已保存的设置并清除翻译和续写的 API 密钥。主题和提示词草稿不受影响。</string>
     <string name="settings_category_translation_service">翻译服务</string>
     <string name="settings_category_translation_service_description">服务类型、地址、凭据、模型、目标语言与请求策略</string>
     <string name="settings_category_translation_service_scope">翻译参数只影响之后发起的请求，不改动已经发送的请求。</string>

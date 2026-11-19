@@ -4,6 +4,9 @@
     <string name="continuation_category_scope">生成设置从下次提交原话时生效。</string>
     <string name="continuation_enable">开启续写</string>
     <string name="continuation_enable_hint">在剧情选项中显示自由输入入口。</string>
+    <string name="continuation_dedicated_api">续写使用独立 API</string>
+    <string name="continuation_dedicated_api_hint">开启后，新提交的续写使用下方配置。关闭后使用翻译服务的 API。</string>
+    <string name="continuation_max_tokens_hint">留空沿用翻译服务的输出上限，或填写续写模型支持的 token 数。</string>
     <string name="continuation_character">允许修改角色演出</string>
     <string name="continuation_character_hint">角色可以入场、退场、移动和切换表情。</string>
     <string name="continuation_background">允许修改背景演出</string>

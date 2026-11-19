@@ -533,8 +533,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private void resetDefaults() {
         try {
-            configStore.save(configStore.loadBundledDefault());
-            configStore.saveApiKey("");
+            configStore.resetSettings();
             Toast.makeText(
                 this,
                 R.string.defaults_loaded,
