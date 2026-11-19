@@ -1,4 +1,5 @@
 <resources>
+    <bool name="show_continuation_custom_prompt_controls">false</bool>
     <style name="Theme.HET.GameContinuation" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">#315DA8</item>
         <item name="colorPrimaryContainer">#D8E3FF</item>

@@ -1186,6 +1186,8 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
 
     private void updateConditionalVisibility() {
         if (hasField("continuation-enabled")) {
+            setRowVisibility("inject-custom-prompt",
+                getResources().getBoolean(R.bool.show_continuation_custom_prompt_controls));
             boolean enabled = isChecked("continuation-enabled");
             for (String id : new String[]{"allow-character", "allow-background", "allow-choices", "inject-custom-prompt"}) {
                 View control = controls.get(id);

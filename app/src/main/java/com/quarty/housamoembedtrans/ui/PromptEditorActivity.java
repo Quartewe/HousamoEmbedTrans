@@ -271,7 +271,9 @@ public final class PromptEditorActivity extends AppCompatActivity {
         role.setText(values.role);
         style.setText(values.style);
         context.setText(values.context);
-        customPromptSection.setVisibility(activeTab == Tab.CONTINUATION ? View.VISIBLE : View.GONE);
+        boolean showCustomPrompt = activeTab == Tab.CONTINUATION
+            && getResources().getBoolean(R.bool.show_continuation_custom_prompt_controls);
+        customPromptSection.setVisibility(showCustomPrompt ? View.VISIBLE : View.GONE);
         customPrompt.setText(values.customPrompt);
         suppressDraftWatchers = false;
         kindTitle.setText(activeTab.label);
