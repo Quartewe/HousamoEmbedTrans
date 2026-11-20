@@ -1,34 +1,34 @@
 {
-    "GameVersion": "5.21.1",
+    "GameVersion": "5.21.2",
     "RuntimeConfigs": {
         "RVA": {
-            "RVA_FindScenarioData": "0x24303E4",
-            "RVA_InitBase": "0x241CF1C",
-            "RVA_InitText": "0x2425D24",
-            "RVA_PageTextChange": "0x246A058",
-            "RVA_AddSelection": "0x246C990",
-            "RVA_ShowSelection": "0x246CDB8",
-            "RVA_RemakeText": "0x2466EE0",
-            "RVA_UguiSelectionInit": "0x248580C",
-            "RVA_UguiSelectionClearAll": "0x2485C54",
-            "RVA_UiTextSetText": "0x4E06E38"
+            "RVA_FindScenarioData": "0x2430228",
+            "RVA_InitBase": "0x241CD60",
+            "RVA_InitText": "0x2425B68",
+            "RVA_PageTextChange": "0x2469E9C",
+            "RVA_AddSelection": "0x246C7D4",
+            "RVA_ShowSelection": "0x246CBFC",
+            "RVA_RemakeText": "0x2466D24",
+            "RVA_UguiSelectionInit": "0x2485650",
+            "RVA_UguiSelectionClearAll": "0x2485A98",
+            "RVA_UiTextSetText": "0x4E06900"
         },
         "ChoiceBack": {
-            "BuildId": "cea06d000d37d544e99ca4758464eefa393c3eb2",
+            "BuildId": "ce3ed966f1d88f98fa7e4d569e9613a3a8dbc58c",
             "RVA": {
-                "BeginPage": "0x2465F20",
-                "SavePage": "0x2470AF0",
-                "WaitInput": "0x2466CA0",
-                "Select": "0x246CF10",
-                "StartScenario": "0x247B000",
-                "EndScenario": "0x247BAD8",
-                "Destroy": "0x2417620",
-                "Load": "0x2418B88",
-                "MoveLoad": "0x2419B6C",
-                "CreateLoad": "0x2418BC4",
-                "StartGame": "0x2418D08"
+                "BeginPage": "0x2465D64",
+                "SavePage": "0x2470934",
+                "WaitInput": "0x2466AE4",
+                "Select": "0x246CD54",
+                "StartScenario": "0x247AE44",
+                "EndScenario": "0x247B91C",
+                "Destroy": "0x2417464",
+                "Load": "0x24189CC",
+                "MoveLoad": "0x24199B0",
+                "CreateLoad": "0x2418A08",
+                "StartGame": "0x2418B4C"
             },
-            "SavePageCaller": "0x247E234",
+            "SavePageCaller": "0x247E078",
             "PageStatus": {
                 "SendChar": 1,
                 "WaitEffectOnInputInPage": 2,
