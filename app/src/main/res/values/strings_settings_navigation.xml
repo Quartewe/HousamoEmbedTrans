@@ -53,8 +53,8 @@
     <string name="settings_category_character_matching_description">Choose which character profiles and related terms accompany scenes sent to the model.</string>
     <string name="settings_category_character_matching_scope">Applies to newly captured scenes. Character and term dictionaries are unchanged.</string>
     <string name="settings_category_diagnostics">Debug options</string>
-    <string name="settings_category_diagnostics_description">Investigate capture, parsing and request failures without changing task data.</string>
-    <string name="settings_category_diagnostics_scope">Restart the game to apply parse-only mode. Request diagnostics apply to future requests.</string>
+    <string name="settings_category_diagnostics_description">Adjust story auto-play and configure capture, parsing and request diagnostics.</string>
+    <string name="settings_category_diagnostics_scope">Restart the game to apply auto-play and parse-only settings. Request diagnostics apply to future requests.</string>
     <string name="settings_category_save">Save settings</string>
     <string name="settings_category_saved">Settings saved.</string>
     <string name="settings_category_memory_hint">Settings are saved locally and apply from the next eligible run.</string>
@@ -121,6 +121,10 @@
     <string name="settings_field_low_term_score">Secondary-character term threshold</string>
     <string name="settings_field_enable_page_rec_debug">Enable PageRec</string>
     <string name="settings_field_enable_parse_only_debug">Parse-only diagnostics</string>
+    <string name="settings_field_show_story_auto_button">Show AUTO button</string>
+    <string name="settings_hint_show_story_auto_button">Show AUTO beside LOG during dialogue. Tap it in the game to start or stop playback. Restart the game after saving.</string>
+    <string name="settings_field_story_auto_speed">Auto-advance speed</string>
+    <string name="settings_hint_story_auto_speed">Move right to shorten the pause before the next line. Restart the game after saving.</string>
     <string name="settings_field_enable_failed_api_response_dump">Save failed responses</string>
     <string name="settings_field_hint_protocol">Choose a compatible translation API protocol.</string>
     <string name="settings_field_hint_base_url">Leave empty for the default service URL, or enter a compatible service URL.</string>

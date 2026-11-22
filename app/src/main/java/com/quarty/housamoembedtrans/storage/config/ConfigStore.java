@@ -1364,6 +1364,7 @@ public final class ConfigStore {
             );
         }
         StartupSettings.normalizeSceneSyncSettings(userSettings);
+        StartupSettings.normalizeStoryAutoSettings(userSettings);
         JSONObject normalized = new JSONObject();
         normalized.put("Version", version);
         normalized.put("UserSettings", userSettings);
@@ -1551,6 +1552,8 @@ public final class ConfigStore {
             && !"1.0".equals(config.optString("Version").trim())
             && !userSettings.has("EnablePageRecTasks")
             && userSettings.has("DebugOmitThinkingParameters")
+            && userSettings.has("ShowStoryAutoButton")
+            && userSettings.has("StoryAutoSpeedPercent")
             && translationApi.has("MaxTokens")
             && translationApi.has("PendingSummaryMode")
             && translationApi.has("EnableStreamingResponse")

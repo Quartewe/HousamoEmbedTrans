@@ -556,6 +556,8 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
     jboolean enablePageRecTasks,
     jboolean enableRubyTranslation,
     jboolean enableParseOnlyDebug,
+    jboolean showStoryAutoButton,
+    jfloat storyAutoSpeed,
     jboolean overwriteExistingJson,
     jstring targetLanguage,
     jstring chardictJson,
@@ -592,6 +594,8 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
             enablePageRecTasks == JNI_TRUE,
             enableRubyTranslation == JNI_TRUE,
             enableParseOnlyDebug == JNI_TRUE,
+            showStoryAutoButton == JNI_TRUE,
+            storyAutoSpeed,
             overwriteExistingJson == JNI_TRUE,
             base_dir,
             &config)) {

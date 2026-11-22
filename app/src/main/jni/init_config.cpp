@@ -159,6 +159,8 @@ bool make_runtime_config(
     bool enable_page_rec_tasks,
     bool enable_ruby_translation,
     bool parse_only_debug,
+    bool show_story_auto_button,
+    float story_auto_speed,
     bool overwrite_existing,
     const std::string& base_dir,
     RuntimeConfig* out) {
@@ -198,6 +200,8 @@ bool make_runtime_config(
     out->enable_page_rec_tasks = enable_page_rec_tasks;
     out->enable_ruby_translation = enable_ruby_translation;
     out->parse_only_debug = parse_only_debug;
+    out->show_story_auto_button = show_story_auto_button;
+    out->story_auto_speed = story_auto_speed;
     out->overwrite_existing = overwrite_existing;
     out->base_dir = base_dir;
     LOGI("character weight config: high_relevance=%.3f mid_relevance=%.3f density_high=%.3f"

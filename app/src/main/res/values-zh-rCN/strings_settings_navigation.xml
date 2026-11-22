@@ -53,8 +53,8 @@
     <string name="settings_category_character_matching_description">选择随剧情发送给模型的角色资料和相关术语。</string>
     <string name="settings_category_character_matching_scope">从下一段新捕获的剧情开始生效；不会修改角色词典或游戏术语本身。</string>
     <string name="settings_category_diagnostics">调试项</string>
-    <string name="settings_category_diagnostics_description">用于分析捕获、解析和请求失败问题；不会改变正式任务数据。</string>
-    <string name="settings_category_diagnostics_scope">仅解析设置需重启游戏；请求诊断开关从之后发起的请求开始生效。</string>
+    <string name="settings_category_diagnostics_description">调整剧情自动播放，查看捕获、解析和请求诊断选项。</string>
+    <string name="settings_category_diagnostics_scope">自动播放和仅解析设置在重启游戏后生效。请求诊断开关对后续请求生效。</string>
     <string name="settings_category_save">保存设置</string>
     <string name="settings_category_saved">设置已保存。</string>
     <string name="settings_category_memory_hint">设置保存在本地，从下一次符合条件的流程生效。</string>
@@ -121,6 +121,10 @@
     <string name="settings_field_low_term_score">次要角色术语门槛</string>
     <string name="settings_field_enable_page_rec_debug">批量获取已上线剧情</string>
     <string name="settings_field_enable_parse_only_debug">启用仅解析诊断</string>
+    <string name="settings_field_show_story_auto_button">显示 AUTO 按钮</string>
+    <string name="settings_hint_show_story_auto_button">在剧情对白框的 LOG 左侧显示 AUTO，点击即可开始或停止自动播放。保存后重启游戏生效。</string>
+    <string name="settings_field_story_auto_speed">自动翻页速度</string>
+    <string name="settings_hint_story_auto_speed">越靠右，每句对白显示完后停留的时间越短。保存后重启游戏生效。</string>
     <string name="settings_field_enable_failed_api_response_dump">保存失败响应诊断</string>
     <string name="settings_field_hint_protocol">选择兼容的翻译服务协议。</string>
     <string name="settings_field_hint_base_url">留空表示使用服务默认地址；也可填写兼容服务地址。</string>

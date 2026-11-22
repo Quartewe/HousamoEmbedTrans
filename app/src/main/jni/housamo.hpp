@@ -246,6 +246,8 @@ struct RuntimeConfig {
     bool enable_page_rec_tasks = false;
     bool enable_ruby_translation = false;
     bool parse_only_debug = false;
+    bool show_story_auto_button = true;
+    float story_auto_speed = 0.5f;
 };
 
 extern RuntimeConfig g_runtime_config;
@@ -570,6 +572,8 @@ bool make_runtime_config(
     bool enable_page_rec_tasks,
     bool enable_ruby_translation,
     bool parse_only_debug,
+    bool show_story_auto_button,
+    float story_auto_speed,
     bool overwrite_existing,
     const std::string& base_dir,
     RuntimeConfig* out);

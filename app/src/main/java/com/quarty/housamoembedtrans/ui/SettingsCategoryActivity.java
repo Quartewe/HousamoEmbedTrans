@@ -752,7 +752,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
             slider.setValueFrom((float) spec.min);
             slider.setValueTo((float) spec.max);
             slider.setStepSize((float) spec.step);
-            if ("dialogue-target".equals(spec.id)) {
+            if ("dialogue-target".equals(spec.id) || "story-auto-speed".equals(spec.id)) {
                 slider.setLabelFormatter(value -> formatSliderValue(spec, value));
             }
             slider.setTrackHeight(dp(6));
@@ -1139,6 +1139,9 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
     }
 
     private String formatSliderValue(FieldSpec spec, float value) {
+        if ("story-auto-speed".equals(spec.id)) {
+            return java.text.NumberFormat.getPercentInstance().format(value / 100.0);
+        }
         if ("dialogue-target".equals(spec.id) && value == 0) {
             return getString(R.string.continuation_unlimited);
         }
@@ -1690,6 +1693,8 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
             );
         }
         return Arrays.asList(
+            bool("show-story-auto-button", R.string.settings_field_show_story_auto_button, R.string.settings_hint_show_story_auto_button, new String[] {"ShowStoryAutoButton"}),
+            slider("story-auto-speed", R.string.settings_field_story_auto_speed, R.string.settings_hint_story_auto_speed, new String[] {"StoryAutoSpeedPercent"}, 0, 100, 1, true),
             bool("enable-parse-only-debug", R.string.settings_field_enable_parse_only_debug, R.string.settings_field_hint_enable_parse_only_debug, new String[] {"EnableParseOnlyDebug"}),
             bool("enable-failed-api-response-dump", R.string.settings_field_enable_failed_api_response_dump, R.string.settings_field_hint_enable_failed_api_response_dump, new String[] {"EnableFailedApiResponseDump"}),
             bool("enable-api-body-logging", R.string.settings_field_enable_api_body_logging, R.string.settings_field_hint_enable_api_body_logging, new String[] {"EnableApiBodyLogging"}),

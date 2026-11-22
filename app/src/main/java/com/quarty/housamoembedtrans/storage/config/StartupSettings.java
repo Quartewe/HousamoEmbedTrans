@@ -12,6 +12,18 @@ import org.json.JSONObject;
 public final class StartupSettings {
     private StartupSettings() {}
 
+    public static void normalizeStoryAutoSettings(JSONObject settings) throws Exception {
+        if (!settings.has("ShowStoryAutoButton")) settings.put("ShowStoryAutoButton", true);
+        requireBoolean(settings, "ShowStoryAutoButton", "UserSettings");
+        if (!settings.has("StoryAutoSpeedPercent")) settings.put("StoryAutoSpeedPercent", 50);
+        Object raw = settings.get("StoryAutoSpeedPercent");
+        if (raw instanceof Number) {
+            double speed = ((Number) raw).doubleValue();
+            if (speed >= 0 && speed <= 100 && speed == Math.rint(speed)) return;
+        }
+        throw new IllegalArgumentException("UserSettings.StoryAutoSpeedPercent must be an integer from 0 to 100");
+    }
+
     public static boolean isRubyTranslationEnabled(JSONObject userSettings) throws Exception {
         if (userSettings.has("EnableRubyTranslation")
             && !(userSettings.get("EnableRubyTranslation") instanceof Boolean)) {

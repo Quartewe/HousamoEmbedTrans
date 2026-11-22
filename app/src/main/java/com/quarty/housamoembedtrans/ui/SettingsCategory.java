@@ -202,7 +202,8 @@ public final class SettingsCategory {
                 weights == null ? 1 : weights.optInt("RelatedNum", 1)
             );
         }
-        return userSettings.optBoolean("EnableParseOnlyDebug", false)
+        return userSettings.optBoolean("ShowStoryAutoButton", true)
+                || userSettings.optBoolean("EnableParseOnlyDebug", false)
                 || userSettings.optBoolean("EnableFailedApiResponseDump", false)
                 || userSettings.optBoolean("EnableApiBodyLogging", false)
                 || userSettings.optBoolean("DebugOmitThinkingParameters", true)

@@ -144,7 +144,7 @@ bool Bind(Control& control, void* engineTransform) {
 } // namespace
 
 void Update(void* engine, bool restoring) {
-    if (!engine) return;
+    if (!engine || !g_runtime_config.show_story_auto_button) return;
     if (!bound && Clock::now() >= nextBind) {
         nextBind = Clock::now() + std::chrono::seconds(1);
         if (!config.Get()) {
@@ -167,6 +167,11 @@ void Update(void* engine, bool restoring) {
         bool on = api.Bool(control.toggle.Get(), "get_isOn", requested);
         if (on != requested) {
             requested = on;
+            if (on) {
+                float speed = g_runtime_config.story_auto_speed;
+                void* args[] = {&speed};
+                api.Call(config.Get(), "set_AutoBrPageSpeed", 1, args);
+            }
             for (auto& window : windows) ShowState(window);
             break;
         }

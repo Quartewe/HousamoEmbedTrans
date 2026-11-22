@@ -1465,6 +1465,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         boolean enableRubyTranslation;
         boolean continuationEnabled;
         boolean enableParseOnlyDebug;
+        boolean showStoryAutoButton;
+        float storyAutoSpeed;
         boolean overwriteExistingJson;
         String targetLanguage;
         String gameVersion;
@@ -1800,6 +1802,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         config.enableRubyTranslation = StartupSettings.isRubyTranslationEnabled(userSettings);
         config.continuationEnabled = StoryContinuationSettings.read(userConfig).enabled;
         config.enableParseOnlyDebug = Init_EnableParseOnlyDebug(userConfig);
+        config.showStoryAutoButton = userSettings.getBoolean("ShowStoryAutoButton");
+        config.storyAutoSpeed = userSettings.getInt("StoryAutoSpeedPercent") / 100f;
         config.enablePageRecTasks = config.enablePageRecDebug && !config.enableParseOnlyDebug;
         config.overwriteExistingJson = Init_OverwriteExistingJson(userConfig);
         config.targetLanguage = Init_TargetLanguage(userConfig);
@@ -1860,6 +1864,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         Init_OverwriteExistingJson(json);
         Init_TargetLanguage(json);
         StartupSettings.normalizeSceneSyncSettings(json.getJSONObject("UserSettings"));
+        StartupSettings.normalizeStoryAutoSettings(json.getJSONObject("UserSettings"));
     }
 
     private static void validateRuntimeStartupJson(JSONObject json) throws Exception {
@@ -2795,6 +2800,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                 startup.enablePageRecTasks,
                 startup.enableRubyTranslation,
                 startup.enableParseOnlyDebug,
+                startup.showStoryAutoButton,
+                startup.storyAutoSpeed,
                 startup.overwriteExistingJson,
                 startup.targetLanguage,
                 chardictJson,
@@ -2895,6 +2902,8 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         boolean enablePageRecTasks,
         boolean enableRubyTranslation,
         boolean enableParseOnlyDebug,
+        boolean showStoryAutoButton,
+        float storyAutoSpeed,
         boolean overwriteExistingJson,
         String targetLanguage,
         String chardictJson,

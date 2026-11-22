@@ -4,6 +4,8 @@
         "EnablePageRecDebug": false,
         "EnableRubyTranslation": false,
         "EnableParseOnlyDebug": false,
+        "ShowStoryAutoButton": true,
+        "StoryAutoSpeedPercent": 50,
         "EnableFailedApiResponseDump": false,
         "EnableApiBodyLogging": false,
         "DebugOmitThinkingParameters": true,
