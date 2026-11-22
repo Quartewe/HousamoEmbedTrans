@@ -12,6 +12,7 @@ add_library(housamo_trans SHARED
     src/main/jni/runtime/ilcpp_reader.cpp
     src/main/jni/runtime/quest_writer.cpp
     src/main/jni/runtime/choice_back.cpp
+    src/main/jni/runtime/story_auto.cpp
     src/main/jni/runtime/continuation_player.cpp
     src/main/jni/runtime/continuation_sheet.cpp
     src/main/jni/data/data_manager.cpp
