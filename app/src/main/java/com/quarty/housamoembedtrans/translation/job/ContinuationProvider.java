@@ -119,6 +119,22 @@ public final class ContinuationProvider {
         return prose;
     }
 
+    static String stageProse(TranslationConfig config, JSONObject request, JSONObject pipeline,
+                             String prose, TranslationApiClient.AttemptHandle handle) throws Exception {
+        JSONObject generation = request.getJSONObject("generation");
+        JSONObject permissions = new JSONObject()
+            .put("allow_character", generation.getBoolean("allow_character"))
+            .put("allow_background", generation.getBoolean("allow_background"))
+            .put("allow_choices", generation.getBoolean("allow_choices"))
+            .put("dialogue_target", generation.getInt("dialogue_target"));
+        JSONObject input = new JSONObject()
+            .put("source_text", prose)
+            .put("screen", pipeline.getJSONObject("screen"))
+            .put("resources", request.getJSONObject("resources"))
+            .put("generation", permissions);
+        return callRound(config, pipeline.getString("staging_system"), input.toString(), handle);
+    }
+
     private static String callRound(TranslationConfig config, String system, String input,
                                     TranslationApiClient.AttemptHandle handle) throws Exception {
         if (handle.isCanceled() || Thread.currentThread().isInterrupted()) {
