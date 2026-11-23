@@ -66,7 +66,11 @@ public final class ContinuationWriting {
     }
 
     private static String proseMessage(String summary, String following, String input, String character, int target) {
-        String length = target == 0 ? "" : " " + Math.min(target * 30, 1200) + " 字";
+        int maxLength = 1200;
+        if (target != 0) {
+            maxLength = Math.min(target * 30, 1200);    
+        }   
+        String length = maxLength + " 字";
         return "前文：" + summary + "\n后文：" + following + "\n本轮输入：\n" + input
             + "\n现在直接接着写" + length + "，不要开场白，接续到后文。"
             + "\n直接从「" + character + "」的动作写起，第一句就是动作，不要说明、不要确认。";
