@@ -106,13 +106,31 @@ static RvaConfig jcls_to_rvaconfig(JNIEnv* env, jobject rvaConfigObj) {
     return out;
 }
 
-static ChoiceBackConfig jcls_to_choice_back_config(JNIEnv* env, jobject object) {
+static ChoiceBackConfig jcls_to_choice_back_config(JNIEnv* env, jobject object, uintptr_t show_selection) {
     ChoiceBackConfig out;
     auto build_id = static_cast<jbyteArray>(get_object_field(env, object, "buildId", "[B"));
     out.build_id.resize(static_cast<size_t>(env->GetArrayLength(build_id)));
     env->GetByteArrayRegion(build_id, 0, static_cast<jsize>(out.build_id.size()),
                            reinterpret_cast<jbyte*>(out.build_id.data()));
     env->DeleteLocalRef(build_id);
+    auto field = get_field_id(env, object, "continuation",
+        "Lcom/quarty/housamoembedtrans/storage/config/ChoiceBackConfig$ContinuationRva;");
+    jobject entries = field ? env->GetObjectField(object, field) : nullptr;
+    if (entries) {
+        auto& rva = out.continuation.emplace();
+        rva.show = show_selection;
+        rva.tap = get_uintptr_field(env, entries, "tap");
+        rva.text = get_uintptr_field(env, entries, "text");
+        rva.add_read = get_uintptr_field(env, entries, "addRead");
+        rva.add_history = get_uintptr_field(env, entries, "addHistory");
+        rva.character = get_uintptr_field(env, entries, "character");
+        rva.character_off = get_uintptr_field(env, entries, "characterOff");
+        rva.background = get_uintptr_field(env, entries, "background");
+        rva.background_off = get_uintptr_field(env, entries, "backgroundOff");
+        rva.load_end = get_uintptr_field(env, entries, "loadEnd");
+        rva.move_page = get_uintptr_field(env, entries, "movePage");
+        env->DeleteLocalRef(entries);
+    }
     out.begin_page = get_uintptr_field(env, object, "beginPage");
     out.save_page = get_uintptr_field(env, object, "savePage");
     out.wait_input = get_uintptr_field(env, object, "waitInput");
@@ -566,7 +584,7 @@ Java_com_quarty_housamoembedtrans_MainHook_nativeStart(
 ) {
     RvaConfig java_rva = jcls_to_rvaconfig(env, rvaConfigObj);
     LayoutConfig java_layout = jcls_to_layoutconfig(env, layOutObj);
-    ChoiceBackConfig choice_back = jcls_to_choice_back_config(env, choiceBackObj);
+    ChoiceBackConfig choice_back = jcls_to_choice_back_config(env, choiceBackObj, java_rva.show_selection);
     CharacterWeightConfig character_weight = jcls_to_character_weight_config(env, characterWeightObj);
 
     std::string game_version = jstring_to_string(env, gameVersion);

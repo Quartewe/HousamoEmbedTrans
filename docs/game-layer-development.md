@@ -36,9 +36,11 @@
 
 开始 ShadowHook 初始化前设置进程内闩锁，后续信号不能再次调用 `nativeStart`；初始化本身失败需要重启游戏。Scene 适配器先准备，Native 策略及镜像目录就绪后再注册 Scene、翻译结果和 choice 端口。资源版本不匹配时只注册诊断端口，避免旧结果提前进入 JNI。普通断连不关闭整个客户端，也不清空 Native 持有的 choice 历史；连接恢复后只重新注册端口。连接服务、Native 初始化派发与 Unity Hook 安装成功仍是不同阶段。
 
-`runtime.json` 提供目标游戏版本、函数 RVA 和对象布局；用户配置提供功能开关。配置解析入口在 `init_config.cpp`，业务读取使用 `g_runtime_config`，不要在访问代码中另写一套偏移常量。
+`runtime.json` 提供目标游戏版本、函数 RVA 和对象布局。任何由游戏包体构建生成且被 HET 使用的地址、偏移或标识都应按实际目标库配置，即使版本号相同，重新构建后也要重新核验。用户配置提供功能开关。配置解析入口在 `init_config.cpp`，业务读取使用 `g_runtime_config`。
 
 `RuntimeConfigs.ChoiceBack` 提供回退及播放位置跟踪所需的 arm64 GNU build ID、11 个 hook RVA、页首存档调用返回地址和四个实际使用的页状态值。HET 的 `ConfigStore` 在发布资源前校验该对象，游戏 Java 解析为 `ChoiceBackConfig` 后经 JNI 传入 native；初始化线程复制它，再安装 Unity 主线程 pump，进程运行期间不修改这份配置。`Install` 必须先匹配实际已加载库的 build ID，再使用该组地址安装 hook；不匹配时维持不可用状态。这里的身份匹配是目标二进制绑定，不是重复校验配置格式。
+
+续写和回退共用上述 ELF 身份检查。续写从 `ChoiceBack.ContinuationRVA` 读取十个专用入口，并复用 `RVA_ShowSelection`。旧覆盖配置缺少续写块时，游戏仅从 Build ID 匹配的随包数据补齐该块，保留覆盖配置的其余参数。没有匹配数据时只停用续写，并记录原因。
 
 旧 runtime 缺少 `ChoiceBack` 时沿现有无效覆盖配置流程回到随包资源，并由资源更新流程替换为匹配游戏的完整配置；不拼接旧版地址。已有字段不改名或移除。首次接入需要升级 HET；之后仅地址、库身份或状态值变化可以更新 runtime，已初始化的游戏需重启。函数签名、存档复制或加载时序变化仍需修改 native 实现。更新步骤见 [RVA 配置生成](../tools/rva/README.md)。
 

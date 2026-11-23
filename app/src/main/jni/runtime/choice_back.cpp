@@ -520,7 +520,11 @@ bool Install() {
         }
     }
     LOGI("[ChoiceBack] bound configured arm64 GNU build ID");
-    continuation::Install(base,runtime.build_id);
+    if (!runtime.continuation) {
+        LOGW("[Continuation] no addresses configured for this build");
+    } else if (!continuation::Install(base, *runtime.continuation)) {
+        LOGW("[Continuation] could not install playback hooks for the configured build");
+    }
     return true;
 #endif
 }

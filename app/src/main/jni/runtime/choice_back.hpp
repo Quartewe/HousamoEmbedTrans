@@ -1,11 +1,27 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
+struct ContinuationRvas {
+    uintptr_t show = 0;
+    uintptr_t tap = 0;
+    uintptr_t text = 0;
+    uintptr_t add_read = 0;
+    uintptr_t add_history = 0;
+    uintptr_t character = 0;
+    uintptr_t character_off = 0;
+    uintptr_t background = 0;
+    uintptr_t background_off = 0;
+    uintptr_t load_end = 0;
+    uintptr_t move_page = 0;
+};
+
 struct ChoiceBackConfig {
     std::vector<unsigned char> build_id;
+    std::optional<ContinuationRvas> continuation;
     uintptr_t begin_page = 0;
     uintptr_t save_page = 0;
     uintptr_t wait_input = 0;

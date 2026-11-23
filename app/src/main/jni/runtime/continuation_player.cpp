@@ -640,13 +640,9 @@ bool IsTemporary(void* scenario) {
 }
 bool CaptureEnabled() { return installed && Enabled(); }
 bool IsPlaying() { return currentSheet != nullptr || enteringSheet; }
-bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
-    // update-1380, arm64. choice_back verified the loaded ELF note before
-    // reaching this point. Other revisions keep their existing choice tracker.
-    static const std::vector<unsigned char> expected = {0xce, 0xa0, 0x6d, 0x00, 0x0d, 0x37, 0xd5,
-                                                        0x44, 0xe9, 0x9c, 0xa4, 0x75, 0x84, 0x64,
-                                                        0xee, 0xfa, 0x39, 0x3c, 0x3e, 0xb2};
-    if (buildId != expected || !api.array_new || !api.gc_wbarrier_set_field || !api.string_new_len ||
+bool Install(uintptr_t base, const ContinuationRvas& rva) {
+    // The choice tracker matched the loaded ELF build ID before calling here.
+    if (!api.array_new || !api.gc_wbarrier_set_field || !api.string_new_len ||
         !api.gchandle_new_weakref)
         return false;
     struct Hook {
@@ -656,19 +652,19 @@ bool Install(uintptr_t base, const std::vector<unsigned char>& buildId) {
         void* stub;
     };
     Hook hooks[] = {
-        {0x246cdb8, reinterpret_cast<void*>(Show), reinterpret_cast<void**>(&originalShow), nullptr},
-        {0x248667c, reinterpret_cast<void*>(Tap), reinterpret_cast<void**>(&originalTap), nullptr},
-        {0x2466d40, reinterpret_cast<void*>(Text), reinterpret_cast<void**>(&originalText), nullptr},
-        {0x2466ab4, reinterpret_cast<void*>(AddRead), reinterpret_cast<void**>(&originalRead), nullptr},
-        {0x246d00c, reinterpret_cast<void*>(AddHistory), reinterpret_cast<void**>(&originalHistory), nullptr},
-        {0x2424c5c, reinterpret_cast<void*>(Character), reinterpret_cast<void**>(&originalCharacter),
+        {rva.show, reinterpret_cast<void*>(Show), reinterpret_cast<void**>(&originalShow), nullptr},
+        {rva.tap, reinterpret_cast<void*>(Tap), reinterpret_cast<void**>(&originalTap), nullptr},
+        {rva.text, reinterpret_cast<void*>(Text), reinterpret_cast<void**>(&originalText), nullptr},
+        {rva.add_read, reinterpret_cast<void*>(AddRead), reinterpret_cast<void**>(&originalRead), nullptr},
+        {rva.add_history, reinterpret_cast<void*>(AddHistory), reinterpret_cast<void**>(&originalHistory), nullptr},
+        {rva.character, reinterpret_cast<void*>(Character), reinterpret_cast<void**>(&originalCharacter),
          nullptr},
-        {0x24250a8, reinterpret_cast<void*>(CharacterOff), reinterpret_cast<void**>(&originalOff), nullptr},
-        {0x2424818, reinterpret_cast<void*>(Background), reinterpret_cast<void**>(&originalBg), nullptr},
-        {0x2424b80, reinterpret_cast<void*>(BackgroundOff), reinterpret_cast<void**>(&originalBgOff),
+        {rva.character_off, reinterpret_cast<void*>(CharacterOff), reinterpret_cast<void**>(&originalOff), nullptr},
+        {rva.background, reinterpret_cast<void*>(Background), reinterpret_cast<void**>(&originalBg), nullptr},
+        {rva.background_off, reinterpret_cast<void*>(BackgroundOff), reinterpret_cast<void**>(&originalBgOff),
          nullptr},
-        {0x241cb6c, reinterpret_cast<void*>(LoadEnd), reinterpret_cast<void**>(&originalLoadEnd), nullptr},
-        {0x247dfac, reinterpret_cast<void*>(MovePage), reinterpret_cast<void**>(&originalMovePage), nullptr}};
+        {rva.load_end, reinterpret_cast<void*>(LoadEnd), reinterpret_cast<void**>(&originalLoadEnd), nullptr},
+        {rva.move_page, reinterpret_cast<void*>(MovePage), reinterpret_cast<void**>(&originalMovePage), nullptr}};
     for (auto& hook : hooks) {
         hook.stub = shadowhook_hook_func_addr(reinterpret_cast<void*>(base + hook.rva), hook.replacement,
                                               hook.original);

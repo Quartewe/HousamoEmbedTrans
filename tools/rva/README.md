@@ -22,7 +22,9 @@ python tools/rva/generate_config.py --version 5.21.0 --input "D:\你的导出目
 
 ## 更新边界
 
-已有输出文件时，替换 `GameVersion`、`RuntimeConfigs.RVA` 和显式提供的 `RuntimeConfigs.ChoiceBack`，保留原 `Layout`。只有同版本且已含 `ChoiceBack` 时，才允许省略 `--choice-back` 并保留原对象。更换版本、新增 `ChoiceBack` 或新建输出文件时必须提供它，避免沿用旧版的库身份和地址。
+已有输出文件时，替换 `GameVersion`、`RuntimeConfigs.RVA` 和 `RuntimeConfigs.ChoiceBack`，保留原 `Layout` 供独立核验。每次生成均须通过 `--choice-back` 提供已针对本次 arm64 包体核验的对象，包括 Build ID 和续写地址。相同版本号的重新打包也可能生成不同地址。
+
+`ChoiceBack.ContinuationRVA` 包含 Tap、Text、AddRead、AddHistory、Character、CharacterOff、Background、BackgroundOff、LoadEnd 和 MovePage。显示选项共用 `RVA_ShowSelection`。核对完整方法签名，特别是 Text 使用接收 `AdvCommandText` 的重载，MovePage 使用 `CoStartPage` 协程的 `MoveNext`。核对实际 ELF 的 Build ID、ABI 和入口所属的可执行段后再写入。
 
 `ChoiceBack` 的结构见仓库 `runtime.json`：`BuildId` 是目标 arm64 `libil2cpp.so` 的 GNU build ID；`RVA` 包含 11 个 hook 入口；`SavePageCaller` 是 `CoStartPage.MoveNext` 中页首自动存档调用之后的返回地址；`PageStatus` 只包含回退判断实际使用的四个状态值。函数入口需按完整签名核对，尤其是 `Select` 的重载。调用点必须结合反汇编确认存档时机，不能仅依据函数入口或版本间地址差值生成。
 

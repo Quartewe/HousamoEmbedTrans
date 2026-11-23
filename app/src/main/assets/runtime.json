@@ -28,6 +28,18 @@
                 "CreateLoad": "0x2418A08",
                 "StartGame": "0x2418B4C"
             },
+            "ContinuationRVA": {
+                "Tap": "0x24864C0",
+                "Text": "0x2466B84",
+                "AddRead": "0x24668F8",
+                "AddHistory": "0x246CE50",
+                "Character": "0x2424AA0",
+                "CharacterOff": "0x2424EEC",
+                "Background": "0x242465C",
+                "BackgroundOff": "0x24249C4",
+                "LoadEnd": "0x241C9B0",
+                "MovePage": "0x247DDF0"
+            },
             "SavePageCaller": "0x247E078",
             "PageStatus": {
                 "SendChar": 1,

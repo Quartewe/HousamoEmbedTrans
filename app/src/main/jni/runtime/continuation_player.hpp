@@ -3,8 +3,10 @@
 #include <string>
 #include <vector>
 
+struct ContinuationRvas;
+
 namespace het::continuation {
-bool Install(uintptr_t base, const std::vector<unsigned char>& buildId);
+bool Install(uintptr_t base, const ContinuationRvas& rva);
 bool CaptureEnabled();
 bool IsPlaying();
 void EndSession();

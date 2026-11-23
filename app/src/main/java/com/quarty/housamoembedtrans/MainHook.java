@@ -1791,7 +1791,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         StartupConfig config = new StartupConfig();
         config.rva = Init_RVA(runtimeConfigs);
         config.layout = Init_Layout(runtimeConfigs);
-        config.choiceBack = new ChoiceBackConfig(runtimeConfigs.getJSONObject("ChoiceBack"));
+        config.choiceBack = readChoiceBackConfig(runtimeConfigs.getJSONObject("ChoiceBack"));
         config.characterWeight = Init_CharacterWeight(userConfig);
         JSONObject userSettings = userConfig.getJSONObject("UserSettings");
         config.sceneSyncSnapshot = SceneSyncStartupSnapshot.of(
@@ -1809,6 +1809,22 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         config.targetLanguage = Init_TargetLanguage(userConfig);
         config.gameVersion = Init_GameVersion(runtimeConfig);
         return config;
+    }
+
+    private static ChoiceBackConfig readChoiceBackConfig(JSONObject choice) throws Exception {
+        if (!choice.has("ContinuationRVA")) {
+            // Older overrides predate this block. Keep their other caller and layout data intact.
+            JSONObject bundled = new JSONObject(readModuleAsset(RUNTIME_FILE_NAME))
+                .getJSONObject("RuntimeConfigs").getJSONObject("ChoiceBack");
+            String buildId = choice.getString("BuildId");
+            if (!buildId.equalsIgnoreCase(bundled.getString("BuildId"))) {
+                bundled = new JSONObject(readModuleAsset("continuation/legacy_runtime.json"));
+            }
+            if (buildId.equalsIgnoreCase(bundled.getString("BuildId")) && bundled.has("ContinuationRVA")) {
+                choice.put("ContinuationRVA", bundled.getJSONObject("ContinuationRVA"));
+            }
+        }
+        return new ChoiceBackConfig(choice);
     }
 
     private static StartupConfig loadStartupConfig(Context context) throws Exception {
