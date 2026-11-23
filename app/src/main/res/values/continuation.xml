@@ -12,7 +12,7 @@
     <string name="continuation_enable_hint">Adds a free-input option to story choices.</string>
     <string name="continuation_dedicated_api">Use a separate API for continuations</string>
     <string name="continuation_dedicated_api_hint">New continuations use the API configured below when enabled. Turn this off to use the translation service API.</string>
-    <string name="continuation_max_tokens_hint">Leave blank to use the translation service limit, or enter an output token limit for the continuation model.</string>
+    <string name="continuation_max_tokens_hint">Maximum output tokens per request. Each round of a three-step continuation can use the full limit. Leave blank to use the translation service limit.</string>
     <string name="continuation_character">Allow character staging</string>
     <string name="continuation_character_hint">Characters can enter, leave, move and change expressions.</string>
     <string name="continuation_background">Allow background changes</string>
