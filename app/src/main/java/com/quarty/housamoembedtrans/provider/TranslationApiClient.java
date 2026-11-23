@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.ProtocolException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -558,7 +559,7 @@ public final class TranslationApiClient {
             resolveTranslationEndpoint(config)
         );
         try {
-            connection.setRequestMethod("POST");
+            configureModelPost(connection);
             connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
             connection.setReadTimeout(MODEL_READ_TIMEOUT_MS);
             connection.setInstanceFollowRedirects(false);
@@ -656,7 +657,7 @@ public final class TranslationApiClient {
             if (cancellation != null && cancellation.isCanceled()) {
                 throw new InterruptedException("provider attempt canceled");
             }
-            connection.setRequestMethod("POST");
+            configureModelPost(connection);
             connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
             // A non-streaming response may stay silent until generation finishes.
             // Zero disables the read timeout; cancellation still disconnects the request.
@@ -1128,6 +1129,13 @@ public final class TranslationApiClient {
             );
         }
         return (HttpURLConnection) uri.toURL().openConnection();
+    }
+
+    private static void configureModelPost(HttpURLConnection connection) throws ProtocolException {
+        connection.setRequestMethod("POST");
+        // The native client has no referring web page.
+        connection.setRequestProperty("Origin", "null");
+        connection.setRequestProperty("Referer", "about:blank");
     }
 
     private static void applyAuthentication(
