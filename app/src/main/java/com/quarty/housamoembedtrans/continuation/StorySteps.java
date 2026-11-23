@@ -88,7 +88,7 @@ final class StorySteps {
         require(n instanceof Number && Double.isFinite(((Number)n).doubleValue()),key+" 需要数字");
         return ((Number)n).doubleValue();
     }
-    private static String word(JSONObject o,String key) throws JSONException {
+    static String word(JSONObject o,String key) throws JSONException {
         Object raw=o.get(key);
         require(raw instanceof String && ContinuationContent.hasText((String)raw),key+" 需要非空白文本");
         return (String)raw;

@@ -7,6 +7,7 @@ import android.security.keystore.KeyProperties;
 import android.util.Base64;
 
 import com.quarty.housamoembedtrans.continuation.ContinuationContent;
+import com.quarty.housamoembedtrans.continuation.ContinuationWriting;
 import com.quarty.housamoembedtrans.logging.Log;
 import com.quarty.housamoembedtrans.provider.TranslationApiClient;
 import com.quarty.housamoembedtrans.provider.TranslationConfig;
@@ -103,8 +104,27 @@ public final class ContinuationProvider {
     static String call(TranslationConfig config, JSONObject request, TranslationApiClient.AttemptHandle handle)
         throws Exception {
         JSONArray messages = request.getJSONArray("messages");
-        JSONObject body = TranslationRequestFactory.buildMessageBody(config, config.getSystemPrompt(),
-            messages.getJSONObject(1).getString("content"));
+        return callRound(config, messages.getJSONObject(0).getString("content"),
+            messages.getJSONObject(1).getString("content"), handle);
+    }
+
+    static String writeProse(TranslationConfig config, JSONObject request, JSONObject pipeline,
+                             String plan, TranslationApiClient.AttemptHandle handle) throws Exception {
+        String input = ContinuationWriting.writingInput(plan, pipeline.getString("following"),
+            request.getString("input"), request.getJSONObject("generation").getInt("dialogue_target"));
+        String prose = callRound(config, pipeline.getString("writing_system"), input, handle);
+        if (!ContinuationContent.hasText(prose)) {
+            throw new ContinuationContent.OutputError("invalid_output", "续写第二轮没有返回短文正文");
+        }
+        return prose;
+    }
+
+    private static String callRound(TranslationConfig config, String system, String input,
+                                    TranslationApiClient.AttemptHandle handle) throws Exception {
+        if (handle.isCanceled() || Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("续写调用已停止");
+        }
+        JSONObject body = TranslationRequestFactory.buildMessageBody(config, system, input);
         StringBuilder response = new StringBuilder();
         boolean[] completed = {false};
         TranslationApiClient.streamTranslationAttempt(config, body.toString(), new TranslationApiClient.StreamListener() {
