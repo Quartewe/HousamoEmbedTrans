@@ -184,7 +184,7 @@ public final class ContinuationContent {
         if (threeStep) {
             JSONObject pipeline = new JSONObject()
                 .put("screen", body.getJSONObject("screen"))
-                .put("following", ContinuationWriting.followingText(body.getJSONArray("after_merge")))
+                .put("following", ContinuationWriting.firstFollowingSentence(body.getJSONArray("after_merge"), targetLanguage))
                 .put("writing_system", prompts.loadContinuationPrompt(ContinuationWriting.PLAYER_INPUT
                     + "只输出小说正文。输出语言：" + targetLanguage))
                 .put("staging_system", prompts.loadContinuationStagingPrompt());

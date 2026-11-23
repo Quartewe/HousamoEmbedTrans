@@ -6,9 +6,15 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.BreakIterator;
+import java.util.Locale;
+import java.util.regex.Pattern;
+
 /** The planning response and the plain-text writing contract. */
 public final class ContinuationWriting {
     private ContinuationWriting() {}
+
+    private static final Pattern DISPLAY_TAG = Pattern.compile("</?[A-Za-z][^>]*>");
 
     static final String PLAYER_INPUT = "玩家输入台词时，说话人是主角。玩家输入动作时，默认由主角执行，除非原文明示其他执行者。"
         + "保留玩家使用的人称和代词，指代不明确时使用角色名。";
@@ -28,16 +34,23 @@ public final class ContinuationWriting {
             "screen", "characters", "terms", "language", "input");
     }
 
-    static String followingText(JSONArray lines) throws JSONException {
-        StringBuilder text = new StringBuilder();
+    static String firstFollowingSentence(JSONArray lines, String language) throws JSONException {
+        BreakIterator sentences = BreakIterator.getSentenceInstance(Locale.forLanguageTag(language));
         for (int i = 0; i < lines.length(); i++) {
             JSONObject line = lines.getJSONObject(i);
-            if (i > 0) text.append('\n');
-            String speaker = line.optString("speaker");
-            if (!speaker.isEmpty()) text.append(speaker).append('：');
-            text.append(line.getString("text"));
+            String text = DISPLAY_TAG.matcher(line.getString("text")).replaceAll("");
+            sentences.setText(text);
+            int start = sentences.first();
+            for (int end = sentences.next(); end != BreakIterator.DONE; end = sentences.next()) {
+                String sentence = text.substring(start, end).trim();
+                if (ContinuationContent.hasText(sentence)) {
+                    String speaker = line.optString("speaker");
+                    return speaker.isEmpty() ? sentence : speaker + '：' + sentence;
+                }
+                start = end;
+            }
         }
-        return text.toString();
+        return "";
     }
 
     public static String writingInput(String rawPlan, String following, String input, int target)
