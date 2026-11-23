@@ -8,7 +8,6 @@ import android.content.res.ColorStateList;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -33,7 +32,6 @@ public final class PromptEditorActivity extends AppCompatActivity {
     private static final String STATE_ROLE = "role";
     private static final String STATE_STYLE = "style";
     private static final String STATE_CONTEXT = "context";
-    private static final String STATE_CUSTOM_PROMPT = "custom_prompt";
 
     private enum Tab {
         TRANSLATION(PromptStore.TRANSLATION, R.id.btn_prompt_translation,
@@ -60,21 +58,19 @@ public final class PromptEditorActivity extends AppCompatActivity {
         String role;
         String style;
         String context;
-        String customPrompt;
 
-        DraftValues(String role, String style, String context, String customPrompt) {
+        DraftValues(String role, String style, String context) {
             this.role = role == null ? "" : role;
             this.style = style == null ? "" : style;
             this.context = context == null ? "" : context;
-            this.customPrompt = customPrompt == null ? "" : customPrompt;
         }
 
         DraftValues(PromptStore.PromptDocument document) {
-            this(document.getRole(), document.getStyle(), document.getContext(), document.getCustomPrompt());
+            this(document.getRole(), document.getStyle(), document.getContext());
         }
 
         DraftValues copy() {
-            return new DraftValues(role, style, context, customPrompt);
+            return new DraftValues(role, style, context);
         }
     }
 
@@ -85,8 +81,6 @@ public final class PromptEditorActivity extends AppCompatActivity {
     private EditText role;
     private EditText style;
     private EditText context;
-    private EditText customPrompt;
-    private View customPromptSection;
     private TextView kindTitle;
     private TextView readOnly;
     private MaterialButton saveButton;
@@ -106,8 +100,6 @@ public final class PromptEditorActivity extends AppCompatActivity {
         role = findViewById(R.id.et_prompt_role);
         style = findViewById(R.id.et_prompt_style);
         context = findViewById(R.id.et_prompt_context);
-        customPrompt = findViewById(R.id.et_prompt_custom);
-        customPromptSection = findViewById(R.id.prompt_custom_section);
         kindTitle = findViewById(R.id.tv_prompt_kind_title);
         readOnly = findViewById(R.id.tv_prompt_readonly);
         saveButton = findViewById(R.id.btn_prompt_save);
@@ -140,7 +132,6 @@ public final class PromptEditorActivity extends AppCompatActivity {
         role.addTextChangedListener(draftWatcher);
         style.addTextChangedListener(draftWatcher);
         context.addTextChangedListener(draftWatcher);
-        customPrompt.addTextChangedListener(draftWatcher);
 
         MaterialToolbar toolbar = findViewById(R.id.toolbar_prompt_editor);
         toolbar.setNavigationOnClickListener(view -> onBackPressed());
@@ -240,7 +231,6 @@ public final class PromptEditorActivity extends AppCompatActivity {
             saved.putString(STATE_ROLE, draft.role);
             saved.putString(STATE_STYLE, draft.style);
             saved.putString(STATE_CONTEXT, draft.context);
-            if (tab == Tab.CONTINUATION) saved.putString(STATE_CUSTOM_PROMPT, draft.customPrompt);
             result.putBundle(tab.kind, saved);
         }
         return result;
@@ -257,8 +247,7 @@ public final class PromptEditorActivity extends AppCompatActivity {
         return new DraftValues(
             saved.getString(STATE_ROLE),
             saved.getString(STATE_STYLE),
-            saved.getString(STATE_CONTEXT),
-            saved.getString(STATE_CUSTOM_PROMPT)
+            saved.getString(STATE_CONTEXT)
         );
     }
 
@@ -271,10 +260,6 @@ public final class PromptEditorActivity extends AppCompatActivity {
         role.setText(values.role);
         style.setText(values.style);
         context.setText(values.context);
-        boolean showCustomPrompt = activeTab == Tab.CONTINUATION
-            && getResources().getBoolean(R.bool.show_continuation_custom_prompt_controls);
-        customPromptSection.setVisibility(showCustomPrompt ? View.VISIBLE : View.GONE);
-        customPrompt.setText(values.customPrompt);
         suppressDraftWatchers = false;
         kindTitle.setText(activeTab.label);
         readOnly.setText(activeTab.constraints);
@@ -318,8 +303,7 @@ public final class PromptEditorActivity extends AppCompatActivity {
         drafts.put(activeTab, new DraftValues(
             textOf(role),
             textOf(style),
-            textOf(context),
-            activeTab == Tab.CONTINUATION ? textOf(customPrompt) : ""
+            textOf(context)
         ));
         if (saveButton != null) {
             saveButton.setText(
@@ -439,8 +423,7 @@ public final class PromptEditorActivity extends AppCompatActivity {
         return draft != null && saved != null
             && (!draft.role.equals(saved.role)
                 || !draft.style.equals(saved.style)
-                || !draft.context.equals(saved.context)
-                || !draft.customPrompt.equals(saved.customPrompt));
+                || !draft.context.equals(saved.context));
     }
 
     private PromptStore.PromptDocument toDocument(DraftValues values) {
@@ -450,8 +433,7 @@ public final class PromptEditorActivity extends AppCompatActivity {
         return new PromptStore.PromptDocument(
             values.role,
             values.style,
-            values.context,
-            values.customPrompt
+            values.context
         );
     }
 

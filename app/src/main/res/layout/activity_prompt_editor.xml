@@ -218,48 +218,6 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/prompt_custom_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:labelFor="@+id/et_prompt_custom"
-                    android:text="@string/continuation_custom_prompt"
-                    android:textColor="@color/het_on_surface"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:includeFontPadding="false" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.HET.Prompt.TextInputLayout"
-                    android:layout_marginTop="4dp"
-                    app:boxBackgroundMode="outline"
-                    app:boxBackgroundColor="@color/het_surface_container"
-                    app:boxStrokeColor="@color/het_settings_rebuild_text_input_stroke"
-                    app:boxStrokeWidth="1dp"
-                    app:boxStrokeWidthFocused="2dp"
-                    app:expandedHintEnabled="false"
-                    app:hintEnabled="false">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@id/et_prompt_custom"
-                        style="@style/Widget.HET.Prompt.TextInputEditText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="@null"
-                        android:gravity="top|start"
-                        android:inputType="textCapSentences|textMultiLine"
-                        android:saveEnabled="false"
-                        android:minLines="4" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.HET.Prompt.ReadonlyCard"
                 android:layout_width="match_parent"

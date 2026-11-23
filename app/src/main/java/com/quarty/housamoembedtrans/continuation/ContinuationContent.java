@@ -164,7 +164,7 @@ public final class ContinuationContent {
     }
 
     public static JSONObject prepare(Context context, JSONObject submission, JSONObject generation,
-            String targetLanguage, boolean injectCustomPrompt) throws Exception {
+            String targetLanguage) throws Exception {
         StoryPrompt snapshot = current(context, submission);
         String input = submission.getString("input");
         if (!hasText(input)) throw new IOException("请输入主角原话");
@@ -173,7 +173,7 @@ public final class ContinuationContent {
             generation.getBoolean("allow_character"), generation.getBoolean("allow_background"));
         JSONObject resources = local.resources();
         String systemPrompt = new PromptStore(context).loadContinuationPrompt(
-            StoryPrompt.instructions(generation), injectCustomPrompt);
+            StoryPrompt.instructions(generation));
         return project(submission, "scene", "source", "source_hash", "input")
             .put("generation", generation)
             .put("created_at", System.currentTimeMillis())

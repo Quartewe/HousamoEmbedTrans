@@ -20,7 +20,6 @@
     <string name="continuation_background_hint">Allow the response to switch between available backgrounds.</string>
     <string name="continuation_choices">Allow additional choices</string>
     <string name="continuation_choices_hint">The response can offer new choices with separate branches.</string>
-    <string name="continuation_custom_prompt">Custom prompt</string>
     <string name="continuation_inject_custom_prompt">NSFW?</string>
     <string name="continuation_inject_custom_prompt_hint">Include the text saved under Prompt drafts → Continuation prompt with each new continuation, The built-in armor-breaking prompt has only been tested on the Gemini 4 series.</string>
     <string name="continuation_target">Dialogue target</string>
