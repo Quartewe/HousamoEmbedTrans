@@ -2371,6 +2371,13 @@ public final class TranslationTaskExecutor {
                     throw new TranslationApiClient.IncompleteResponseException("服务在上次生成期间中断，未收到完整结果");
                 }
                 String response = ContinuationProvider.call(config, request, handle);
+                if (request.has("three_step")) {
+                    JSONObject pipeline = request.getJSONObject("three_step");
+                    requireActiveContinuation(handle);
+                    String prose = ContinuationProvider.writeProse(config, request, pipeline, response, handle);
+                    requireActiveContinuation(handle);
+                    response = ContinuationProvider.stageProse(config, request, pipeline, prose, handle);
+                }
                 // A complete valid response remains available for the shared late-cancellation archive.
                 JSONObject result = ContinuationContent.finish(request, response);
                 if (result.toString().getBytes(StandardCharsets.UTF_8).length > TranslationJobStore.MAX_RESULT_BYTES) {
@@ -2402,6 +2409,12 @@ public final class TranslationTaskExecutor {
             } finally {
                 terminal = true;
                 clearTransportHandle(currentAttempt, handle);
+            }
+        }
+
+        private void requireActiveContinuation(TranslationApiClient.AttemptHandle handle) throws InterruptedException {
+            if (shutdown || handle.isCanceled() || isCancellationRequested()) {
+                throw new InterruptedException("续写调用已停止");
             }
         }
 

@@ -609,16 +609,13 @@ final class StoryPrompt {
         }
     }
 
-    JSONArray messages(Local local, String input, String systemPrompt, JSONObject catalog) throws JSONException {
+    JSONObject inputBody(Local local, String input) throws JSONException {
         // Give each submission its own payload. Nothing from this input is published to the node cache.
         JSONObject body = new JSONObject(local.body).put("input", input);
-        if (catalog.length() > 0) body.put("resources", catalog);
         Matches hits = matches(input);
         hits.include(local.baseMatches);
         addProfiles(body, hits);
-        return new JSONArray()
-            .put(new JSONObject().put("role", "system").put("content", systemPrompt))
-            .put(new JSONObject().put("role", "user").put("content", body.toString()));
+        return body;
     }
 
     static String instructions(JSONObject generation) throws JSONException {
@@ -626,8 +623,7 @@ final class StoryPrompt {
         boolean actors = generation.getBoolean("allow_character");
         boolean bg = generation.getBoolean("allow_background");
         StringBuilder instructions = new StringBuilder(
-            "玩家输入台词时，说话人是主角。玩家输入动作时，默认由主角执行，除非原文明示其他执行者。"
-            + "保留玩家使用的人称和代词，指代不明确时使用角色名。"
+            ContinuationWriting.PLAYER_INPUT
             + "从其他角色的回应或旁白开始，使用 language 指定的语言。"
             + "recent 是实际经历，current_options 是眼前可选的发言，after_merge 是随后原剧情。"
             + "alternative_branch_references 是未发生的原分支备选依据。写到能自然回到合流位置为止。"

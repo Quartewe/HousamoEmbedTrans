@@ -13,7 +13,7 @@ public final class StoryContinuationSettings {
     }
     public static final int DEFAULT_TARGET = 20;
     public final boolean enabled, allowCharacter, allowBackground, allowChoices;
-    public final boolean injectCustomPrompt;
+    public final boolean threeStep;
     public final int dialogueTarget;
 
     private StoryContinuationSettings(JSONObject values) throws JSONException {
@@ -21,7 +21,8 @@ public final class StoryContinuationSettings {
         allowCharacter = flag(values, "AllowCharacter");
         allowBackground = flag(values, "AllowBackground");
         allowChoices = flag(values, "AllowChoices");
-        injectCustomPrompt = flag(values, "InjectCustomPrompt");
+        // NSFW? keeps its saved value across the change to three-step writing.
+        threeStep = flag(values, "InjectCustomPrompt");
         Object target = values.opt("DialogueTarget");
         if (target == null) {
             dialogueTarget = DEFAULT_TARGET;

@@ -164,7 +164,7 @@ public final class ContinuationContent {
     }
 
     public static JSONObject prepare(Context context, JSONObject submission, JSONObject generation,
-            String targetLanguage) throws Exception {
+            String targetLanguage, boolean threeStep) throws Exception {
         StoryPrompt snapshot = current(context, submission);
         String input = submission.getString("input");
         if (!hasText(input)) throw new IOException("请输入主角原话");
@@ -172,15 +172,32 @@ public final class ContinuationContent {
         StoryPrompt.Local local = snapshot.local(context, submission, targetLanguage,
             generation.getBoolean("allow_character"), generation.getBoolean("allow_background"));
         JSONObject resources = local.resources();
-        String systemPrompt = new PromptStore(context).loadContinuationPrompt(
-            StoryPrompt.instructions(generation));
-        return project(submission, "scene", "source", "source_hash", "input")
+        JSONObject body = snapshot.inputBody(local, input);
+        PromptStore prompts = new PromptStore(context);
+        JSONObject prepared = project(submission, "scene", "source", "source_hash", "input")
             .put("generation", generation)
             .put("created_at", System.currentTimeMillis())
             .put("record_id", UUID.randomUUID().toString())
             .put("target_lang", targetLanguage)
-            .put("resources", resources)
-            .put("messages", snapshot.messages(local, input, systemPrompt, resources));
+            .put("resources", resources);
+        String system;
+        if (threeStep) {
+            JSONObject pipeline = new JSONObject()
+                .put("screen", body.getJSONObject("screen"))
+                .put("following", ContinuationWriting.followingText(body.getJSONArray("after_merge")))
+                .put("writing_system", prompts.loadContinuationPrompt(ContinuationWriting.PLAYER_INPUT
+                    + "只输出小说正文。输出语言：" + targetLanguage))
+                .put("staging_system", prompts.loadContinuationStagingPrompt());
+            prepared.put("three_step", pipeline);
+            body = ContinuationWriting.planningInput(body);
+            system = ContinuationWriting.PLAN_SYSTEM;
+        } else {
+            if (resources.length() > 0) body.put("resources", resources);
+            system = prompts.loadContinuationPrompt(StoryPrompt.instructions(generation));
+        }
+        return prepared.put("messages", new JSONArray()
+            .put(new JSONObject().put("role", "system").put("content", system))
+            .put(new JSONObject().put("role", "user").put("content", body.toString())));
     }
 
     public static boolean hasText(String s) {

@@ -203,6 +203,10 @@ public final class PromptStore {
         return "[System Directive]\n" + body + "\n[/System Directive]";
     }
 
+    public String loadContinuationStagingPrompt() throws IOException {
+        return readAsset("continuation/staging_prompt.txt").trim();
+    }
+
     private String readAsset(String path) throws IOException {
         try (InputStream input = context.getAssets().open(path)) {
             return IoUtils.readUtf8Limited(input, MAX_PROMPT_BYTES);

@@ -1037,7 +1037,7 @@ public final class TranslationService extends Service {
                             .put("allow_choices", settings.allowChoices)
                             .put("dialogue_target", settings.dialogueTarget);
                         JSONObject prepared = ContinuationContent.prepare(TranslationService.this, submission, generation,
-                            language)
+                            language, settings.threeStep)
                             .put("task_type", "continuation").put("target_lang", language)
                             .put("submission_sha256", digest);
                         ContinuationProvider.freeze(TranslationService.this, snapshot, requestId, jobStore.getRootDirectory());

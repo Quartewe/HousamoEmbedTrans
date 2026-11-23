@@ -1,5 +1,4 @@
 <resources>
-    <bool name="show_continuation_custom_prompt_controls">false</bool>
     <style name="Theme.HET.GameContinuation" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">#315DA8</item>
         <item name="colorPrimaryContainer">#D8E3FF</item>
@@ -20,8 +19,8 @@
     <string name="continuation_background_hint">Allow the response to switch between available backgrounds.</string>
     <string name="continuation_choices">Allow additional choices</string>
     <string name="continuation_choices_hint">The response can offer new choices with separate branches.</string>
-    <string name="continuation_inject_custom_prompt">NSFW?</string>
-    <string name="continuation_inject_custom_prompt_hint">Include the text saved under Prompt drafts → Continuation prompt with each new continuation, The built-in armor-breaking prompt has only been tested on the Gemini 4 series.</string>
+    <string name="continuation_three_step">NSFW?</string>
+    <string name="continuation_three_step_hint">When enabled, prepare the context, write the passage, then arrange its dialogue and staging.</string>
     <string name="continuation_target">Dialogue target</string>
     <string name="continuation_target_hint">Approximate dialogue lines per route before it rejoins the story.</string>
     <string name="continuation_unlimited">Unlimited</string>

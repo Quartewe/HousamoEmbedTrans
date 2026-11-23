@@ -1189,10 +1189,8 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
 
     private void updateConditionalVisibility() {
         if (hasField("continuation-enabled")) {
-            setRowVisibility("inject-custom-prompt",
-                getResources().getBoolean(R.bool.show_continuation_custom_prompt_controls));
             boolean enabled = isChecked("continuation-enabled");
-            for (String id : new String[]{"allow-character", "allow-background", "allow-choices", "inject-custom-prompt"}) {
+            for (String id : new String[]{"allow-character", "allow-background", "allow-choices", "three-step"}) {
                 View control = controls.get(id);
                 if (control != null) {
                     control.setEnabled(enabled);
@@ -1616,8 +1614,8 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                     new String[]{"StoryContinuation", "AllowBackground"}),
                 bool("allow-choices", R.string.continuation_choices, R.string.continuation_choices_hint,
                     new String[]{"StoryContinuation", "AllowChoices"}),
-                bool("inject-custom-prompt", R.string.continuation_inject_custom_prompt,
-                    R.string.continuation_inject_custom_prompt_hint, new String[]{"StoryContinuation", "InjectCustomPrompt"}),
+                bool("three-step", R.string.continuation_three_step,
+                    R.string.continuation_three_step_hint, new String[]{"StoryContinuation", "InjectCustomPrompt"}),
                 slider("dialogue-target", R.string.continuation_target, R.string.continuation_target_hint,
                     new String[]{"StoryContinuation", "DialogueTarget"}, 0, 100, 5, true),
                 bool("dedicated-api", R.string.continuation_dedicated_api, R.string.continuation_dedicated_api_hint,
