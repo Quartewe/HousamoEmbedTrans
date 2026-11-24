@@ -2374,7 +2374,7 @@ public final class TranslationTaskExecutor {
                 if (request.has("three_step")) {
                     JSONObject pipeline = request.getJSONObject("three_step");
                     requireActiveContinuation(handle);
-                    String prose = ContinuationProvider.writeProse(config, request, pipeline, response, handle);
+                    String prose = ContinuationProvider.writeProse(context, config, request, pipeline, response, handle);
                     requireActiveContinuation(handle);
                     response = ContinuationProvider.stageProse(config, request, pipeline, prose, handle);
                 }

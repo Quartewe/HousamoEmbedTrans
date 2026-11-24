@@ -183,6 +183,7 @@ public final class ContinuationContent {
         String system;
         if (threeStep) {
             JSONObject pipeline = new JSONObject()
+                .put("require_writing_characters", true)
                 .put("screen", body.getJSONObject("screen"))
                 .put("following", ContinuationWriting.firstFollowingSentence(body.getJSONArray("after_merge"), targetLanguage))
                 .put("writing_system", ContinuationWriting.proseSystem(targetLanguage))

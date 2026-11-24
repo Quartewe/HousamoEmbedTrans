@@ -108,10 +108,13 @@ public final class ContinuationProvider {
             messages.getJSONObject(1).getString("content"), handle);
     }
 
-    static String writeProse(TranslationConfig config, JSONObject request, JSONObject pipeline,
-                             String plan, TranslationApiClient.AttemptHandle handle) throws Exception {
+    static String writeProse(Context context, TranslationConfig config, JSONObject request, JSONObject pipeline,
+                             String rawPlan, TranslationApiClient.AttemptHandle handle) throws Exception {
+        JSONObject plan = ContinuationWriting.parsePlan(rawPlan, pipeline.optBoolean("require_writing_characters", false));
+        JSONObject dictionary = plan.has("writing_characters")
+            ? new ConfigStore(context).loadJson(ConfigStore.CHARDICT_FILE_NAME).json : null;
         String input = ContinuationWriting.writingInput(plan, pipeline.getString("following"),
-            request.getString("input"), request.getJSONObject("generation").getInt("dialogue_target"));
+            request.getString("input"), request.getJSONObject("generation").getInt("dialogue_target"), dictionary);
         String prose = callRound(config, pipeline.getString("writing_system"), input, handle);
         if (!ContinuationContent.hasText(prose)) {
             throw new ContinuationContent.OutputError("invalid_output", "续写第二轮没有返回短文正文");
