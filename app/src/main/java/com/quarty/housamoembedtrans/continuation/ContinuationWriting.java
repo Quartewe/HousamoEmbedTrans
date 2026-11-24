@@ -1,5 +1,8 @@
 package com.quarty.housamoembedtrans.continuation;
 
+import android.content.Context;
+
+import com.quarty.housamoembedtrans.storage.config.ConfigStore;
 import com.quarty.housamoembedtrans.util.JobValidator;
 
 import org.json.JSONArray;
@@ -7,6 +10,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.text.BreakIterator;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -62,6 +66,58 @@ public final class ContinuationWriting {
             }
         }
         return "";
+    }
+
+    /** Looks up the plan's opening_character in the current CharDict. Missing or ambiguous names return null. */
+    public static JSONObject findOpeningCharacterProfile(Context context, String openingCharacter) throws Exception {
+        if (openingCharacter == null || openingCharacter.trim().isEmpty()) return null;
+        JSONObject dictionary = new ConfigStore(context).loadJson(ConfigStore.CHARDICT_FILE_NAME).json;
+        return openingCharacterProfile(dictionary, openingCharacter.trim());
+    }
+
+    private static JSONObject openingCharacterProfile(JSONObject dictionary, String name) throws JSONException {
+        JSONObject record = dictionary.optJSONObject(name);
+        if (record == null) record = findByDisplayName(dictionary, name);
+        if (record == null) return null;
+
+        JSONObject profile = new JSONObject();
+        for (String field : new String[] {"info", "description", "speech_style"}) {
+            Object value = record.opt(field);
+            profile.put(field, value instanceof String ? value : "");
+        }
+        return profile;
+    }
+
+    private static JSONObject findByDisplayName(JSONObject dictionary, String name) throws JSONException {
+        JSONObject translated = null;
+        JSONObject byAlias = null;
+        boolean sharedAlias = false;
+        for (Iterator<String> keys = dictionary.keys(); keys.hasNext();) {
+            JSONObject record = dictionary.getJSONObject(keys.next());
+            if (hasTranslation(record, name)) {
+                if (translated != null) return null;
+                translated = record;
+            } else if (translated == null && hasAlias(record.optJSONArray("alias"), name)) {
+                sharedAlias = byAlias != null;
+                byAlias = record;
+            }
+        }
+        if (translated != null) return translated;
+        return sharedAlias ? null : byAlias;
+    }
+
+    private static boolean hasTranslation(JSONObject record, String name) {
+        return name.equals(record.opt("zh-cn")) || name.equals(record.opt("zh-tw"))
+            || name.equals(record.opt("en"));
+    }
+
+    private static boolean hasAlias(JSONArray aliases, String name) throws JSONException {
+        if (aliases == null) return false;
+        for (int i = 0; i < aliases.length(); i++) {
+            JSONObject alias = aliases.getJSONObject(i);
+            if (name.equals(alias.opt("name")) || hasTranslation(alias, name)) return true;
+        }
+        return false;
     }
 
     public static String writingInput(String rawPlan, String following, String input, int target)
