@@ -214,10 +214,11 @@ public final class HomeActivity extends AppCompatActivity {
     }
 
     private void installCardActions() {
-        injectionModeControl.addOnButtonCheckedListener((group, checkedId, checked) -> {
-            if (checked) onInjectionModeSelected(
-                checkedId == R.id.btn_home_mode_root ? "root" : "lsp");
-        });
+        // MaterialButton completes the group's selection update before its click listener runs.
+        findViewById(R.id.btn_home_mode_lsp).setOnClickListener(
+            view -> onInjectionModeSelected("lsp"));
+        findViewById(R.id.btn_home_mode_root).setOnClickListener(
+            view -> onInjectionModeSelected("root"));
         findViewById(R.id.card_home_game_update).setOnClickListener(view -> {
             if (!stylePreview) startActivity(new Intent(this, GameUpdateActivity.class));
         });
@@ -551,6 +552,10 @@ public final class HomeActivity extends AppCompatActivity {
     }
 
     private void renderInjectionMode() {
+        // MaterialButton 1.10 ignores checked-state updates while disabled.
+        for (int i = 0; i < injectionModeControl.getChildCount(); i++) {
+            injectionModeControl.getChildAt(i).setEnabled(true);
+        }
         if (!injectionModeBusy) {
             if (injectionMode == null) injectionModeControl.clearChecked();
             else injectionModeControl.check("root".equals(injectionMode)
