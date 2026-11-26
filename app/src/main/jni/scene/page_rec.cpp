@@ -90,7 +90,7 @@ bool WriteScene(const Scene& scene, std::uint64_t epoch) {
 // Called under export_mutex after the export has committed. Only QuestWriter
 // receives non-owning targets; the pipeline owns an immutable Scene and its lease.
 bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
-                         bool has_target_official_translation,
+                         bool has_complete_target_official_translation,
                          const QuestTargetSet& target_set,
                          const het::scene_sync::SceneProductionLease& batch,
                          void* data_manager, const std::string& entry_label) {
@@ -104,7 +104,7 @@ bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
         return false;
     }
     const std::string name = scene.scene;
-    if (has_target_official_translation && het::continuation::CaptureEnabled()) {
+    if (has_complete_target_official_translation && het::continuation::CaptureEnabled()) {
         // A previously saved localized Scene may be the applicable view of the
         // same table. Repair its proof only when the saved rows still match.
         if (!BackfillCapturedStage(scene, epoch)) return false;
@@ -115,7 +115,7 @@ bool SubmitExportedScene(Scene scene, std::uint64_t epoch,
     }
     if (!BackfillSceneQuestLabel(name, scene.quest_label, epoch)) return false;
     if (!BackfillCapturedStage(scene,epoch)) return false;
-    if (has_target_official_translation) {
+    if (has_complete_target_official_translation) {
         LOGI("[PageRec] task skipped scene=%s reason=official_translation target=%s",
              name.c_str(), g_runtime_config.target_lang.c_str());
         return true;
@@ -208,9 +208,9 @@ void ExportPageRecScenarios(
         Scene scene;
         QuestTargetSet target_set;
         std::vector<std::string> labels;
-        bool has_target_official_translation = false;
+        bool has_complete_target_official_translation = false;
         if (!ParsePageRecScene(data, data_manager, entry, &scene, &labels,
-                               &has_target_official_translation, &target_set)) return;
+                               &has_complete_target_official_translation, &target_set)) return;
         scene.quest_label = ReadScenarioQuestLabel(data, data_manager);
         auto source = std::move(scene.continuation_source);
         scene.continuation_source = {};
@@ -220,7 +220,7 @@ void ExportPageRecScenarios(
         }
         scene.continuation_source = std::move(source);
         if (!SubmitExportedScene(std::move(scene), epoch,
-                                 has_target_official_translation, target_set, batch, data_manager, entry)) {
+                                 has_complete_target_official_translation, target_set, batch, data_manager, entry)) {
             // Keep initialized labels pending when sync/pause/admission wins.
             return;
         }

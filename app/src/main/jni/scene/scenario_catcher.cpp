@@ -69,7 +69,7 @@ struct ScenarioParseOutput {
     ScenarioParseStatus status = ScenarioParseStatus::failed;
     ScenarioParseResult result;
     QuestPtrSet target_map;
-    bool has_official_translation = false;
+    bool has_complete_official_translation = false;
 };
 
 struct ListView {
@@ -98,6 +98,12 @@ struct ParseStats {
     int text = 0;
     int selection = 0;
     int jump = 0;
+    int source_text = 0;
+    int official_text = 0;
+
+    bool HasCompleteOfficialTranslation() const {
+        return source_text > 0 && official_text == source_text;
+    }
 };
 
 struct PageParseJob {
@@ -127,7 +133,6 @@ struct PageParseResult {
     std::vector<Transfer> transfers;
     std::vector<StageState> stage_states;
     bool ok = false;
-    bool official_translation = false;
     int label_index = -1;
     int page_index = -1;
     int page_no = -1;
@@ -195,6 +200,8 @@ static void MergeStats(ParseStats& dst, const ParseStats& src) {
     dst.text += src.text;
     dst.selection += src.selection;
     dst.jump += src.jump;
+    dst.source_text += src.source_text;
+    dst.official_text += src.official_text;
 }
 
 static void MergeScores(std::vector<ItemScore>& dst, const std::vector<ItemScore>& src) {
@@ -1594,18 +1601,21 @@ public:
         result_queue_.Close();
         CollectResults(submitted_jobs);
 
-        if (Reason() == AbortReason::official_translation) {
-            LOGI("[ScenarioCatcher] skipped official translation scene=%s entry=%s",
-                 scenario_.result.scene.c_str(),
-                 scenario_.result.entry_label.c_str());
-            return {ScenarioParseStatus::skipped_official_translation, {}, {}};
-        }
-
         if (Reason() != AbortReason::none) {
             LOGE("[ScenarioCatcher] parse aborted scene=%s reason=%d",
                  scenario_.result.scene.c_str(),
                  static_cast<int>(Reason()));
             return {ScenarioParseStatus::failed, {}, {}};
+        }
+
+        const bool complete_official = total_stats_.HasCompleteOfficialTranslation();
+        LOGI("[ScenarioCatcher] official coverage scene=%s target=%s text=%d/%d",
+             scenario_.result.scene.c_str(), g_runtime_config.target_lang.c_str(),
+             total_stats_.official_text, total_stats_.source_text);
+        if (complete_official && !retain_official_) {
+            LOGI("[ScenarioCatcher] skipped complete official translation scene=%s entry=%s",
+                 scenario_.result.scene.c_str(), scenario_.result.entry_label.c_str());
+            return {ScenarioParseStatus::skipped_official_translation, {}, {}};
         }
 
         LOGI("[ScenarioCatcher] parsed scene=%s labels=%d/%zu pages=%d text=%d selection=%d jump=%d items=%zu",
@@ -1622,13 +1632,12 @@ public:
         // An empty map prevents task/writeback admission without changing OrderKey.
         if (page_rec_ && !page_rec_targets_valid_) target_map_.clear();
         return {ScenarioParseStatus::ok, std::move(result_), std::move(target_map_),
-                has_official_translation_};
+                complete_official};
     }
 
 private:
     enum class AbortReason : int {
         none = 0,
-        official_translation = 1,
         paused_existing_scene = 2,
         page_parse_failed = 3,
         branch_assembly_failed = 4,
@@ -1637,7 +1646,6 @@ private:
     enum class TextStatus {
         ok,
         empty,
-        official_translation,
         header_unavailable,
     };
 
@@ -1735,8 +1743,7 @@ private:
                 job.page_data = page_data;
 
                 if (!header_logged_) {
-                    // Inspect in submission order, before workers can skip a
-                    // scene with official translations. No managed pointer is retained.
+                    // Inspect in submission order. No managed pointer is retained.
                     const auto& layout = g_runtime_config.layout;
                     ListView commands = ReadList(
                         read_ptr(page_data, layout.adv_scenario_page_data.command_list), 4096);
@@ -1787,9 +1794,7 @@ private:
             }
 
             PageParseResult result = ParsePageJob(job);
-            if (result.official_translation && !retain_official_) {
-                Abort(AbortReason::official_translation);
-            } else if (!result.ok) {
+            if (!result.ok) {
                 Abort(AbortReason::page_parse_failed);
             }
 
@@ -1857,7 +1862,6 @@ private:
             if (!result.ok) {
                 continue;
             }
-            has_official_translation_ |= result.official_translation;
 
             if (result.label_index < 0
                 || static_cast<size_t>(result.label_index) >= label_blocks.size()) {
@@ -1937,23 +1941,16 @@ private:
             LOGW("[ScenarioCatcher] target lang [%s] has no official translation", g_runtime_config.target_lang.c_str());
         }
 
+        std::string target_lang_text;
         if (target_column != nullptr) {
-            std::string target_lang_text;
             if (!ReadNamedRowStringColumn(cmd_item, target_column, &target_lang_text)) {
                 LOGW("[ScenarioCatcher] scene=%s cannot read table header for %s",
                      scenario_.result.scene.c_str(), target_column);
                 return TextStatus::header_unavailable;
             }
-            if (!target_lang_text.empty()) {
-                if (!retain_official_) {
-                    LOGW("[ScenarioCatcher] %s already exists; skip current scenario", g_runtime_config.target_lang.c_str());
-                    return TextStatus::official_translation;
-                }
-                // Each worker owns its page. CollectResults combines the flag after joining.
-                result.official_translation = true;
-                if (!page_rec_) item.official_translation = std::move(target_lang_text);
-            }
         }
+        const bool has_target_text = !target_lang_text.empty();
+        if (!page_rec_) item.official_translation = std::move(target_lang_text);
 
         std::string raw_text;
         std::string japanese;
@@ -1989,6 +1986,13 @@ private:
             void* column_array = nullptr;
             raw_text = ReadRowStringColumn(cmd_item, columns.raw, &column_array);
             if (originals_) originals_->Restore(column_array, raw_text);
+        }
+        // Pair each Text/Selection source with its own target. PageRec counts its
+        // localized source view, plus original rows hidden by a continuation.
+        // Target-only rows cannot compensate for another row's missing translation.
+        if (!raw_text.empty() || (collect_original_ && !japanese.empty())) {
+            ++result.stats.source_text;
+            if (has_target_text) ++result.stats.official_text;
         }
         if (raw_text.empty()) {
             return TextStatus::empty;
@@ -2157,10 +2161,6 @@ private:
                 if (status == TextStatus::header_unavailable) {
                     return result;
                 }
-                if (status == TextStatus::official_translation) {
-                    result.official_translation = true;
-                    return result;
-                }
                 if (status != TextStatus::ok) {
                     continue;
                 }
@@ -2181,10 +2181,6 @@ private:
 
                 TextStatus status = ReadTranslatableText(cmd_item, result, order, protect_index, current_speaker, option, page_data);
                 if (status == TextStatus::header_unavailable) {
-                    return result;
-                }
-                if (status == TextStatus::official_translation) {
-                    result.official_translation = true;
                     return result;
                 }
                 if (status != TextStatus::ok) {
@@ -2271,7 +2267,6 @@ private:
     bool different_projection_rows_ = false;
     bool header_logged_ = false; // Owned only by the ordered job submitter.
     int language_mask_ = 0; // PageRec parses synchronously on the hook thread.
-    bool has_official_translation_ = false;
     bool page_rec_targets_valid_ = true; // Same hook-thread ownership.
 
     std::atomic<int> abort_reason_{
@@ -2303,7 +2298,7 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 
 bool ParsePageRecScene(void* scenario_data, void* data_manager, const std::string& entry_label,
                       Scene* scene, std::vector<std::string>* labels,
-                      bool* has_target_official_translation,
+                      bool* has_complete_target_official_translation,
                       QuestTargetSet* target_set) {
     RuntimeScenario scenario;
     if (!ParseScenarioLabels(scenario_data, entry_label, &scenario)) return false;
@@ -2321,7 +2316,7 @@ bool ParsePageRecScene(void* scenario_data, void* data_manager, const std::strin
     *scene = BuildSceneDocument(std::move(output.result));
     scene->raw_lang = runner.RawLanguage();
     *labels = scenario.label_order;
-    *has_target_official_translation = output.has_official_translation;
+    *has_complete_target_official_translation = output.has_complete_official_translation;
     target_set->scenario_data_ptr = scenario_data;
     target_set->target_map = std::move(output.target_map);
     return true;
@@ -2362,7 +2357,7 @@ bool CatchScenario(
     output.result.quest_label = quest_label;
     // Failed and skipped parses have no write-back targets.
     if (output.status == ScenarioParseStatus::skipped_official_translation) {
-        LOGI("[ScenarioCatcher] scenario skipped because official translation exists entry=%s",
+        LOGI("[ScenarioCatcher] scenario skipped because official translation is complete entry=%s",
              entry_label.c_str());
         return true;
     }
@@ -2376,7 +2371,7 @@ bool CatchScenario(
     CompleteStage(output.result.stage,data_manager);
     PublishContinuationSource(scenario_data,output.result,output.target_map);
     if (production_lease.allowed() && !BackfillCapturedStage(output.result, captured_epoch)) return false;
-    if (output.has_official_translation) {
+    if (output.has_complete_official_translation) {
         if (!production_lease.allowed()) return false;
         if (GetSceneFileStatus(output.result.scene) != SceneFileStatus::not_found) return true;
         auto document = std::make_shared<const Scene>(BuildSceneDocument(std::move(output.result)));
