@@ -1240,72 +1240,7 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
 
     private void saveCategory() {
         try {
-            // Reload immediately before saving so this screen only merges its own
-            // category into the latest config instead of writing an old snapshot
-            // over changes made by another screen or by the background service.
-            ConfigStore.LoadResult latest = configStore.load();
-            JSONObject updated = new JSONObject(latest.config.toString());
-            JSONObject updatedSettings = categoryFields(updated);
-            for (FieldSpec spec : fieldsFor(definition.id)) {
-                if (spec.type == TYPE_BOOLEAN) {
-                    putPath(updatedSettings, spec.path, isChecked(spec.id));
-                } else if (spec.type == TYPE_SELECT) {
-                    String value = selectedCode(spec);
-                    if ("target-language".equals(spec.id)
-                        && "custom".equals(value)) {
-                        EditText custom = (EditText) controls.get(
-                            "custom-target-language"
-                        );
-                        value = requireText(custom);
-                    }
-                    putPath(updatedSettings, spec.path, value);
-                } else if (spec.type == TYPE_SECRET) {
-                    // API key has its own durable store and never enters config.json.
-                    // An empty value is meaningful: it clears a previously saved key.
-                    currentApiKey = textOf((EditText) controls.get(spec.id));
-                } else if (spec.type == TYPE_TEXT) {
-                    // Base URL is intentionally optional; an empty value lets the
-                    // provider use its own default endpoint.
-                    putPath(
-                        updatedSettings,
-                        spec.path,
-                        textOf((EditText) controls.get(spec.id))
-                    );
-                } else if (spec.type == TYPE_SLIDER) {
-                    Slider slider = (Slider) controls.get(spec.id);
-                    double value = slider.getValue();
-                    putPath(
-                        updatedSettings,
-                        spec.path,
-                        spec.integerSlider ? Math.round(value) : value
-                    );
-                } else if ("continuation-max-tokens".equals(spec.id)) {
-                    EditText input = (EditText) controls.get(spec.id);
-                    String limit = textOf(input);
-                    if (isChecked("dedicated-api") && !limit.isEmpty()) parseNumber(spec, input);
-                    putPath(updatedSettings, spec.path, limit.isEmpty() ? null : limit);
-                } else {
-                    putPath(
-                        updatedSettings,
-                        spec.path,
-                        parseNumber(spec, (EditText) controls.get(spec.id))
-                    );
-                }
-            }
-            validateCrossFields(updatedSettings);
-            if (isContinuationCategory()) {
-                JSONObject profile = updatedSettings.getJSONObject(CONTINUATION_API);
-                configStore.saveContinuationSettings(updated, profile.put("ApiKey", currentApiKey));
-            } else if (hasField("api-key")) {
-                ConfigStore.withConfigAccess(() -> {
-                    configStore.save(updated);
-                    configStore.saveApiKey(currentApiKey);
-                    return null;
-                });
-            } else {
-                configStore.save(updated);
-            }
-            userSettings = updatedSettings;
+            ConfigStore.withConfigAccess(this::persistCategory);
             initialSignature = captureSignature();
             updateSaveButton();
             Toast.makeText(this, R.string.settings_category_saved, Toast.LENGTH_SHORT).show();
@@ -1319,6 +1254,76 @@ public final class SettingsCategoryActivity extends AppCompatActivity {
                 Toast.LENGTH_LONG
             ).show();
         }
+    }
+
+    private Void persistCategory() throws Exception {
+        // Reload immediately before saving so this screen only merges its own
+        // category into the latest config instead of writing an old snapshot
+        // over changes made by another screen or by the background service.
+        ConfigStore.LoadResult latest = configStore.load();
+        JSONObject updated = new JSONObject(latest.config.toString());
+        JSONObject updatedSettings = categoryFields(updated);
+        for (FieldSpec spec : fieldsFor(definition.id)) {
+            if (spec.type == TYPE_BOOLEAN) {
+                putPath(updatedSettings, spec.path, isChecked(spec.id));
+            } else if (spec.type == TYPE_SELECT) {
+                String value = selectedCode(spec);
+                if ("target-language".equals(spec.id)
+                    && "custom".equals(value)) {
+                    EditText custom = (EditText) controls.get(
+                        "custom-target-language"
+                    );
+                    value = requireText(custom);
+                }
+                putPath(updatedSettings, spec.path, value);
+            } else if (spec.type == TYPE_SECRET) {
+                // API key has its own durable store and never enters config.json.
+                // An empty value is meaningful: it clears a previously saved key.
+                currentApiKey = textOf((EditText) controls.get(spec.id));
+            } else if (spec.type == TYPE_TEXT) {
+                // Base URL is intentionally optional; an empty value lets the
+                // provider use its own default endpoint.
+                putPath(
+                    updatedSettings,
+                    spec.path,
+                    textOf((EditText) controls.get(spec.id))
+                );
+            } else if (spec.type == TYPE_SLIDER) {
+                Slider slider = (Slider) controls.get(spec.id);
+                double value = slider.getValue();
+                putPath(
+                    updatedSettings,
+                    spec.path,
+                    spec.integerSlider ? Math.round(value) : value
+                );
+            } else if ("continuation-max-tokens".equals(spec.id)) {
+                EditText input = (EditText) controls.get(spec.id);
+                String limit = textOf(input);
+                if (isChecked("dedicated-api") && !limit.isEmpty()) parseNumber(spec, input);
+                putPath(updatedSettings, spec.path, limit.isEmpty() ? null : limit);
+            } else {
+                putPath(
+                    updatedSettings,
+                    spec.path,
+                    parseNumber(spec, (EditText) controls.get(spec.id))
+                );
+            }
+        }
+        validateCrossFields(updatedSettings);
+        if (isContinuationCategory()) {
+            JSONObject profile = updatedSettings.getJSONObject(CONTINUATION_API);
+            configStore.saveContinuationSettings(updated, profile.put("ApiKey", currentApiKey));
+        } else if (hasField("api-key")) {
+            ConfigStore.withConfigAccess(() -> {
+                configStore.save(updated);
+                configStore.saveApiKey(currentApiKey);
+                return null;
+            });
+        } else {
+            configStore.save(updated);
+        }
+        userSettings = updatedSettings;
+        return null;
     }
 
     private void validateCrossFields(JSONObject settings)

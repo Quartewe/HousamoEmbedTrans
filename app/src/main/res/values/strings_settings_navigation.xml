@@ -57,6 +57,7 @@
     <string name="settings_category_diagnostics_scope">Restart the game to apply auto-play and parse-only settings. Request diagnostics apply to future requests.</string>
     <string name="settings_category_save">Save settings</string>
     <string name="settings_category_saved">Settings saved.</string>
+    <string name="settings_injection_mode_changed">Connection method changed. Restart the game to use the new method.</string>
     <string name="settings_category_memory_hint">Settings are saved locally and apply from the next eligible run.</string>
     <string name="settings_category_unsaved_title">Discard unsaved settings?</string>
     <string name="settings_category_unsaved_message">Going back discards unsaved changes in this category.</string>
