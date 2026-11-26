@@ -1,6 +1,7 @@
 {
     "Version": "1.1",
     "UserSettings": {
+        "InjectionMode": "lsp",
         "EnablePageRecDebug": false,
         "EnableRubyTranslation": false,
         "EnableParseOnlyDebug": false,
