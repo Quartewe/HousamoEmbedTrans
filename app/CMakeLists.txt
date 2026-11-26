@@ -65,3 +65,8 @@ target_link_options(housamo_trans PRIVATE
     -Wl,--gc-sections
     -Wl,--strip-all
 )
+
+# Root has a short-lived executable injector and a separate in-game bootstrap.
+add_library(het_bootstrap SHARED src/main/jni/root/bootstrap.cpp)
+target_compile_options(het_bootstrap PRIVATE -std=c++17 -fno-exceptions -fno-rtti)
+target_link_libraries(het_bootstrap PRIVATE log)
