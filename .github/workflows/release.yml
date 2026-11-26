@@ -52,13 +52,12 @@ jobs:
       matrix:
         include:
           - variant: arm64-v8a
-            shadowhook: '2.0.0'
-          # Houdini translates ARM64 code on x86 emulators; both APKs use ARM64 native libraries.
+          # Both use ARM64 game libraries; hetVariant also selects the Root helper ABI.
           - variant: x86-houdini
-            shadowhook: '1.0.10'
     env:
       HET_VERSION_NAME: ${{ needs.version.outputs.name }}
       HET_VERSION_CODE: ${{ needs.version.outputs.code }}
+      HET_VARIANT: ${{ matrix.variant }}
       APK_NAME: HousamoEmbedTrans-${{ github.ref_name }}-${{ matrix.variant }}.apk
     defaults:
       run:
@@ -67,22 +66,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-
-      - name: Select ShadowHook for this variant
-        env:
-          SHADOWHOOK_VERSION: ${{ matrix.shadowhook }}
-        run: |
-          python3 - <<'PY'
-          import os, pathlib, re, tomllib
-          path = pathlib.Path('gradle/libs.versions.toml')
-          version = os.environ['SHADOWHOOK_VERSION']
-          content, count = re.subn(
-              r'^shadowhook = "[^"]+"$', f'shadowhook = "{version}"',
-              path.read_text(encoding='utf-8'), flags=re.MULTILINE)
-          if count != 1 or tomllib.loads(content)['versions']['shadowhook'] != version:
-              raise SystemExit('Could not select the ShadowHook version in the version catalog')
-          path.write_text(content, encoding='utf-8')
-          PY
 
       - uses: actions/setup-java@v5
         with:
@@ -130,7 +113,8 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           bash ./gradlew :app:assembleRelease --no-daemon --no-configuration-cache --console=plain \
-            "-PhetVersionName=$HET_VERSION_NAME" "-PhetVersionCode=$HET_VERSION_CODE"
+            "-PhetVersionName=$HET_VERSION_NAME" "-PhetVersionCode=$HET_VERSION_CODE" \
+            "-PhetVariant=$HET_VARIANT"
 
       - name: Verify signature and collect APK
         run: |

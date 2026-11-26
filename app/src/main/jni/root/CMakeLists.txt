@@ -33,6 +33,30 @@ foreach(dependency IN ITEMS AndKittyInjector KittyMemoryEx)
     endif()
 endforeach()
 
+# Keep the upstream source in the build cache; only this API extension is tracked.
+# Stop Git discovery at the cache so apply never uses the enclosing HET repository.
+set(namespace_patch "${CMAKE_CURRENT_LIST_DIR}/patches/andkitty-nativebridge-namespace.patch")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${namespace_patch}")
+set(patch_git ${CMAKE_COMMAND} -E env "GIT_CEILING_DIRECTORIES=${andkittyinjector_SOURCE_DIR}"
+    "${GIT_EXECUTABLE}")
+execute_process(COMMAND ${patch_git} apply --reverse --check "${namespace_patch}"
+    WORKING_DIRECTORY "${andkittyinjector_SOURCE_DIR}"
+    RESULT_VARIABLE patch_present OUTPUT_QUIET ERROR_QUIET)
+if(NOT patch_present STREQUAL "0")
+    execute_process(COMMAND ${patch_git} apply --check "${namespace_patch}"
+        WORKING_DIRECTORY "${andkittyinjector_SOURCE_DIR}"
+        RESULT_VARIABLE patch_check ERROR_VARIABLE patch_error)
+    if(NOT patch_check STREQUAL "0")
+        message(FATAL_ERROR "AndKittyInjector/main needs an updated namespace patch: ${patch_error}")
+    endif()
+    execute_process(COMMAND ${patch_git} apply "${namespace_patch}"
+        WORKING_DIRECTORY "${andkittyinjector_SOURCE_DIR}"
+        RESULT_VARIABLE patch_status ERROR_VARIABLE patch_error)
+    if(NOT patch_status STREQUAL "0")
+        message(FATAL_ERROR "Could not apply AndKittyInjector namespace patch: ${patch_error}")
+    endif()
+endif()
+
 set(ANDKITTY_SRC_DIR "${andkittyinjector_SOURCE_DIR}/AndKittyInjector/src")
 set(KITTY_MEMORY_DIR "${kittymemoryex_SOURCE_DIR}/KittyMemoryEx")
 file(GLOB KITTY_MEMORY_SOURCES CONFIGURE_DEPENDS "${KITTY_MEMORY_DIR}/*.cpp")

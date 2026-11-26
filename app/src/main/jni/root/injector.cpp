@@ -15,6 +15,10 @@
 #include <sys/wait.h>
 #include <cstddef>
 #include <memory>
+#if defined(__x86_64__)
+#include <cpuid.h>
+#include <sys/user.h>
+#endif
 
 namespace {
 constexpr const char* kGame = "jp.co.lifewonders.housamo";
@@ -104,11 +108,19 @@ public:
     bool attached = false;
     bool hasRegisters = false;
     user_regs_struct registers{};
+#if defined(__aarch64__)
     user_fpsimd_state floatingPoint{};
     std::vector<uint8_t> sve;
+#elif defined(__x86_64__)
+    std::vector<uint8_t> floatingPoint;
+    int floatingPointRegset = NT_PRFPREG;
+#else
+#error "HET Root supports only ARM64 and x86_64 helpers"
+#endif
     explicit Attachment(KittyTraceMgr& value) : trace(value) {}
     bool captureRegisters() {
         if (!trace.getRegs(&registers)) return false;
+#if defined(__aarch64__)
         iovec fp{&floatingPoint, sizeof(floatingPoint)};
         if (ptrace(PTRACE_GETREGSET, trace.pid(), NT_PRFPREG, &fp) != 0
             || fp.iov_len != sizeof(floatingPoint)) return false;
@@ -135,6 +147,24 @@ public:
         } else if (errno != EINVAL && errno != EIO && errno != ENODEV) {
             return false;
         }
+#elif defined(__x86_64__)
+        // Preserve the full XSAVE image, including AVX state used by Houdini.
+        // CPUID reports the maximum standard-format image size for this CPU.
+        unsigned int eax, ebx, ecx, edx;
+        if (!__get_cpuid(1, &eax, &ebx, &ecx, &edx)) return false;
+        size_t size = sizeof(user_fpregs_struct);
+        if ((ecx & bit_XSAVE) && (ecx & bit_OSXSAVE)) {
+            if (!__get_cpuid_count(0xD, 0, &eax, &ebx, &ecx, &edx)
+                || ecx < size) return false;
+            size = ecx;
+            floatingPointRegset = NT_X86_XSTATE;
+        }
+        floatingPoint.resize(size);
+        iovec fp{floatingPoint.data(), floatingPoint.size()};
+        if (ptrace(PTRACE_GETREGSET, trace.pid(), floatingPointRegset, &fp) != 0
+            || fp.iov_len < sizeof(user_fpregs_struct)) return false;
+        floatingPoint.resize(fp.iov_len);
+#endif
         hasRegisters = true;
         return true;
     }
@@ -142,6 +172,7 @@ public:
         if (!attached) return true;
         bool restored = true;
         if (hasRegisters) {
+#if defined(__aarch64__)
             iovec fp{&floatingPoint, sizeof(floatingPoint)};
             restored = ptrace(PTRACE_SETREGSET, trace.pid(), NT_PRFPREG, &fp) == 0;
             if (!sve.empty()) {
@@ -149,6 +180,10 @@ public:
                 restored = (ptrace(PTRACE_SETREGSET, trace.pid(), NT_ARM_SVE, &view) == 0)
                     && restored;
             }
+#elif defined(__x86_64__)
+            iovec fp{floatingPoint.data(), floatingPoint.size()};
+            restored = ptrace(PTRACE_SETREGSET, trace.pid(), floatingPointRegset, &fp) == 0;
+#endif
             restored = trace.setRegs(&registers) && restored;
         }
         if (!trace.detach()) return false;
@@ -160,6 +195,88 @@ public:
     }
 };
 
+#if defined(__x86_64__)
+// Called with the game stopped and its complete register state saved. The bridge
+// owns the namespace until process exit; only the temporary arguments are freed.
+uintptr_t createBootstrapNamespace(KittyInjector& injector, const char* libraryPath) {
+    auto& memory = *injector.KMgr();
+    if (!memory.nbScanner.init()) {
+        std::fprintf(stderr, "HET NativeBridge: cannot inspect bridge callbacks.\n");
+        return 0;
+    }
+    const auto bridge = memory.nbScanner.nbItfData();
+    if (bridge.version < KT_NB_NAMESPACE_VERSION || !bridge.createNamespace
+        || !bridge.linkNamespaces || !bridge.getExportedNamespace) {
+        std::fprintf(stderr, "HET NativeBridge: namespace callbacks unavailable (version=%d).\n",
+                     bridge.version);
+        return 0;
+    }
+    struct Arguments {
+        char name[14] = "het-bootstrap";
+        char parent[8] = "default";
+        // DT_NEEDED of our bootstrap, linked against the NDK system libraries.
+        char dependencies[40] = "libc.so:libdl.so:libm.so:liblog.so";
+        char directory[4096]{};
+    } arguments;
+    std::snprintf(arguments.directory, sizeof(arguments.directory), "%s", libraryPath);
+    auto& sys = injector._rsyscall;
+    uintptr_t remote = sys.rmmap(0, sizeof(arguments), PROT_READ | PROT_WRITE,
+                                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (!remote) {
+        std::fprintf(stderr, "HET NativeBridge: cannot allocate namespace arguments.\n");
+        return 0;
+    }
+    bool released = false;
+    auto releaseArguments = [&](void* address) {
+        released = sys.rmunmap(reinterpret_cast<uintptr_t>(address), sizeof(arguments));
+        if (!released) std::fprintf(stderr, "HET NativeBridge: cannot release namespace arguments.\n");
+    };
+    std::unique_ptr<void, decltype(releaseArguments)> scratch(
+        reinterpret_cast<void*>(remote), releaseArguments);
+    auto prepare = [&]() -> uintptr_t {
+        if (memory.writeMem(remote, &arguments, sizeof(arguments)) != sizeof(arguments)) {
+            std::fprintf(stderr, "HET NativeBridge: cannot write namespace arguments.\n");
+            return 0;
+        }
+        auto failed = [&](const char* stage, const kitty_rp_call_t& call) -> uintptr_t {
+            std::fprintf(stderr, "HET NativeBridge: %s failed (call=%d).\n", stage, call.status);
+            if (call.status == KT_RP_CALL_SUCCESS && bridge.getError) {
+                auto error = memory.trace.callFunction(reinterpret_cast<uintptr_t>(bridge.getError));
+                if (error.status == KT_RP_CALL_SUCCESS && error.result.ptr) {
+                    char message[512]{};
+                    memory.readMem(error.result.ptr, message, sizeof(message) - 1);
+                    std::fprintf(stderr, "HET NativeBridge: %s\n", message);
+                }
+            }
+            return 0;
+        };
+        auto parent = memory.trace.callFunction(
+            reinterpret_cast<uintptr_t>(bridge.getExportedNamespace), remote + offsetof(Arguments, parent));
+        if (parent.status != KT_RP_CALL_SUCCESS || !parent.result.ptr) {
+            return failed("getExportedNamespace(default)", parent);
+        }
+        // AOSP ANDROID_NAMESPACE_TYPE_ISOLATED; only HET's installed directory is permitted.
+        constexpr uint64_t isolated = 1;
+        uintptr_t directory = remote + offsetof(Arguments, directory);
+        auto created = memory.trace.callFunction(reinterpret_cast<uintptr_t>(bridge.createNamespace),
+            remote + offsetof(Arguments, name), directory, directory, isolated, directory, parent.result.ptr);
+        if (created.status != KT_RP_CALL_SUCCESS || !created.result.ptr) {
+            return failed("createNamespace(het-bootstrap)", created);
+        }
+        auto linked = memory.trace.callFunction(reinterpret_cast<uintptr_t>(bridge.linkNamespaces),
+            created.result.ptr, parent.result.ptr, remote + offsetof(Arguments, dependencies));
+        if (linked.status != KT_RP_CALL_SUCCESS || static_cast<uint8_t>(linked.result.val) == 0) {
+            return failed("linkNamespaces(system dependencies)", linked);
+        }
+        std::fprintf(stderr, "HET NativeBridge: namespace het-bootstrap ready at %p.\n",
+                     reinterpret_cast<void*>(created.result.ptr));
+        return created.result.ptr;
+    };
+    uintptr_t prepared = prepare();
+    scratch.reset();
+    return released ? prepared : 0;
+}
+#endif
 
 const char* waitForBootstrap(KittyMemoryMgr& memory, uintptr_t stateAddress,
                             uintptr_t errorAddress, ProcessIdentity target, OwnerPipe& owner) {
@@ -212,6 +329,13 @@ const char* inject(const HetRootRequest& request, ProcessIdentity target, OwnerP
         // Service reconnection must not load another library or invoke JNI_OnLoad again.
         return waitForBootstrap(memory, state, error, target, owner);
     }
+#if defined(__x86_64__)
+    // A translated game library proves the bridge has started loading ARM64.
+    // Wait without tracing so the game can finish creating its bridge namespace.
+    if (!memory.elfScanner.findElf("/libil2cpp.so", EScanElfType::Emulated).isValid()) {
+        return "WAIT_RUNTIME";
+    }
+#endif
     if (!owner.receive(0)) return "CANCELED";
 
     std::puts("HET_ROOT ATTACHING");
@@ -251,6 +375,11 @@ const char* inject(const HetRootRequest& request, ProcessIdentity target, OwnerP
         KittyInjector injector;
         if (!injector.init(&memory, config)) return "LOAD_FAILED";
         if (!owner.receive(0)) return "CANCELED";
+#if defined(__x86_64__)
+        injector._cfg.nativeBridgeNamespace = createBootstrapNamespace(injector, request.library_path);
+        if (!injector._cfg.nativeBridgeNamespace) return "NAMESPACE_FAILED";
+        if (!owner.receive(0)) return "CANCELED";
+#endif
         std::string bootstrap = std::string(request.library_path) + "/libhet_bootstrap.so";
         auto library = injector.inject(bootstrap);
         if (!library.is_valid() || !library.pJvm || !library.pJNI_OnLoad || !handedRequest) {

@@ -71,5 +71,29 @@ add_library(het_bootstrap SHARED src/main/jni/root/bootstrap.cpp)
 target_compile_options(het_bootstrap PRIVATE -std=c++17 -fno-exceptions -fno-rtti)
 target_link_libraries(het_bootstrap PRIVATE log)
 
-add_subdirectory(src/main/jni/root)
-add_dependencies(het_bootstrap het_injector_package)
+# The game payload stays ARM64. The emulator package builds only its standalone
+# Root executable with the host x86_64 toolchain, without adding an x86 APK ABI.
+set(HET_ROOT_ABI "arm64-v8a" CACHE STRING "Root executable ABI")
+if(HET_ROOT_ABI STREQUAL ANDROID_ABI)
+    add_subdirectory(src/main/jni/root)
+    add_dependencies(het_bootstrap het_injector_package)
+elseif(HET_ROOT_ABI STREQUAL "x86_64")
+    include(ExternalProject)
+    ExternalProject_Add(het_injector_build
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/main/jni/root"
+        BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/root-x86_64"
+        CMAKE_ARGS
+            "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+            "-DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+            "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+            "-DANDROID_ABI=x86_64"
+            "-DANDROID_PLATFORM=${ANDROID_PLATFORM}"
+            "-DANDROID_STL=c++_static"
+            "-DHET_ROOT_PACKAGE_DIR=${HET_ROOT_PACKAGE_DIR}"
+        BUILD_ALWAYS TRUE
+        INSTALL_COMMAND ""
+    )
+    add_dependencies(het_bootstrap het_injector_build)
+else()
+    message(FATAL_ERROR "Unsupported Root executable ABI: ${HET_ROOT_ABI}")
+endif()
