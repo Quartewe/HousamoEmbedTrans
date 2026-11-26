@@ -7,7 +7,7 @@
 
 # HOUSAMO EMBED TRANS
 
-基于 **[shadowhook](https://github.com/bytedance/android-inline-hook)** 的 **[LSPosed](https://github.com/LSPosed/LSPosed)** 东京放课后召唤师(housamo)的注入式剧情翻译
+基于 **[ShadowHook](https://github.com/bytedance/android-inline-hook)**，支持 **[LSPosed](https://github.com/LSPosed/LSPosed)** 和普通 Root 接入的东京放课后召唤师(housamo)注入式剧情翻译
 
 该项目旨在不破坏游戏体验的情况下尽可能的提供高质量的剧情翻译服务
 
@@ -50,17 +50,17 @@
 
 ### 1. 如何安装
 
-从 [Releases](https://github.com/Quartewe/HousamoEmbedTrans/releases) 下载发布附件中的 `HousamoEmbedTrans-v版本号-arm64-v8a.apk`。`Source code` 是源码压缩包，不是安装包；若尚无 APK 附件，可参考下方构建说明自行构建。
+从 [Releases](https://github.com/Quartewe/HousamoEmbedTrans/releases) 下载发布附件：ARM64 手机使用 `HousamoEmbedTrans-v版本号-arm64-v8a.apk`，x86_64 模拟器使用 `HousamoEmbedTrans-v版本号-x86-houdini.apk`。`Source code` 是源码压缩包，不是安装包；若尚无 APK 附件，可参考下方构建说明自行构建。
 
 | 项目 | 当前要求与范围 |
 | --- | --- |
 | Android | 最低 Android 9（API 28） |
-| 架构 | 当前 APK 仅包含 `arm64-v8a`；其他架构或模拟器的 ARM 转译能力需单独确认 |
+| 架构 | 游戏业务库为 ARM64；x86_64 模拟器使用系统已有的 ARM64 NativeBridge 转译能力 |
 | 游戏 | 东京放课后召唤师，包名 `jp.co.lifewonders.housamo` |
 | 游戏资源适配 | 当前内置运行时资源版本为 `5.19.0`；其他版本需有匹配资源，不能仅修改版本号绕过检查 |
-| 模块环境 | root 使用 LSPosed；非 root 按下文使用 JingMatrix/LSPatch 本地模式。不同设备与系统的兼容性仍需实际确认 |
+| 模块环境 | LSP 模式使用 LSPosed 或下文的 LSPatch；Root 模式使用普通 su，按设备选择对应发布包 |
 
-对于不同用户提供了两种安装方法, 下称 该应用(Housamo Embed Trans) 为 `HET`
+按接入环境选择下面的安装方法，下称该应用（Housamo Embed Trans）为 `HET`。
 
 #### root环境lsposed用户
 
@@ -68,6 +68,17 @@
 2. 作用域勾选东京放课后召唤师（`jp.co.lifewonders.housamo`）。
 3. 完全退出并重新启动游戏，使模块生效；若框架提示重启，按其提示操作。
 4. 打开 HET、授予通知权限，确认启动游戏后 HET 首页显示“游戏已连接”，再进行下面的接口配置。
+
+#### 普通 root 用户
+
+1. 安装完整的 HET APK，在 **主页状态卡片下方 → 接入方式** 选择 **Root**，点选后自动保存。
+2. 在 Root 管理器中允许 HET 使用 Root。这一步可以在游戏关闭时完成。
+3. 授权通过后，正常打开游戏。如果游戏已经连接，切换设置后可以继续玩。下次打开游戏时会使用所选方式。
+4. 在主页查看游戏连接状态，游戏端口就绪后显示已连接。未连接时，先检查 Root 管理器是否允许 HET 使用 Root；修正权限后再次进入 HET 重试。仍未连接时，可导出日志查看挂载原因。
+
+关闭 HET 页面后，翻译服务仍在运行就会继续等待游戏；服务结束时 Root 辅助进程退出。HET 不代为启动或强制停止游戏。服务重连复用游戏中的现有运行时，不重复安装 Hook。
+
+Root 模式通过 CMake FetchContent 引用 [AndKittyInjector](https://github.com/MJx0/AndKittyInjector) 核心，不需要 Magisk、Zygisk 或 LSPosed，不修改游戏 APK。它要求系统允许 su 访问目标进程。`arm64-v8a` 包使用 ARM64 挂载器和 ShadowHook 2.0.0；`x86-houdini` 包使用 x86_64 挂载器和 ShadowHook 1.0.10，通过模拟器已有的 NativeBridge 加载 ARM64 游戏模块。安装包与宿主架构不匹配时，HET 提示安装对应版本。挂载失败会保留失败阶段；完成 Native 初始化前后的恢复仍遵守游戏启动规则，需要重启时界面会提示。
 
 #### 非root环境lspatch用户
 
@@ -173,8 +184,23 @@ HET 服务首次初始化会导入内置预设，可在“管理”页查看剧�
 
 ### 本地构建
 
-在项目根目录运行以下内容
-> .\gradlew.bat :app:assembleDebug --offline --console=plain
+安装 Git 及项目所需的 Android 构建工具后，在项目根目录运行：
+
+```powershell
+.\gradlew.bat :app:assembleDebug --console=plain
+```
+
+模拟器包使用 `-PhetVariant=x86-houdini`；默认值为 `arm64-v8a`。同一个参数同时选择 Root 挂载器架构和 ShadowHook 版本，两个包均保留 LSP / Root 设置：
+
+```powershell
+.\gradlew.bat :app:assembleDebug -PhetVariant=x86-houdini --console=plain
+```
+
+AndKittyInjector 和 KittyMemoryEx 由 CMake FetchContent 准备。每次 CMake 配置时联网查询两者最新的 `main` 提交，再下载对应源码归档；提交未变化时复用缓存。普通增量编译使用已准备好的源码，需要更新依赖时重新运行 CMake 配置。
+
+源码保存在已忽略的 `app/.cxx/.../_deps/` 构建缓存中，没有嵌套 Git 仓库，也不随主仓库提交。CI 沿用相同的下载和构建流程，无需初始化子模块。CMake 只编译所需核心源码，保留 HET 的挂载器入口，不构建上游 CLI、不启用 Keystone。两个项目的许可证继续打包到 APK 的 `assets/licenses/`。
+
+仓库保留一份小补丁，为 AndKittyInjector 增加指定 NativeBridge 加载环境的参数。CMake 将补丁应用到构建缓存；若最新上游接口变化使补丁无法应用，会中止构建并报告需要更新补丁。
 
 ### 云端构建
 

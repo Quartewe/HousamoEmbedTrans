@@ -28,7 +28,27 @@
 
 ## 2. 启动与 Hook
 
-`MainHook` 在目标应用 `Application.attach` 后注册进程寿命的在线信号接收器，首次 Activity resume 返回后执行一次 `initializeTarget`。沿既有顺序读取启动配置、绑定 HET、初始化 ShadowHook 并调用 `nativeStart`。HET 每次从后台进入前台时自行启动服务；服务成功接受 START 后向游戏包发送不含配置的在线信号。先开 HET 时，游戏仍走首次尝试，不需要等信号。
+LSP 由 `XposedEntry` 在目标应用 `Application.attach` 后交接 `MainHook`，注册进程寿命的在线信号接收器，首次 Activity resume 返回后执行一次 `initializeTarget`。沿既有顺序读取启动配置、绑定 HET、初始化 ShadowHook 并调用 `nativeStart`。HET 每次从后台进入前台时自行启动服务；服务成功接受 START 后向游戏包发送不含配置的在线信号。先开 HET 时，游戏仍走首次尝试，不需要等信号。
+
+`UserSettings.InjectionMode` 选择 `lsp` / `root`，旧配置缺失时补为 `lsp`。入口位于主页状态卡片下方，点选后在配置锁内读取最新配置并仅修改该字段；保存失败恢复原选择。设置页不再提供此选项。HET 保存或导入配置时校验取值。游戏首次成功读取设置时选定本进程的入口，Provider 通信失败时等待恢复。`GameEntry` 在游戏进程内记录首选入口和共同运行时的 Class 身份。已有运行时取得初始化权时，两条线路共用该实例。后续在线信号仍由它处理，主页按实际端口显示连接状态。玩家切换设置后可以继续使用已连接的游戏。
+
+选择 Root 时，`TranslationService` 持有的 `RootLauncher` 先独立检查 HET 能否取得 Root 权限。检查只读取有效 UID，游戏和挂载组件都可以缺席。通过后才查询游戏和组件。授权检查结果只在本次服务、当次 Root 模式下复用。挂载失败后的重试沿用已有的检查结果。Root 管理器仍决定每次特权命令能否执行。HET 进入前台的 START 允许一次失败重试，其他 START 只更新设置。配置保存或恢复默认后通知当前服务。主页按实际游戏端口显示连接状态，不单独展示 Root 接入过程；游戏由用户正常启动。
+
+helper 随服务等待目标主进程，以 PID 和 `/proc/<pid>/stat` 的启动时刻识别进程实例；游戏退出后等待新进程。挂载前检查实际 ELF 架构，只在挂载期间持有 ptrace，完成后恢复寄存器并解除附着。helper 启动后的就绪握手使用 `GO <模式切换的开机后毫秒数>`，切换前已启动的游戏等待重启；延迟授权期间已重启的游戏可以接入。游戏内的 `GameEntry` 继续固定已取得的线路和运行时所有权。
+
+HET 前台进入时通过控制管道发送 `RETRY`，仅允许重试尚未进入加载阶段的附着、寄存器或架构失败；加载、引导和解除附着失败要求重启游戏。没有游戏是正常等待状态。控制管道保持打开，服务结束或 HET 进程退出使管道 EOF，helper 完成当前附着的收尾后退出；不设置 EXITKILL。Java 使用单个串行 worker 等待旧 helper 退出，再启动新服务实例的 helper，避免生命周期交接时重叠。
+
+服务重新启动时，helper 先读取游戏中已加载 bootstrap 的状态；已有引导只等待结果，不再次加载或调用 JNI_OnLoad。业务重连仍由原在线信号与游戏端口完成。第三方核心由 CMake FetchContent 查询上游 main 并下载源码归档，缓存不含嵌套 Git 仓库。
+
+模拟器首次加载 bootstrap 时，helper 在保存寄存器后通过 NativeBridge 建立 `het-bootstrap` 隔离命名空间，仅允许 HET 当前安装库目录，并从桥的 `default` 命名空间共享 bootstrap 的 `libc.so`、`libdl.so`、`libm.so`、`liblog.so` 依赖。`root/patches/andkitty-nativebridge-namespace.patch` 为上游配置增加目标进程 namespace 参数；helper 创建后将其交给 injector，避免上游再次选择默认 namespace。临时字符串映射在返回前释放，命名空间由游戏进程持有至退出；重连命中已加载的 bootstrap 时不再创建。创建或关联失败单独报告加载环境错误，当前进程不自动重试。补丁只作用于构建缓存，重复配置检查已应用状态；上游更新导致补丁不匹配时构建直接报错。
+
+helper 装入独立 bootstrap 并交接 JavaVM 和实际安装资源位置。bootstrap 的 JNI_OnLoad 只启动引导线程，立即返回；helper 恢复游戏主线程后，引导线程取得 Application、建立 HET 的 PathClassLoader 及 Native 库搜索路径，再经 `RootEntry` 进入游戏主线程。Root 不等待已经发生过的首次 resume。MainHook、Layout、native 方法和业务 JNI 身份保持原样，Root 路径不装入 Xposed 兼容实现。
+
+helper / bootstrap 随 APK 分发，Native 库使用提取式打包，helper 以可执行的 `libhet_injector.so` 条目安装到 Native 库目录；它是 su 执行的 PIE 文件，不由 System.loadLibrary 加载。helper 所需 C++20 / exceptions 与现有 C++17 业务库分开。游戏输出基目录、Provider / Binder 的游戏 UID、业务 AIDL 以及 Scene / 任务语义不因入口而改变。
+
+`-PhetVariant=arm64-v8a` 构建 ARM64 helper 与 ShadowHook 2.0.0；`-PhetVariant=x86-houdini` 构建 x86_64 helper 与 ShadowHook 1.0.10。两包的 bootstrap 和业务库均为 ARM64，APK 仍使用 ARM64 库目录承载独立 helper，避免改变 ART 的业务库选择。模拟器 helper 由独立 CMake 子构建生成，经 NativeBridge 装入 ARM64 bootstrap；出现已加载的 ARM64 `libil2cpp.so` 前不附着，继续监听游戏和服务控制管道。RootLauncher 在授权后读取 `/proc/self/exe` 的 ELF 架构，包型不符时提示安装对应版本；helper 仍核对目标游戏的实际架构。Root 与 LSP 共用 MainHook 的 ShadowHook 12 / Houdini 版本提示。
+
+ARM64 helper 在远程调用前保存 GPR、FP/SIMD 和内核提供的完整普通 SVE regset，并在解除附着前恢复。当前处于 Streaming SVE / 活跃 ZA 的线程不进入远程调用，返回寄存器状态不支持；这条入口使用普通 AArch64 调用约定。寄存器访问与布局依据 [Linux SVE](https://docs.kernel.org/arch/arm64/sve.html) 和 [SME](https://docs.kernel.org/arch/arm64/sme.html) 的 ptrace 契约。x86_64 helper 保存 GPR 和完整 XSAVE regset；CPU / 系统未启用 XSAVE 时保存 FP/SSE regset。两者均在解除附着前恢复寄存器。helper 忽略 SIGPIPE，HET 的输出管道关闭后仍完成收尾。游戏文件日志只在取得共同运行时所有权后初始化，未选中的入口撤销在线监听。
 
 游戏不调用服务 START，绑定不使用 `BIND_AUTO_CREATE`。Provider 通信失败、绑定被拒绝或连接等待超时时，游戏显示打开 HET 的提示；不通过定时器、再次 resume 或任务提交发起连接重试。普通断连保留已有的被动绑定；绑定失效或返回空 Binder 时解除绑定。在线信号到达后，未开始 Native 初始化的游戏重新读取启动资源；已经开始初始化的游戏只恢复通信。资源更新成功后，HET 通过正在运行的服务再次发送相同信号，供等待资源版本匹配的游戏继续。
 
