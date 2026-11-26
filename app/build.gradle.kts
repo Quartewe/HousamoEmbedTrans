@@ -27,6 +27,7 @@ android {
         targetSdk = 36
         versionCode = providers.gradleProperty("hetVersionCode").orElse("1").get().toInt()
         versionName = providers.gradleProperty("hetVersionName").orElse("1.0").get()
+        buildConfigField("int", "ROOT_ELF_MACHINE", "183")
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -34,6 +35,7 @@ android {
 
         externalNativeBuild {
             cmake {
+                targets += listOf("housamo_trans", "het_bootstrap")
                 arguments += listOf(
                     "-DANDROID_STL=c++_static"
                 )
@@ -49,6 +51,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         prefab = true
         aidl = true
     }
@@ -66,7 +69,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            externalNativeBuild.cmake.arguments +=
+                "-DHET_ROOT_PACKAGE_DIR=${layout.buildDirectory.dir("generated/rootJniLibs/debug").get().asFile.invariantSeparatorsPath}"
+        }
         release {
+            externalNativeBuild.cmake.arguments +=
+                "-DHET_ROOT_PACKAGE_DIR=${layout.buildDirectory.dir("generated/rootJniLibs/release").get().asFile.invariantSeparatorsPath}"
             isMinifyEnabled = false
             if (releaseStoreFile != null) {
                 signingConfig = signingConfigs.getByName("ciRelease")
@@ -76,12 +85,18 @@ android {
 
     packaging {
         jniLibs {
+            useLegacyPackaging = true
             pickFirsts += listOf(
                 "**/libshadowhook.so",
                 "**/libshadowhook_nothing.so"
             )
         }
     }
+
+    sourceSets.getByName("debug").jniLibs.directories.add(
+        layout.buildDirectory.dir("generated/rootJniLibs/debug").get().asFile.absolutePath)
+    sourceSets.getByName("release").jniLibs.directories.add(
+        layout.buildDirectory.dir("generated/rootJniLibs/release").get().asFile.absolutePath)
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -110,4 +125,9 @@ dependencies {
 // ═══════ 确保 xposed API jar 不会被打包 ═══════
 afterEvaluate {
     tasks.findByName("mergeReleaseJavaResource")?.enabled = false
+    listOf("Debug", "Release").forEach { variant ->
+        tasks.named("merge${variant}JniLibFolders").configure {
+            dependsOn("externalNativeBuild$variant")
+        }
+    }
 }

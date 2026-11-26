@@ -70,3 +70,6 @@ target_link_options(housamo_trans PRIVATE
 add_library(het_bootstrap SHARED src/main/jni/root/bootstrap.cpp)
 target_compile_options(het_bootstrap PRIVATE -std=c++17 -fno-exceptions -fno-rtti)
 target_link_libraries(het_bootstrap PRIVATE log)
+
+add_subdirectory(src/main/jni/root)
+add_dependencies(het_bootstrap het_injector_package)
