@@ -15,11 +15,8 @@ import com.quarty.housamoembedtrans.storage.config.ChoiceBackConfig;
 import com.quarty.housamoembedtrans.translation.IGameScenePort;
 import com.quarty.housamoembedtrans.util.IoUtils;
 
-import de.robv.android.xposed.IXposedHookLoadPackage;
-import de.robv.android.xposed.XposedBridge;
+import com.quarty.housamoembedtrans.runtime.GameEntry;
 import com.quarty.housamoembedtrans.logging.Log;
-import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
-import de.robv.android.xposed.IXposedHookZygoteInit;
 
 import android.app.Activity;
 import android.app.Application;
@@ -36,9 +33,6 @@ import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.net.Uri;
 import android.widget.Toast;
-
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
 
 import org.json.JSONObject;
 import java.io.InputStream;
@@ -66,17 +60,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * LSPosed 模块入口 — Housamo AI 实时翻译。
+ * LSP / Root 共用游戏运行时 — Housamo AI 实时翻译。
  *
  * 工作流程:
- *   1. LSPosed 在目标应用加载时回调 handleLoadPackage
+ *   1. XposedEntry 或 RootEntry 交接游戏 Application
  *   2. 确认是 Housamo (jp.co.lifewonders.housamo)
  *   3. Application.attach 后注册生命周期监听，等待首次 Activity resume 返回
  *   4. 在主线程后续消息中初始化 ShadowHook → 加载 native 库 → nativeStart
  *   5. nativeStart 的后台线程等待 libil2cpp.so，再安装游戏 Hook
  */
 
-public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
+public class MainHook {
 
     private static final String CONFIG_FILE_NAME = "config.json";
     private static final String RUNTIME_FILE_NAME = "runtime.json";
@@ -87,9 +81,11 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final int MAX_TRANSLATION_REQUEST_BYTES = 32 * 1024 * 1024;
     private static String sModulePath = null;
     private static boolean s_loaded = false;
-    private static boolean s_attach_hook_installed = false;
+    private static boolean sEntryInstalled;
+    private static String sEntrySource;
     // Startup triggers and Binder lifecycle callbacks are serialized on the main Looper.
     private static Handler sStartupHandler;
+    private static BroadcastReceiver sOnlineReceiver;
     private static Runnable sStartupAttempt;
     private static boolean sFirstActivityResumed;
     private static boolean sNativeInitializationStarted;
@@ -1833,6 +1829,16 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             CONFIG_FILE_NAME,
             MainHook::validateUserStartupJson
         );
+        if (!GameEntry.claim(userConfig.getJSONObject("UserSettings")
+                .optString("InjectionMode", "lsp"), sEntrySource, MainHook.class)) {
+            Log.game("[HousamoTrans] Entry skipped: selected route or process owner differs");
+            if (sOnlineReceiver != null) {
+                sTargetContext.unregisterReceiver(sOnlineReceiver);
+                sOnlineReceiver = null;
+            }
+            return null;
+        }
+        Log.initializeGame(context);
         JSONObject runtimeConfig = loadStartupJson(
             context,
             RUNTIME_FILE_NAME,
@@ -2547,36 +2553,13 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         return stored == current;
     }
 
-    private static void installApplicationEntry(LoadPackageParam lpparam) {
-        if (s_attach_hook_installed) {
-            return;
-        }
-        s_attach_hook_installed = true;
-
-        XposedHelpers.findAndHookMethod(
-            Application.class,
-            "attach",
-            Context.class,
-            new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if (param.hasThrowable()) {
-                        return;
-                    }
-                    initializeAfterFirstActivityResume(
-                        (Application) param.thisObject,
-                        lpparam
-                    );
-                }
-            }
-        );
-    }
-
-    private static void initializeAfterFirstActivityResume(
-        Application application,
-        LoadPackageParam lpparam
+    public static void start(
+        Application application, String modulePath, String source, boolean applicationReady
     ) {
-        Log.initializeGame(application);
+        if (sEntryInstalled) return;
+        sEntryInstalled = true;
+        sModulePath = modulePath;
+        sEntrySource = source;
         sTargetContext = application;
         sStartupHandler = new Handler(Looper.getMainLooper());
         GameContinuationUi continuation = new GameContinuationUi(() -> sTranslationClient);
@@ -2585,13 +2568,12 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         // Retain Application, never an Activity, for the lifetime of this game process.
         sStartupAttempt = () -> {
             try {
-                initializeTarget(application, lpparam);
+                initializeTarget(application);
             } catch (Throwable failure) {
-                XposedBridge.log("[HousamoTrans] Deferred initialization failed");
-                XposedBridge.log(failure);
+                Log.e("HousamoTrans", "Deferred initialization failed", failure);
             }
         };
-        BroadcastReceiver onlineReceiver = new BroadcastReceiver() {
+        sOnlineReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (!HetBridgeContract.ACTION_TRANSLATION_SERVICE_ONLINE.equals(
@@ -2608,9 +2590,14 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         };
         IntentFilter filter = new IntentFilter(HetBridgeContract.ACTION_TRANSLATION_SERVICE_ONLINE);
         if (Build.VERSION.SDK_INT >= 33) {
-            application.registerReceiver(onlineReceiver, filter, Context.RECEIVER_EXPORTED);
+            application.registerReceiver(sOnlineReceiver, filter, Context.RECEIVER_EXPORTED);
         } else {
-            application.registerReceiver(onlineReceiver, filter);
+            application.registerReceiver(sOnlineReceiver, filter);
+        }
+        if (applicationReady) {
+            sFirstActivityResumed = true;
+            sStartupAttempt.run();
+            return;
         }
         Log.game(
             "[HousamoTrans] Application attached; waiting for first Activity resume"
@@ -2632,10 +2619,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
                             + activity.getClass().getName());
                         queueStartupAttempt();
                     } catch (Throwable failure) {
-                        XposedBridge.log(
-                            "[HousamoTrans] Could not schedule deferred initialization"
-                        );
-                        XposedBridge.log(failure);
+                        Log.e("HousamoTrans", "Could not schedule deferred initialization", failure);
                     }
                 }
 
@@ -2695,20 +2679,19 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             Toast.LENGTH_LONG).show();
     }
 
-    private static void initializeTarget(Context context, LoadPackageParam lpparam) {
+    private static void initializeTarget(Context context) {
         if (sNativeInitializationStarted) {
             TranslationServiceClient client = sTranslationClient;
             if (client != null) client.onHetOnline();
             return;
         }
 
-        String baseDir = lpparam.appInfo.dataDir + "/files/housamo_embed_trans";
+        String baseDir = new File(context.getFilesDir(), "housamo_embed_trans").getPath();
         Context applicationContext = context.getApplicationContext();
         sTargetContext = applicationContext != null
             ? applicationContext
             : context;
 
-        Log.initializeGame(sTargetContext);
         Log.game("[HousamoTrans] Module path: " + sModulePath);
 
         if (applicationContext == null) {
@@ -2724,6 +2707,7 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             // the HET connection.  The connection and native side therefore
             // observe one immutable worker choice for this game process.
             StartupConfig startup = loadStartupConfig(context);
+            if (startup == null) return;
             sOverwriteExistingJson = startup.overwriteExistingJson;
             sContinuationEnabled = startup.continuationEnabled;
             observeContinuationSettings(context);
@@ -2972,19 +2956,4 @@ public class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
         String terminalKind
     );
 
-    @Override
-    public void initZygote(StartupParam startupParam) {
-        sModulePath = startupParam.modulePath;
-        XposedBridge.log("[HousamoTrans] Module path: " + sModulePath);
-    }
-
-    @Override
-    public void handleLoadPackage(LoadPackageParam lpparam) {
-        if (!HetBridgeContract.TARGET_PACKAGE.equals(lpparam.packageName)
-            || !HetBridgeContract.TARGET_PACKAGE.equals(lpparam.processName)) {
-            return;
-        }
-
-        installApplicationEntry(lpparam);
-    }
 }
