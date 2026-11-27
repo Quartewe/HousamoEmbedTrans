@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_game_update_title">游戏更新</string>
-    <string name="home_game_update_description">更新游戏、OBB 和运行时资源</string>
+    <string name="home_game_update_title">游戏更新（已停用）</string>
+    <string name="home_game_update_description">LAH 适配期间暂停更新</string>
     <string name="game_update_title">游戏与资源更新</string>
     <string name="game_update_start">开始更新</string>
     <string name="game_update_start_size">开始更新 · 约 %1$.0f MB</string>

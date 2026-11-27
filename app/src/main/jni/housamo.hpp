@@ -518,6 +518,9 @@ struct QuestWriteBlock {
 
 // 启动类
 bool install_hook(uintptr_t il2cpp_base, const RuntimeConfig& config);
+// Resolve the original text slot from this command's Utage table header.
+int FindStoryTextColumn(void* command);
+
 void StartJsonManager(std::string chardict_json, std::string gameterms_json);
 void StartAcInit(ACInit ac_init);
 void StartSceneBuilder();

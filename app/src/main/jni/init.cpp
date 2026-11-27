@@ -387,6 +387,10 @@ static void InitThread(RuntimeConfig config) {
         return;
     }
 
+    if (!MatchesGameBuild(il2cpp_base, config.choice_back)) {
+        LOGE("Initialization stopped: libil2cpp does not match the configured arm64 build ID");
+        return;
+    }
     if (!StartQuestWriter(il2cpp_base, config)) {
         LOGE("Initialization failed: Could not start quest writer");
         return;

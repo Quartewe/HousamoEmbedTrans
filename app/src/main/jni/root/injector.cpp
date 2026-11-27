@@ -21,7 +21,7 @@
 #endif
 
 namespace {
-constexpr const char* kGame = "jp.co.lifewonders.housamo";
+constexpr const char* kGame = "jp.co.lifewonders.liveahero";
 using Clock = std::chrono::steady_clock;
 
 int result(const char* code, int exitCode) {

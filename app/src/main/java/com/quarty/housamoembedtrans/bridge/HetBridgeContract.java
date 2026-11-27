@@ -1,13 +1,13 @@
 package com.quarty.housamoembedtrans.bridge;
 
 public final class HetBridgeContract {
-    public static final String MODULE_PACKAGE = "com.quarty.housamoembedtrans";
-    public static final String TARGET_PACKAGE = "jp.co.lifewonders.housamo";
+    public static final String MODULE_PACKAGE = "com.quarty.liveaheroembedtrans";
+    public static final String TARGET_PACKAGE = "jp.co.lifewonders.liveahero";
     public static final String USER_FILES_AUTHORITY =
         MODULE_PACKAGE + ".userfiles";
 
     public static final String TRANSLATION_SERVICE_CLASS_NAME =
-        MODULE_PACKAGE + ".translation.TranslationService";
+        "com.quarty.housamoembedtrans.translation.TranslationService";
     public static final String ACTION_START_TRANSLATION_SERVICE =
         MODULE_PACKAGE + ".translation.action.START_TRANSLATION_SERVICE";
     /** Payload-free wake signal; the game still reads its own startup files. */

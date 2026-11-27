@@ -2,13 +2,11 @@
 """
 Update app/src/main/assets/runtime.json from Il2CppDumper dump.cs or script.json.
 
-Updates "GameVersion", "RuntimeConfigs.RVA", and an explicitly supplied
-"RuntimeConfigs.ChoiceBack". "Layout" is preserved so manually maintained
-offsets are not dropped. Every generation requires verified ChoiceBack data
+Updates the version, RVAs, dump-backed fields and the supplied ChoiceBack block.
+Existing manually maintained layout values are preserved. Every generation requires verified ChoiceBack data
 for the target binary, including its ContinuationRVA block.
 
-Edit the constants below for the normal manual workflow, or override them with
-command line arguments.
+Pass the target version and dump explicitly. Output defaults to this checkout.
 """
 
 from __future__ import annotations
@@ -20,10 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
-# Manual workflow: fill these three values, then run this script.
-GAME_VERSION = "5.19.0"
-INPUT_PATH = r"D:\Code\HET_RVA_GetFlow\apk\Il2CppDumper-win-v6.7.46\dump.cs"
-OUTPUT_PATH = r"D:\Code\HousamoEmbedTrans\app\src\main\assets\runtime.json"
+OUTPUT_PATH = Path(__file__).resolve().parents[2] / "app/src/main/assets/runtime.json"
 
 # The raw text column is used for extraction/writeback. Language columns are
 # resolved from each table's header at read time, not emitted as fixed indices.
@@ -323,66 +318,6 @@ def parse_rva(input_path: Path) -> Dict[str, str]:
     raise ValueError("input must be dump.cs or script.json")
 
 
-def default_layout() -> Dict[str, Any]:
-    return {
-        "Il2CppString": {"Length": "0x10", "Chars": "0x14"},
-        "Il2CppArray": {"Length": "0x18", "FirstElement": "0x20", "PointerSize": 8},
-        "Il2CppList": {"Items": "0x10", "Size": "0x18"},
-        "AdvPage": {"CurrentData": "0x88", "Engine": "0xD0"},
-        "AdvEngine": {"SelectionManager": "0x48"},
-        "AdvSelectionManager": {"Selections": "0x28", "IsShowing": "0x38"},
-        "AdvSelection": {"Text": "0x18", "RowData": "0x58"},
-        "AdvUguiSelection": {"Text": "0x20", "Data": "0x28"},
-        "AdvScenarioPageData": {
-            "CommandList": "0x10",
-            "TextDataList": "0x18",
-            "ScenarioLabelData": "0x20",
-            "PageNo": "0x38",
-            "MessageWindowName": "0x40",
-        },
-        "AdvCommand": {"RowData": "0x10", "Type": "0x20"},
-        "StringGridRow": {"RowIndex": "0x18", "Strings": "0x20"},
-        "AdvCommandCharacter": {"CharacterInfo": "0x38", "NameText": "0x18"},
-        "AdvCommandSelection": {"JumpLabel": "0x38"},
-        "AdvCommandJump": {"JumpLabel": "0x38", "ExpressionParser": "0x40", "ConditionColumn": 2},
-        "ScenarioLabelData": {
-            "PageDataList": "0x10",
-            "ScenarioLabel": "0x18",
-            "Next": "0x20",
-            "CommandList": "0x28",
-            "ScenarioLabelCommand": "0x30",
-        },
-        "AdvScenarioData": {
-            "Name": "0x10",
-            "JumpDataList": "0x28",
-            "ScenarioLabels": "0x30",
-        },
-        "Il2CppDictionary": {"Entries": "0x18", "Count": "0x20"},
-        "DictionaryEntry": {"HashCode": "0x00", "Key": "0x08", "Value": "0x10", "Size": "0x18"},
-        "TextColumns": dict(TEXT_COLUMNS),
-    }
-
-
-def build_config(input_path: Path, game_version: str) -> Dict[str, Any]:
-    if input_path.name.lower() == "dump.cs" or input_path.suffix.lower() == ".cs":
-        text = input_path.read_text(encoding="utf-8", errors="replace")
-        rva = parse_rva_from_dump_cs(text)
-        layout = parse_layout_from_dump_cs(text)
-    elif input_path.suffix.lower() == ".json":
-        rva = parse_rva_from_script_json(input_path)
-        layout = default_layout()
-    else:
-        raise ValueError("input must be dump.cs or script.json")
-
-    return {
-        "GameVersion": game_version,
-        "RuntimeConfigs": {
-            "RVA": rva,
-            "Layout": layout,
-        },
-    }
-
-
 def skip_ws(text: str, index: int) -> int:
     while index < len(text) and text[index] in " \t\r\n":
         index += 1
@@ -510,8 +445,9 @@ def replace_runtime_values(
     game_version: str,
     rva: Dict[str, str],
     choice_back: Dict[str, Any],
+    layout: Dict[str, Any],
 ) -> str:
-    # Patch version-bound values without reformatting hand-maintained Layout.
+    # Preserve custom layout fields and the configured table column hints.
     existing = json.loads(runtime_text)
 
     version_start, version_end = find_top_level_value_span(
@@ -541,6 +477,16 @@ def replace_runtime_values(
         ),
     ]
 
+    current_layout = existing["RuntimeConfigs"]["Layout"]
+    for group, fields in layout.items():
+        if group.startswith("Il2Cpp") or group in ("DictionaryEntry", "TextColumns"):
+            continue
+        for field, offset in fields.items():
+            if field != "ConditionColumn":
+                current_layout.setdefault(group, {})[field] = offset
+    start, end = find_nested_value_span(runtime_text, "RuntimeConfigs", "Layout")
+    replacements.append((start, end, format_object_value(current_layout, newline, line_indent_at(runtime_text, start))))
+
     indent = line_indent_at(runtime_text, rva_start)
     value = format_object_value(choice_back, newline, indent)
     if "ChoiceBack" in existing["RuntimeConfigs"]:
@@ -559,9 +505,9 @@ def replace_runtime_values(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate HousamoEmbedTrans runtime.json")
-    parser.add_argument("--version", default=GAME_VERSION, help="game version string")
-    parser.add_argument("--input", default=INPUT_PATH, help="path to dump.cs or script.json")
+    parser = argparse.ArgumentParser(description="Generate Live A Hero runtime.json")
+    parser.add_argument("--version", required=True, help="game version string")
+    parser.add_argument("--input", required=True, help="path to dump.cs or script.json")
     parser.add_argument("--output", default=OUTPUT_PATH, help="path to output runtime.json")
     parser.add_argument("--choice-back", required=True,
                         help="verified ChoiceBack block, including ContinuationRVA, for this arm64 build")
@@ -573,6 +519,8 @@ def main() -> None:
         raise FileNotFoundError(input_path)
 
     rva = parse_rva(input_path)
+    dump_path = input_path if input_path.suffix.lower() == ".cs" else input_path.with_name("dump.cs")
+    layout = parse_layout_from_dump_cs(dump_path.read_text(encoding="utf-8"))
     output_path = Path(args.output)
     choice_back = json.loads(Path(args.choice_back).read_text(encoding="utf-8-sig"))
     build_id = choice_back.get("BuildId") if isinstance(choice_back, dict) else None
@@ -589,10 +537,11 @@ def main() -> None:
 
     if output_path.is_file():
         old_text = output_path.read_text(encoding="utf-8")
-        text = replace_runtime_values(old_text, args.version, rva, choice_back)
+        text = replace_runtime_values(old_text, args.version, rva, choice_back, layout)
     else:
-        config = build_config(input_path, args.version)
-        config["RuntimeConfigs"]["ChoiceBack"] = choice_back
+        config = {"GameVersion": args.version, "RuntimeConfigs": {
+            "RVA": rva, "ChoiceBack": choice_back, "Layout": layout,
+        }}
         text = json.dumps(config, ensure_ascii=False, indent=4) + "\n"
 
     if args.stdout:

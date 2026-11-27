@@ -1,46 +1,46 @@
 {
-    "GameVersion": "5.21.2",
+    "GameVersion": "4.17.2",
     "RuntimeConfigs": {
         "RVA": {
-            "RVA_FindScenarioData": "0x2430228",
-            "RVA_InitBase": "0x241CD60",
-            "RVA_InitText": "0x2425B68",
-            "RVA_PageTextChange": "0x2469E9C",
-            "RVA_AddSelection": "0x246C7D4",
-            "RVA_ShowSelection": "0x246CBFC",
-            "RVA_RemakeText": "0x2466D24",
-            "RVA_UguiSelectionInit": "0x2485650",
-            "RVA_UguiSelectionClearAll": "0x2485A98",
-            "RVA_UiTextSetText": "0x4E06900"
+            "RVA_FindScenarioData": "0x2AFA1A4",
+            "RVA_InitBase": "0x2AE2ABC",
+            "RVA_InitText": "0x2AEAFCC",
+            "RVA_PageTextChange": "0x2B32B54",
+            "RVA_AddSelection": "0x2B355BC",
+            "RVA_ShowSelection": "0x2B359B4",
+            "RVA_RemakeText": "0x2B2FB28",
+            "RVA_UguiSelectionInit": "0x2B4CB94",
+            "RVA_UguiSelectionClearAll": "0x2B4CFB0",
+            "RVA_UiTextSetText": "0x5DB78F8"
         },
         "ChoiceBack": {
-            "BuildId": "ce3ed966f1d88f98fa7e4d569e9613a3a8dbc58c",
+            "BuildId": "0d28b22d6b945fb52304c9ad82a8b1fc300de140",
             "RVA": {
-                "BeginPage": "0x2465D64",
-                "SavePage": "0x2470934",
-                "WaitInput": "0x2466AE4",
-                "Select": "0x246CD54",
-                "StartScenario": "0x247AE44",
-                "EndScenario": "0x247B91C",
-                "Destroy": "0x2417464",
-                "Load": "0x24189CC",
-                "MoveLoad": "0x24199B0",
-                "CreateLoad": "0x2418A08",
-                "StartGame": "0x2418B4C"
+                "BeginPage": "0x2B2F1A0",
+                "SavePage": "0x2B39BCC",
+                "WaitInput": "0x2B35A48",
+                "Select": "0x2B35BBC",
+                "StartScenario": "0x2B4279C",
+                "EndScenario": "0x2B431FC",
+                "Destroy": "0x2ADB020",
+                "Load": "0x2ADC44C",
+                "MoveLoad": "0x2ADD33C",
+                "CreateLoad": "0x2ADC488",
+                "StartGame": "0x2ADC63C"
             },
             "ContinuationRVA": {
-                "Tap": "0x24864C0",
-                "Text": "0x2466B84",
-                "AddRead": "0x24668F8",
-                "AddHistory": "0x246CE50",
-                "Character": "0x2424AA0",
-                "CharacterOff": "0x2424EEC",
-                "Background": "0x242465C",
-                "BackgroundOff": "0x24249C4",
-                "LoadEnd": "0x241C9B0",
-                "MovePage": "0x247DDF0"
+                "Tap": "0x2B4D9B0",
+                "Text": "0x2B2F9E0",
+                "AddRead": "0x2B37DBC",
+                "AddHistory": "0x2B35CA4",
+                "Character": "0x2AE8E98",
+                "CharacterOff": "0x2AE9474",
+                "Background": "0x2AE8690",
+                "BackgroundOff": "0x2AE8A94",
+                "LoadEnd": "0x2AE270C",
+                "MovePage": "0x2B45044"
             },
-            "SavePageCaller": "0x247E078",
+            "SavePageCaller": "0x2B452AC",
             "PageStatus": {
                 "SendChar": 1,
                 "WaitEffectOnInputInPage": 2,
@@ -67,7 +67,7 @@
                 "Engine": "0xD0"
             },
             "AdvEngine": {
-                "SelectionManager": "0x48"
+                "SelectionManager": "0x40"
             },
             "AdvSelectionManager": {
                 "Selections": "0x28",

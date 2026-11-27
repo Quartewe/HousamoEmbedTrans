@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
-        <package android:name="jp.co.lifewonders.housamo" />
+        <package android:name="jp.co.lifewonders.liveahero" />
     </queries>
 
     <application
@@ -21,16 +21,15 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@android:drawable/sym_def_app_icon"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.HousamoEmbedTrans">
 
         <!-- 设置入口 Activity -->
-        <activity android:name=".ui.GameUpdateActivity" android:exported="false"
+        <activity android:name=".ui.GameUpdateActivity" android:enabled="@bool/updates_enabled" android:exported="false"
             android:theme="@style/Theme.HET.GameUpdate" />
-        <receiver android:name=".update.GameUpdateInstallReceiver" android:exported="false" />
+        <receiver android:name=".update.GameUpdateInstallReceiver" android:enabled="@bool/updates_enabled" android:exported="false" />
         <activity
             android:name=".ui.CharacterDictionaryActivity"
             android:exported="false"
@@ -148,7 +147,7 @@
 
         <provider
             android:name=".bridge.UserConfigProvider"
-            android:authorities="com.quarty.housamoembedtrans.userfiles"
+            android:authorities="${applicationId}.userfiles"
             android:exported="true"
             android:grantUriPermissions="true" />
 

@@ -958,15 +958,8 @@ public final class ConfigStore {
 
     public static void validateCharacterDictionary(JSONObject dictionary)
         throws Exception {
-        if (dictionary.length() == 0) {
-            throw new IllegalArgumentException("character dictionary must not be empty");
-        }
-
         JSONArray names = dictionary.names();
-        if (names == null) {
-            throw new IllegalArgumentException("character dictionary has no character names");
-        }
-
+        if (names == null) return;
         for (int index = 0; index < names.length(); index++) {
             String name = names.getString(index);
             if (name.trim().isEmpty()) {

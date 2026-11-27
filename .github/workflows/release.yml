@@ -58,7 +58,7 @@ jobs:
       HET_VERSION_NAME: ${{ needs.version.outputs.name }}
       HET_VERSION_CODE: ${{ needs.version.outputs.code }}
       HET_VARIANT: ${{ matrix.variant }}
-      APK_NAME: HousamoEmbedTrans-${{ github.ref_name }}-${{ matrix.variant }}.apk
+      APK_NAME: LiveAHeroEmbedTrans-${{ github.ref_name }}-${{ matrix.variant }}.apk
     defaults:
       run:
         shell: bash
@@ -136,7 +136,7 @@ jobs:
       - name: Retain APK for download if publishing needs a retry
         uses: actions/upload-artifact@v4
         with:
-          name: HousamoEmbedTrans-${{ github.ref_name }}-${{ matrix.variant }}
+          name: LiveAHeroEmbedTrans-${{ github.ref_name }}-${{ matrix.variant }}
           path: dist/*.apk
           if-no-files-found: error
           retention-days: 30
@@ -164,7 +164,7 @@ jobs:
       - name: Download both verified APKs
         uses: actions/download-artifact@v4
         with:
-          pattern: HousamoEmbedTrans-${{ github.ref_name }}-*
+          pattern: LiveAHeroEmbedTrans-${{ github.ref_name }}-*
           path: dist
           merge-multiple: true
 
@@ -177,7 +177,7 @@ jobs:
             const tag = context.ref.slice('refs/tags/'.length);
             const prerelease = process.env.HET_PRERELEASE === 'true';
             const names = ['arm64-v8a', 'x86-houdini']
-              .map(variant => `HousamoEmbedTrans-${tag}-${variant}.apk`);
+              .map(variant => `LiveAHeroEmbedTrans-${tag}-${variant}.apk`);
             const files = fs.readdirSync('dist').filter(name => name.endsWith('.apk'));
             if (files.length !== names.length || names.some(name => !files.includes(name))) {
               throw new Error('Expected both the ARM64 and Houdini compatibility APKs');

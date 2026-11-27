@@ -2,6 +2,7 @@ package com.quarty.housamoembedtrans.ui;
 
 import com.quarty.housamoembedtrans.R;
 import com.quarty.housamoembedtrans.HousamoApplication;
+import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
 import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.RuntimeControlStore;
 import com.quarty.housamoembedtrans.runtime.TranslationControlReceiver;
@@ -262,6 +263,11 @@ public final class HomeActivity extends AppCompatActivity {
                 requestAppUpdateCheck();
             }
         });
+        if (!getResources().getBoolean(R.bool.updates_enabled)) {
+            findViewById(R.id.card_home_game_update).setEnabled(false);
+            updateCard.setEnabled(false);
+            resourceEntry.setEnabled(false);
+        }
         findViewById(R.id.card_home_github).setOnClickListener(view -> {
             if (!stylePreview) {
                 openExternal(GITHUB_URL);
@@ -628,7 +634,7 @@ public final class HomeActivity extends AppCompatActivity {
                 loadedInjectionMode = config.config.getJSONObject("UserSettings")
                     .getString("InjectionMode");
                 metadata = new HomeMetadata(
-                    installedVersionOf("jp.co.lifewonders.housamo"),
+                    installedVersionOf(HetBridgeContract.TARGET_PACKAGE),
                     store.loadJson(ConfigStore.RUNTIME_FILE_NAME).json
                         .getString("GameVersion").trim(),
                     userSettings == null
@@ -716,7 +722,8 @@ public final class HomeActivity extends AppCompatActivity {
     }
 
     private void requestAppUpdateCheck() {
-        if (ioExecutor == null || stylePreview || appUpdateInProgress) {
+        if (!getResources().getBoolean(R.bool.updates_enabled)
+            || ioExecutor == null || stylePreview || appUpdateInProgress) {
             return;
         }
         appUpdateRequested = true;
@@ -754,6 +761,10 @@ public final class HomeActivity extends AppCompatActivity {
 
     private void renderUpdateStatus() {
         if (updateStatusView == null) {
+            return;
+        }
+        if (!getResources().getBoolean(R.bool.updates_enabled)) {
+            updateStatusView.setText(R.string.updates_disabled);
             return;
         }
         if (stylePreview) {

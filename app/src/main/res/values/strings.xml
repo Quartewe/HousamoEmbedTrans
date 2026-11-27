@@ -12,8 +12,8 @@
     <string name="task_action_delete">Delete task</string>
     <string name="task_delete_message">Permanently delete this task and its request, progress and response files? Active translation will be canceled first; pending results will no longer be delivered. Saved Scenes, translations and summaries are kept. An API request already sent may still be billed.</string>
     <string name="task_delete_delivery_busy">The game is applying this result. Please retry deletion after delivery finishes.</string>
-    <string name="app_name">Housamo Embed Trans</string>
-    <string name="xposed_description">AI translation prefetch for Tokyo Afterschool Summoners</string>
+    <string name="app_name">Live A Hero Embed Trans</string>
+    <string name="xposed_description">AI translation prefetch for Live A Hero</string>
 
     <string name="notification_channel_name">HET status</string>
     <string name="notification_channel_description">Translation and scene sync progress and controls</string>

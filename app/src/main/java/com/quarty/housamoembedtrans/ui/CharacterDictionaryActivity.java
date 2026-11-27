@@ -374,7 +374,8 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
                 dictionary = loaded.json;
                 userOverride = loaded.userOverride;
                 invalidUserOverride = loaded.invalidUserOverride;
-                if (editorOriginalName == null) {
+                if (editorOriginalName == null
+                    || ("mc".equals(editorOriginalName) && !dictionary.has("mc"))) {
                     source = newCharacterRecord();
                 } else {
                     source = dictionary.optJSONObject(editorOriginalName);
@@ -696,7 +697,6 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
             userOverride = result.userOverride;
             invalidUserOverride = result.invalidUserOverride;
             dirty = false;
-            ensureMcRecord();
             rebuildNames();
             updateStatus();
             setEditorEnabled(true);
@@ -1709,19 +1709,6 @@ public final class CharacterDictionaryActivity extends AppCompatActivity {
         record.put("description", "");
         record.put("speech_style", "");
         return record;
-    }
-
-    private void ensureMcRecord() throws Exception {
-        if (dictionary.optJSONObject("mc") != null) {
-            return;
-        }
-
-        JSONObject bundled = configStore.loadBundledJson(ConfigStore.CHARDICT_FILE_NAME);
-        dictionary.put(
-            "mc",
-            new JSONObject(bundled.getJSONObject("mc").toString())
-        );
-        dirty = true;
     }
 
     private int characterCount() {

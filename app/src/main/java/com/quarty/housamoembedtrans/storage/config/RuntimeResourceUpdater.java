@@ -1,5 +1,7 @@
 package com.quarty.housamoembedtrans.storage.config;
 
+import com.quarty.housamoembedtrans.R;
+
 import android.app.Activity;
 import android.app.Application;
 import android.content.pm.PackageManager;
@@ -55,6 +57,10 @@ public final class RuntimeResourceUpdater implements Application.ActivityLifecyc
     public void requestCheck(Consumer<String> completion) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             throw new IllegalStateException("requestCheck requires the UI thread");
+        }
+        if (!application.getResources().getBoolean(R.bool.updates_enabled)) {
+            if (completion != null) completion.accept(application.getString(R.string.updates_disabled));
+            return;
         }
         if (completion != null) manualCompletion = completion;
         if (!checking.compareAndSet(false, true)) return;

@@ -1,8 +1,10 @@
 package com.quarty.housamoembedtrans.runtime;
 
+import com.quarty.housamoembedtrans.bridge.HetBridgeContract;
+
 /** VM-owned entry claim shared even when LSP and Root use different ClassLoaders. */
 public final class GameEntry {
-    private static final String KEY = "com.quarty.housamoembedtrans.gameEntry";
+    private static final String KEY = HetBridgeContract.MODULE_PACKAGE + ".gameEntry";
 
     private GameEntry() {}
 

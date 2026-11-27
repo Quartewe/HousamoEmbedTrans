@@ -44,6 +44,7 @@ struct ChoiceBackConfig {
 // game state. Binder threads only publish one request to its mailbox.
 // Copies the startup configuration before publishing the Unity pump hook.
 // It remains immutable for the lifetime of the game process.
+bool MatchesGameBuild(uintptr_t base, const ChoiceBackConfig& config);
 void ConfigureChoiceBack(uintptr_t il2cpp_base, const ChoiceBackConfig& config);
 void PumpChoiceBack();
 

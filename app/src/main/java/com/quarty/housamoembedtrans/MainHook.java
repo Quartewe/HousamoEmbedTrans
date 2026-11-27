@@ -60,11 +60,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * LSP / Root 共用游戏运行时 — Housamo AI 实时翻译。
+ * LSP / Root 共用游戏运行时 — Live A Hero AI 实时翻译。
  *
  * 工作流程:
  *   1. XposedEntry 或 RootEntry 交接游戏 Application
- *   2. 确认是 Housamo (jp.co.lifewonders.housamo)
+ *   2. 确认是 Live A Hero (jp.co.lifewonders.liveahero)
  *   3. Application.attach 后注册生命周期监听，等待首次 Activity resume 返回
  *   4. 在主线程后续消息中初始化 ShadowHook → 加载 native 库 → nativeStart
  *   5. nativeStart 的后台线程等待 libil2cpp.so，再安装游戏 Hook
@@ -1787,7 +1787,7 @@ public class MainHook {
         StartupConfig config = new StartupConfig();
         config.rva = Init_RVA(runtimeConfigs);
         config.layout = Init_Layout(runtimeConfigs);
-        config.choiceBack = readChoiceBackConfig(runtimeConfigs.getJSONObject("ChoiceBack"));
+        config.choiceBack = new ChoiceBackConfig(runtimeConfigs.getJSONObject("ChoiceBack"));
         config.characterWeight = Init_CharacterWeight(userConfig);
         JSONObject userSettings = userConfig.getJSONObject("UserSettings");
         config.sceneSyncSnapshot = SceneSyncStartupSnapshot.of(
@@ -1805,22 +1805,6 @@ public class MainHook {
         config.targetLanguage = Init_TargetLanguage(userConfig);
         config.gameVersion = Init_GameVersion(runtimeConfig);
         return config;
-    }
-
-    private static ChoiceBackConfig readChoiceBackConfig(JSONObject choice) throws Exception {
-        if (!choice.has("ContinuationRVA")) {
-            // Older overrides predate this block. Keep their other caller and layout data intact.
-            JSONObject bundled = new JSONObject(readModuleAsset(RUNTIME_FILE_NAME))
-                .getJSONObject("RuntimeConfigs").getJSONObject("ChoiceBack");
-            String buildId = choice.getString("BuildId");
-            if (!buildId.equalsIgnoreCase(bundled.getString("BuildId"))) {
-                bundled = new JSONObject(readModuleAsset("continuation/legacy_runtime.json"));
-            }
-            if (buildId.equalsIgnoreCase(bundled.getString("BuildId")) && bundled.has("ContinuationRVA")) {
-                choice.put("ContinuationRVA", bundled.getJSONObject("ContinuationRVA"));
-            }
-        }
-        return new ChoiceBackConfig(choice);
     }
 
     private static StartupConfig loadStartupConfig(Context context) throws Exception {
@@ -2743,7 +2727,7 @@ public class MainHook {
                 reportGameStartupFailure(client,
                     "游戏版本与运行时资源版本不一致：游戏 " + installedGameVersion
                         + "，资源 " + resourceGameVersion
-                        + "。请打开 HET 更新 RVA 资源，更新后会自动继续。");
+                        + "。请使用与当前 LAH 版本匹配的运行时配置。");
                 showWaitingForHet();
                 return;
             }

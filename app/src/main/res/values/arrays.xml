@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Housamo (Tokyo Afterschool Summoners) 包名 -->
+    <!-- Live A Hero 包名 -->
     <string-array name="xposed_scope">
-        <item>jp.co.lifewonders.housamo</item>
+        <item>jp.co.lifewonders.liveahero</item>
     </string-array>
 
     <string-array name="api_protocol_labels">

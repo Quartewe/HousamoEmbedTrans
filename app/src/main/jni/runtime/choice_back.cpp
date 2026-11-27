@@ -461,7 +461,7 @@ void* CreateLoad(void* self, void* save, const void* method) {
     return routine;
 }
 
-struct ImageMatch { uintptr_t base; bool matched = false; };
+struct ImageMatch { uintptr_t base; const std::vector<unsigned char>& build_id; bool matched = false; };
 int MatchImage(dl_phdr_info* info, size_t, void* context) {
     auto& match = *static_cast<ImageMatch*>(context);
     if (info->dlpi_addr != match.base) return 0;
@@ -479,8 +479,8 @@ int MatchImage(dl_phdr_info* info, size_t, void* context) {
             if (names > static_cast<size_t>(end - cursor)
                 || descs > static_cast<size_t>(end - cursor) - names) break;
             if (note.n_type == NT_GNU_BUILD_ID && note.n_namesz == 4
-                && std::memcmp(cursor, "GNU", 4) == 0 && note.n_descsz == runtime.build_id.size()
-                && std::memcmp(cursor + names, runtime.build_id.data(), runtime.build_id.size()) == 0) match.matched = true;
+                && std::memcmp(cursor, "GNU", 4) == 0 && note.n_descsz == match.build_id.size()
+                && std::memcmp(cursor + names, match.build_id.data(), match.build_id.size()) == 0) match.matched = true;
             cursor += names + descs;
         }
     }
@@ -491,10 +491,8 @@ bool Install() {
 #if !defined(__aarch64__)
     return false;
 #else
-    ImageMatch match{base};
-    dl_iterate_phdr(MatchImage, &match);
-    if (!match.matched || !api.Init()) {
-        LOGW("[ChoiceBack] target build ID or IL2CPP metadata API unavailable");
+    if (!api.Init()) {
+        LOGW("[ChoiceBack] IL2CPP metadata API unavailable");
         return false;
     }
     struct Hook { uintptr_t rva; void* replacement; void** original; void* stub; };
@@ -572,179 +570,31 @@ void ProcessRequest() {
 
 // The story opener shares the existing Unity mailbox with choice restoration.
 // It owns no managed objects between frames and no durable request queue.
-bool storyChanging = false;
-
-std::string UnitySceneName() {
-    Root scene(api.Static("UnityEngine.SceneManagement", "SceneManager", "GetActiveScene"));
-    return api.Text(api.Get(scene.Get(), "get_name"));
-}
-
-void* ListItem(void* list, int index) {
-    void* value = nullptr;
-    void* args[] = { &index };
-    return api.Call(list, "get_Item", 1, args, &value) ? value : nullptr;
-}
-
-Root QuestValues() {
-    return Root(api.Static("Housamo.MasterData", "Master_Quest", "FindAllValues"));
-}
-
+// LAH opens replay through its own quest UI. Keep imported HET entries from
+// starting a replay until the matching LAH entry and return flow are verified.
 void ProcessOpenStory() {
-    if (!executing->TryStart()) { Complete(6); return; }
-    if (active || loadLease || storyChanging || UnitySceneName() != "Home") { Complete(Busy); return; }
-    Root data(api.Static("", "DataManager", "get_Instance"));
-    Root quests = QuestValues();
-    const int count = api.Int(quests.Get(), "get_Count");
-    if (!data.Get() || !api.Bool(data.Get(), "get_IsPlayerDataLoaded") || count <= 0) {
-        Complete(Unavailable); return;
-    }
-    Root selected;
-    int selectedId = 0, selectedBits = -1;
-    bool hasStory = false, ambiguous = false;
-    for (int i = 0; i < count; ++i) {
-        Root quest(ListItem(quests.Get(), i));
-        if (!api.SameText(api.Get(quest.Get(), "get_label"), executing->questLabel)) continue;
-        int bits = api.Int(quest.Get(), "get_storyFlag", 0) & 3;
-        int id = api.Int(quest.Get(), "get_questId");
-        if (hasStory && !bits) continue;
-        if (bits && !hasStory) { selected.Reset(); selectedBits = -1; ambiguous = false; hasStory = true; }
-        if (selectedBits >= 0 && selectedBits != bits) ambiguous = true;
-        selectedBits = bits;
-        // Stable ascending ID: original and replay duplicates do not depend on table order.
-        if (!selected.Get() || id < selectedId) { selected = std::move(quest); selectedId = id; }
-    }
-    if (!selected.Get()) { Complete(NoTarget); return; }
-    if (ambiguous) { Complete(7); return; }
-
-    void* questField = api.Field(data.Get(), "QuestMemoryPlayQuest");
-    void* afterField = api.Field(data.Get(), "afterBattleFlag");
-    const void* memorySetter = api.Method(api.object_get_class(data.Get()), "set_scenarioMemoryFlag", 1);
-    void* loader = api.Class("Housamo.SceneLoader", "SceneLoader");
-    const void* next = loader ? api.Method(loader, "NextScene", 1) : nullptr;
-    Root bgm(api.StaticField("", "BGMManager", "Instance"));
-    if (!questField || !afterField || !memorySetter || !next || !bgm.Get()) { Complete(Unavailable); return; }
-    bool previousMemory = false, previousAfter = false;
-    void* oldQuest = nullptr;
-    if (!api.Read(data.Get(), "scenarioMemoryFlag", previousMemory)
-        || !api.Read(data.Get(), "afterBattleFlag", previousAfter)
-        || !api.Read(data.Get(), "QuestMemoryPlayQuest", oldQuest)) { Complete(Unavailable); return; }
-    Root previousQuest(oldQuest);
-    Root adv(api.string_new("Adv"));
-    if (!adv.Get()) { Complete(Failed); return; }
-
-    // NextScene may synchronously invoke the normal session hooks. Those own
-    // history changes, but must not consume this opener's completion.
-    auto completion = std::move(executing);
-    bool memory = true, after = false;
-    void* memoryArgs[] = { &memory };
-    bool ok = api.Call(bgm.Get(), "Stop")
-        && api.Call(data.Get(), "set_scenarioMemoryFlag", 1, memoryArgs);
-    if (ok) {
-        api.field_set_value_object(data.Get(), questField, selected.Get());
-        api.field_set_value(data.Get(), afterField, &after);
-        storyChanging = true;
-        void* args[] = { adv.Get() };
-        void* exception = nullptr;
-        api.runtime_invoke(next, nullptr, args, &exception);
-        ok = !exception;
-    }
-    if (!ok) {
-        storyChanging = false;
-        api.field_set_value_object(data.Get(), questField, previousQuest.Get());
-        api.field_set_value(data.Get(), afterField, &previousAfter);
-        void* args[] = { &previousMemory };
-        api.Call(data.Get(), "set_scenarioMemoryFlag", 1, args);
-    }
-    LOGI("[StoryOpen] label=%s questId=%d started=%d",
-         api.Text(api.Get(selected.Get(), "get_label")).c_str(), selectedId, ok);
-    { std::lock_guard<std::mutex> lock(mailboxMutex); occupied = false; }
-    completion->Deliver(ok ? 0 : Failed);
+    Complete(Unavailable);
 }
 } // namespace
+
+bool MatchesGameBuild(uintptr_t base, const ChoiceBackConfig& config) {
+#if defined(__aarch64__)
+    if (!base || config.build_id.empty()) return false;
+    ImageMatch match{base, config.build_id};
+    dl_iterate_phdr(MatchImage, &match);
+    return match.matched;
+#else
+    return false;
+#endif
+}
 
 void ConfigureChoiceBack(uintptr_t il2cpp_base, const ChoiceBackConfig& config) {
     base = il2cpp_base;
     runtime = config;
 }
 
-std::string ReadScenarioQuestLabel(void* scenario, void* dataManager) {
-    if (!ready.load() || !scenario || !dataManager) return {};
-    Root owner(scenario);
-    Root name(api.Get(scenario, "get_Name"));
-    void* labelObject = nullptr;
-    void* args[] = { name.Get() };
-    if (!name.Get() || !api.Call(scenario, "FindScenarioLabelData", 1, args, &labelObject)) return {};
-    Root label(labelObject);
-    void* command = nullptr;
-    if (!api.Read(label.Get(), "scenarioLabelCommand", command)) return {};
-    if (!command) label = Root(api.Get(label.Get(), "get_Next"));
-    if (!api.Read(label.Get(), "scenarioLabelCommand", command) || !command) return {};
-    const std::string raw = api.Text(api.Get(label.Get(), "get_ScenarioLabel"));
-    if (raw.empty()) return {};
-
-    Root quests = QuestValues();
-    const int count = api.Int(quests.Get(), "get_Count");
-    if (count <= 0) return {};
-    std::unordered_set<std::string> candidates;
-    bool qualified = false;
-    // Relate the declaration to actual complete Master labels, including the
-    // game's known after-battle transformation. Do not strip arbitrary suffixes.
-    for (int i = 0; i < count; ++i) {
-        Root quest(ListItem(quests.Get(), i));
-        const std::string entry = api.Text(api.Get(quest.Get(), "get_label"));
-        const auto slash = entry.rfind('/');
-        const std::string local = slash == std::string::npos ? entry : entry.substr(slash + 1);
-        bool match = local == raw;
-        if (!match && (api.Int(quest.Get(), "get_storyFlag", 0) & 2)) match = local + "_afterBattle" == raw;
-        if (!match) continue;
-        candidates.insert(entry);
-        qualified |= slash != std::string::npos;
-    }
-    if (qualified) {
-        Root grid(api.Get(scenario, "get_DataGrid"));
-        Root setting(api.Get(dataManager, "get_SettingDataManager"));
-        Root imported(api.Get(setting.Get(), "get_ImportedScenarios"));
-        Root chapters(api.Get(imported.Get(), "get_Chapters"));
-        std::unordered_set<std::string> owners;
-        const int chapterCount = api.Int(chapters.Get(), "get_Count");
-        for (int c = 0; c < chapterCount; ++c) {
-            Root chapter(ListItem(chapters.Get(), c));
-            Root books(api.Get(chapter.Get(), "get_DataList"));
-            const int bookCount = api.Int(books.Get(), "get_Count");
-            for (int b = 0; b < bookCount; ++b) {
-                Root book(ListItem(books.Get(), b));
-                Root sheets(api.Get(book.Get(), "get_ImportGridList"));
-                const int sheetCount = api.Int(sheets.Get(), "get_Count");
-                for (int s = 0; s < sheetCount; ++s) {
-                    if (grid.Get() && ListItem(sheets.Get(), s) == grid.Get()) {
-                        owners.insert(api.Text(api.Get(chapter.Get(), "get_ChapterName")));
-                    }
-                }
-            }
-        }
-        if (owners.size() != 1 || owners.begin()->empty()) {
-            LOGW("[SceneEntry] chapter unresolved scene=%s entry=%s owners=%zu",
-                 api.Text(name.Get()).c_str(), raw.c_str(), owners.size());
-            return {};
-        }
-        const std::string prefix = *owners.begin() + "/";
-        for (auto it = candidates.begin(); it != candidates.end();) {
-            if (it->find('/') != std::string::npos && it->compare(0, prefix.size(), prefix) != 0) it = candidates.erase(it);
-            else ++it;
-        }
-        if (candidates.empty()) {
-            LOGW("[SceneEntry] no entry in owning chapter scene=%s entry=%s chapter=%s",
-                 api.Text(name.Get()).c_str(), raw.c_str(), prefix.c_str());
-            return {};
-        }
-    }
-    if (candidates.size() > 1) {
-        LOGW("[SceneEntry] ambiguous entry scene=%s entry=%s candidates=%zu",
-             api.Text(name.Get()).c_str(), raw.c_str(), candidates.size());
-        return {};
-    }
-    // Common script tables can have a declared entry without an independent Quest.
-    return candidates.empty() ? raw : *candidates.begin();
+std::string ReadScenarioQuestLabel(void*, void*) {
+    return {};
 }
 
 void PumpChoiceBack() {
@@ -755,10 +605,6 @@ void PumpChoiceBack() {
     }
     if (!ready.load()) return;
     if (active) het::story_auto::Update(engine.Get(), loadLease != nullptr);
-    if (storyChanging) {
-        const std::string scene = UnitySceneName();
-        if (!scene.empty() && scene != "Home") storyChanging = false;
-    }
     if (loadLease) {
         if (executing && loadEnded && targetWaiting && target && loadLease->IsPage(CurrentData())
             && IsWaiting(api.Get(engine.Get(), "get_SelectionManager"))) {
@@ -791,7 +637,7 @@ void PumpChoiceBack() {
             executing = std::move(pending);
             if (!executing->openStory) continuation::TakePlaybackFailure(&executing->playbackFailure);
         }
-        else if (!executing && !occupied && !loadLease && !storyChanging &&
+        else if (!executing && !occupied && !loadLease &&
             (continuation::TakePlaybackFailure(&playbackFailure) || continuation::TakePlayback())) {
             occupied=true;
         } else return;

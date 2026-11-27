@@ -29,7 +29,7 @@ android {
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
-        applicationId = "com.quarty.housamoembedtrans"
+        applicationId = "com.quarty.liveaheroembedtrans"
         minSdk = 28
         targetSdk = 36
         versionCode = providers.gradleProperty("hetVersionCode").orElse("1").get().toInt()

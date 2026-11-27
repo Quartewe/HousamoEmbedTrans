@@ -49,10 +49,11 @@ public final class BundledPresetImporter {
             if (manifest.getInt("version") != 1) {
                 throw new IOException("Unsupported bundled preset manifest version");
             }
+            JSONArray files = manifest.getJSONArray("files");
+            if (files.length() == 0) return;
             JsonSchemaValidator schema = new JsonSchemaValidator(new JSONObject(new String(
                 readAsset(context, "schema/scene_schema.json"), StandardCharsets.UTF_8)));
             List<ManagementImportModel.Document> documents = new ArrayList<>();
-            JSONArray files = manifest.getJSONArray("files");
             for (int index = 0; index < files.length(); index++) {
                 String name = files.getString(index);
                 if (name.startsWith("/") || name.contains("..") || name.contains("\\")) {

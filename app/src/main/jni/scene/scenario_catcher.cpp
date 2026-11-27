@@ -384,25 +384,35 @@ static void CompleteStage(SceneStage& stage,void* data_manager) {
     }
 }
 
-// A missing language column is a successful empty read. An unreadable header
-// is a parse failure, never a reason to assume there is no official text.
-static bool ReadNamedRowStringColumn(
-    void* command, const char* column_name, std::string* text) {
-    text->clear();
+// A readable table may legitimately omit an optional language column.
+static bool FindStoryColumn(void* command, const char* name, int* column, int preferred = -1) {
+    *column = -1;
     int header_index = -1;
     void* strings = ReadStoryTableHeader(command, &header_index);
     if (!valid_ptr(strings)) return false;
     const auto& array = g_runtime_config.layout.il2cpp_array;
     int count = read_int(strings, array.length);
     if (count <= 0 || count > 4096) return false;
-    for (int index = 0; index < count; ++index) {
-        std::string name = read_il2cpp_string(
-            read_ptr(strings, array.first_element + index * array.pointer_size));
-        if (name == column_name) {
-            *text = ReadRowStringColumn(command, index);
-            return true;
+    auto matches = [&](int i) {
+        return read_il2cpp_string(read_ptr(strings, array.first_element + i * array.pointer_size)) == name;
+    };
+    if (preferred >= 0 && preferred < count && matches(preferred)) {
+        *column = preferred;
+        return true;
+    }
+    for (int i = 0; i < count; ++i) {
+        if (i != preferred && matches(i)) {
+            *column = i;
+            break;
         }
     }
+    return true;
+}
+
+static bool ReadNamedRowStringColumn(void* command, const char* name, std::string* text, int preferred = -1) {
+    int column;
+    if (!FindStoryColumn(command, name, &column, preferred)) return false;
+    *text = ReadRowStringColumn(command, column);
     return true;
 }
 
@@ -416,8 +426,8 @@ static void LogStoryTableHeader(void* command, const std::string& scene) {
              scene.c_str(), header_index, count);
         return;
     }
-    LOGI("[ScenarioCatcher] table_header scene=%s headerRow=%d count=%d configured Raw=%d language_columns=by_name",
-         scene.c_str(), header_index, count, g_runtime_config.layout.text_columns.raw);
+    LOGI("[ScenarioCatcher] table_header scene=%s headerRow=%d count=%d Text=%d language_columns=by_name",
+         scene.c_str(), header_index, count, FindStoryTextColumn(command));
     for (int index = 0; index < count; ++index) {
         std::string name = read_il2cpp_string(
             read_ptr(strings, array.first_element + index * array.pointer_size));
@@ -1744,7 +1754,7 @@ private:
                         void* command = ListElement(commands, i);
                         if (!valid_ptr(command)) continue;
                         if (read_il2cpp_string(read_ptr(command, layout.adv_command.type)) == "Text"
-                            && !ReadRowStringColumn(command, layout.text_columns.raw).empty()) {
+                            && !ReadRowStringColumn(command, FindStoryTextColumn(command)).empty()) {
                             header_logged_ = true;
                             LogStoryTableHeader(command, scenario_.result.scene);
                             break;
@@ -1924,7 +1934,11 @@ private:
         TextItem& item,
         void* page_data
         ) {
-        const auto& columns = g_runtime_config.layout.text_columns;
+        int raw_column = FindStoryTextColumn(cmd_item);
+        if (raw_column < 0) {
+            LOGW("[ScenarioCatcher] scene=%s cannot locate Text column", scenario_.result.scene.c_str());
+            return TextStatus::header_unavailable;
+        }
         const char* target_column = nullptr;
 
         if (g_runtime_config.target_lang == "en") {
@@ -1974,7 +1988,7 @@ private:
             }
             if (collect_original_ || raw_text.empty()) {
                 void* column_array = nullptr;
-                japanese = ReadRowStringColumn(cmd_item, columns.raw, &column_array);
+                japanese = ReadRowStringColumn(cmd_item, raw_column, &column_array);
                 if (raw_text.empty()) {
                     raw_text = japanese;
                     language = 4;
@@ -1987,7 +2001,7 @@ private:
             if (!raw_text.empty()) language_mask_ |= language;
         } else {
             void* column_array = nullptr;
-            raw_text = ReadRowStringColumn(cmd_item, columns.raw, &column_array);
+            raw_text = ReadRowStringColumn(cmd_item, raw_column, &column_array);
             if (originals_) originals_->Restore(column_array, raw_text);
         }
         if (raw_text.empty()) {
@@ -1995,7 +2009,9 @@ private:
         }
 
         // 读当前显示角色
-        for (const AcHit& ac_hit : AcScan(ReadRowStringColumn(cmd_item, 1))) {
+        std::string actor;
+        if (!ReadNamedRowStringColumn(cmd_item, "Arg1", &actor, 1)) return TextStatus::header_unavailable;
+        for (const AcHit& ac_hit : AcScan(actor)) {
             if (ac_hit.kind == MatchKind::character) {
                 AddItemScore(result.show_character, ac_hit.canonical, ac_hit.score);
             } else if (ac_hit.kind == MatchKind::term) {
@@ -2096,6 +2112,11 @@ private:
             }
 
             std::string type = read_il2cpp_string(read_ptr(cmd_item, cmd.type));
+            std::string jump_condition;
+            if ((type == "Jump" || type == "JumpRandom" || type == "JumpSubroutine")
+                && !ReadNamedRowStringColumn(cmd_item, "Arg2", &jump_condition, layout.adv_command_jump.condition_column)) {
+                return result;
+            }
             if (collect_flow_) {
                 // Control flow belongs to the command even when its localized text is empty.
                 using Kind = PageParseResult::TransferKind;
@@ -2107,7 +2128,7 @@ private:
                         transfers.push_back({order, {}, Kind::choice});
                     transfers.back().targets.push_back(ReadSelectionJumpLabel(cmd_item));
                 } else if (type == "Jump") {
-                    bool conditional = !ReadRowStringColumn(cmd_item, layout.adv_command_jump.condition_column).empty();
+                    bool conditional = !jump_condition.empty();
                     transfers.push_back({order, {ReadJumpLabel(cmd_item)}, conditional ? Kind::conditionalJump : Kind::jump});
                 } else if (type == "If") {
                     transfers.push_back({order, {}, Kind::beginIf});
@@ -2228,7 +2249,7 @@ private:
                     jump.order = {result.label_index, page_no, i, 0};
                     jump.command_type = type;
                     jump.target_label = target;
-                    jump.condition = ReadRowStringColumn(cmd_item, g_runtime_config.layout.adv_command_jump.condition_column);
+                    jump.condition = std::move(jump_condition);
 
                     if (jump.command_type == "Jump" && !jump.condition.empty()) {
                         IfBlock if_block;
@@ -2300,6 +2321,11 @@ static ScenarioParseOutput ParseScenarioToResult(const RuntimeScenario& scenario
 }
 
 } // namespace
+
+int FindStoryTextColumn(void* command) {
+    int column;
+    return FindStoryColumn(command, "Text", &column, g_runtime_config.layout.text_columns.raw) ? column : -1;
+}
 
 bool ParsePageRecScene(void* scenario_data, void* data_manager, const std::string& entry_label,
                       Scene* scene, std::vector<std::string>* labels,

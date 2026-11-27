@@ -190,7 +190,6 @@ namespace {
     static bool WriteQuestBlock(const QuestWriteBlock& block, const QuestTargetSet& target_set) {
         const auto& layout = g_runtime_config.layout;
         const auto& page = layout.adv_scenario_page_data;
-        const auto& columns = layout.text_columns;
         const auto& cmd = layout.adv_command;
         const auto& list = layout.il2cpp_list;
         const auto& row = layout.string_grid_row;
@@ -255,7 +254,8 @@ namespace {
 
             std::string type = read_il2cpp_string(read_ptr(cmd_item, cmd.type));
 
-            if (len <= columns.raw || len > 4096) {
+            int raw_column = FindStoryTextColumn(cmd_item);
+            if (raw_column < 0 || len <= raw_column || len > 4096) {
                 LOGW("[WriteQuestItem] strings array length invalid for order=%d,%d,%d,%d: length=%d",
                     item.order.label_index,
                     item.order.page_no,
@@ -265,7 +265,7 @@ namespace {
                 return false;
             }
 
-            auto** raw_slot = reinterpret_cast<void**>(static_cast<std::uint8_t*>(strings) + array.first_element + columns.raw * array.pointer_size);
+            auto** raw_slot = reinterpret_cast<void**>(static_cast<std::uint8_t*>(strings) + array.first_element + raw_column * array.pointer_size);
             void* managed_string = g_string_new(item.replacement_text.c_str());
 
             if (managed_string == nullptr) {

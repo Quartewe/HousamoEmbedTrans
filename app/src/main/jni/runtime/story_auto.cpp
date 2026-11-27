@@ -149,7 +149,6 @@ void Update(void* engine, bool restoring) {
         nextBind = Clock::now() + std::chrono::seconds(1);
         if (!config.Get()) {
             config = Root(api.Get(engine, "get_Config"));
-            SetBool(config.Get(), "set_IsAutoBrPage", false);
         }
         if (!ui.Get()) ui = Root(api.Get(engine, "get_UiManager"));
         if (!selection.Get()) selection = Root(api.Get(engine, "get_SelectionManager"));
@@ -167,6 +166,7 @@ void Update(void* engine, bool restoring) {
         bool on = api.Bool(control.toggle.Get(), "get_isOn", requested);
         if (on != requested) {
             requested = on;
+            if (!on) SetBool(config.Get(), "set_IsAutoBrPage", false);
             if (on) {
                 float speed = g_runtime_config.story_auto_speed;
                 void* args[] = {&speed};
@@ -177,14 +177,15 @@ void Update(void* engine, bool restoring) {
         }
     }
     // Default UI status excludes the backlog and the hidden message window.
-    bool play = requested && !restoring && api.Int(ui.Get(), "get_Status") == 0
+    if (!requested) return;
+    bool play = !restoring && api.Int(ui.Get(), "get_Status") == 0
         && !api.Bool(selection.Get(), "get_IsShowing", true);
     if (config.Get() && play != api.Bool(config.Get(), "get_IsAutoBrPage"))
         SetBool(config.Get(), "set_IsAutoBrPage", play);
 }
 
 void EndSession() {
-    if (config.Get()) SetBool(config.Get(), "set_IsAutoBrPage", false);
+    if (requested && config.Get()) SetBool(config.Get(), "set_IsAutoBrPage", false);
     for (auto& control : windows) {
         if (control.object.Get()) {
             SetBool(control.object.Get(), "SetActive", false);

@@ -24,5 +24,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "HousamoEmbedTrans"
+rootProject.name = "LiveAHeroEmbedTrans"
 include(":app")
