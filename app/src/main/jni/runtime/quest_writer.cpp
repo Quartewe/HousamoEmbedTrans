@@ -4,6 +4,7 @@
 #include "housamo.hpp"
 #include "runtime/choice_back.hpp"
 #include "runtime/continuation_source.hpp"
+#include "runtime/story_text.hpp"
 #include "scene/block_queue.hpp"
 #include "shadowhook.h"
 #include "rapidjson/document.h"
@@ -17,7 +18,7 @@ namespace {
     struct ItemWriteBlock {
         void* strings;
         void** raw_slot;
-        void* managed_string;
+        het::utage::Root managed_string;
     };
 
     struct SelectionRefreshItem {
@@ -61,6 +62,7 @@ namespace {
     RemakeTextFn g_remake_text = nullptr;
     UiTextSetTextFn g_ui_text_set_text = nullptr;
     bool g_quest_writes_enabled = false;
+    bool g_original_text = false; // Owned by the Unity thread, like display writes.
 
     std::atomic<void*> g_page_text_change_fn{nullptr};
 
@@ -187,7 +189,10 @@ namespace {
         return complete;
     }
 
-    static bool WriteQuestBlock(const QuestWriteBlock& block, const QuestTargetSet& target_set) {
+    static bool WriteQuestBlock(const QuestWriteBlock& block, const QuestTargetSet& target_set,
+                                bool remember = true, bool refresh = true) {
+        het::utage::Root scenario(target_set.scenario_data_ptr);
+        auto originals = GetContinuationOriginalRows(target_set.scenario_data_ptr);
         const auto& layout = g_runtime_config.layout;
         const auto& page = layout.adv_scenario_page_data;
         const auto& columns = layout.text_columns;
@@ -266,7 +271,12 @@ namespace {
             }
 
             auto** raw_slot = reinterpret_cast<void**>(static_cast<std::uint8_t*>(strings) + array.first_element + columns.raw * array.pointer_size);
-            void* managed_string = g_string_new(item.replacement_text.c_str());
+            std::string text = item.replacement_text;
+            if (originals) {
+                originals->BeforeWrite(strings, *raw_slot);
+                if (g_original_text) originals->Restore(strings, text);
+            }
+            void* managed_string = g_string_new(text.c_str());
 
             if (managed_string == nullptr) {
                 LOGW("[WriteQuestItem] ReplaceText failed for order=%d,%d,%d,%d replacement_text=%s",
@@ -279,7 +289,7 @@ namespace {
                 return false;
             }
 
-            write_blocks.push_back({strings, raw_slot, managed_string});
+            write_blocks.push_back({strings, raw_slot, het::utage::Root(managed_string)});
             if (type == "Text") {
                 affected_text_pages.insert(page_data);
             } else if (type == "Selection") {
@@ -287,11 +297,15 @@ namespace {
             }
         }
 
-        auto originals = GetContinuationOriginalRows(target_set.scenario_data_ptr);
+        if (remember && originals) originals->RememberDisplay(block, target_set);
+        // Incoming translations update the retained display source, without
+        // restarting the current original page's typewriter animation.
+        if (remember && g_original_text && originals) return true;
         for (const ItemWriteBlock& write_block : write_blocks) {
-            if (originals) originals->BeforeWrite(write_block.strings, *write_block.raw_slot);
-            g_write_barrier(write_block.strings, write_block.raw_slot, write_block.managed_string);
+            g_write_barrier(write_block.strings, write_block.raw_slot, write_block.managed_string.Get());
         }
+
+        if (!refresh) return true;
 
         void* adv_page = g_page_text_change_fn.load(std::memory_order_acquire);
         if (!valid_ptr(adv_page)) {
@@ -553,6 +567,34 @@ namespace {
         return true;
     }
 } // namespace
+bool IsQuestOriginalText() { return g_original_text; }
+
+bool SetQuestOriginalText(bool original, bool refresh) {
+    if (original == g_original_text) return true;
+    if (original && !het::utage::api.gchandle_new_weakref) return false;
+    auto scenarios = GetQuestDisplayRows();
+    g_original_text = original;
+    bool complete = true;
+    for (const auto& live : scenarios) {
+        QuestWriteBlock block;
+        QuestTargetSet targets;
+        if (live.rows->DisplaySnapshot(block, targets)
+            && !WriteQuestBlock(block, targets, false, refresh)) complete = false;
+    }
+    if (!complete && refresh) {
+        // Preserve the previous selection if a captured target can no longer be
+        // applied; do not claim a new mode while leaving a partial switch behind.
+        g_original_text = !original;
+        for (const auto& live : scenarios) {
+            QuestWriteBlock block;
+            QuestTargetSet targets;
+            if (live.rows->DisplaySnapshot(block, targets)) WriteQuestBlock(block, targets, false, refresh);
+        }
+        LOGW("[QuestWriter] could not switch all live display cells");
+    }
+    return complete;
+}
+
 void SubmitPageTextChangeFn(void* adv_page) {
     g_page_text_change_fn.store(adv_page, std::memory_order_release);
     LOGI("[SubmitPageTextChangeFn] Submitted page text change for adv_page=%p", adv_page);
@@ -591,6 +633,7 @@ void ClearSelectionItems() {
 }
 
 bool InitQuestWriterRuntime(uintptr_t il2cpp_base, const RuntimeConfig& config) {
+    if (!het::utage::api.Init()) return false;
     g_il2cpp_handle = shadowhook_dlopen("libil2cpp.so");
     if (!g_il2cpp_handle || g_il2cpp_handle == nullptr) {
         LOGE("[InitQuestWriterRuntime] Failed to load libil2cpp.so");

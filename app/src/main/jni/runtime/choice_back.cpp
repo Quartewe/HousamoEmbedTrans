@@ -1,7 +1,7 @@
 #include "runtime/choice_back.hpp"
 #include "runtime/utage_runtime.hpp"
 #include "runtime/continuation_player.hpp"
-#include "runtime/story_auto.hpp"
+#include "runtime/story_controls.hpp"
 #include "housamo.hpp"
 #include "shadowhook.h"
 #include "bridge/jni_bridge.hpp"
@@ -299,7 +299,7 @@ bool CancelLoad() {
 
 void NewSession(void* value, bool start) {
     bool cancelled = CancelLoad();
-    het::story_auto::EndSession();
+    het::story_controls::EndSession();
     continuation::EndSession();
     {
         std::lock_guard<std::mutex> lock(mailboxMutex);
@@ -754,7 +754,7 @@ void PumpChoiceBack() {
         if (ready.load()) PublishPosition();
     }
     if (!ready.load()) return;
-    if (active) het::story_auto::Update(engine.Get(), loadLease != nullptr);
+    if (active) het::story_controls::Update(engine.Get(), loadLease != nullptr);
     if (storyChanging) {
         const std::string scene = UnitySceneName();
         if (!scene.empty() && scene != "Home") storyChanging = false;

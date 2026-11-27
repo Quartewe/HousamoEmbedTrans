@@ -41,6 +41,12 @@ struct Api {
     uint32_t (*gchandle_new_weakref)(void*, bool) = nullptr;
     void* (*string_new_len)(const char*, uint32_t) = nullptr;
     bool Init() {
+        static std::once_flag once;
+        static bool ready = false;
+        std::call_once(once, [this] { ready = Load(); });
+        return ready;
+    }
+    bool Load() {
         handle = shadowhook_dlopen("libil2cpp.so");
         if (!handle)
             return false;
