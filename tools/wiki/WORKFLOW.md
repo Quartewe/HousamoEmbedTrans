@@ -109,7 +109,7 @@ python tools/wiki/prepare_character_update.py --names "タサブロウ" --out-di
 内容规则：
 
 - `characters` 必须恰好包含 manifest 中所有 `name`，不可漏角色或夹带别的角色。每个角色必须有非空、小写 `info`。
-- 允许的其他字段仅有 `school`、`guild`、`origin_world`（字符串数组）及 `description`、`speech_style`（字符串）。不要提交译名、别名、旧 `community`、大写 `Info` 或嵌套 `relationships`。
+- 允许的其他字段仅有 `school`、`guild`、`origin_world`（字符串数组）及 `speech_style`（字符串）。`description` 是用户专用字段，禁止生成或覆盖；已有值原样保留，新条目仅初始化为空字符串。不要提交译名、别名、旧 `community`、大写 `Info` 或嵌套 `relationships`。
 - `info` 综合所有版本及解锁段落的 `調査ファイル`，1～3 句中立日文；优先身份、性格、神器／权能、重要关系及叙事定位。不要逐字搬运，不用现实神话、评论或游戏数值反推剧情。仅阅读到未解锁文本时明确报告资料限制。
 - `speech_style` 只能根据实际台词归纳。无依据时省略字段；不要把占位文字写入正式结果。
 - 学校／公会以页面通常版明确记录为准，来源世界以调查文件明确记载为准；只保留有依据的多重归属。不要把限定活动状态混成通常归属。

@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DICT = ROOT / "app/src/main/assets/term/chardict.json"
 ARRAY_FIELDS = {"school", "guild", "origin_world"}
-TEXT_FIELDS = {"info", "description", "speech_style"}
+TEXT_FIELDS = {"info", "speech_style"}
 
 
 def unique_object(pairs):
@@ -45,7 +45,7 @@ def merge(dictionary, generated, requested):
     updated = copy.deepcopy(dictionary)
     for name, patch in characters.items():
         if not isinstance(patch, dict) or not set(patch) <= ARRAY_FIELDS | TEXT_FIELDS:
-            raise ValueError(f"{name}: unsupported fields (language values/alias are not writable)")
+            raise ValueError(f"{name}: unsupported fields (language values/alias/description are not writable)")
         if not isinstance(patch.get("info"), str) or not patch["info"].strip():
             raise ValueError(f"{name}: nonempty lowercase info is required")
         for key, value in patch.items():
