@@ -1,4 +1,4 @@
-#include <fstream>
+#include <link.h>
 #include <thread>
 #include <chrono>
 #include <jni.h>
@@ -351,25 +351,20 @@ static std::string jstring_to_string(JNIEnv* env, jstring value) {
 static uintptr_t CatchIl2CppBase() {
     LOGI("Starting to search for il2cpp base address...");
     for (int i = 0; i < 30; ++i) {
-        std::ifstream f("/proc/self/maps");
-        std::string line;
-        if (!f.is_open()) {
-            LOGW("Failed to open /proc/self/maps");
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            continue;
-        }
-        LOGI("-------- ATTEMPT %d: Searching for libil2cpp.so... --------", i + 1);
-        LOGI("Checking /proc/self/maps...");
-        while (std::getline(f, line)) {
-            if (line.find("libil2cpp.so") != std::string::npos && // 确保是libil2cpp.so的行
-                line.find("00000000") != std::string::npos // 确保基址是0x00000000，避免误捕获其他库的地址
-                ) {
-                uintptr_t addr = static_cast<uintptr_t>(std::stoull(line.substr(0, line.find('-')), nullptr, 16)); 
-                // 内存地址范围              权限   文件偏移    设备   inode   文件路径
-                // 7a12345000-7a23456000    r-xp   00000000   ...          libil2cpp.so
-                LOGI("libil2cpp base = 0x%" PRIxPTR, addr);
-                return addr;
-            }
+        uintptr_t base = 0;
+        // NativeBridge can also map the entire ELF as data. Only the linker's
+        // loaded image has the load bias that can be combined with our RVAs.
+        dl_iterate_phdr([](dl_phdr_info* info, size_t, void* context) {
+            if (!info->dlpi_name) return 0;
+            const char* slash = std::strrchr(info->dlpi_name, '/');
+            const char* name = slash ? slash + 1 : info->dlpi_name;
+            if (std::strcmp(name, "libil2cpp.so") != 0) return 0;
+            *static_cast<uintptr_t*>(context) = info->dlpi_addr;
+            return 1;
+        }, &base);
+        if (base) {
+            LOGI("libil2cpp loaded image base = 0x%" PRIxPTR, base);
+            return base;
         }
         LOGW("libil2cpp.so not found in ATTEMPT %d", i + 1);
         std::this_thread::sleep_for(std::chrono::seconds(1));
