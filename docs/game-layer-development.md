@@ -1,6 +1,6 @@
 # 游戏层开发文档
 
-本文面向维护游戏注入、剧情提取和翻译回写的开发者。整理日期为 2026-09-20，依据当前源码、`runtime.json` 及原有 `offset.md`。HET 服务、任务调度和持久化见 [HET 层开发文档](het-layer-development.md)。安装和使用流程不在本文范围内。
+本文面向维护游戏注入、剧情提取和翻译回写的开发者。本篇已按 2026-11-27 的 LAH 分支更新，依据当前源码、`runtime.json` 和 MuMu 验证记录。HET 服务、任务调度和持久化见 [HET 层开发文档](het-layer-development.md)。安装和使用流程不在本文范围内。
 
 领域术语与行为契约见 [CONTEXT.md](CONTEXT.md)。本文提供代码导航和对象访问说明，不替代它们。
 
@@ -28,7 +28,29 @@
 
 ## 2. 启动与 Hook
 
-`MainHook` 在目标应用 `Application.attach` 后注册进程寿命的在线信号接收器，首次 Activity resume 返回后执行一次 `initializeTarget`。沿既有顺序读取启动配置、绑定 HET、初始化 ShadowHook 并调用 `nativeStart`。HET 每次从后台进入前台时自行启动服务；服务成功接受 START 后向游戏包发送不含配置的在线信号。先开 HET 时，游戏仍走首次尝试，不需要等信号。
+LAH 分支的应用包名为 `com.quarty.liveaheroembedtrans`，目标游戏为 `jp.co.lifewonders.liveahero`。Java 命名空间与业务 JNI 类名沿用 HET，bootstrap 使用该命名空间下的 `RootEntry`。公共接入实现同步自 HET `1fb7786`。LAH 4.17.2 已在 MuMu 完成剧情捕获、固定测试文本回写、恢复与选项回退；本轮新增原文切换尚未进行设备验收，LSP 与 ARM64 真机也未验收。
+
+LSP 由 `XposedEntry` 在目标应用 `Application.attach` 后交接 `MainHook`，注册进程寿命的在线信号接收器，首次 Activity resume 返回后执行一次 `initializeTarget`。沿既有顺序读取启动配置、绑定 HET、初始化 ShadowHook 并调用 `nativeStart`。HET 每次从后台进入前台时自行启动服务；服务成功接受 START 后向游戏包发送不含配置的在线信号。先开 HET 时，游戏仍走首次尝试，不需要等信号。
+
+`UserSettings.InjectionMode` 选择 `lsp` / `root`，旧配置缺失时补为 `lsp`。入口位于主页状态卡片下方，点选后在配置锁内读取最新配置并仅修改该字段；保存失败恢复原选择。设置页不再提供此选项。HET 保存或导入配置时校验取值。游戏首次成功读取设置时选定本进程的入口，Provider 通信失败时等待恢复。`GameEntry` 在游戏进程内记录首选入口和共同运行时的 Class 身份。已有运行时取得初始化权时，两条线路共用该实例。后续在线信号仍由它处理，主页按实际端口显示连接状态。玩家切换设置后可以继续使用已连接的游戏。
+
+选择 Root 时，`TranslationService` 持有的 `RootLauncher` 先独立检查 HET 能否取得 Root 权限。检查只读取有效 UID，游戏和挂载组件都可以缺席。通过后才查询游戏和组件。授权检查结果只在本次服务、当次 Root 模式下复用。挂载失败后的重试沿用已有的检查结果。Root 管理器仍决定每次特权命令能否执行。HET 进入前台的 START 允许一次失败重试，其他 START 只更新设置。配置保存或恢复默认后通知当前服务。主页按实际游戏端口显示连接状态，不单独展示 Root 接入过程；游戏由用户正常启动。
+
+helper 随服务等待目标主进程，以 PID 和 `/proc/<pid>/stat` 的启动时刻识别进程实例；游戏退出后等待新进程。挂载前检查实际 ELF 架构，只在挂载期间持有 ptrace，完成后恢复寄存器并解除附着。helper 启动后的就绪握手使用 `GO <模式切换的开机后毫秒数>`，切换前已启动的游戏等待重启；延迟授权期间已重启的游戏可以接入。游戏内的 `GameEntry` 继续固定已取得的线路和运行时所有权。
+
+HET 前台进入时通过控制管道发送 `RETRY`，仅允许重试尚未进入加载阶段的附着、寄存器或架构失败；加载、引导和解除附着失败要求重启游戏。没有游戏是正常等待状态。控制管道保持打开，服务结束或 HET 进程退出使管道 EOF，helper 完成当前附着的收尾后退出；不设置 EXITKILL。Java 使用单个串行 worker 等待旧 helper 退出，再启动新服务实例的 helper，避免生命周期交接时重叠。
+
+服务重新启动时，helper 先读取游戏中已加载 bootstrap 的状态；已有引导只等待结果，不再次加载或调用 JNI_OnLoad。业务重连仍由原在线信号与游戏端口完成。第三方核心由 CMake FetchContent 查询上游 main 并下载源码归档，缓存不含嵌套 Git 仓库。
+
+模拟器首次加载 bootstrap 时，helper 在保存寄存器后通过 NativeBridge 建立 `het-bootstrap` 隔离命名空间，仅允许 HET 当前安装库目录，并从桥的 `default` 命名空间共享 bootstrap 的 `libc.so`、`libdl.so`、`libm.so`、`liblog.so` 依赖。`root/patches/andkitty-nativebridge-namespace.patch` 为上游配置增加目标进程 namespace 参数；helper 创建后将其交给 injector，避免上游再次选择默认 namespace。临时字符串映射在返回前释放，命名空间由游戏进程持有至退出；重连命中已加载的 bootstrap 时不再创建。创建或关联失败单独报告加载环境错误，当前进程不自动重试。补丁只作用于构建缓存，重复配置检查已应用状态；上游更新导致补丁不匹配时构建直接报错。
+
+helper 装入独立 bootstrap 并交接 JavaVM 和实际安装资源位置。bootstrap 的 JNI_OnLoad 只启动引导线程，立即返回；helper 恢复游戏主线程后，引导线程取得 Application、建立 HET 的 PathClassLoader 及 Native 库搜索路径，再经 `RootEntry` 进入游戏主线程。Root 不等待已经发生过的首次 resume。MainHook、Layout、native 方法和业务 JNI 身份保持原样，Root 路径不装入 Xposed 兼容实现。
+
+helper / bootstrap 随 APK 分发，Native 库使用提取式打包，helper 以可执行的 `libhet_injector.so` 条目安装到 Native 库目录；它是 su 执行的 PIE 文件，不由 System.loadLibrary 加载。helper 所需 C++20 / exceptions 与现有 C++17 业务库分开。游戏输出基目录、Provider / Binder 的游戏 UID、业务 AIDL 以及 Scene / 任务语义不因入口而改变。
+
+`-PhetVariant=arm64-v8a` 构建 ARM64 helper 与 ShadowHook 2.0.0；`-PhetVariant=x86-houdini` 构建 x86_64 helper 与 ShadowHook 1.0.10。两包的 bootstrap 和业务库均为 ARM64，APK 仍使用 ARM64 库目录承载独立 helper，避免改变 ART 的业务库选择。模拟器 helper 由独立 CMake 子构建生成，经 NativeBridge 装入 ARM64 bootstrap；出现已加载的 ARM64 `libil2cpp.so` 前不附着，继续监听游戏和服务控制管道。RootLauncher 在授权后读取 `/proc/self/exe` 的 ELF 架构，包型不符时提示安装对应版本；helper 仍核对目标游戏的实际架构。Root 与 LSP 共用 MainHook 的 ShadowHook 12 / Houdini 版本提示。
+
+ARM64 helper 在远程调用前保存 GPR、FP/SIMD 和内核提供的完整普通 SVE regset，并在解除附着前恢复。当前处于 Streaming SVE / 活跃 ZA 的线程不进入远程调用，返回寄存器状态不支持；这条入口使用普通 AArch64 调用约定。寄存器访问与布局依据 [Linux SVE](https://docs.kernel.org/arch/arm64/sve.html) 和 [SME](https://docs.kernel.org/arch/arm64/sme.html) 的 ptrace 契约。x86_64 helper 保存 GPR 和完整 XSAVE regset；CPU / 系统未启用 XSAVE 时保存 FP/SSE regset。两者均在解除附着前恢复寄存器。helper 忽略 SIGPIPE，HET 的输出管道关闭后仍完成收尾。游戏文件日志只在取得共同运行时所有权后初始化，未选中的入口撤销在线监听。
 
 游戏不调用服务 START，绑定不使用 `BIND_AUTO_CREATE`。Provider 通信失败、绑定被拒绝或连接等待超时时，游戏显示打开 HET 的提示；不通过定时器、再次 resume 或任务提交发起连接重试。普通断连保留已有的被动绑定；绑定失效或返回空 Binder 时解除绑定。在线信号到达后，未开始 Native 初始化的游戏重新读取启动资源；已经开始初始化的游戏只恢复通信。资源更新成功后，HET 通过正在运行的服务再次发送相同信号，供等待资源版本匹配的游戏继续。
 
@@ -38,11 +60,11 @@
 
 `runtime.json` 提供目标游戏版本、函数 RVA 和对象布局。任何由游戏包体构建生成且被 HET 使用的地址、偏移或标识都应按实际目标库配置，即使版本号相同，重新构建后也要重新核验。用户配置提供功能开关。配置解析入口在 `init_config.cpp`，业务读取使用 `g_runtime_config`。
 
-`RuntimeConfigs.ChoiceBack` 提供回退及播放位置跟踪所需的 arm64 GNU build ID、11 个 hook RVA、页首存档调用返回地址和四个实际使用的页状态值。HET 的 `ConfigStore` 在发布资源前校验该对象，游戏 Java 解析为 `ChoiceBackConfig` 后经 JNI 传入 native；初始化线程复制它，再安装 Unity 主线程 pump，进程运行期间不修改这份配置。`Install` 必须先匹配实际已加载库的 build ID，再使用该组地址安装 hook；不匹配时维持不可用状态。这里的身份匹配是目标二进制绑定，不是重复校验配置格式。
+`RuntimeConfigs.ChoiceBack` 提供回退及播放位置跟踪所需的 arm64 GNU build ID、11 个 hook RVA、页首存档调用返回地址和四个实际使用的页状态值。HET 的 `ConfigStore` 在发布资源前校验该对象，游戏 Java 解析为 `ChoiceBackConfig` 后经 JNI 传入 native；初始化线程复制它，再安装 Unity 主线程 pump，进程运行期间不修改这份配置。`InitThread` 在启动 QuestWriter 和其他 hook 前匹配实际已加载库的 build ID；不匹配时终止本次初始化。库基址由 `dl_iterate_phdr` 取得，避免将 NativeBridge 的原始 ELF 文件映射误认成加载镜像。这里的身份匹配是目标二进制绑定，不是重复校验配置格式。
 
-续写和回退共用上述 ELF 身份检查。续写从 `ChoiceBack.ContinuationRVA` 读取十个专用入口，并复用 `RVA_ShowSelection`。旧覆盖配置缺少续写块时，游戏仅从 Build ID 匹配的随包数据补齐该块，保留覆盖配置的其余参数。没有匹配数据时只停用续写，并记录原因。
+续写和回退共用上述 ELF 身份检查。续写从 `ChoiceBack.ContinuationRVA` 读取十个专用入口，并复用 `RVA_ShowSelection`。LAH 要求运行时配置包含该块，不从 Housamo 的旧版配置补齐；分支已移除 `legacy_runtime.json`。
 
-旧 runtime 缺少 `ChoiceBack` 时沿现有无效覆盖配置流程回到随包资源，并由资源更新流程替换为匹配游戏的完整配置；不拼接旧版地址。已有字段不改名或移除。首次接入需要升级 HET；之后仅地址、库身份或状态值变化可以更新 runtime，已初始化的游戏需重启。函数签名、存档复制或加载时序变化仍需修改 native 实现。更新步骤见 [RVA 配置生成](../tools/rva/README.md)。
+旧 runtime 缺少 `ChoiceBack` 时沿现有无效覆盖配置流程回到随包资源；LAH 在线更新停用，需要随包提供或由维护者导入匹配游戏的完整配置；不拼接旧版地址。已有字段不改名或移除。首次接入需要升级 HET；之后仅地址、库身份或状态值变化可以更新 runtime，已初始化的游戏需重启。函数签名、存档复制或加载时序变化仍需修改 native 实现。更新步骤见 [RVA 配置生成](../tools/rva/README.md)。
 
 | Hook / 入口 | 当前用途 |
 | --- | --- |
@@ -67,19 +89,13 @@ Native 在 Unity 线程完成状态变更并复制字符串，经 `MainHook.repo
 
 通知采用回退优先布局，折叠时保留回退和渲染暂停/恢复入口。渲染按钮与主页共用既有 `setCapturePaused` 接口和 `capture_paused` 设置。顶部显示 Scene，正文显示最近 choice；当前 Scene 尚无目标语言译文且已有运行中的翻译任务时，正文显示“正在翻译”，展开后仍显示最近 choice。任务需要用户处理时显示对应提示。剧情退出后 Scene 和 choice 一起清空，后台翻译继续沿既有任务流程运行。
 
-### 2.2 从 Scene 详情打开回想
+### 2.2 回想入口与剧情控件
 
-Scene 根节点可选保存 `quest_label`，紧接 `scene`，内容是完整的 `Master_Quest.label`。普通捕获与 PageRec 都调用 `ReadScenarioQuestLabel`：读取本表的正式 label 声明，表名空块则沿 `Next` 取声明；通过 `AdvScenarioData.DataGrid` 与已导入 chapter 中的 sheet 对象身份确认所属 chapter。战后表只关联主数据中具有战后位的基础入口。不能确定归属或入口有歧义时省略字段并记录原因，不用当前播放 Quest 替代预加载表的身份。
+LAH 的 `ReadScenarioQuestLabel` 当前返回空值，`ProcessOpenStory` 返回不可用。Scene 格式仍保留可选 `quest_label`，但不会沿用 Housamo 的 `Master_Quest` 或 `SceneLoader` 打开剧情。用户在游戏中手动进入剧情；补齐 LAH 的回想入口和结束返回流程后再开放这一功能。
 
-字段只进入本地 Scene，不进入翻译请求。重采集通过生产租约和暂停代次门禁补齐旧文件的缺省字段；补填与译文结果保存共用存储读改写锁，保留其他成员。已有不同值按既有 `overwrite_existing` 设置处理：关闭时保留旧值并记录差异，继续原有翻译和回写；开启时只替换入口元数据并记录。之后的两端差异沿完整文件同步和既有冲突策略处理。正文结构哈希排除 `quest_label`，完整文件同步仍比较它。
+`story_controls.cpp` 统一承接 AUTO 和原文／译文按钮。原文切换在 Unity 线程调用 `SetQuestOriginalText`，复用已保存的原始行和译文快照，并刷新当前正文与选项；失败时尝试恢复此前显示模式。切换状态不改变磁盘 Scene。LAH 保留“不主动关闭游戏原生 AUTO”的适配。
 
-详情概览页底栏通过 `TranslationService.requestOpenStoryFromScene`，沿已有 `IGameChoicePort.requestOpenStory` 发送一个完整入口字符串，结果复用一次性回调。HET 校验发送字符串；游戏在 Unity `ExecuteTasks` 调度点查询当前主数据。候选先保留 `storyFlag & 3` 非零项，没有时使用其余精确匹配项；前后段位不一致返回入口无法确定，一致时按 questId 升序择一。
-
-当前版本仅在已加载玩家数据的 Home 空闲阶段受理，包括其中的回忆列表。使用真实 Quest，停止 BGM、开启回想、重置战后标志后调用游戏 `SceneLoader.NextScene("Adv")`；选项、前后段和结束返回由游戏继续执行。HET 在递交后立即切回已连接的游戏，让 Unity 恢复处理。“已开始加载”只表示切场调用完成，不代表剧情首屏或资源下载完成。
-
-打开与 choice 回退共用一个 native 请求槽。游戏端 `Completion.tryStart` 是执行边界：断连先清除 Java 待处理项，再按同一个 completion 取消尚在槽中的打开请求；Unity 未取得执行权时不改游戏状态。执行边界之后断连返回结果未知，不撤回已经开始的切场。重连不重投请求；新剧情通过现有生命周期建立 choice 历史并发布实际位置。版本门禁沿用 `choice_back` 的 arm64 库身份检查。
-
-规格及验收记录位于 `.scratch/scene-quest-entry-field-20261026/`。构建通过与底栏实际播放验收分别记录。
+按钮目前仍通过 HET 的 `MessageWindow` / `MessageWindow_theater` 路径寻找模板；LAH 的控件和 Echo 窗口适配尚未完成。这部分仅完成公共代码合并和编译，不作为已可用功能宣告。
 
 ## 3. RVA、字段偏移与对象关系
 
@@ -137,7 +153,7 @@ FindScenarioData(entry_label)
 
 | 命令 | 数据路径与用途 |
 | --- | --- |
-| `Text` | `RowData.Strings[TextColumns.Raw]` 取原文；官方译文从当前行所属表的表头按语言名称即时查找列号 |
+| `Text` | `FindStoryTextColumn` 按表头定位 `Text` 原文列；官方译文从当前行所属表的表头按语言名称即时查找列号 |
 | `Character` | `CharacterInfo -> NameText` 取显示说话人，不从素材/立绘列猜名字 |
 | `CharacterOff` | 清空当前说话人；空说话人表示旁白 |
 | `Selection` | RowData 取选项文本，`JumpLabel` 关联后续 label |
@@ -147,46 +163,11 @@ FindScenarioData(entry_label)
 
 说话人随页内命令顺序更新，不能只检查首条命令。`AdvCommandText.IndexPageData` 不是 `CommandList` 下标；调试 Hook 需要比较命令对象与 `self` 找到实际位置。
 
-### 3.4 当前配置快照
+### 3.4 LAH 运行时配置
 
-下表保留 `GameVersion=5.19.0` 时的配置快照；最新数值以 [runtime.json](../app/src/main/assets/runtime.json) 为准。[构建配置](../app/build.gradle.kts) 当前仅包含 `arm64-v8a`。这些表不是本次设备验证结果。`ChoiceBack.BuildId` 只绑定该组件使用的目标库，不能仅凭版本字符串确认其他 RVA 或 Layout 适用于另一个二进制或 ABI。
+当前目标为 LAH 4.17.2（975），游戏业务库 ABI 为 arm64-v8a，Build ID 为 `0d28b22d6b945fb52304c9ad82a8b1fc300de140`。RVA 与 Layout 以 [runtime.json](../app/src/main/assets/runtime.json) 为唯一数值来源，不在本页继续复制 Housamo 的旧地址表。
 
-| RVA 配置项 | 值 |
-| --- | --- |
-| `RVA_FindScenarioData` | `0x2191D7C` |
-| `RVA_InitBase` | `0x217E574` |
-| `RVA_InitText` | `0x2187428` |
-| `RVA_PageTextChange` | `0x21CB71C` |
-| `RVA_AddSelection` | `0x21CE054` |
-| `RVA_ShowSelection` | `0x21CE47C` |
-| `RVA_RemakeText` | `0x21C85A4` |
-| `RVA_UguiSelectionInit` | `0x21E703C` |
-| `RVA_UguiSelectionClearAll` | `0x21E7484` |
-| `RVA_UiTextSetText` | `0x47D1B60` |
-
-除特别说明外，字段值均为对象内字节偏移。`TextColumns` 与 `ConditionColumn` 是列号；`PointerSize` 和 `DictionaryEntry.Size` 是步长。`AdvCommandCharacter.NameText` 相对于 CharacterInfo 对象。
-
-| Layout 分组 | 字段和值 |
-| --- | --- |
-| `Il2CppString` | `Length=0x10`；`Chars=0x14` |
-| `Il2CppArray` | `Length=0x18`；`FirstElement=0x20`；`PointerSize=8` |
-| `Il2CppList` | `Items=0x10`；`Size=0x18` |
-| `AdvPage` | `CurrentData=0x88`；`Engine=0xD0` |
-| `AdvEngine` | `SelectionManager=0x48` |
-| `AdvSelectionManager` | `Selections=0x28`；`IsShowing=0x38` |
-| `AdvSelection` | `Text=0x18`；`RowData=0x58` |
-| `AdvUguiSelection` | `Text=0x20`；`Data=0x28` |
-| `AdvScenarioPageData` | `CommandList=0x10`；`TextDataList=0x18`；`ScenarioLabelData=0x20`；`PageNo=0x38`；`MessageWindowName=0x40` |
-| `ScenarioLabelData` | `PageDataList=0x10`；`ScenarioLabel=0x18`；`Next=0x20`；`CommandList=0x28`；`ScenarioLabelCommand=0x30` |
-| `AdvScenarioData` | `Name=0x10`；`JumpDataList=0x28`；`ScenarioLabels=0x30` |
-| `Il2CppDictionary` | `Entries=0x18`；`Count=0x20` |
-| `DictionaryEntry` | `HashCode=0x00`；`Key=0x08`；`Value=0x10`；`Size=0x18` |
-| `AdvCommand` | `RowData=0x10`；`Type=0x20` |
-| `StringGridRow` | `RowIndex=0x18`；`Strings=0x20` |
-| `AdvCommandCharacter` | `CharacterInfo=0x38`；`NameText=0x18` |
-| `AdvCommandSelection` | `JumpLabel=0x38` |
-| `AdvCommandJump` | `JumpLabel=0x38`；`ExpressionParser=0x40`；`ConditionColumn=2` |
-| `TextColumns` | 仅保留 `Raw=8`，用于原文提取和回写；官方语言列按当前表头名称即时查找 |
+`AdvEngine.SelectionManager` 在本包体中为 `0x40`。文本与语言列从每条命令所属表的表头查找，不能用 Housamo 固定列号代替；`TextColumns.Raw` 只是优先尝试的位置，仍须匹配 `Text` 名称。库身份、版本号、字段布局与函数签名需要一起核对。
 
 ## 4. 从捕获到翻译请求
 
@@ -205,11 +186,11 @@ FindScenarioData 返回
                   -> TranslationDispatcher -> 游戏 Java -> HET
 ```
 
-解析先区分成功、官方译文跳过与失败，再提交回写目标集。按现有规则，只要任意被解析文本命中目标语言官方译文，就跳过该剧情。`CatchScenario` 还维护当前进程的 `caught_scenarios` 捕获记录；磁盘状态分流不意味着完全没有内存去重。
+解析先区分成功、官方译文跳过与失败，再提交回写目标集。每条非空 Text／Selection 来源只统计同一行的目标语言文本，所有页解析成功后汇总。来源条数大于零且全部有对应官译时才跳过；部分覆盖继续捕获，额外译文行不能补足缺译。`CatchScenario` 还维护当前进程的 `caught_scenarios` 捕获记录；磁盘状态分流不意味着完全没有内存去重。
 
 官方译文的列号从当前命令的 `RowData -> grid -> rows[headerRow].strings` 即读即取：`en` 对应 `English`，`zh-tw` 对应 `ChineseTraditional`，`zh-cn` 对应 `ChineseSimplified`。不缓存表头或列号，也不保留额外的游戏对象指针；缺列或该行单元格为空时，不因官方译文排除 Scene。表头不可读取时走解析失败，不能将读取失败当作语言缺失。Text 与 Selection 均遵守此规则。PageRec 复用相同的即时列名读取，保持简中、繁中、日文的逐条回退顺序。
 
-PageRec 解析时同时记录是否存在目标语言官方译文，但仍完成整份导出。开启 PageRec 且未开启“仅解析诊断”时，只要任一 Text 或 Selection 命中目标语言官方译文，就在正常 Scene 保存与任务入口前跳过；已有待翻译 Scene 也不补投。这个标记仅在本次解析和提交间传递，不写入 Scene JSON，也不将官方正文伪装成 HET 已完成译文。此前已生成的任务不自动取消。
+PageRec 完成整份导出，同时按其本地化来源统计完整官译覆盖，包含续写还原的原始行。开启 PageRec 且未开启“仅解析诊断”时，只有完整覆盖才跳过翻译任务；部分覆盖沿正常任务链处理。这个标记仅在本次解析和提交间传递，不写入 Scene JSON，也不将官方正文伪装成 HET 已完成译文。此前已生成的任务不自动取消。
 
 普通捕获和 PageRec（含纯导出）共用 `CatchTextLabel`，将完整富文本标签保存为 `protect[].origin`，正文使用对应占位符。`UserSettings.EnableRubyTranslation` 默认关闭；开启后，`<ruby=…>`、`<ruby>` 与 `</ruby>` 原样留在正文，不写入 `protect`，其注释文本可交给模型翻译；Ruby 包裹的正文在两种模式下都正常翻译。`<em=・>`、`<size=…>`、`<param=…>` 等其他标签仍完整保护。配置在游戏启动时传入 Native，修改后需重启游戏，仅影响新捕获内容；已有 Scene、任务及译文不自动改写，旧任务重跑仍沿用原映射。
 
@@ -266,7 +247,7 @@ Binder/JNI 收到 patch 后只提交回写事件。当前生产实现通过 `il2
 ```text
 QuestWriteBlock（Scene、目标语言、OrderKey 与替换文本）
   -> 查 QuestTargetSet
-  -> 定位 page -> CommandList[cmd_index] -> RowData.Strings[Raw]
+  -> 定位 page -> CommandList[cmd_index] -> RowData.Strings[按表头定位的 Text 列]
   -> il2cpp_string_new 创建托管字符串
   -> GC write barrier 替换 raw 引用
   -> 如果影响当前 Text 页：RemakeText
