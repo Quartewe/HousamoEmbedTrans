@@ -131,7 +131,7 @@ std::shared_ptr<LiveScenario> FindLive(void* scenario) {
     return it->second;
 }
 std::shared_ptr<LiveScenario> GetLive(void* scenario) {
-    if (!installed || !scenario) return {};
+    if (!scenario || !api.Init() || !api.gchandle_new_weakref) return {};
     std::lock_guard<std::mutex> lock(sourcesMutex);
     if (auto live = FindLive(scenario)) return live;
     for (auto it = sources.begin(); it != sources.end();) {
@@ -907,6 +907,43 @@ bool ContinuationOriginalRows::Restore(void* column_array, std::string& text) co
     if (it == rows_.end()) return false;
     text = it->second;
     return true;
+}
+void ContinuationOriginalRows::RememberDisplay(const QuestWriteBlock& block, const QuestTargetSet& targets) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    display_targets_ = targets;
+    display_scene_ = block.scene_name;
+    display_language_ = block.target_lang;
+    for (auto it = display_texts_.begin(); it != display_texts_.end();) {
+        if (!targets.target_map.count(it->first)) it = display_texts_.erase(it);
+        else ++it;
+    }
+    for (const auto& item : block.items) display_texts_[item.order] = item.replacement_text;
+}
+bool ContinuationOriginalRows::DisplaySnapshot(QuestWriteBlock& block, QuestTargetSet& targets) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (display_texts_.empty()) return false;
+    targets = display_targets_;
+    block.scene_name = display_scene_;
+    block.target_lang = display_language_;
+    for (const auto& item : display_texts_) block.items.push_back({item.first, item.second});
+    return true;
+}
+std::vector<QuestDisplayRows> GetQuestDisplayRows() {
+    using namespace het::continuation;
+    std::vector<QuestDisplayRows> result;
+    std::lock_guard<std::mutex> lock(sourcesMutex);
+    for (auto it = sources.begin(); it != sources.end();) {
+        void* scenario = api.gchandle_get_target(it->second->weak);
+        if (!scenario) {
+            it = sources.erase(it);
+            continue;
+        }
+        het::utage::Root pin(scenario);
+        if (pin.Get()) result.push_back({std::move(pin),
+            std::shared_ptr<ContinuationOriginalRows>(it->second, &it->second->originals)});
+        ++it;
+    }
+    return result;
 }
 std::shared_ptr<ContinuationOriginalRows> GetContinuationOriginalRows(void* scenario) {
     auto live = het::continuation::GetLive(scenario);

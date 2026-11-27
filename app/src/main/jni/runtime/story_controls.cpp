@@ -1,8 +1,9 @@
-#include "runtime/story_auto.hpp"
+#include "runtime/story_controls.hpp"
+#include "runtime/story_text.hpp"
 #include "runtime/utage_runtime.hpp"
 #include <chrono>
 
-namespace het::story_auto {
+namespace het::story_controls {
 namespace {
 using namespace het::utage;
 using Clock = std::chrono::steady_clock;
@@ -10,12 +11,15 @@ struct Vec2 { float x, y; };
 struct Color { float r, g, b, a; };
 struct Control {
     const char* path;
+    bool textMode = false;
     Root object{}, toggle{}, label{};
     Color normal{};
 };
 Control windows[] = {
-    {"UI/MessageWindowManager/MessageWindow/RootChildren"},
-    {"UI/MessageWindowManager/MessageWindow_theater/RootChildren"}
+    {"UI/MessageWindowManager/MessageWindow/RootChildren", false},
+    {"UI/MessageWindowManager/MessageWindow_theater/RootChildren", false},
+    {"UI/MessageWindowManager/MessageWindow/RootChildren", true},
+    {"UI/MessageWindowManager/MessageWindow_theater/RootChildren", true}
 };
 Root config, ui, selection;
 bool requested = false;
@@ -85,8 +89,13 @@ template<class T> bool ReadValue(void* owner, const char* getter, T& out) {
 
 void ShowState(Control& control) {
     if (!control.toggle.Get()) return;
-    SetBool(control.toggle.Get(), "set_isOn", requested);
-    Color color = requested ? Color{1.0f, 0.83f, 0.32f, control.normal.a} : control.normal;
+    bool selected = control.textMode ? IsQuestOriginalText() : requested;
+    SetBool(control.toggle.Get(), "set_isOn", selected);
+    if (control.textMode) {
+        void* title[] = {api.string_new(selected ? "原文" : "译文")};
+        api.Call(control.label.Get(), "set_text", 1, title);
+    }
+    Color color = selected ? Color{1.0f, 0.83f, 0.32f, control.normal.a} : control.normal;
     void* args[] = {&color};
     api.Call(control.label.Get(), "set_color", 1, args);
 }
@@ -120,10 +129,11 @@ bool Bind(Control& control, void* engineTransform) {
     void* toggle = nullptr;
     void* addArgs[] = {toggleType};
     void* graphicArgs[] = {image};
-    void* titleArgs[] = {api.string_new("AUTO")};
-    void* nameArgs[] = {api.string_new("HetAutoButton")};
+    void* titleArgs[] = {api.string_new(control.textMode ? "译文" : "AUTO")};
+    void* nameArgs[] = {api.string_new(control.textMode ? "HetTextModeButton" : "HetAutoButton")};
     const float gap = (closePos.x - closeSize.x / 2) - (pos.x + size.x / 2);
-    pos.x -= size.x + gap;
+    int slot = control.textMode && g_runtime_config.show_story_auto_button ? 2 : 1;
+    pos.x -= slot * (size.x + gap);
     void* positionArgs[] = {&pos};
     if (Named(clone.Get(), "GetComponent", "Button") ||
         !api.Call(clone.Get(), "AddComponent", 1, addArgs, &toggle) || !toggle
@@ -144,7 +154,7 @@ bool Bind(Control& control, void* engineTransform) {
 } // namespace
 
 void Update(void* engine, bool restoring) {
-    if (!engine || !g_runtime_config.show_story_auto_button) return;
+    if (!engine) return;
     if (!bound && Clock::now() >= nextBind) {
         nextBind = Clock::now() + std::chrono::seconds(1);
         if (!config.Get()) {
@@ -156,15 +166,23 @@ void Update(void* engine, bool restoring) {
         void* transform = api.Get(engine, "get_transform");
         bound = true;
         for (auto& control : windows) {
+            if (!control.textMode && !g_runtime_config.show_story_auto_button) continue;
             if (!control.object.Get() && !Bind(control, transform)) bound = false;
         }
-        if (bound) LOGI("[StoryAuto] dialogue controls ready");
+        if (bound) LOGI("[StoryControls] dialogue controls ready");
     }
 
     for (auto& control : windows) {
         if (!control.toggle.Get()) continue;
-        bool on = api.Bool(control.toggle.Get(), "get_isOn", requested);
-        if (on != requested) {
+        if (control.textMode) SetBool(control.toggle.Get(), "set_interactable", !restoring);
+        bool selected = control.textMode ? IsQuestOriginalText() : requested;
+        bool on = api.Bool(control.toggle.Get(), "get_isOn", selected);
+        if (on != selected) {
+            if (control.textMode) {
+                if (!restoring) SetQuestOriginalText(on);
+                for (auto& window : windows) ShowState(window);
+                break;
+            }
             requested = on;
             if (!on) SetBool(config.Get(), "set_IsAutoBrPage", false);
             if (on) {
@@ -180,11 +198,12 @@ void Update(void* engine, bool restoring) {
     if (!requested) return;
     bool play = !restoring && api.Int(ui.Get(), "get_Status") == 0
         && !api.Bool(selection.Get(), "get_IsShowing", true);
-    if (config.Get() && play != api.Bool(config.Get(), "get_IsAutoBrPage"))
+    if (g_runtime_config.show_story_auto_button && config.Get() && play != api.Bool(config.Get(), "get_IsAutoBrPage"))
         SetBool(config.Get(), "set_IsAutoBrPage", play);
 }
 
 void EndSession() {
+    SetQuestOriginalText(false, false);
     if (requested && config.Get()) SetBool(config.Get(), "set_IsAutoBrPage", false);
     for (auto& control : windows) {
         if (control.object.Get()) {
@@ -201,4 +220,4 @@ void EndSession() {
     requested = bound = false;
     nextBind = {};
 }
-} // namespace het::story_auto
+} // namespace het::story_controls
