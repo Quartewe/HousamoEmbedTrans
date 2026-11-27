@@ -50,6 +50,32 @@
             android:layout_marginTop="5dp" />
     </LinearLayout>
 
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/toggle_management_import_source"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="14dp"
+        app:singleSelection="true"
+        app:selectionRequired="true"
+        app:checkedButton="@id/btn_management_import_local">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_management_import_local"
+            style="@style/Widget.HET.ManagementImport.Button.Tonal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/community_source_local" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_management_import_community"
+            style="@style/Widget.HET.ManagementImport.Button.Tonal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/community_source_remote" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
     <com.quarty.housamoembedtrans.ui.DraggableScrollbarNestedScrollView
         style="@style/Widget.HET.ScrollView"
         android:id="@+id/scroll_management_import_files"
