@@ -15,6 +15,6 @@ void ExportPageRecScenarios(
 // task admission skips the Scene. Outputs are valid only when parsing succeeds.
 bool ParsePageRecScene(void* scenario_data, void* data_manager, const std::string& entry_label,
                       Scene* scene, std::vector<std::string>* labels,
-                      bool* has_target_official_translation,
+                      bool* has_complete_target_official_translation,
                       QuestTargetSet* target_set);
 Scene BuildSceneDocument(ScenarioParseResult result);
