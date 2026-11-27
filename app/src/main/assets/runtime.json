@@ -1,5 +1,5 @@
 {
-    "GameVersion": "5.21.2",
+    "GameVersion": "5.21.3",
     "RuntimeConfigs": {
         "RVA": {
             "RVA_FindScenarioData": "0x2430228",
@@ -14,7 +14,7 @@
             "RVA_UiTextSetText": "0x4E06900"
         },
         "ChoiceBack": {
-            "BuildId": "ce3ed966f1d88f98fa7e4d569e9613a3a8dbc58c",
+            "BuildId": "e1197d6b9c5cab451634f18f352af84cf27deaca",
             "RVA": {
                 "BeginPage": "0x2465D64",
                 "SavePage": "0x2470934",
