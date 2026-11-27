@@ -28,6 +28,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import org.json.JSONObject;
 
@@ -80,6 +81,9 @@ public final class HomeActivity extends AppCompatActivity {
     private TextView resourceVersionView;
     private TextView gameVersionView;
     private TextView targetLanguageView;
+    private MaterialButtonToggleGroup injectionModeControl;
+    private String injectionMode;
+    private boolean injectionModeBusy;
 
     private SceneSyncRuntimeState.Snapshot runtimeSnapshot;
     private ExecutorService ioExecutor;
@@ -118,6 +122,7 @@ public final class HomeActivity extends AppCompatActivity {
         SystemBarInsets.apply(findViewById(R.id.root_home));
         bindViews();
         installCardActions();
+        renderInjectionMode();
 
         currentAppVersion = installedVersionOf(getPackageName());
         runtimeSnapshot = runtimeState.getSnapshot();
@@ -128,6 +133,8 @@ public final class HomeActivity extends AppCompatActivity {
         );
 
         if (stylePreview) {
+            injectionMode = "lsp";
+            renderInjectionMode();
             installPreviewNavigation();
             loadStylePreview();
         } else {
@@ -203,9 +210,15 @@ public final class HomeActivity extends AppCompatActivity {
         resourceVersionView = findViewById(R.id.tv_home_resource_version);
         gameVersionView = findViewById(R.id.tv_home_game_version);
         targetLanguageView = findViewById(R.id.tv_home_target_language);
+        injectionModeControl = findViewById(R.id.home_injection_mode);
     }
 
     private void installCardActions() {
+        // MaterialButton completes the group's selection update before its click listener runs.
+        findViewById(R.id.btn_home_mode_lsp).setOnClickListener(
+            view -> onInjectionModeSelected("lsp"));
+        findViewById(R.id.btn_home_mode_root).setOnClickListener(
+            view -> onInjectionModeSelected("root"));
         findViewById(R.id.card_home_game_update).setOnClickListener(view -> {
             if (!stylePreview) startActivity(new Intent(this, GameUpdateActivity.class));
         });
@@ -538,6 +551,66 @@ public final class HomeActivity extends AppCompatActivity {
         }
     }
 
+    private void renderInjectionMode() {
+        // MaterialButton 1.10 ignores checked-state updates while disabled.
+        for (int i = 0; i < injectionModeControl.getChildCount(); i++) {
+            injectionModeControl.getChildAt(i).setEnabled(true);
+        }
+        if (!injectionModeBusy) {
+            if (injectionMode == null) injectionModeControl.clearChecked();
+            else injectionModeControl.check("root".equals(injectionMode)
+                ? R.id.btn_home_mode_root : R.id.btn_home_mode_lsp);
+        }
+        boolean enabled = !stylePreview && injectionMode != null && !injectionModeBusy;
+        for (int i = 0; i < injectionModeControl.getChildCount(); i++) {
+            injectionModeControl.getChildAt(i).setEnabled(enabled);
+        }
+    }
+
+    private void onInjectionModeSelected(String mode) {
+        if (stylePreview || ioExecutor == null || injectionMode == null
+            || injectionModeBusy || mode.equals(injectionMode)) return;
+        final long generation = workGeneration;
+        injectionModeBusy = true;
+        renderInjectionMode();
+        try {
+            ioExecutor.execute(() -> {
+                boolean saved = false;
+                boolean changed = false;
+                try {
+                    changed = ConfigStore.withConfigAccess(() -> {
+                        ConfigStore store = new ConfigStore(getApplicationContext());
+                        JSONObject config = store.load().config;
+                        JSONObject settings = config.getJSONObject("UserSettings");
+                        if (mode.equals(settings.getString("InjectionMode"))) return false;
+                        settings.put("InjectionMode", mode);
+                        store.save(config);
+                        return true;
+                    });
+                    saved = true;
+                } catch (Exception failure) {
+                    Log.w(TAG, "Could not save injection mode", failure);
+                }
+                final boolean success = saved;
+                final boolean modeChanged = changed;
+                runOnUiThread(() -> {
+                    if (generation != workGeneration || isFinishing() || isDestroyed()) return;
+                    injectionModeBusy = false;
+                    if (success) injectionMode = mode;
+                    renderInjectionMode();
+                    if (!success || modeChanged) Toast.makeText(this,
+                        success ? R.string.settings_injection_mode_changed
+                            : R.string.home_injection_mode_save_failed,
+                        Toast.LENGTH_SHORT).show();
+                });
+            });
+        } catch (RuntimeException failure) {
+            injectionModeBusy = false;
+            renderInjectionMode();
+            Toast.makeText(this, R.string.home_injection_mode_save_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void loadMetadataAsync() {
         if (ioExecutor == null || stylePreview) {
             return;
@@ -545,12 +618,15 @@ public final class HomeActivity extends AppCompatActivity {
         final long generation = workGeneration;
         ioExecutor.execute(() -> {
             HomeMetadata metadata;
+            String loadedInjectionMode = null;
             try {
                 ConfigStore store = new ConfigStore(getApplicationContext());
                 ConfigStore.LoadResult config = store.load();
                 JSONObject userSettings = config.config.optJSONObject(
                     "UserSettings"
                 );
+                loadedInjectionMode = config.config.getJSONObject("UserSettings")
+                    .getString("InjectionMode");
                 metadata = new HomeMetadata(
                     installedVersionOf("jp.co.lifewonders.housamo"),
                     store.loadJson(ConfigStore.RUNTIME_FILE_NAME).json
@@ -564,6 +640,7 @@ public final class HomeActivity extends AppCompatActivity {
                 metadata = new HomeMetadata("", "", "");
             }
             HomeMetadata loaded = metadata;
+            final String loadedMode = loadedInjectionMode;
             runOnUiThread(() -> {
                 if (generation != workGeneration || isFinishing() || isDestroyed()) {
                     return;
@@ -571,6 +648,10 @@ public final class HomeActivity extends AppCompatActivity {
                 gameVersion = loaded.gameVersion;
                 resourceVersion = loaded.resourceVersion;
                 targetLanguage = loaded.targetLanguage;
+                if (!injectionModeBusy) {
+                    injectionMode = loadedMode;
+                    renderInjectionMode();
+                }
                 renderMetadata();
             });
         });

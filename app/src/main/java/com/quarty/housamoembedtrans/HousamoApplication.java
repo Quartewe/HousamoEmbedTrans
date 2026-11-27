@@ -37,6 +37,7 @@ public final class HousamoApplication extends Application {
     /** Runs only when a HET Activity enters the foreground, never on Provider creation. */
     private void startTranslationService() {
         Intent intent = new Intent(HetBridgeContract.ACTION_START_TRANSLATION_SERVICE)
+            .putExtra(TranslationService.EXTRA_ROOT_FOREGROUND_ENTRY, true)
             .setComponent(new ComponentName(
                 this, TranslationService.class));
         try {

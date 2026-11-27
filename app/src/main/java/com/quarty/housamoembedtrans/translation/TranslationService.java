@@ -27,6 +27,7 @@ import com.quarty.housamoembedtrans.runtime.SceneSyncRuntimeState;
 import com.quarty.housamoembedtrans.runtime.TranslationStatusNotification;
 import com.quarty.housamoembedtrans.runtime.RuntimeControlStore;
 import com.quarty.housamoembedtrans.storage.config.ConfigStore;
+import com.quarty.housamoembedtrans.runtime.RootLauncher;
 import com.quarty.housamoembedtrans.scene.store.ConflictStore;
 import com.quarty.housamoembedtrans.context.model.HistoryMapping;
 import com.quarty.housamoembedtrans.scene.store.PendingSceneApplyStore;
@@ -89,6 +90,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class TranslationService extends Service {
     private static final String TAG = "HET.TranslationService";
     public static final String EXTRA_TASK_PRODUCTION_CONTROL = "task_production_control";
+    public static final String EXTRA_ROOT_FOREGROUND_ENTRY = "root_foreground_entry";
+    private RootLauncher rootLauncher;
 
     private static long newScenePortGeneration() {
         long token = UUID.randomUUID().getLeastSignificantBits()
@@ -1811,6 +1814,9 @@ public final class TranslationService extends Service {
                 + Process.myUid()
         );
         announceOnline();
+        if (rootLauncher == null) rootLauncher = new RootLauncher(this);
+        rootLauncher.refresh(intent != null
+            && intent.getBooleanExtra(EXTRA_ROOT_FOREGROUND_ENTRY, false));
         return START_STICKY;
     }
 
@@ -1841,6 +1847,7 @@ public final class TranslationService extends Service {
 
     @Override
     public void onDestroy() {
+        if (rootLauncher != null) rootLauncher.close();
         if (notificationChoiceBackOwner == this) notificationChoiceBackOwner = null;
         gameChoiceRequests.close();
         // Publish the non-accepting state before shutting down either API

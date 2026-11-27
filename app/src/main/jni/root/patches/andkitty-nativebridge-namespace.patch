@@ -1,0 +1,49 @@
+--- a/AndKittyInjector/src/Injector/KittyInjector.hpp
++++ b/AndKittyInjector/src/Injector/KittyInjector.hpp
+@@ -68,6 +68,7 @@
+     bool watch, launch, seize, bp, memfd, free, hide;
+     std::vector<std::string> bp_args;
+     std::string package, memfd_name;
++    uintptr_t nativeBridgeNamespace = 0; // Optional namespace in the target process.
+     std::function<void(inject_elf_info_t &injected)> beforeEntryPoint, afterEntryPoint;
+ 
+     inject_elf_config_t()
+--- a/AndKittyInjector/src/Injector/KittyInjector.cpp
++++ b/AndKittyInjector/src/Injector/KittyInjector.cpp
+@@ -989,6 +989,12 @@
+         return {};
+     }
+ 
++    if (_cfg.nativeBridgeNamespace && nbData.version < KT_NB_NAMESPACE_VERSION)
++    {
++        KITTY_LOGE("KittyInjector::emuInject: Explicit namespace requires NativeBridge v3+.");
++        return {};
++    }
++
+     // returns dl handle on success
+     auto emu_dlopen = [&](const std::string &path) -> kitty_rp_call_t {
+         if (nbData.version < KT_NB_NAMESPACE_VERSION)
+@@ -1001,11 +1007,11 @@
+             return _kMgr->trace.callFunction((uintptr_t)nbData.loadLibrary, _rbuffer, _cfg.rtdl_flags);
+         }
+ 
+-        uintptr_t ns = 0x1;
+-        std::string ns_name = "default";
++        uintptr_t ns = _cfg.nativeBridgeNamespace ? _cfg.nativeBridgeNamespace : 0x1;
++        std::string ns_name = _cfg.nativeBridgeNamespace ? "caller" : "default";
+         std::string ns_names[] = {"default", "classloader-namespace", "classloader-namespace-shared"};
+ 
+-        if (nbData.getExportedNamespace)
++        if (!_cfg.nativeBridgeNamespace && nbData.getExportedNamespace)
+         {
+             for (auto &nm : ns_names)
+             {
+@@ -1030,7 +1036,7 @@
+                 }
+             }
+         }
+-        else if (nbData.getVendorNamespace)
++        else if (!_cfg.nativeBridgeNamespace && nbData.getVendorNamespace)
+         {
+             auto cls_ns = _kMgr->trace.callFunction((uintptr_t)nbData.getVendorNamespace);
+             if (cls_ns.status != KT_RP_CALL_SUCCESS)

@@ -57,6 +57,7 @@
     <string name="settings_category_diagnostics_scope">自动播放和仅解析设置在重启游戏后生效。请求诊断开关对后续请求生效。</string>
     <string name="settings_category_save">保存设置</string>
     <string name="settings_category_saved">设置已保存。</string>
+    <string name="settings_injection_mode_changed">接入方式已切换，重新启动游戏后生效。</string>
     <string name="settings_category_memory_hint">设置保存在本地，从下一次符合条件的流程生效。</string>
     <string name="settings_category_unsaved_title">放弃未保存的设置？</string>
     <string name="settings_category_unsaved_message">返回会丢失此分类中未保存的修改。</string>

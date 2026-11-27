@@ -880,6 +880,13 @@ public final class ConfigStore {
         } catch (Exception e) {
             throw new IOException("could not serialize " + name, e);
         }
+        if (CONFIG_FILE_NAME.equals(name)) {
+            JSONObject settings = json.optJSONObject("UserSettings");
+            if (settings != null) {
+                com.quarty.housamoembedtrans.runtime.RootLauncher.configurationChanged(
+                    settings.optString("InjectionMode", "lsp"));
+            }
+        }
     }
 
     public void deleteUserFile(String name) throws IOException {
@@ -904,6 +911,7 @@ public final class ConfigStore {
             );
             if (CONFIG_FILE_NAME.equals(name)) {
                 context.getContentResolver().notifyChange(StoryContinuationSettings.configUri(), null);
+                com.quarty.housamoembedtrans.runtime.RootLauncher.configurationChanged("lsp");
             }
         }
     }
@@ -1019,6 +1027,10 @@ public final class ConfigStore {
         requireNonEmptyString(config, "Version", "config");
 
         JSONObject userSettings = config.getJSONObject("UserSettings");
+        Object injectionMode = userSettings.get("InjectionMode");
+        if (!"lsp".equals(injectionMode) && !"root".equals(injectionMode)) {
+            throw new IllegalArgumentException("UserSettings.InjectionMode must be lsp or root");
+        }
         StartupSettings.isRubyTranslationEnabled(userSettings);
         StoryContinuationSettings.read(config);
         userSettings.getBoolean("EnablePageRecDebug");
@@ -1207,6 +1219,7 @@ public final class ConfigStore {
         JSONObject userSettings = new JSONObject(
             config.getJSONObject("UserSettings").toString()
         );
+        if (!userSettings.has("InjectionMode")) userSettings.put("InjectionMode", "lsp");
         JSONObject translationApi = userSettings.optJSONObject(
             "TranslationApi"
         );
@@ -1549,6 +1562,7 @@ public final class ConfigStore {
             ? null
             : userSettings.optJSONObject("ContextHistory");
         return translationApi != null
+            && userSettings.has("InjectionMode")
             && !"1.0".equals(config.optString("Version").trim())
             && !userSettings.has("EnablePageRecTasks")
             && userSettings.has("DebugOmitThinkingParameters")
