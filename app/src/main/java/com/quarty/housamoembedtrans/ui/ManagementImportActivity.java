@@ -28,7 +28,9 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.checkbox.MaterialCheckBox;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -93,6 +95,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
         String error;
         ManagementImportModel.Document document;
         boolean selected;
+        CommunityLibrary.Asset communityAsset;
 
         FileRow(String token, Uri uri, String name) {
             this.token = token;
@@ -158,6 +161,13 @@ public final class ManagementImportActivity extends AppCompatActivity {
     private boolean destroyed;
     private TranslationJobControlClient managementClient;
     private JsonSchemaValidator sceneSchemaValidator;
+    private MaterialButtonToggleGroup sourceTabs;
+    private CommunityLibrary communityLibrary;
+    private List<CommunityLibrary.Group> communityGroups;
+    private final Map<String, Set<String>> communityChoices = new LinkedHashMap<>();
+    private final Set<String> expandedCommunity = new LinkedHashSet<>();
+    private boolean communitySource, communityPreparing, communityLoading;
+    private String communityError;
 
     /** Loads the real snapshot through the Service Binder pipe. */
     public static Intent newIntent(Activity caller, boolean autoCancelTasks) {
@@ -206,7 +216,19 @@ public final class ManagementImportActivity extends AppCompatActivity {
             new ActivityResultContracts.OpenMultipleDocuments(),
             this::appendDocuments
         );
-        addButton.setOnClickListener(view -> launchPicker());
+        addButton.setOnClickListener(view -> {
+            if (!communitySource) launchPicker();
+            else if (communityPreparing) { communityPreparing = false; renderFiles(); }
+            else loadCommunity();
+        });
+        sourceTabs.addOnButtonCheckedListener((group, id, checked) -> {
+            if (!checked || stylePreview || busy || communityLoading || phase != Phase.FILES) return;
+            communitySource = id == R.id.btn_management_import_community;
+            removeMode = false;
+            selectedForRemoval.clear();
+            if (communitySource && communityGroups == null) loadCommunity();
+            else renderFiles();
+        });
         removeModeButton.setOnClickListener(view -> {
             if (busy || rows.isEmpty()) return;
             if (removeMode) {
@@ -222,7 +244,10 @@ public final class ManagementImportActivity extends AppCompatActivity {
             selectedForRemoval.clear();
             renderFiles();
         });
-        confirmFilesButton.setOnClickListener(view -> confirmFiles());
+        confirmFilesButton.setOnClickListener(view -> {
+            if (communitySource && !communityPreparing) downloadCommunity();
+            else confirmFiles();
+        });
         generatePreviewButton.setOnClickListener(view -> generatePreview());
         applyButton.setOnClickListener(view -> confirmApply());
         getOnBackPressedDispatcher().addCallback(
@@ -320,6 +345,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void bindViews() {
+        sourceTabs = findViewById(R.id.toggle_management_import_source);
         toolbar = findViewById(R.id.toolbar_management_import);
         toolbar.setNavigationOnClickListener(view ->
             getOnBackPressedDispatcher().onBackPressed()
@@ -514,6 +540,205 @@ public final class ManagementImportActivity extends AppCompatActivity {
         managementClient.bind();
     }
 
+    private void loadCommunity() {
+        if (stylePreview || busy || communityLoading || phase != Phase.FILES) return;
+        if (communityLibrary == null) communityLibrary = new CommunityLibrary(getCacheDir(), sceneSchemaValidator);
+        communityLoading = true;
+        communityError = null;
+        final long generation = sessionGeneration;
+        renderFiles();
+        ioExecutor.execute(() -> {
+            try {
+                List<CommunityLibrary.Group> loaded = communityLibrary.load();
+                postUiIfAlive(() -> {
+                    if (generation != sessionGeneration) return;
+                    communityGroups = loaded;
+                    communityLoading = false;
+                    for (CommunityLibrary.Group group : loaded) {
+                        Set<String> selected = communityChoices.computeIfAbsent(group.key, key -> new LinkedHashSet<>());
+                        Set<String> available = new LinkedHashSet<>();
+                        for (CommunityLibrary.Asset scene : group.scenes) available.add(scene.path);
+                        selected.retainAll(available);
+                    }
+                    if (phase == Phase.FILES) renderFiles();
+                });
+            } catch (Exception error) {
+                postUiIfAlive(() -> {
+                    if (generation != sessionGeneration) return;
+                    communityLoading = false;
+                    communityError = safeMessage(error);
+                    if (phase == Phase.FILES) renderFiles();
+                });
+            }
+        });
+    }
+
+    private Map<String, CommunityLibrary.Asset> selectedCommunityScenes() {
+        Map<String, CommunityLibrary.Asset> result = new LinkedHashMap<>();
+        if (communityGroups != null) for (CommunityLibrary.Group group : communityGroups) {
+            Set<String> selected = communityChoices.get(group.key);
+            if (selected == null) continue;
+            for (CommunityLibrary.Asset scene : group.scenes)
+                if (selected.contains(scene.path)) result.put(scene.path, scene);
+        }
+        return result;
+    }
+
+    private void renderCommunity() {
+        pageHeading.setText(R.string.community_title);
+        addButton.setIcon(null);
+        addButton.setText(R.string.community_refresh);
+        addButton.setContentDescription(getString(R.string.community_refresh));
+        removeModeButton.setVisibility(View.GONE);
+        removeCancelButton.setVisibility(View.GONE);
+        confirmFilesButton.setText(R.string.community_download);
+        if (communityLoading) statusView.setText(R.string.community_loading);
+        else if (communityError != null) statusView.setText(getString(R.string.management_import_failed, communityError));
+        else if (communityGroups == null || communityGroups.isEmpty()) statusView.setText(R.string.community_empty);
+        else statusView.setText(getString(R.string.community_selected, selectedCommunityScenes().size()));
+        if (communityGroups != null) for (CommunityLibrary.Group group : communityGroups) {
+            Set<String> selected = communityChoices.get(group.key);
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setBackgroundResource(R.drawable.bg_management_import_surface);
+            card.setPadding(dp(8), dp(6), dp(8), dp(6));
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            cardParams.bottomMargin = dp(8);
+            fileContainer.addView(card, cardParams);
+            LinearLayout header = new LinearLayout(this);
+            header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            card.addView(header);
+            MaterialCheckBox all = new MaterialCheckBox(this);
+            updateCommunityGroupSelection(all, group, selected);
+            all.setEnabled(!communityLoading && !group.scenes.isEmpty());
+            List<MaterialCheckBox> chapters = new ArrayList<>();
+            all.setOnClickListener(v -> {
+                if (selected.size() == group.scenes.size()) selected.clear();
+                else for (CommunityLibrary.Asset scene : group.scenes) selected.add(scene.path);
+                for (int i = 0; i < chapters.size(); i++)
+                    chapters.get(i).setChecked(selected.contains(group.scenes.get(i).path));
+                updateCommunityGroupSelection(all, group, selected);
+                updateCommunitySelection();
+            });
+            header.addView(all, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            MaterialButton expand = styledButton(R.style.Widget_HET_ManagementImport_Button_Tonal);
+            boolean expanded = expandedCommunity.contains(group.key);
+            expand.setText(expanded ? R.string.community_collapse : R.string.community_expand);
+            expand.setOnClickListener(v -> {
+                if (!expandedCommunity.add(group.key)) expandedCommunity.remove(group.key);
+                int scrollY = fileScroll.getScrollY();
+                renderFiles();
+                fileScroll.post(() -> fileScroll.scrollTo(0, scrollY));
+            });
+            header.addView(expand);
+            if (expanded) for (CommunityLibrary.Asset scene : group.scenes) {
+                MaterialCheckBox chapter = new MaterialCheckBox(this);
+                boolean existing = existingSnapshot != null && existingSnapshot.containsScene(scene.name);
+                chapter.setText(scene.name + (existing ? getString(R.string.community_existing) : ""));
+                chapter.setChecked(selected.contains(scene.path));
+                chapter.setEnabled(!communityLoading);
+                chapter.setOnCheckedChangeListener((view, checked) -> {
+                    if (checked) selected.add(scene.path); else selected.remove(scene.path);
+                    updateCommunityGroupSelection(all, group, selected);
+                    updateCommunitySelection();
+                });
+                chapters.add(chapter);
+                card.addView(chapter);
+            }
+        }
+        updateFileActions();
+    }
+
+    private void updateCommunityGroupSelection(MaterialCheckBox all,
+            CommunityLibrary.Group group, Set<String> selected) {
+        all.setText(getString(R.string.community_group_count,
+            group.context == null ? getString(R.string.community_other) : group.title,
+            selected.size(), group.scenes.size()));
+        all.setCheckedState(selected.isEmpty() ? MaterialCheckBox.STATE_UNCHECKED
+            : selected.size() == group.scenes.size() ? MaterialCheckBox.STATE_CHECKED
+            : MaterialCheckBox.STATE_INDETERMINATE);
+    }
+
+    private void updateCommunitySelection() {
+        statusView.setText(getString(R.string.community_selected, selectedCommunityScenes().size()));
+        updateFileActions();
+    }
+
+    private void downloadCommunity() {
+        if (stylePreview || busy || communityLoading || !snapshotReady) return;
+        Map<String, CommunityLibrary.Asset> scenes = selectedCommunityScenes();
+        if (scenes.isEmpty()) return;
+        rows.entrySet().removeIf(entry -> entry.getValue().communityAsset != null);
+        long generation = ++sessionGeneration;
+        communityPreparing = true;
+        removeMode = false;
+        selectedForRemoval.clear();
+        for (CommunityLibrary.Group group : communityGroups) {
+            if (group.context == null || communityChoices.get(group.key).isEmpty()) continue;
+            FileRow row = communityRow(group.context);
+            row.document = group.document;
+            row.state = FileState.READY;
+            rows.put(row.token, row);
+        }
+        for (CommunityLibrary.Asset scene : scenes.values()) {
+            FileRow row = communityRow(scene);
+            rows.put(row.token, row);
+        }
+        for (FileRow row : rows.values()) {
+            if (row.communityAsset != null && row.state == FileState.READING) readCommunityRow(row, generation);
+        }
+        renderFiles();
+    }
+
+    private FileRow communityRow(CommunityLibrary.Asset asset) {
+        FileRow row = new FileRow("community:" + asset.path, null, asset.name + ".json");
+        row.communityAsset = asset;
+        return row;
+    }
+
+    private void readCommunityRow(FileRow row, long generation) {
+        busy = true;
+        ioExecutor.execute(() -> {
+            try {
+                ManagementImportModel.Document document = communityLibrary.read(row.communityAsset);
+                postUiIfAlive(() -> {
+                    if (generation != sessionGeneration || rows.get(row.token) != row) return;
+                    row.document = document;
+                    row.state = FileState.READY;
+                    row.error = null;
+                    busy = hasReadingRows();
+                    if (phase == Phase.FILES) renderFiles();
+                });
+            } catch (Exception error) {
+                postUiIfAlive(() -> {
+                    if (generation != sessionGeneration || rows.get(row.token) != row) return;
+                    row.state = FileState.ERROR;
+                    row.error = safeMessage(error);
+                    busy = hasReadingRows();
+                    if (phase == Phase.FILES) renderFiles();
+                });
+            }
+        });
+    }
+
+    private void pruneCommunityRows() {
+        if (communityGroups == null || !communityPreparing) return;
+        Set<String> scenes = new LinkedHashSet<>();
+        for (FileRow row : rows.values())
+            if (row.communityAsset != null && !row.communityAsset.context) scenes.add(row.communityAsset.path);
+        Set<String> contexts = new LinkedHashSet<>();
+        for (CommunityLibrary.Group group : communityGroups) {
+            Set<String> selected = communityChoices.get(group.key);
+            selected.retainAll(scenes);
+            if (!selected.isEmpty() && group.context != null) contexts.add(group.context.path);
+        }
+        rows.entrySet().removeIf(entry -> {
+            CommunityLibrary.Asset asset = entry.getValue().communityAsset;
+            return asset != null && asset.context && !contexts.contains(asset.path);
+        });
+    }
+
     private void launchPicker() {
         if (stylePreview || busy || phase != Phase.FILES) return;
         removeMode = false;
@@ -627,6 +852,16 @@ public final class ManagementImportActivity extends AppCompatActivity {
             preflightContainer.removeAllViews();
         }
         fileContainer.removeAllViews();
+        if (communitySource && !communityPreparing) {
+            renderCommunity();
+            return;
+        }
+        confirmFilesButton.setText(R.string.management_import_confirm_files);
+        addButton.setText(communitySource ? getString(R.string.community_choose) : "");
+        addButton.setContentDescription(getString(communitySource
+            ? R.string.community_choose : R.string.management_import_add_description));
+        if (communitySource) addButton.setIcon(null);
+        else addButton.setIconResource(R.drawable.ic_management_import_add);
         LayoutInflater inflater = LayoutInflater.from(this);
         for (FileRow row : rows.values()) {
             View view = inflater.inflate(
@@ -651,7 +886,8 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 R.id.tv_management_import_file_state
             );
             name.setText(row.name);
-            check.setVisibility(removeMode ? View.VISIBLE : View.GONE);
+            check.setVisibility(removeMode && !(row.communityAsset != null && row.communityAsset.context)
+                ? View.VISIBLE : View.GONE);
             check.setClickable(removeMode);
             check.setFocusable(removeMode);
             check.setChecked(selectedForRemoval.contains(row.token));
@@ -684,12 +920,38 @@ public final class ManagementImportActivity extends AppCompatActivity {
                 state.setTextColor(
                     ContextCompat.getColor(this, R.color.het_error)
                 );
+                if (row.communityAsset != null) {
+                    LinearLayout actions = new LinearLayout(this);
+                    actions.setOrientation(LinearLayout.VERTICAL);
+                    MaterialButton retry = styledButton(R.style.Widget_HET_ManagementImport_Button_Tonal);
+                    retry.setText(R.string.community_retry);
+                    retry.setOnClickListener(v -> {
+                        row.state = FileState.READING;
+                        readCommunityRow(row, sessionGeneration);
+                        renderFiles();
+                    });
+                    MaterialButton remove = styledButton(R.style.Widget_HET_ManagementImport_Button_Tonal);
+                    remove.setText(R.string.community_remove);
+                    remove.setOnClickListener(v -> {
+                        rows.remove(row.token);
+                        pruneCommunityRows();
+                        busy = hasReadingRows();
+                        renderFiles();
+                    });
+                    actions.addView(retry);
+                    actions.addView(remove);
+                    ((LinearLayout) fileCard.getChildAt(0)).addView(actions);
+                }
             }
             fileContainer.addView(view);
         }
         updateFileActions();
         if (rows.isEmpty()) {
             statusView.setText(R.string.management_import_empty);
+        } else if (communitySource) {
+            int ready = 0;
+            for (FileRow row : rows.values()) if (row.state == FileState.READY) ready++;
+            statusView.setText(getString(R.string.community_progress, ready, rows.size()));
         } else if (hasReadingRows()) {
             statusView.setText(R.string.management_import_reading);
         } else {
@@ -701,6 +963,14 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void updateFileActions() {
+        for (int i = 0; i < sourceTabs.getChildCount(); i++)
+            sourceTabs.getChildAt(i).setEnabled(!busy && !communityLoading && phase == Phase.FILES);
+        if (communitySource && !communityPreparing) {
+            addButton.setEnabled(!busy && !communityLoading && !stylePreview);
+            confirmFilesButton.setEnabled(!busy && !communityLoading && snapshotReady
+                && !selectedCommunityScenes().isEmpty());
+            return;
+        }
         addButton.setEnabled(!busy && phase == Phase.FILES);
         removeModeButton.setVisibility(
             removeMode ? View.GONE : View.VISIBLE
@@ -1656,6 +1926,12 @@ public final class ManagementImportActivity extends AppCompatActivity {
     }
 
     private void handleBack() {
+        if (phase == Phase.FILES && communitySource && (communityLoading || hasReadingRows())) {
+            if (communityLibrary != null) communityLibrary.close();
+            ++sessionGeneration;
+            finish();
+            return;
+        }
         if (stylePreview) {
             if (phase == Phase.PREVIEW) {
                 phase = Phase.PREFLIGHT;
@@ -1757,6 +2033,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
         for (String token : new ArrayList<>(selectedForRemoval)) {
             rows.remove(token);
         }
+        pruneCommunityRows();
         selectedForRemoval.clear();
         removeMode = false;
         renderFiles();
@@ -1849,6 +2126,7 @@ public final class ManagementImportActivity extends AppCompatActivity {
         int headingId,
         int descriptionId
     ) {
+        sourceTabs.setVisibility(phase == Phase.FILES && !stylePreview ? View.VISIBLE : View.GONE);
         if (pageEyebrow != null) {
             pageEyebrow.setText(eyebrowId);
         }
@@ -1915,6 +2193,8 @@ public final class ManagementImportActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         destroyed = true;
+        ++sessionGeneration;
+        if (communityLibrary != null) communityLibrary.close();
         ioExecutor.shutdownNow();
         if (managementClient != null) {
             managementClient.close();

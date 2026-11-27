@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="community_other">其他剧情</string>
+    <string name="community_source_local">本地文件</string>
+    <string name="community_source_remote">社区译文</string>
+    <string name="community_title">选择要导入的剧情</string>
+    <string name="community_loading">正在加载社区剧情…</string>
+    <string name="community_empty">暂无可用的社区剧情。</string>
+    <string name="community_group_count">%1$s · 已选 %2$d/%3$d 话</string>
+    <string name="community_existing"> · 本地已有</string>
+    <string name="community_selected">已选 %1$d 话</string>
+    <string name="community_download">下载并继续</string>
+    <string name="community_choose">选择剧情</string>
+    <string name="community_refresh">刷新</string>
+    <string name="community_expand">展开</string>
+    <string name="community_collapse">收起</string>
+    <string name="community_retry">重试</string>
+    <string name="community_remove">移除</string>
+    <string name="community_progress">%1$d/%2$d 份文件已就绪</string>
+</resources>

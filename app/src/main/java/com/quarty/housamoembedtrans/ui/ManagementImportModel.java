@@ -255,6 +255,10 @@ public final class ManagementImportModel {
             return output;
         }
 
+        public boolean containsScene(String scene) {
+            return find(KIND_SCENE, scene) != null;
+        }
+
         private JSONObject find(String kind, String identity) {
             Map<String, JSONObject> values = objects.get(kind);
             if (values == null) {

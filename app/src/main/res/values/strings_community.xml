@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="community_other">Other stories</string>
+    <string name="community_source_local">Local files</string>
+    <string name="community_source_remote">Community translations</string>
+    <string name="community_title">Choose stories to import</string>
+    <string name="community_loading">Loading community stories…</string>
+    <string name="community_empty">No community stories available.</string>
+    <string name="community_group_count">%1$s · %2$d/%3$d selected</string>
+    <string name="community_existing"> · Already on device</string>
+    <string name="community_selected">%1$d chapters selected</string>
+    <string name="community_download">Download and continue</string>
+    <string name="community_choose">Choose stories</string>
+    <string name="community_refresh">Refresh</string>
+    <string name="community_expand">Expand</string>
+    <string name="community_collapse">Collapse</string>
+    <string name="community_retry">Retry</string>
+    <string name="community_remove">Remove</string>
+    <string name="community_progress">%1$d/%2$d files ready</string>
+</resources>
